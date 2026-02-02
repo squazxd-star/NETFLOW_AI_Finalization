@@ -170,24 +170,7 @@ const CreateVideoTab = () => {
 
     return (
         <div className="p-4 space-y-3">
-            {/* AI Scripting Section */}
-            <AiScriptSection
-                {...sectionProps}
-                isOpen={aiScriptOpen}
-                onToggle={() => setAiScriptOpen(!aiScriptOpen)}
-                productImages={productImages}
-            />
-
-            {/* Character & Style Section */}
-            <CharacterStyleSection
-                {...sectionProps}
-                isOpen={characterOpen}
-                onToggle={() => setCharacterOpen(!characterOpen)}
-                characterImages={characterImages}
-                onCharacterUpload={handleCharacterUpload}
-            />
-
-            {/* Product Data Section */}
+            {/* 1. Product Data Section - ข้อมูลสินค้า */}
             <ProductDataSection
                 {...sectionProps}
                 isOpen={productDataOpen}
@@ -196,7 +179,24 @@ const CreateVideoTab = () => {
                 onProductImageUpload={handleProductImageUpload}
             />
 
-            {/* Production & Preview Section */}
+            {/* 2. Character & Style Section - ตัวละคร & สไตล์ */}
+            <CharacterStyleSection
+                {...sectionProps}
+                isOpen={characterOpen}
+                onToggle={() => setCharacterOpen(!characterOpen)}
+                characterImages={characterImages}
+                onCharacterUpload={handleCharacterUpload}
+            />
+
+            {/* 3. AI Scripting Section - สคริปต์ AI */}
+            <AiScriptSection
+                {...sectionProps}
+                isOpen={aiScriptOpen}
+                onToggle={() => setAiScriptOpen(!aiScriptOpen)}
+                productImages={productImages}
+            />
+
+            {/* 4. Production & Preview Section - การผลิตและพรีวิว */}
             <ProductionPreviewSection
                 {...sectionProps}
                 isOpen={productionOpen}
@@ -205,7 +205,7 @@ const CreateVideoTab = () => {
                 onDownloadVideo={downloadVideo}
             />
 
-            {/* Generation Settings */}
+            {/* 5. Generation Settings - การตั้งค่าการสร้าง */}
             <GenerationSettingsSection
                 {...sectionProps}
                 isOpen={settingsOpen}
