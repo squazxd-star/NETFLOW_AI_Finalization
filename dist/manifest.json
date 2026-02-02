@@ -1,0 +1,68 @@
+{
+    "manifest_version": 3,
+    "name": "NetflowAI - Video Generator",
+    "version": "1.0.0",
+    "description": "AI-powered TikTok video generator with auto-upload",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting",
+        "tabs",
+        "sidePanel",
+        "downloads"
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    },
+    "host_permissions": [
+        "*://labs.google/*",
+        "*://*.tiktok.com/*",
+        "*://api.openai.com/*",
+        "*://generativelanguage.googleapis.com/*"
+    ],
+    "side_panel": {
+        "default_path": "index.html"
+    },
+    "background": {
+        "service_worker": "service-worker.js",
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://labs.google/videofx*",
+                "*://labs.google/fx/tools/video-fx*",
+                "*://labs.google/*",
+                "*://aitestkitchen.withgoogle.com/*"
+            ],
+            "js": [
+                "src/content.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "*://*.tiktok.com/tiktokstudio/*"
+            ],
+            "js": [
+                "content/tiktok-uploader.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_title": "Open NetflowAI"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "assets/*",
+                "src/*",
+                "*.wasm",
+                "*.js",
+                "*.css"
+            ],
+            "matches": ["<all_urls>"]
+        }
+    ]
+}
