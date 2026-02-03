@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
 import {
     FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe
@@ -11,6 +12,15 @@ import {
     languageOptions,
     accentOptions,
 } from "@/types/netflow";
+
+const parseScenePrompts = (prompt: string, count: number) => {
+    const parts = prompt
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+
+    return Array.from({ length: count }, (_, i) => parts[i] || "");
+};
 
 const AiScriptSection = ({
     register,
@@ -26,6 +36,23 @@ const AiScriptSection = ({
     const hookEnabled = watch("hookEnabled");
     const ctaEnabled = watch("ctaEnabled");
     const isAiMode = useAiScript;
+    const sceneCount = (watch("sceneCount") || 1) as 1 | 2 | 3;
+    const aiPrompt = watch("aiPrompt") || "";
+
+    const [scenePrompts, setScenePrompts] = useState<string[]>(() => parseScenePrompts(aiPrompt, sceneCount));
+
+    useEffect(() => {
+        setScenePrompts(parseScenePrompts(aiPrompt, sceneCount));
+    }, [aiPrompt, sceneCount]);
+
+    const onChangeScenePrompt = (index: number, value: string) => {
+        setScenePrompts((prev) => {
+            const next = [...prev];
+            next[index] = value;
+            setValue("aiPrompt", next.join("\n\n"));
+            return next;
+        });
+    };
 
     return (
         <section className="glass-card overflow-hidden">
@@ -92,7 +119,7 @@ const AiScriptSection = ({
 
                     {/* Prompt - Disabled in AI mode */}
                     <div>
-                        <div className="flex items-center justify-between mb-1.5">
+                        <div className="space-y-2">
                             <label className={`text-xs block flex items-center gap-1 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
                                 <RefreshCw className="w-3 h-3" />
                                 คำสั่งเพิ่มเติม (Prompt)
@@ -143,19 +170,33 @@ const AiScriptSection = ({
                                     }
                                 }}
                                 id="analyze-btn"
-                                className="text-[10px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                                className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-neon-red hover:bg-neon-red/90 transition-colors flex items-center justify-center gap-2"
                             >
                                 <Sparkles className="w-3 h-3" />
                                 วิเคราะห์ภาพด้วย AI
                             </button>
                         </div>
-                        <textarea
-                            {...register("aiPrompt")}
-                            placeholder="ระบุรายละเอียดเพิ่มเติม เช่น จุดเด่นที่ต้องการเน้น, คำที่ต้องการใช้, สิ่งที่ต้องการหลีกเลี่ยง..."
-                            rows={4}
-                            disabled={isAiMode}
-                            className={`w-full neon-textarea transition-all ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        />
+                        <div className="space-y-3">
+                            <input type="hidden" {...register("aiPrompt")} />
+                            {Array.from({ length: sceneCount }, (_, i) => (
+                                <div key={i} className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-neon-red/20 text-neon-red flex items-center justify-center text-xs font-bold">
+                                            {i + 1}
+                                        </span>
+                                        <span className="text-xs font-medium text-foreground">ฉาก {i + 1}</span>
+                                    </div>
+                                    <textarea
+                                        value={scenePrompts[i] || ""}
+                                        onChange={(e) => onChangeScenePrompt(i, e.target.value)}
+                                        placeholder="ใส่สคริปต์สำหรับฉากนี้..."
+                                        rows={3}
+                                        disabled={isAiMode}
+                                        className={`w-full neon-textarea text-xs transition-all ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Sale Style & Voice Tone - Row */}
