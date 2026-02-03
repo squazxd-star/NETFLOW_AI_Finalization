@@ -210,6 +210,7 @@ const CreateVideoTab = () => {
                 {...sectionProps}
                 isOpen={settingsOpen}
                 onToggle={() => setSettingsOpen(!settingsOpen)}
+                productImages={productImages}
             />
 
             {/* Workflow Control Section */}
@@ -251,7 +252,9 @@ const CreateVideoTab = () => {
                                     clipDuration: data.clipDuration || 16,
                                     gender: data.gender || "female",
                                     expression: data.expression || "happy",
-                                    movement: data.movement || "minimal"
+                                    movement: data.movement || "minimal",
+                                    // User-provided Thai script from scene cards
+                                    userScript: data.aiPrompt || ""
                                 };
 
                                 // Show loading state

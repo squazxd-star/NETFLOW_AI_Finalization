@@ -40,6 +40,7 @@ export interface ProductionPreviewSectionProps extends SectionProps {
 export interface GenerationSettingsSectionProps extends SectionProps {
     isOpen: boolean;
     onToggle: () => void;
+    productImages: (string | null)[];
 }
 
 export interface ResultSectionProps {

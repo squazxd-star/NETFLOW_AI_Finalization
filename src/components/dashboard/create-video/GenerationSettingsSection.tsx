@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Controller } from "react-hook-form";
-import { Settings, Maximize2, Sparkles } from "lucide-react";
+import { Settings, Maximize2, Sparkles, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import SectionHeader from "./SectionHeader";
 import { GenerationSettingsSectionProps } from "./types";
 import { languageOptions } from "@/types/netflow";
+import { getApiKey } from "@/services/storageService";
 
 const parseSceneScripts = (prompt: string, count: number) => {
     const parts = prompt
@@ -20,16 +21,20 @@ const GenerationSettingsSection = ({
     setValue,
     watch,
     isOpen,
-    onToggle
+    onToggle,
+    productImages
 }: GenerationSettingsSectionProps) => {
     const sceneCount = (watch("sceneCount") || 1) as 1 | 2 | 3;
     const clipDuration = watch("clipDuration") || 8;
     const aiPrompt = watch("aiPrompt") || "";
     const language = watch("language") || "th-central";
+    const productName = watch("productName") || "";
+    const saleStyle = watch("saleStyle") || "hard";
 
     const [sceneScripts, setSceneScripts] = useState<string[]>(() =>
         parseSceneScripts(aiPrompt, sceneCount)
     );
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         setSceneScripts(parseSceneScripts(aiPrompt, sceneCount));
@@ -42,6 +47,83 @@ const GenerationSettingsSection = ({
             setValue("aiPrompt", next.join("\n\n"));
             return next;
         });
+    };
+
+    const generateScriptsWithAI = async () => {
+        const apiKey = await getApiKey("openai");
+        if (!apiKey) {
+            alert("กรุณาใส่ OpenAI API Key ในหน้าตั้งค่าก่อน");
+            return;
+        }
+
+        if (!productName && !productImages[0]) {
+            alert("กรุณากรอกชื่อสินค้าหรืออัปโหลดรูปสินค้าก่อน");
+            return;
+        }
+
+        setIsGenerating(true);
+
+        try {
+            const langLabel = languageOptions.find(l => l.value === language)?.label || "ไทย";
+            const styleLabel = saleStyle === "hard" ? "ดุดัน กระตุ้นซื้อ" : saleStyle === "soft" ? "นุ่มนวล" : "สมดุล";
+
+            const prompt = `สร้างสคริปต์โฆษณาสินค้าสำหรับวิดีโอสั้น TikTok/Reels
+            
+ข้อมูลสินค้า:
+- ชื่อสินค้า: ${productName || "สินค้าจากรูป"}
+- ภาษา: ${langLabel}
+- สไตล์การขาย: ${styleLabel}
+- จำนวนฉาก: ${sceneCount} ฉาก (แต่ละฉาก 8 วินาที)
+
+กรุณาสร้างสคริปต์ ${sceneCount} ฉาก โดยแต่ละฉากมีความยาวประมาณ 20-30 คำ (พูดได้ใน 8 วินาที)
+
+รูปแบบการตอบ:
+ฉาก 1: [สคริปต์ฉาก 1]
+ฉาก 2: [สคริปต์ฉาก 2]
+${sceneCount === 3 ? "ฉาก 3: [สคริปต์ฉาก 3]" : ""}
+
+หมายเหตุ: ตอบเฉพาะสคริปต์ ไม่ต้องมีคำอธิบายเพิ่มเติม`;
+
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: "คุณเป็นนักเขียนสคริปต์โฆษณาวิดีโอสั้นมืออาชีพ เขียนสคริปต์ที่กระชับ น่าสนใจ และเหมาะกับ TikTok/Reels" },
+                        { role: "user", content: prompt }
+                    ],
+                    max_tokens: 500,
+                    temperature: 0.7
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || "API Error");
+            }
+
+            const data = await response.json();
+            const content = data.choices[0]?.message?.content || "";
+
+            const scenes = content
+                .split(/ฉาก\s*\d+\s*[:\-]?\s*/i)
+                .map((s: string) => s.trim())
+                .filter((s: string) => s.length > 0);
+
+            const newScripts = Array.from({ length: sceneCount }, (_, i) => scenes[i] || "");
+            setSceneScripts(newScripts);
+            setValue("aiPrompt", newScripts.join("\n\n"));
+
+        } catch (error: any) {
+            console.error("AI Generation Error:", error);
+            alert("เกิดข้อผิดพลาด: " + error.message);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     return (
@@ -109,13 +191,21 @@ const GenerationSettingsSection = ({
                     {/* Analyze with AI Button */}
                     <button
                         type="button"
-                        onClick={() => {
-                            console.log("Analyze with AI clicked");
-                        }}
-                        className="w-full py-3.5 px-4 rounded-xl font-semibold text-white bg-neon-red hover:bg-neon-red/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-neon-red/25 hover:shadow-neon-red/40 hover:scale-[1.02] active:scale-[0.98]"
+                        onClick={generateScriptsWithAI}
+                        disabled={isGenerating}
+                        className="w-full py-3.5 px-4 rounded-xl font-semibold text-white bg-neon-red hover:bg-neon-red/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-neon-red/25 hover:shadow-neon-red/40 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                        <Sparkles className="w-4 h-4" />
-                        วิเคราะห์ด้วย AI
+                        {isGenerating ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                กำลังสร้างสคริปต์...
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-4 h-4" />
+                                วิเคราะห์ด้วย AI
+                            </>
+                        )}
                     </button>
 
                     {/* Scene Cards */}

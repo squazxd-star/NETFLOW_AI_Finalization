@@ -117,6 +117,58 @@ const ContentScriptApp = () => {
     const [currentStep, setCurrentStep] = React.useState("Initializing...");
     const [stepNumber, setStepNumber] = React.useState(0);
     const [totalSteps, setTotalSteps] = React.useState(12);
+    const [currentSceneCount, setCurrentSceneCount] = React.useState(1);
+    
+    // คำนวณ totalSteps ตามจำนวนฉาก
+    const calculateTotalSteps = (sceneCount: number): number => {
+        // 1 ฉาก: 12 steps (upload, gen image, select, gen video, download)
+        // 2 ฉาก: 16 steps (+ add clip, fill prompt, gen video scene 2, wait)
+        // 3 ฉาก: 20 steps (+ add clip, fill prompt, gen video scene 3, wait)
+        return 12 + (sceneCount - 1) * 4;
+    };
+    
+    // สร้าง step labels ตามจำนวนฉาก
+    const getStepLabel = (step: number, sceneCount: number): string => {
+        const baseSteps = [
+            "กำลังเริ่มต้น...",                    // 1
+            "กำลังอัพโหลดรูป Character...",        // 2
+            "กำลังอัพโหลดรูป Product...",          // 3
+            "กำลังสร้างคำสั่ง...",                 // 4
+            "กำลังเปิดโหมดสร้างภาพ...",            // 5
+            "กำลังสร้างภาพ...",                    // 6
+            "กำลังรอภาพ...",                       // 7
+            "กำลังเลือกภาพ...",                    // 8
+            "กำลังสลับเป็นโหมดวิดีโอ...",          // 9
+            `กำลังสร้างวิดีโอฉาก 1...`,            // 10
+            "กำลังรอวิดีโอฉาก 1...",               // 11
+        ];
+        
+        if (step <= 11) {
+            return baseSteps[step - 1] || `ขั้นตอนที่ ${step}`;
+        }
+        
+        // สำหรับ multi-scene
+        if (sceneCount > 1) {
+            const sceneIndex = Math.floor((step - 12) / 4) + 2; // ฉากที่ 2, 3...
+            const sceneStep = (step - 12) % 4;
+            
+            if (sceneIndex <= sceneCount) {
+                switch (sceneStep) {
+                    case 0: return `กำลังเพิ่มคลิปฉาก ${sceneIndex}...`;
+                    case 1: return `กำลังใส่ Prompt ฉาก ${sceneIndex}...`;
+                    case 2: return `กำลังสร้างวิดีโอฉาก ${sceneIndex}...`;
+                    case 3: return `ฉาก ${sceneIndex} เสร็จสิ้น!`;
+                }
+            }
+        }
+        
+        // ขั้นตอนสุดท้าย
+        const total = calculateTotalSteps(sceneCount);
+        if (step === total - 1) return "กำลังรอทุกคลิปเสร็จ 100%...";
+        if (step === total) return "กำลังดาวน์โหลด...";
+        
+        return `ขั้นตอนที่ ${step}`;
+    };
 
     React.useEffect(() => {
         const messageListener = async (message: any, sender: any, sendResponse: any) => {
@@ -130,10 +182,10 @@ const ContentScriptApp = () => {
                 handleAutomation(message.payload);
             }
 
-            // NEW: 2-Stage Pipeline Handler
+            // NEW: Multi-Scene Pipeline Handler
             if (message.type === 'TWO_STAGE_PIPELINE') {
-                console.log('🚀 Starting 2-Stage Pipeline:', message);
-                const { runTwoStagePipeline } = await import('./utils/googleLabAutomation');
+                console.log('🚀 Starting Multi-Scene Pipeline:', message);
+                const { runMultiScenePipeline } = await import('./utils/googleLabAutomation');
                 const { generatePrompts, generateQuickPrompts } = await import('./services/aiPromptService');
 
                 const payload = message.payload;
@@ -158,19 +210,69 @@ const ContentScriptApp = () => {
                     clipDuration,
                     aiPrompt,
                     useAiScript,
+                    sceneCount: payloadSceneCount,  // Number of scenes (1, 2, or 3)
                     // Explicit prompts from Workflow Control
                     videoPrompt: explicitVideoPrompt,
                     imagePrompt: explicitImagePrompt
                 } = payload;
 
+                // Determine scene count (default 1 if not specified)
+                const sceneCount = payloadSceneCount || Math.max(1, Math.floor((clipDuration || 8) / 8));
+                console.log(`🎬 Scene Count: ${sceneCount}`);
+                
+                // ตั้งค่า overlay state
+                setCurrentSceneCount(sceneCount);
+                setTotalSteps(calculateTotalSteps(sceneCount));
+                setIsAutomationRunning(true);
+                setStepNumber(1);
+                setCurrentStep(getStepLabel(1, sceneCount));
+
                 let imagePrompt: string;
-                let videoPrompt: string;
+                let videoPrompt: string = "";  // Full video prompt for Scene 1
+                let sceneScripts: string[] = [];  // Individual scripts for Scene 2+
 
                 // Priority 1: Use explicit prompts if provided (from Workflow Control step 3)
                 if (explicitVideoPrompt && explicitImagePrompt) {
                     console.log("📝 Using explicit prompts from Workflow Control");
                     imagePrompt = explicitImagePrompt;
-                    videoPrompt = explicitVideoPrompt;
+                    videoPrompt = explicitVideoPrompt;  // Full prompt for Scene 1
+                    
+                    // Parse individual scene scripts for Scene 2+
+                    console.log("🔍 Parsing scene scripts from prompt...");
+                    
+                    // Try multiple regex patterns
+                    let sceneMatches: string[] | null = null;
+                    
+                    // Pattern 1: Curly double quotes ""
+                    sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
+                    console.log("  Pattern 1 (curly double):", sceneMatches?.length || 0);
+                    
+                    // Pattern 2: Regular double quotes ""
+                    if (!sceneMatches || sceneMatches.length === 0) {
+                        sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
+                        console.log("  Pattern 2 (regular double):", sceneMatches?.length || 0);
+                    }
+                    
+                    // Pattern 3: Any quotes variation
+                    if (!sceneMatches || sceneMatches.length === 0) {
+                        sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*["""''']([^"""''']+)["""''']/g);
+                        console.log("  Pattern 3 (any quotes):", sceneMatches?.length || 0);
+                    }
+                    
+                    if (sceneMatches && sceneMatches.length > 0) {
+                        sceneScripts = sceneMatches.map((m, idx) => {
+                            // Extract text between any type of quotes
+                            const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
+                            console.log(`  📝 Scene ${idx + 1} script: "${extracted.substring(0, 50)}..."`);
+                            return extracted;
+                        });
+                        console.log("✅ Parsed scene scripts count:", sceneScripts.length);
+                    }
+                    
+                    if (sceneScripts.length === 0) {
+                        console.warn("⚠️ Could not parse scene scripts, using full prompt for all scenes");
+                        sceneScripts = Array(sceneCount).fill(explicitVideoPrompt);
+                    }
                 } else {
                     // Build prompt config for generation
                     const promptConfig = {
@@ -188,7 +290,8 @@ const ContentScriptApp = () => {
                         clipDuration: clipDuration || 16,
                         gender: gender || "female",
                         expression: expression || emotion || "happy",
-                        movement: movement || "minimal"
+                        movement: movement || "minimal",
+                        userScript: aiPrompt || ""  // User-provided script
                     };
 
                     // Generate prompts using AI or quick mode
@@ -197,36 +300,80 @@ const ContentScriptApp = () => {
                         try {
                             const prompts = await generatePrompts(promptConfig);
                             imagePrompt = prompts.imagePrompt;
-                            videoPrompt = prompts.videoPrompt;
-                            console.log("✅ AI Prompts generated");
+                            videoPrompt = prompts.videoPrompt;  // Full prompt for Scene 1
+                            
+                            // Parse individual scene scripts for Scene 2+
+                            console.log("🔍 AI: Parsing scene scripts...");
+                            let sceneMatches: string[] | null = null;
+                            
+                            // Pattern 1: Curly double quotes ""
+                            sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
+                            console.log("  Pattern 1:", sceneMatches?.length || 0);
+                            
+                            // Pattern 2: Regular double quotes ""
+                            if (!sceneMatches || sceneMatches.length === 0) {
+                                sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
+                                console.log("  Pattern 2:", sceneMatches?.length || 0);
+                            }
+                            
+                            if (sceneMatches && sceneMatches.length > 0) {
+                                sceneScripts = sceneMatches.map((m, idx) => {
+                                    const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
+                                    console.log(`  📝 Scene ${idx + 1}: "${extracted.substring(0, 50)}..."`);
+                                    return extracted;
+                                });
+                            }
+                            
+                            if (sceneScripts.length === 0) {
+                                console.warn("⚠️ Could not parse AI scene scripts, using full prompt");
+                                sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
+                            }
+                            console.log("✅ AI Prompts generated, scenes:", sceneScripts.length);
                         } catch (e) {
                             console.warn("⚠️ AI prompt generation failed, using quick mode:", e);
                             const prompts = generateQuickPrompts(promptConfig);
                             imagePrompt = prompts.imagePrompt;
                             videoPrompt = prompts.videoPrompt;
+                            sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
                         }
                     } else if (aiPrompt) {
                         console.log("📝 Using manual aiPrompt");
-                        imagePrompt = aiPrompt;
+                        // Parse user-provided scripts (split by double newline for each scene)
+                        const userScenes = aiPrompt.split(/\n{2,}/).filter((s: string) => s.trim());
+                        // Scene 1 uses full aiPrompt as videoPrompt
                         videoPrompt = aiPrompt;
+                        imagePrompt = userScenes[0] || aiPrompt;
+                        // Scene 2+ uses individual scripts
+                        if (userScenes.length >= sceneCount) {
+                            sceneScripts = userScenes.slice(0, sceneCount);
+                        } else {
+                            sceneScripts = [...userScenes];
+                            while (sceneScripts.length < sceneCount) {
+                                sceneScripts.push(userScenes[userScenes.length - 1] || aiPrompt);
+                            }
+                        }
                     } else {
                         console.log("⚡ Using quick prompt generation");
                         const prompts = generateQuickPrompts(promptConfig);
                         imagePrompt = prompts.imagePrompt;
                         videoPrompt = prompts.videoPrompt;
+                        sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
                     }
                 }
 
-                console.log("📋 Final Prompts:");
-                console.log("  Image:", imagePrompt.substring(0, 150) + "...");
-                console.log("  Video:", videoPrompt.substring(0, 150) + "...");
+                console.log("📋 Final Config:");
+                console.log("  Image Prompt:", imagePrompt.substring(0, 100) + "...");
+                console.log("  Scene Count:", sceneCount);
+                console.log("  Scene Scripts:", sceneScripts.map((s, i) => `Scene ${i+1}: ${s.substring(0, 50)}...`));
 
                 try {
-                    const result = await runTwoStagePipeline({
+                    const result = await runMultiScenePipeline({
                         characterImage,
                         productImage,
                         imagePrompt,
-                        videoPrompt
+                        videoPrompt,
+                        sceneCount,
+                        sceneScripts
                     }, (step, current, total) => {
                         // Update Overlay State
                         setIsAutomationRunning(true);
@@ -237,23 +384,18 @@ const ContentScriptApp = () => {
 
                     console.log("🎬 Pipeline Result:", result);
 
-                    // Show video result in overlay if successful
+                    // Show video result if successful
                     if (result.success) {
                         console.log("✅ Pipeline Success! Result:", result);
 
                         if (result.videoUrl) {
                             setVideoUrl(result.videoUrl);
-                        } else if (result.generatedImageUrl) {
-                            // If only image, we might want to show a toast or just log it, 
-                            // as the overlay currently only supports video.
-                            console.log("Only Image Generated (Video step skipped by user)");
                         }
 
-                        // Also notify the extension popup
+                        // Notify the extension popup
                         chrome.runtime.sendMessage({
                             type: 'VIDEO_GENERATION_COMPLETE',
-                            videoUrl: result.videoUrl || result.generatedImageUrl, // Fallback to image for notification
-                            generatedImageUrl: result.generatedImageUrl
+                            videoUrl: result.videoUrl
                         });
                     } else {
                         console.error("❌ Pipeline failed:", result.error);
@@ -332,22 +474,16 @@ const ContentScriptApp = () => {
 
         console.log("✨ Automation Sequence Complete. Ready for User to clicking Generate.");
     };
+    
+    // Handler สำหรับหยุด automation
+    const handleStopAutomation = () => {
+        console.log("🛑 User requested to stop automation");
+        setIsAutomationRunning(false);
+        setCurrentStep("หยุดการทำงานแล้ว");
+    };
 
-    return (
-        <>
-            <AutomationOverlay
-                isVisible={isAutomationRunning}
-                currentStep={currentStep}
-                stepNumber={stepNumber}
-                totalSteps={totalSteps}
-                onStop={() => {
-                    setIsAutomationRunning(false);
-                    window.location.reload();
-                }}
-            />
-            {videoUrl && <VideoResultOverlay videoUrl={videoUrl} onClose={() => setVideoUrl(null)} />}
-        </>
-    );
+    // Overlay disabled - ปิดไว้ก่อน
+    return null;
 };
 
 renderRoot.render(<ContentScriptApp />);

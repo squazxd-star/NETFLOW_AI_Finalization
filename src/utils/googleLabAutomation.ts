@@ -1082,10 +1082,82 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
     return await fillPromptAndGenerate(videoPrompt);
 };
 
+// รอให้ทุก clip gen เสร็จ 100% ก่อน download
+const waitForAllClipsComplete = async (maxWaitMs: number = 300000): Promise<boolean> => {
+    console.log("⏳ Waiting for all clips to complete 100%...");
+    const startTime = Date.now();
+    const checkInterval = 3000; // เช็คทุก 3 วินาที
+    
+    while (Date.now() - startTime < maxWaitMs) {
+        // เช็คว่ามี loading/progress/spinner อยู่ไหม
+        const loadingIndicators = findAllElementsDeep(
+            '[class*="loading"], [class*="progress"], [class*="spinner"], ' +
+            '[class*="generating"], [aria-busy="true"], [class*="pending"]'
+        );
+        
+        // กรองเฉพาะ element ที่ visible
+        const visibleLoading = loadingIndicators.filter(el => {
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        });
+        
+        // เช็คว่าปุ่ม download พร้อมใช้งานไหม (icon "download" ใน google-symbols)
+        const downloadIcons = findAllElementsDeep('i.google-symbols');
+        let downloadReady = false;
+        
+        for (const icon of downloadIcons) {
+            if (icon.textContent?.trim() === 'download') {
+                const btn = icon.closest('button');
+                if (btn) {
+                    const isDisabled = btn.hasAttribute('disabled') || 
+                                       btn.getAttribute('aria-disabled') === 'true' ||
+                                       btn.classList.contains('disabled');
+                    if (!isDisabled) {
+                        downloadReady = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        console.log(`  Checking: loading=${visibleLoading.length}, downloadReady=${downloadReady}`);
+        
+        // ถ้าไม่มี loading และปุ่ม download พร้อม = เสร็จแล้ว
+        if (visibleLoading.length === 0 && downloadReady) {
+            console.log("✅ All clips completed! Download button is ready.");
+            return true;
+        }
+        
+        // ถ้าไม่มี loading แต่ปุ่ม download ยังไม่พร้อม ให้รอเพิ่ม
+        if (visibleLoading.length === 0 && !downloadReady) {
+            console.log("  No loading but download not ready, waiting...");
+        }
+        
+        await delay(checkInterval);
+    }
+    
+    console.warn("⚠️ Timeout waiting for clips to complete");
+    return false;
+};
+
 const handleVideoDownload = async (selectors: AutomationSelectors): Promise<string | null> => {
     console.log("💾 Attempting Auto-Download...");
 
-    // 1. Try clicking Download button if available
+    // 1. Try clicking Download button if available (google-symbols icon "download")
+    const downloadIcons = findAllElementsDeep('i.google-symbols');
+    for (const icon of downloadIcons) {
+        if (icon.textContent?.trim() === 'download') {
+            const btn = icon.closest('button') as HTMLElement;
+            if (btn) {
+                console.log("✅ Found download button with google-symbols icon");
+                btn.click();
+                await delay(500);
+                return "Download Triggered via google-symbols";
+            }
+        }
+    }
+    
+    // 2. Fallback: Try clicking by text
     const downloadClicked = await clickByText(selectors.download.downloadButtonTriggers, 'button, a');
     if (downloadClicked) {
         console.log("✅ Download button clicked.");
@@ -1353,6 +1425,752 @@ export const runTwoStagePipeline = async (
 
     } catch (error: any) {
         console.error("Pipeline Error:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+// ========== MULTI-SCENE PIPELINE ==========
+
+/**
+ * Hover on generated video and click "เพิ่มลงในฉาก" (Add to Scene)
+ */
+const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<boolean> => {
+    console.log("🎬 Searching for generated video to HOVER...");
+    await delay(2000);
+
+    // Find video elements
+    const videos = findAllElementsDeep('video');
+    const candidateVideos = videos.filter(v => {
+        const vid = v as HTMLVideoElement;
+        const hasSize = vid.videoWidth > 200 || vid.offsetWidth > 200;
+        const isVisible = vid.offsetParent !== null;
+        return hasSize && isVisible;
+    });
+
+    console.log(`🎥 Found ${candidateVideos.length} candidate videos`);
+
+    if (candidateVideos.length > 0) {
+        // Get the most recent video
+        const target = candidateVideos[candidateVideos.length - 1];
+        const parent = target.closest('div[class*="video"], div[class*="player"], div[class*="preview"]') || target.parentElement || target;
+        const hoverTarget = parent as HTMLElement;
+
+        console.log("✅ Found generated video, HOVERING to reveal buttons...");
+
+        // HOVER simulation
+        const rect = hoverTarget.getBoundingClientRect();
+        const hoverOpts = {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2
+        };
+
+        hoverTarget.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+        hoverTarget.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+        hoverTarget.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
+
+        // Wait for hover UI to appear
+        console.log("⏳ Waiting for hover UI to appear...");
+        await delay(2000);
+
+        // Look for "เพิ่มลงในฉาก" button
+        const addToSceneTriggers = [
+            'เพิ่มลงในฉาก',
+            'Add to scene',
+            'Add to Scene',
+            'เพิ่มในฉาก',
+            'ใส่ฉาก'
+        ];
+
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            console.log(`🔄 Looking for 'Add to Scene' button (Attempt ${attempt})...`);
+
+            const buttons = findAllElementsDeep('button, [role="button"], div[class*="button"]');
+            for (const btn of buttons) {
+                const text = (btn.textContent || '').trim();
+                const btnRect = btn.getBoundingClientRect();
+                if (btnRect.width === 0 || btnRect.height === 0) continue;
+
+                if (addToSceneTriggers.some(t => text.includes(t))) {
+                    console.log(`✅ Found "Add to Scene" button: "${text}"`);
+
+                    // Click it
+                    const clickOpts = {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        clientX: btnRect.left + btnRect.width / 2,
+                        clientY: btnRect.top + btnRect.height / 2
+                    };
+
+                    (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerdown', { ...clickOpts, pointerType: 'mouse' }));
+                    (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
+                    await delay(50);
+                    (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerup', { ...clickOpts, pointerType: 'mouse' }));
+                    (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
+                    (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
+                    (btn as HTMLElement).click();
+
+                    console.log("✅ 'Add to Scene' clicked! Transitioning to scene builder...");
+                    await delay(3000);
+                    return true;
+                }
+            }
+
+            await delay(1000);
+        }
+
+        console.warn("⚠️ Could not find 'Add to Scene' button");
+        return false;
+    }
+
+    console.warn("⚠️ No generated video found to hover.");
+    return false;
+};
+
+/**
+ * Click the + button (PINHOLE_ADD_CLIP_CARD_ID) then click "ขยาย..." from menu
+ * Element: <button id="PINHOLE_ADD_CLIP_CARD_ID" class="sc-c177465c-1 hVamcH sc-6a896c9b-1 jKwUyp sc-6a896c9b-0 iSHRLI">
+ * Menu: <div role="menuitem" class="sc-93fd5d6e-2 hDmRLS">ขยาย…</div>
+ */
+const clickAddClipButton = async (): Promise<boolean> => {
+    console.log("➕ Step 1: Looking for Add Clip button (PINHOLE_ADD_CLIP_CARD_ID)...");
+    await delay(3000);
+
+    // Helper function for robust clicking
+    const robustClick = async (element: Element): Promise<boolean> => {
+        const el = element as HTMLElement;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await delay(300);
+        
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return false;
+
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        // Method 1: Mouse events sequence
+        const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY };
+        el.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
+        el.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
+        await delay(100);
+        el.dispatchEvent(new MouseEvent('mousedown', { ...mouseOpts, button: 0 }));
+        await delay(50);
+        el.dispatchEvent(new MouseEvent('mouseup', { ...mouseOpts, button: 0 }));
+        el.dispatchEvent(new MouseEvent('click', { ...mouseOpts, button: 0 }));
+        
+        // Method 2: Pointer events
+        el.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        await delay(50);
+        el.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        
+        // Method 3: Direct click
+        el.click();
+        
+        // Method 4: Focus + Enter
+        el.focus();
+        await delay(50);
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+        
+        return true;
+    };
+
+    // STEP 1: Find the + button using multiple methods
+    let addButtonClicked = false;
+    let addButton: Element | null = null;
+
+    // Method 1: Direct ID
+    addButton = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID');
+    console.log(`  Method 1 (getElementById): ${addButton ? 'FOUND' : 'not found'}`);
+
+    // Method 2: Query selector
+    if (!addButton) {
+        addButton = document.querySelector('#PINHOLE_ADD_CLIP_CARD_ID');
+        console.log(`  Method 2 (querySelector): ${addButton ? 'FOUND' : 'not found'}`);
+    }
+
+    // Method 3: Find in shadow DOM
+    if (!addButton) {
+        const found = findAllElementsDeep('#PINHOLE_ADD_CLIP_CARD_ID');
+        addButton = found[0] || null;
+        console.log(`  Method 3 (findAllElementsDeep #ID): ${addButton ? 'FOUND' : 'not found'}`);
+    }
+
+    // Method 4: Find button with "add" icon and "เพิ่มคลิป" text
+    if (!addButton) {
+        const allButtons = findAllElementsDeep('button');
+        for (const btn of allButtons) {
+            const text = btn.textContent || '';
+            const hasAddIcon = btn.querySelector('i')?.textContent === 'add';
+            const hasAddText = text.includes('เพิ่มคลิป') || text.includes('add');
+            if (hasAddIcon || (btn.id === 'PINHOLE_ADD_CLIP_CARD_ID')) {
+                addButton = btn;
+                console.log(`  Method 4 (button search): FOUND - text: "${text.substring(0, 30)}"`);
+                break;
+            }
+        }
+    }
+
+    // Method 5: Find by class pattern
+    if (!addButton) {
+        const candidates = findAllElementsDeep('button[class*="sc-6a896c9b"]');
+        for (const btn of candidates) {
+            if (btn.querySelector('i')?.textContent === 'add') {
+                addButton = btn;
+                console.log(`  Method 5 (class pattern): FOUND`);
+                break;
+            }
+        }
+    }
+
+    if (addButton) {
+        console.log("✅ Found Add Clip (+) button! Clicking...");
+        addButtonClicked = await robustClick(addButton);
+        console.log(`✅ + button click result: ${addButtonClicked}`);
+    } else {
+        console.warn("⚠️ Could not find Add Clip button with any method");
+        return false;
+    }
+
+    // STEP 2: Wait and click "Extend..." / "ขยาย" button (menu item)
+    // ปุ่มนี้อยู่ใน popup menu หลังจากกดปุ่ม + มี icon logout (ลูกศรออก)
+    // รองรับทั้งภาษาไทย (ขยาย) และอังกฤษ (Extend)
+    console.log("⏳ Waiting for menu to appear...");
+    await delay(2000);
+
+    console.log("🔍 Step 2: Looking for 'Extend...' / 'ขยาย' menu item...");
+    
+    for (let attempt = 1; attempt <= 10; attempt++) {
+        console.log(`🔄 Attempt ${attempt}/10 to find Extend button...`);
+        
+        // หา menu items ทั้งหมด
+        const menuItems = [
+            ...findAllElementsDeep('[role="menuitem"]'),
+            ...findAllElementsDeep('div[class*="sc-93fd5d6e"]'),
+            ...findAllElementsDeep('button'),
+            ...findAllElementsDeep('span')
+        ];
+        
+        console.log(`  Found ${menuItems.length} potential elements`);
+        
+        // เก็บปุ่ม Extend/ขยาย ที่หาเจอ
+        const extendButtons: { element: Element, right: number }[] = [];
+        
+        for (const el of menuItems) {
+            const text = (el.textContent || '').trim().toLowerCase();
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            
+            // หาทั้ง "extend" (EN) และ "ขยาย" (TH)
+            const isExtendButton = text.includes('extend') || text.includes('ขยาย');
+            
+            if (isExtendButton && rect.width > 0 && rect.height > 0) {
+                const clickTarget = el.closest('[role="menuitem"]') || el.closest('button') || el;
+                extendButtons.push({ element: clickTarget, right: rect.right });
+                console.log(`  Found Extend/ขยาย: "${text.substring(0, 20)}" at x=${rect.right.toFixed(0)}`);
+            }
+        }
+        
+        // Method 2: Find by icon "logout" (ลูกศรออก) - icon ของปุ่ม Extend
+        const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i');
+        for (const icon of icons) {
+            const iconText = icon.textContent?.trim();
+            // icon logout หรือ arrow_forward หรือ open_in_new
+            if (iconText === 'logout' || iconText === 'arrow_forward' || iconText === 'open_in_new' || iconText === 'exit_to_app') {
+                const parent = icon.closest('[role="menuitem"]') || icon.closest('button') || icon.parentElement;
+                if (parent) {
+                    const parentText = (parent.textContent || '').toLowerCase();
+                    const rect = (parent as HTMLElement).getBoundingClientRect();
+                    if ((parentText.includes('extend') || parentText.includes('ขยาย')) && rect.width > 0) {
+                        extendButtons.push({ element: parent, right: rect.right });
+                        console.log(`  Found Extend via ${iconText} icon at x=${rect.right.toFixed(0)}`);
+                    }
+                }
+            }
+        }
+        
+        console.log(`  Total Extend buttons found: ${extendButtons.length}`);
+        
+        // เลือกปุ่มที่อยู่ขวาสุด (เป็นของ clip ใหม่ล่าสุด)
+        if (extendButtons.length > 0) {
+            extendButtons.sort((a, b) => b.right - a.right);
+            const targetBtn = extendButtons[0];
+            
+            console.log(`✅ Clicking Extend button at x=${targetBtn.right.toFixed(0)}`);
+            await robustClick(targetBtn.element);
+            console.log("✅ 'Extend' clicked! Waiting for expand view to fully load...");
+            
+            // รอนานขึ้นให้ expand view โหลดเสร็จสมบูรณ์ (4 วินาที)
+            await delay(4000);
+            
+            // ตรวจสอบว่า expand view เปิดจริง โดยหา prompt textarea
+            console.log("🔍 Verifying expand view is open...");
+            for (let verifyAttempt = 1; verifyAttempt <= 5; verifyAttempt++) {
+                const textareas = findAllElementsDeep('textarea');
+                const visibleTextarea = textareas.find(ta => {
+                    const rect = (ta as HTMLElement).getBoundingClientRect();
+                    return rect.width > 100 && rect.height > 20;
+                });
+                if (visibleTextarea) {
+                    console.log(`✅ Expand view confirmed open! (textarea found)`);
+                    return true;
+                }
+                console.log(`  Verify attempt ${verifyAttempt}/5 - waiting...`);
+                await delay(1000);
+            }
+            
+            console.log("⚠️ Expand view may not be fully open, but continuing...");
+            return true;
+        }
+        
+        await delay(800);
+    }
+
+    console.warn("⚠️ Could not find 'Extend' button after 10 attempts");
+    return false;
+};
+
+/**
+ * Fill next scene prompt and click generate
+ */
+const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: AutomationSelectors): Promise<boolean> => {
+    console.log("📝 Filling next scene prompt...");
+    await delay(2000);
+
+    // Find the prompt textarea - look for "เหตุการณ์นี้เกิดขึ้นแล้ว" or similar
+    const textareas = findAllElementsDeep('textarea, [contenteditable="true"], input[type="text"]');
+    
+    let promptInput: HTMLElement | null = null;
+    
+    for (const ta of textareas) {
+        const placeholder = (ta as HTMLInputElement).placeholder || '';
+        const ariaLabel = ta.getAttribute('aria-label') || '';
+        const rect = ta.getBoundingClientRect();
+        
+        // Check if it's the prompt input
+        if (rect.width > 100 && rect.height > 20) {
+            const isPromptInput = 
+                placeholder.includes('เหตุการณ์') ||
+                placeholder.includes('Describe') ||
+                placeholder.includes('prompt') ||
+                placeholder.includes('ฉาก') ||
+                ariaLabel.includes('prompt');
+            
+            if (isPromptInput || textareas.length === 1) {
+                promptInput = ta as HTMLElement;
+                break;
+            }
+        }
+    }
+
+    // Fallback: just use the first visible textarea
+    if (!promptInput && textareas.length > 0) {
+        for (const ta of textareas) {
+            const rect = ta.getBoundingClientRect();
+            if (rect.width > 100 && rect.height > 20) {
+                promptInput = ta as HTMLElement;
+                break;
+            }
+        }
+    }
+
+    if (!promptInput) {
+        console.warn("⚠️ Could not find prompt input");
+        return false;
+    }
+
+    console.log("✅ Found prompt input, filling...");
+
+    // Clear and fill the prompt
+    promptInput.focus();
+    await delay(100);
+
+    if (promptInput.tagName === 'TEXTAREA' || promptInput.tagName === 'INPUT') {
+        (promptInput as HTMLInputElement).value = '';
+        (promptInput as HTMLInputElement).value = scenePrompt;
+        promptInput.dispatchEvent(new Event('input', { bubbles: true }));
+        promptInput.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        // ContentEditable
+        promptInput.textContent = scenePrompt;
+        promptInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    console.log(`📝 Prompt filled: "${scenePrompt.substring(0, 50)}..."`);
+    await delay(1000);
+
+    // Click generate button (arrow_forward icon) - ใช้วิธีเดียวกับ fillPromptAndGenerate
+    console.log("🔍 Looking for Generate button (arrow_forward)...");
+    await delay(1500);
+    
+    let targetBtn: HTMLElement | null = null;
+    
+    // METHOD 1: Find button with google-symbols icon "arrow_forward" (เหมือน fillPromptAndGenerate)
+    const arrowForwardIcons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"]');
+    console.log(`🔍 Found ${arrowForwardIcons.length} google-symbols icons`);
+    
+    for (const icon of arrowForwardIcons) {
+        const iconText = icon.textContent?.trim();
+        console.log(`   Icon: "${iconText}"`);
+        
+        // ONLY accept arrow_forward - this is THE generate button
+        if (iconText === 'arrow_forward') {
+            const parentBtn = icon.closest('button');
+            if (parentBtn) {
+                const rect = parentBtn.getBoundingClientRect();
+                // Generate button should be small and circular (~40-60px)
+                if (rect.width <= 70 && rect.height <= 70) {
+                    targetBtn = parentBtn as HTMLElement;
+                    console.log(`✅ Found generate button: icon="${iconText}", size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                    break;
+                }
+            }
+        }
+    }
+    
+    // METHOD 2: Text Match Fallback (สร้าง, generate)
+    if (!targetBtn) {
+        console.log("🔍 Method 2: Looking for button with generate text...");
+        const allButtons = findAllElementsDeep('button, [role="button"]');
+        const generateKeywords = ['generate', 'create', 'run', 'make', 'send', 'submit', 'ส่ง', 'สร้าง'];
+        
+        for (const btn of allButtons) {
+            const text = (btn.textContent || '').toLowerCase().trim();
+            const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+            const rect = btn.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            if (generateKeywords.some(w => text.includes(w) || label.includes(w))) {
+                const excluded = ['tool', 'scene', 'ฉาก', 'เครื่องมือ', 'setting', 'ตั้งค่า'];
+                if (excluded.some(ex => text.includes(ex) || label.includes(ex))) continue;
+
+                targetBtn = btn as HTMLElement;
+                console.log(`🎯 Found button by text: "${text || label}"`);
+                break;
+            }
+        }
+    }
+    
+    // METHOD 3: Find rightmost small circular button
+    if (!targetBtn) {
+        console.log("🔍 Method 3: Looking for rightmost circular button...");
+        const allButtons = findAllElementsDeep('button, [role="button"]');
+        let rightmostBtn: HTMLElement | null = null;
+        let maxRight = 0;
+        
+        for (const btn of allButtons) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            
+            const isCircular = rect.width > 30 && rect.width < 80 && Math.abs(rect.width - rect.height) < 15;
+            
+            if (isCircular && rect.right > maxRight) {
+                maxRight = rect.right;
+                rightmostBtn = btn as HTMLElement;
+            }
+        }
+        
+        if (rightmostBtn) {
+            targetBtn = rightmostBtn;
+            console.log(`🎯 Found rightmost circular button at x=${maxRight}`);
+        }
+    }
+    
+    // CLICK THE BUTTON
+    if (targetBtn) {
+        console.log("🖱️ Clicking generate button...");
+        
+        targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await delay(300);
+        
+        const rect = targetBtn.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY };
+        
+        targetBtn.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
+        targetBtn.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
+        await delay(100);
+        targetBtn.dispatchEvent(new MouseEvent('mousedown', { ...mouseOpts, button: 0 }));
+        await delay(50);
+        targetBtn.dispatchEvent(new MouseEvent('mouseup', { ...mouseOpts, button: 0 }));
+        targetBtn.dispatchEvent(new MouseEvent('click', { ...mouseOpts, button: 0 }));
+        targetBtn.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        await delay(50);
+        targetBtn.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        targetBtn.click();
+        
+        console.log("✅ Generate clicked for next scene!");
+        return true;
+    }
+
+    console.warn("⚠️ Could not find Generate button after all methods");
+    return false;
+};
+
+// ========== MULTI-SCENE PIPELINE INTERFACE ==========
+export interface MultiScenePipelineConfig {
+    characterImage: string;
+    productImage: string;
+    imagePrompt: string;
+    videoPrompt: string;          // Full video prompt for Scene 1 (from Video Prompt Motion)
+    sceneCount: number;           // Total number of scenes (1, 2, or 3)
+    sceneScripts: string[];       // Array of scripts for each scene (Scene 2+ only uses script part)
+}
+
+/**
+ * Run multi-scene pipeline
+ * - 1 scene: Generate video and return URL
+ * - 2+ scenes: Generate first video, add to scene, then add more clips
+ */
+export const runMultiScenePipeline = async (
+    config: MultiScenePipelineConfig,
+    onProgress?: (step: string, current: number, total: number) => void
+): Promise<{
+    success: boolean;
+    videoUrl?: string;
+    error?: string;
+}> => {
+    const { sceneCount, sceneScripts } = config;
+    const totalSteps = sceneCount === 1 ? 12 : 12 + (sceneCount - 1) * 4;
+    
+    console.log(`🚀 Starting Multi-Scene Pipeline - ${sceneCount} scene(s)`);
+    console.log(`📝 Scene Scripts:`, sceneScripts);
+
+    // Reset upload state
+    resetUploadState();
+
+    const report = (step: string, current: number, total: number) => {
+        if (onProgress) onProgress(step, current, total);
+        console.log(`[Progress ${current}/${total}] ${step}`);
+    };
+
+    try {
+        // Initialize Remote Config
+        report("Initializing...", 1, totalSteps);
+        const configService = RemoteConfigService.getInstance();
+        await configService.init();
+        const selectors = configService.getSelectors();
+
+        // Check/Enter workspace
+        let inWorkspace = isInWorkspace(selectors);
+        if (!inWorkspace) {
+            report("Navigating to Workspace...", 2, totalSteps);
+            // ... (same workspace entry logic as runTwoStagePipeline)
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const dashboardKeywords = selectors.dashboard.newProjectTriggers;
+                const allElements = findAllElementsDeep('*');
+                for (const kw of dashboardKeywords) {
+                    const elements = allElements.filter(el =>
+                        el.children.length === 0 && el.textContent?.includes(kw)
+                    );
+                    for (const el of elements) {
+                        (el as HTMLElement).click();
+                        let parent = el.parentElement;
+                        for (let p = 0; p < 5; p++) {
+                            if (parent) {
+                                try {
+                                    parent.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                                } catch (e) { }
+                                parent = parent.parentElement;
+                            }
+                        }
+                    }
+                }
+                await delay(2000);
+                if (isInWorkspace(selectors)) {
+                    inWorkspace = true;
+                    break;
+                }
+            }
+        }
+
+        // ===== SCENE 1: Generate First Video =====
+        report("Switching to Image Mode...", 3, totalSteps);
+        await switchToImageTab(selectors);
+        await delay(1500);
+
+        report("Uploading Character...", 4, totalSteps);
+        await uploadSingleImage(config.characterImage, 1, selectors);
+        await delay(2000);
+
+        report("Uploading Product...", 5, totalSteps);
+        await uploadSingleImage(config.productImage, 2, selectors);
+        await delay(2000);
+
+        console.log("⏳ Waiting for images to load...");
+        await delay(10000);
+
+        report("Generating Base Image...", 6, totalSteps);
+        await fillPromptAndGenerate(config.imagePrompt);
+
+        report("Waiting for Image...", 7, totalSteps);
+        const imageGenSuccess = await waitForGenerationComplete(selectors);
+        if (!imageGenSuccess) throw new Error("Image Gen Timeout");
+
+        await delay(15000);
+
+        report("Selecting Image...", 8, totalSteps);
+        const imageClicked = await clickOnGeneratedImage(selectors);
+        if (!imageClicked) throw new Error("Could not select image");
+
+        await delay(10000);
+
+        report("Generating Scene 1...", 9, totalSteps);
+        // Scene 1 uses full videoPrompt but ONLY with Scene 1 script (remove Scene 2, 3 scripts)
+        let scene1Prompt = config.videoPrompt || sceneScripts[0] || config.imagePrompt;
+        
+        // If videoPrompt contains multiple scenes, keep only Scene 1 script
+        if (scene1Prompt.includes('🎬 ฉาก 2:') || scene1Prompt.includes('🎬 ฉาก 3:')) {
+            // Remove Scene 2 and Scene 3 scripts from the prompt
+            scene1Prompt = scene1Prompt
+                .replace(/🎬 ฉาก 2:[^\n]*(\n|$)/g, '')
+                .replace(/🎬 ฉาก 3:[^\n]*(\n|$)/g, '')
+                .replace(/\n{3,}/g, '\n\n')  // Clean up extra newlines
+                .trim();
+            console.log("📝 Scene 1 prompt cleaned - removed Scene 2, 3 scripts");
+        }
+        
+        await switchToVideoModeAndGenerate(scene1Prompt, selectors);
+
+        report("Waiting for Video 1...", 10, totalSteps);
+        const video1Src = await waitForVideoComplete(300000);
+        if (!video1Src) throw new Error("Video 1 Generation Timeout");
+
+        console.log("✅ Scene 1 Video Complete!");
+
+        // ===== SINGLE SCENE: Done =====
+        if (sceneCount === 1) {
+            report("Downloading...", 11, totalSteps);
+            await delay(2000);
+            const downloadResult = await handleVideoDownload(selectors);
+            
+            report("Complete!", 12, totalSteps);
+            return {
+                success: true,
+                videoUrl: downloadResult?.startsWith('http') ? downloadResult : video1Src
+            };
+        }
+
+        // ===== MULTI-SCENE: Add more clips =====
+        console.log(`🎬 Multi-scene mode: Adding ${sceneCount - 1} more scene(s)...`);
+
+        // Hover video and click "เพิ่มลงในฉาก"
+        report("Adding to Scene Builder...", 11, totalSteps);
+        const addedToScene = await hoverVideoAndAddToScene(selectors);
+        if (!addedToScene) {
+            console.warn("⚠️ Could not add to scene, trying to continue...");
+        }
+
+        await delay(5000); // Wait for scene builder to load
+
+        // Generate additional scenes
+        console.log("📋 Scene Scripts Array:", sceneScripts);
+        console.log("📋 Scene Scripts Length:", sceneScripts.length);
+        
+        for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
+            const sceneNum = sceneIndex + 1;
+            const stepBase = 12 + (sceneIndex - 1) * 4;
+
+            console.log(`🎬 ========== Generating Scene ${sceneNum} ==========`);
+            console.log(`📝 sceneScripts[${sceneIndex}] = "${sceneScripts[sceneIndex]?.substring(0, 100) || 'UNDEFINED'}..."`);
+
+            // ===== STEP 1: Click + button to add new clip =====
+            report(`Adding Clip ${sceneNum}...`, stepBase, totalSteps);
+            console.log(`\n🎯 STEP 1: Click + and Extend for Scene ${sceneNum}...`);
+            
+            const clipAdded = await clickAddClipButton();
+            if (!clipAdded) {
+                console.warn(`⚠️ Could not add clip ${sceneNum} - clickAddClipButton failed`);
+                continue;
+            }
+
+            // ===== รอให้ expand view โหลดเสร็จสมบูรณ์ (5 วินาที) =====
+            console.log(`⏳ Waiting 5 seconds for expand view to fully load...`);
+            await delay(5000);
+
+            // ===== STEP 2: Fill prompt for this scene =====
+            console.log(`\n🎯 STEP 2: Filling prompt for Scene ${sceneNum}...`);
+            report(`Filling Scene ${sceneNum} Prompt...`, stepBase + 1, totalSteps);
+            await delay(2000); // รอ 2 วินาทีก่อนใส่ prompt
+            
+            // Get the script for this scene (index 1 = scene 2, index 2 = scene 3)
+            const basePrompt = sceneScripts[sceneIndex];
+            
+            if (!basePrompt || basePrompt.trim() === '') {
+                console.error(`❌ ERROR: No script found for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
+                continue;
+            }
+            
+            console.log(`📝 Base Prompt for Scene ${sceneNum}: "${basePrompt.substring(0, 80)}..."`);
+            
+            // Add voice consistency + story continuity instruction (ภาษาไทย)
+            const scenePrompt = `${basePrompt}
+
+[ข้อกำหนดสำคัญ:]
+1. เสียงเดียวกัน: ใช้เสียง น้ำเสียง และสไตล์การพูดเหมือนกับฉาก 1 ทุกประการ
+2. คนเดียวกัน: รักษาใบหน้า รูปร่าง เสื้อผ้า ให้เหมือนกับฉาก 1 ทุกประการ
+3. ภาษาเดียวกัน: ใช้ภาษาเดียวกันกับฉาก 1 (ภาษาไทย) ห้ามเปลี่ยนภาษา
+4. เรื่องราวต่อเนื่อง: นี่คือฉากต่อเนื่องจากฉากก่อนหน้า เหตุการณ์ต้องไหลลื่นต่อกัน
+5. การเชื่อมต่อราบรื่น: การกระทำต้องต่อเนื่องจากจุดที่ฉาก ${sceneNum - 1} จบลง`;
+            
+            console.log(`📝 Full Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
+            
+            // ===== STEP 3: Fill prompt and generate =====
+            console.log(`\n🎯 STEP 3: Fill prompt and click Generate for Scene ${sceneNum}...`);
+            const promptFilled = await fillNextScenePromptAndGenerate(scenePrompt, selectors);
+            if (!promptFilled) {
+                console.warn(`⚠️ Could not fill prompt for scene ${sceneNum}`);
+                continue;
+            }
+            
+            // รอ 3 วินาทีหลังกด generate
+            console.log(`⏳ Waiting 3 seconds after clicking generate...`);
+            await delay(3000);
+
+            // ===== STEP 4: Wait for video generation =====
+            console.log(`\n🎯 STEP 4: Waiting for Scene ${sceneNum} video to complete...`);
+            report(`Generating Scene ${sceneNum}...`, stepBase + 2, totalSteps);
+            const sceneVideoSrc = await waitForVideoComplete(300000);
+            if (!sceneVideoSrc) {
+                console.warn(`⚠️ Scene ${sceneNum} generation timeout`);
+                continue;
+            }
+
+            console.log(`✅ Scene ${sceneNum} Complete!`);
+            report(`Scene ${sceneNum} Done!`, stepBase + 3, totalSteps);
+            
+            // ===== รอ 5 วินาทีก่อนทำฉากถัดไป =====
+            if (sceneIndex < sceneCount - 1) {
+                console.log(`\n⏳ Waiting 5 seconds before starting next scene...`);
+                await delay(5000);
+            }
+        }
+
+        // รอให้ทุก clip gen เสร็จ 100% ก่อน download
+        report("Waiting for all clips to complete 100%...", totalSteps - 2, totalSteps);
+        const allComplete = await waitForAllClipsComplete(300000); // รอสูงสุด 5 นาที
+        
+        if (!allComplete) {
+            console.warn("⚠️ Some clips may not be complete, attempting download anyway...");
+        }
+
+        // Final download
+        report("Downloading Final Video...", totalSteps - 1, totalSteps);
+        await delay(2000);
+        const finalDownload = await handleVideoDownload(selectors);
+
+        report("All Scenes Complete!", totalSteps, totalSteps);
+
+        return {
+            success: true,
+            videoUrl: finalDownload?.startsWith('http') ? finalDownload : video1Src
+        };
+
+    } catch (error: any) {
+        console.error("Multi-Scene Pipeline Error:", error);
         return { success: false, error: error.message };
     }
 };

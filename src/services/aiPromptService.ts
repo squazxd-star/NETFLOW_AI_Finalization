@@ -599,6 +599,9 @@ export interface PromptGenerationConfig {
     gender?: string;
     expression?: string;
     movement?: string;
+    
+    // User-provided script (from GenerationSettingsSection scene cards)
+    userScript?: string;        // Thai script from user input (joined by \n\n)
 }
 
 export interface GeneratedPrompts {
@@ -806,17 +809,26 @@ const buildVideoPrompt = (
     const saleStyle = SALE_STYLE_THAI[config.saleStyle] || SALE_STYLE_THAI["storytelling"];
     const languageAccent = LANGUAGE_ACCENT_THAI[config.language] || LANGUAGE_ACCENT_THAI["th-central"];
     
-    // Generate full Thai script with product name
-    const fullThaiScript = generateThaiScript(
-        config.productName,
-        config.template,
-        config.voiceTone,
-        config.saleStyle,
-        config.hookText || "",
-        config.ctaText || "",
-        config.clipDuration,
-        category
-    );
+    // Use user-provided script if available, otherwise generate automatically
+    let fullThaiScript: string;
+    if (config.userScript && config.userScript.trim()) {
+        // Parse user script from scene cards (joined by \n\n)
+        const scenes = config.userScript.split(/\n{2,}/).filter(s => s.trim());
+        const sceneCount = Math.min(scenes.length, 3);
+        fullThaiScript = scenes.map((script, i) => `🎬 ฉาก ${i + 1}: "${script.trim()}"`).join('\n');
+        console.log("📝 Using user-provided script:", fullThaiScript);
+    } else {
+        fullThaiScript = generateThaiScript(
+            config.productName,
+            config.template,
+            config.voiceTone,
+            config.saleStyle,
+            config.hookText || "",
+            config.ctaText || "",
+            config.clipDuration,
+            category
+        );
+    }
     
     const storyboard = buildStoryboardSection(config, category);
 
