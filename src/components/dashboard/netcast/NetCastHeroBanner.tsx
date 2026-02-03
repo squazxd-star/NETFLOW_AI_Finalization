@@ -32,37 +32,24 @@ const NetCastHeroBanner = ({ netcastMode, setValue }: NetCastHeroBannerProps) =>
                 </div>
 
                 {/* Sub-function Navigation */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
-                    <button
-                        onClick={() => setValue("netcastMode", "podcast")}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${netcastMode === 'podcast'
-                            ? 'bg-neon-red text-white shadow-lg shadow-neon-red/25 scale-105'
-                            : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30 hover:bg-neon-red/5'
-                            }`}
-                    >
-                        <Mic className="w-4 h-4" />
-                        พอดแคสต์
-                    </button>
-                    <button
-                        onClick={() => setValue("netcastMode", "storyboard")}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${netcastMode === 'storyboard'
-                            ? 'bg-neon-red text-white shadow-lg shadow-neon-red/25 scale-105'
-                            : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30 hover:bg-neon-red/5'
-                            }`}
-                    >
-                        <FileText className="w-4 h-4" />
-                        สตอรี่บอร์ด
-                    </button>
-                    <button
-                        onClick={() => setValue("netcastMode", "script")}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${netcastMode === 'script'
-                            ? 'bg-neon-red text-white shadow-lg shadow-neon-red/25 scale-105'
-                            : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30 hover:bg-neon-red/5'
-                            }`}
-                    >
-                        <BookOpen className="w-4 h-4" />
-                        บทเรียน
-                    </button>
+                <div className="flex items-center gap-2 p-1 rounded-2xl bg-black/40 backdrop-blur-sm border border-white/10">
+                    {[
+                        { mode: "podcast", icon: Mic, label: "พอดแคสต์" },
+                        { mode: "storyboard", icon: FileText, label: "สตอรี่บอร์ด" },
+                        { mode: "script", icon: BookOpen, label: "บทเรียน" }
+                    ].map(({ mode, icon: Icon, label }) => (
+                        <button
+                            key={mode}
+                            onClick={() => setValue("netcastMode", mode as any)}
+                            className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${netcastMode === mode
+                                ? 'bg-neon-red text-white shadow-lg shadow-neon-red/30'
+                                : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                }`}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {label}
+                        </button>
+                    ))}
                 </div>
             </div>
         </section>

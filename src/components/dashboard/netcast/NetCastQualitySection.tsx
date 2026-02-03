@@ -77,27 +77,6 @@ const NetCastQualitySection = ({
                         </div>
                     </div>
 
-                    {/* Crypto Live Data */}
-                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                        <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                                <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-xs font-medium">สตูดิโอ Crypto Live Data</span>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">แสดงราคาเหรียญแบบเรียลไทม์ในสตรีม</p>
-                        </div>
-                        <Controller
-                            name="cryptoLiveData"
-                            control={control}
-                            render={({ field }) => (
-                                <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                    className="data-[state=checked]:bg-neon-red"
-                                />
-                            )}
-                        />
-                    </div>
                 </div>
             )}
         </section>
