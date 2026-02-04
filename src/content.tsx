@@ -482,8 +482,23 @@ const ContentScriptApp = () => {
         setCurrentStep("หยุดการทำงานแล้ว");
     };
 
-    // Overlay disabled - ปิดไว้ก่อน
-    return null;
+    return (
+        <>
+            <AutomationOverlay
+                isVisible={isAutomationRunning}
+                currentStep={currentStep}
+                stepNumber={stepNumber}
+                totalSteps={totalSteps}
+                onStop={handleStopAutomation}
+            />
+            {videoUrl && (
+                <VideoResultOverlay
+                    videoUrl={videoUrl}
+                    onClose={() => setVideoUrl(null)}
+                />
+            )}
+        </>
+    );
 };
 
 renderRoot.render(<ContentScriptApp />);
