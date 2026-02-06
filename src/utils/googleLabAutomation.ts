@@ -801,6 +801,178 @@ const waitForVideoComplete = async (timeout = 300000): Promise<string | null> =>
     return null;
 };
 
+/**
+ * Capture the most recent generated image as base64
+ * Used to upload as reference for Scene 2/3 to maintain consistency
+ */
+const captureGeneratedImageBase64 = async (): Promise<string | null> => {
+    console.log("📸 Capturing generated image as base64...");
+
+    try {
+        // Find all images
+        const images = findAllElementsDeep('img');
+        const candidateImages = images.filter(img => {
+            const i = img as HTMLImageElement;
+            const hasSize = (i.naturalWidth > 200 && i.naturalHeight > 200) || (i.width > 200 && i.height > 200);
+            const isVisible = i.offsetParent !== null;
+            // Skip UI icons, logos, etc.
+            const src = i.src || '';
+            const isGenerated = src.includes('blob:') || src.includes('data:') || src.includes('generated') || src.includes('output');
+            return hasSize && isVisible && (isGenerated || i.naturalWidth > 400);
+        });
+
+        console.log(`📷 Found ${candidateImages.length} candidate generated images`);
+
+        if (candidateImages.length === 0) {
+            console.warn("⚠️ No generated image found to capture");
+            return null;
+        }
+
+        // Get the last (most recent) image
+        const targetImg = candidateImages[candidateImages.length - 1] as HTMLImageElement;
+        console.log(`📸 Capturing image: ${targetImg.src?.substring(0, 60)}...`);
+
+        // Create canvas and draw image
+        const canvas = document.createElement('canvas');
+        canvas.width = targetImg.naturalWidth || targetImg.width;
+        canvas.height = targetImg.naturalHeight || targetImg.height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.warn("⚠️ Could not get canvas context");
+            return null;
+        }
+
+        // Handle CORS - try to draw directly first
+        try {
+            ctx.drawImage(targetImg, 0, 0, canvas.width, canvas.height);
+            const base64 = canvas.toDataURL('image/png');
+            console.log(`✅ Captured image: ${base64.substring(0, 50)}... (${base64.length} chars)`);
+            return base64;
+        } catch (corsError) {
+            console.log("⚠️ CORS error, trying fetch approach...");
+
+            // Try fetching the image
+            try {
+                const response = await fetch(targetImg.src);
+                const blob = await response.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = reader.result as string;
+                        console.log(`✅ Captured via fetch: ${base64.substring(0, 50)}...`);
+                        resolve(base64);
+                    };
+                    reader.onerror = () => {
+                        console.warn("⚠️ FileReader error");
+                        resolve(null);
+                    };
+                    reader.readAsDataURL(blob);
+                });
+            } catch (fetchError) {
+                console.warn("⚠️ Fetch failed:", fetchError);
+                return null;
+            }
+        }
+    } catch (error) {
+        console.error("❌ Error capturing image:", error);
+        return null;
+    }
+};
+
+/**
+ * Upload reference image to the expanded clip view
+ * Used for Scene 2/3 to maintain character/product consistency
+ */
+const uploadReferenceImageToExpandedClip = async (base64Image: string, selectors: AutomationSelectors): Promise<boolean> => {
+    console.log("📷 Uploading reference image to expanded clip...");
+
+    if (!base64Image) {
+        console.warn("⚠️ No reference image provided");
+        return false;
+    }
+
+    try {
+        // Convert base64 to File
+        const arr = base64Image.split(',');
+        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], 'reference.png', { type: mime });
+        console.log(`✅ Reference file created: ${file.size} bytes`);
+
+        // Find upload button in expanded clip view (look for "add" icon)
+        for (let attempt = 0; attempt < 5; attempt++) {
+            console.log(`🔄 Looking for upload slot in expanded clip (Attempt ${attempt + 1}/5)...`);
+            await delay(1000);
+
+            const allButtons = findAllElementsDeep('button');
+            let addBtn: HTMLElement | null = null;
+
+            for (const button of allButtons) {
+                const rect = button.getBoundingClientRect();
+                if (rect.width < 40 || rect.height < 40) continue;
+
+                const icon = button.querySelector('i, .material-icons, .google-symbols');
+                const iconText = icon?.textContent?.trim() || '';
+                const hasAddIcon = iconText === 'add' || iconText === 'add_circle' || iconText === 'add_photo_alternate';
+                const hasImage = button.querySelector('img') !== null;
+
+                if (hasAddIcon && !hasImage) {
+                    addBtn = button as HTMLElement;
+                    console.log(`✅ Found empty add button for reference upload`);
+                    break;
+                }
+            }
+
+            if (addBtn) {
+                // Click to open file dialog
+                addBtn.click();
+                await delay(1500);
+
+                // Find file input
+                const fileInputs = findAllElementsDeep('input[type="file"]');
+                const fileInput = fileInputs[fileInputs.length - 1] as HTMLInputElement;
+
+                if (fileInput) {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    fileInput.files = dt.files;
+                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    console.log("✅ Reference image injected!");
+
+                    await delay(2000);
+
+                    // Try to click confirm button
+                    const confirmButtons = findAllElementsDeep('button');
+                    for (const btn of confirmButtons) {
+                        const text = (btn.textContent || '').trim().toLowerCase();
+                        if (text.includes('ยืนยัน') || text.includes('confirm') || text.includes('done') || text.includes('ok')) {
+                            (btn as HTMLElement).click();
+                            console.log("✅ Clicked confirm button");
+                            await delay(1500);
+                            break;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+        }
+
+        console.warn("⚠️ Could not find upload slot in expanded clip");
+        return false;
+
+    } catch (error) {
+        console.error("❌ Error uploading reference image:", error);
+        return false;
+    }
+};
+
 const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<boolean> => {
     console.log("🖱️ Searching for generated image to HOVER...");
     await delay(2000);
@@ -2101,6 +2273,9 @@ export const runMultiScenePipeline = async (
     // Array to collect all video URLs for multi-scene
     const videoUrls: string[] = [];
 
+    // Store generated base image for Scene 2/3 reference (consistency)
+    let scene1GeneratedImage: string | null = null;
+
     const report = (step: string, current: number, total: number) => {
         if (onProgress) onProgress(step, current, total);
         console.log(`[Progress ${current}/${total}] ${step}`);
@@ -2168,6 +2343,15 @@ export const runMultiScenePipeline = async (
         report("Waiting for Image...", 7, totalSteps);
         const imageGenSuccess = await waitForGenerationComplete(selectors);
         if (!imageGenSuccess) throw new Error("Image Gen Timeout");
+
+        // 📸 Capture generated image for reference in Scene 2/3
+        report("Capturing Reference Image...", 7, totalSteps);
+        scene1GeneratedImage = await captureGeneratedImageBase64();
+        if (scene1GeneratedImage) {
+            console.log("✅ Scene 1 reference image captured for consistency!");
+        } else {
+            console.warn("⚠️ Could not capture reference image, Scene 2/3 may have different characters");
+        }
 
         await delay(15000);
 
@@ -2254,6 +2438,21 @@ export const runMultiScenePipeline = async (
             // ===== รอให้ expand view โหลดเสร็จสมบูรณ์ (5 วินาที) =====
             console.log(`⏳ Waiting 5 seconds for expand view to fully load...`);
             await delay(5000);
+
+            // ===== STEP 1.5: Upload reference image for consistency =====
+            if (scene1GeneratedImage) {
+                console.log(`\n📷 Uploading Scene 1 reference image for Scene ${sceneNum} consistency...`);
+                report(`Uploading Reference Image...`, stepBase, totalSteps);
+                const refUploaded = await uploadReferenceImageToExpandedClip(scene1GeneratedImage, selectors);
+                if (refUploaded) {
+                    console.log(`✅ Reference image uploaded for Scene ${sceneNum}!`);
+                } else {
+                    console.warn(`⚠️ Could not upload reference image for Scene ${sceneNum}, using prompt-only consistency`);
+                }
+                await delay(3000);
+            } else {
+                console.log(`⚠️ No reference image available for Scene ${sceneNum}`);
+            }
 
             // ===== STEP 2: Fill prompt for this scene =====
             console.log(`\n🎯 STEP 2: Filling prompt for Scene ${sceneNum}...`);

@@ -492,6 +492,7 @@ const ContentScriptApp = () => {
 
     return (
         <>
+            {/* TEMPORARILY DISABLED - User wants to see process
             <AutomationOverlay
                 isVisible={isAutomationRunning}
                 currentStep={currentStep}
@@ -499,6 +500,7 @@ const ContentScriptApp = () => {
                 totalSteps={totalSteps}
                 onStop={handleStopAutomation}
             />
+            */}
             {videoUrl && (
                 <VideoResultOverlay
                     videoUrl={videoUrl}
