@@ -362,6 +362,28 @@ const ContentScriptApp = () => {
                     }
                 }
 
+                // ========== INJECT CHARACTER DESCRIPTION FOR CONSISTENCY ==========
+                // Build detailed character description based on UI settings
+                const characterDesc = buildCharacterDescFromPayload(payload, productName);
+
+                // Wrap each scene script with character description prefix
+                sceneScripts = sceneScripts.map((script, index) => {
+                    const sceneNum = index + 1;
+                    const sceneRole = sceneNum === 1 ? 'HOOK - grab attention'
+                        : sceneNum === 2 ? 'DEMO - show product usage'
+                            : 'CTA - call to action';
+
+                    return `${characterDesc}
+
+[SCENE ${sceneNum} - ${sceneRole}]
+Script: "${script}"
+
+[CAMERA: Medium shot, professional video ad style]`;
+                });
+
+                console.log("✅ Character consistency description injected into all scenes");
+                // ===================================================================
+
                 console.log("📋 Final Config:");
                 console.log("  Image Prompt:", imagePrompt.substring(0, 100) + "...");
                 console.log("  Scene Count:", sceneCount);
