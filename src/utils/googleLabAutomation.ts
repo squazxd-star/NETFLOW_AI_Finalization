@@ -107,38 +107,38 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
 
             // ========== STRATEGY 1: Find upload slots (buttons with "add" icon) ==========
             console.log("🔍 Looking for image upload slots...");
-            
+
             let addBtn: HTMLElement | null = null;
-            
+
             // Method A: Deep search for ALL buttons/clickable areas with "add" icon
             const allButtons = findAllElementsDeep('button');
             console.log(`   Found ${allButtons.length} buttons total`);
-            
+
             const emptySlots: HTMLElement[] = [];
             const filledSlots: HTMLElement[] = [];
-            
+
             for (const button of allButtons) {
                 const rect = button.getBoundingClientRect();
                 // Skip invisible or tiny buttons
                 if (rect.width < 40 || rect.height < 40) continue;
-                
+
                 const icon = button.querySelector('i, .material-icons, .google-symbols');
                 const iconText = icon?.textContent?.trim() || '';
                 const hasAddIcon = iconText === 'add' || iconText === 'add_circle' || iconText === 'add_photo_alternate';
                 const hasImage = button.querySelector('img') !== null;
-                
+
                 // Log potential upload buttons
                 if (hasAddIcon || (rect.width > 60 && rect.width < 200)) {
                     console.log(`   Button: icon="${iconText}", hasImage=${hasImage}, size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
                 }
-                
+
                 if (hasAddIcon && !hasImage) {
                     emptySlots.push(button as HTMLElement);
                 } else if (hasImage) {
                     filledSlots.push(button as HTMLElement);
                 }
             }
-            
+
             console.log(`   Empty slots (with add icon): ${emptySlots.length}, Filled slots (with image): ${filledSlots.length}`);
 
             // Deterministic slot pick:
@@ -165,26 +165,26 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                     console.log(`   ✅ Using ${sortedEmptySlots.length === 1 ? 'remaining' : 'right-most'} empty slot for image ${imageIndex}`);
                 }
             }
-            
+
             // Fallback for image 2: if no empty slots with add icon, look harder
             if (!addBtn && imageIndex === 2) {
                 console.log("🔍 Image 2: Deep searching for any clickable upload area...");
-                
+
                 // Look for any button that looks like an upload slot (square-ish, medium size)
                 for (const button of allButtons) {
                     const rect = button.getBoundingClientRect();
                     if (rect.width < 60 || rect.height < 60) continue;
                     if (rect.width > 200 || rect.height > 200) continue;
-                    
+
                     // Check if this button has an image already
                     const hasImage = button.querySelector('img') !== null;
                     if (hasImage) continue;
-                    
+
                     // Check for add-like appearance
                     const text = button.textContent?.trim() || '';
                     const hasPlus = text.includes('+') || text.includes('add');
                     const isSquarish = Math.abs(rect.width - rect.height) < 30;
-                    
+
                     if (isSquarish || hasPlus) {
                         addBtn = button as HTMLElement;
                         console.log(`   ✅ Found upload-like button for image 2: size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
@@ -192,12 +192,12 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                     }
                 }
             }
-            
+
             // Method 2: Deep search for any icon with "add" text
             if (!addBtn) {
                 const allIcons = findAllElementsDeep('i, .material-icons, .google-symbols');
                 console.log(`   Deep search: Found ${allIcons.length} icon elements`);
-                
+
                 for (const icon of allIcons) {
                     const text = icon.textContent?.trim();
                     if (text === 'add' || text === 'add_circle' || text === 'add_photo_alternate' || text === 'upload') {
@@ -207,7 +207,7 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                     }
                 }
             }
-            
+
             // Method 3: Look for clickable upload areas
             if (!addBtn) {
                 const uploadAreas = findAllElementsDeep('[class*="upload"], [class*="drop"], [aria-label*="upload"]');
@@ -225,10 +225,10 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
             // ========== STRATEGY 2: Click add button to open dialog ==========
             if (addBtn) {
                 console.log(`🖱️ Clicking add button for image ${imageIndex}...`);
-                
+
                 // Click the button (try multiple methods)
                 addBtn.click();
-                
+
                 // Also click parent button if icon was found
                 const parentButton = addBtn.closest('button');
                 if (parentButton && parentButton !== addBtn) {
@@ -236,21 +236,21 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                 }
 
                 const slotContainer = (parentButton || addBtn.closest('button') || addBtn) as HTMLElement;
-                
+
                 uploadClickCount++;
                 await delay(1000); // Wait for dialog to open
-                
+
                 // ========== STRATEGY 3: Find file input in dialog ==========
                 console.log("🔍 Looking for file input in dialog...");
-                
+
                 // Try proven selector first
                 let fileInput: HTMLInputElement | null = document.querySelector(PROVEN_SELECTORS.fileInput);
-                
+
                 // Fallback to role="dialog"
                 if (!fileInput) {
                     fileInput = document.querySelector(PROVEN_SELECTORS.fileInputFallback);
                 }
-                
+
                 // Fallback to any file input
                 if (!fileInput) {
                     const allInputs = findAllElementsDeep('input[type="file"]');
@@ -258,35 +258,35 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                         fileInput = allInputs[allInputs.length - 1] as HTMLInputElement; // Get the newest one
                     }
                 }
-                
+
                 if (fileInput) {
                     console.log(`✅ Found file input:`, fileInput);
-                    
+
                     // ========== STRATEGY 4: Inject file using DataTransfer ==========
                     try {
                         const dataTransfer = new DataTransfer();
                         dataTransfer.items.add(file);
                         fileInput.files = dataTransfer.files;
-                        
+
                         // Dispatch events to trigger React/Vue
                         fileInput.dispatchEvent(new Event('change', { bubbles: true }));
                         fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        
+
                         console.log(`✅ File injected successfully!`);
-                        
+
                         await delay(1500);
-                        
+
                         // ========== STRATEGY 5: Click confirm button ==========
                         console.log("🔍 Looking for confirm button...");
-                        
+
                         let confirmBtn: HTMLElement | null = document.querySelector(PROVEN_SELECTORS.confirmButton);
-                        
+
                         // Fallback: look for button with confirm-like text
                         if (!confirmBtn) {
                             const dialogButtons = document.querySelectorAll('[id^="radix-"] button, [role="dialog"] button');
                             for (const btn of dialogButtons) {
                                 const text = btn.textContent?.toLowerCase() || '';
-                                if (text.includes('use') || text.includes('apply') || 
+                                if (text.includes('use') || text.includes('apply') ||
                                     text.includes('confirm') || text.includes('select') ||
                                     text.includes('ok') || text.includes('done')) {
                                     confirmBtn = btn as HTMLElement;
@@ -294,7 +294,7 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                                 }
                             }
                         }
-                        
+
                         // Fallback: try text triggers from config
                         if (!confirmBtn) {
                             await clickByText(selectors.upload.cropSaveTriggers);
@@ -321,7 +321,7 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                         }
 
                         return true;
-                        
+
                     } catch (e) {
                         console.error("❌ File injection failed:", e);
                     }
@@ -330,7 +330,7 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                 }
             } else {
                 console.warn("⚠️ No add button found");
-                
+
                 // Fallback: try text-based triggers from config
                 await clickByText(selectors.upload.uploadButtonTriggers);
                 await delay(500);
@@ -382,19 +382,19 @@ const simulateTyping = async (element: HTMLElement, text: string) => {
     try {
         if (element.tagName === 'TEXTAREA' || element.tagName === 'INPUT') {
             const inputEl = element as HTMLInputElement | HTMLTextAreaElement;
-            
+
             // Get the correct native setter based on element type
-            const prototype = element.tagName === 'TEXTAREA' 
-                ? window.HTMLTextAreaElement.prototype 
+            const prototype = element.tagName === 'TEXTAREA'
+                ? window.HTMLTextAreaElement.prototype
                 : window.HTMLInputElement.prototype;
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-            
+
             if (nativeInputValueSetter) {
                 // Clear first
                 nativeInputValueSetter.call(inputEl, '');
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                 await delay(50);
-                
+
                 // Set new value using native setter
                 nativeInputValueSetter.call(inputEl, text);
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
@@ -411,7 +411,7 @@ const simulateTyping = async (element: HTMLElement, text: string) => {
             element.textContent = '';
             element.dispatchEvent(new Event('input', { bubbles: true }));
             await delay(50);
-            
+
             element.textContent = text;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             injected = true;
@@ -442,7 +442,7 @@ const simulateTyping = async (element: HTMLElement, text: string) => {
         element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
         await delay(30);
     }
-    
+
     // Final blur to trigger validation
     await delay(100);
     element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
@@ -509,21 +509,21 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
             // The button is a small circular button (~40px) next to the prompt input
             const allButtons = findAllElementsDeep('button, [role="button"]');
             const inputRect = inputEl.getBoundingClientRect();
-            
+
             console.log(`🔍 Found ${allButtons.length} buttons, input at x:${inputRect.left.toFixed(0)}`);
 
             // EXCLUDED icons - these are NOT the generate button
-            const excludedIcons = ['tune', 'settings', 'filter_list', 'more_vert', 'more_horiz', 
-                                   'menu', 'close', 'expand_more', 'expand_less', 'check'];
+            const excludedIcons = ['tune', 'settings', 'filter_list', 'more_vert', 'more_horiz',
+                'menu', 'close', 'expand_more', 'expand_less', 'check'];
 
             // METHOD 1: Find button with google-symbols icon "arrow_forward" ONLY
             const arrowForwardIcons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"]');
             console.log(`🔍 Found ${arrowForwardIcons.length} google-symbols icons`);
-            
+
             for (const icon of arrowForwardIcons) {
                 const iconText = icon.textContent?.trim();
                 console.log(`   Icon: "${iconText}"`);
-                
+
                 // ONLY accept arrow_forward - this is THE generate button
                 if (iconText === 'arrow_forward') {
                     const parentBtn = icon.closest('button');
@@ -538,7 +538,7 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                     }
                 }
             }
-            
+
             // If we found arrow_forward, skip all fallbacks - we have the correct button!
             if (targetBtn) {
                 console.log(`🎯 Using arrow_forward button - skipping fallbacks`);
@@ -580,24 +580,24 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
 
             // ========== CLICK THE BUTTON ==========
             if (targetBtn) {
-                const isDisabled = targetBtn.hasAttribute('disabled') || 
-                                   targetBtn.getAttribute('aria-disabled') === 'true' ||
-                                   targetBtn.classList.contains('disabled');
-                
+                const isDisabled = targetBtn.hasAttribute('disabled') ||
+                    targetBtn.getAttribute('aria-disabled') === 'true' ||
+                    targetBtn.classList.contains('disabled');
+
                 // Try to enable the button by triggering more events on input
                 if (isDisabled && attempt <= 3) {
                     console.warn(`⚠️ Button DISABLED (attempt ${attempt}). Trying to trigger React state update...`);
-                    
+
                     // Re-focus and re-type with different events
                     inputEl.focus();
                     await delay(100);
-                    
+
                     // Use execCommand for older React versions
                     if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
                         document.execCommand('selectAll', false);
                         document.execCommand('insertText', false, prompt);
                     }
-                    
+
                     // Dispatch React-specific events
                     const nativeInputEvent = new InputEvent('input', {
                         bubbles: true,
@@ -606,10 +606,10 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                         data: prompt
                     });
                     inputEl.dispatchEvent(nativeInputEvent);
-                    
+
                     // Also try change event
                     inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    
+
                     // Blur to trigger validation
                     inputEl.blur();
                     await delay(500);
@@ -617,26 +617,26 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                     await delay(500);
                     continue; // Retry finding button
                 }
-                
+
                 // On later attempts, try clicking anyway (disabled might be just visual)
                 console.log(`🖱️ Clicking generate button (disabled=${isDisabled})...`);
-                
+
                 // Full click simulation
                 const rect = targetBtn.getBoundingClientRect();
-                const clickOpts = { 
-                    bubbles: true, 
-                    cancelable: true, 
+                const clickOpts = {
+                    bubbles: true,
+                    cancelable: true,
                     view: window,
                     clientX: rect.left + rect.width / 2,
                     clientY: rect.top + rect.height / 2
                 };
-                
+
                 // Remove disabled attribute temporarily if possible
                 const wasDisabled = targetBtn.hasAttribute('disabled');
                 if (wasDisabled) {
                     targetBtn.removeAttribute('disabled');
                 }
-                
+
                 targetBtn.dispatchEvent(new PointerEvent('pointerdown', { ...clickOpts, pointerType: 'mouse' }));
                 targetBtn.dispatchEvent(new MouseEvent('mousedown', clickOpts));
                 await delay(50);
@@ -644,12 +644,12 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                 targetBtn.dispatchEvent(new MouseEvent('mouseup', clickOpts));
                 targetBtn.dispatchEvent(new MouseEvent('click', clickOpts));
                 targetBtn.click();
-                
+
                 // Restore disabled if we removed it
                 if (wasDisabled) {
                     targetBtn.setAttribute('disabled', '');
                 }
-                
+
                 clicked = true;
                 console.log("✅ Generate button clicked!");
             } else {
@@ -673,9 +673,9 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
 const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout = 180000): Promise<boolean> => {
     const startTime = Date.now();
     let lastProgress = 0;
-    
+
     console.log("⏳ Waiting for image generation to complete...");
-    
+
     while (Date.now() - startTime < timeout) {
         // Strategy 1: Look for progress indicators in specific contexts
         // Avoid false positives by looking for progress bars or specific containers
@@ -683,13 +683,13 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
         for (const container of progressContainers) {
             const progressText = container.textContent || '';
             const ariaValue = container.getAttribute('aria-valuenow');
-            
+
             // Check aria-valuenow (standard progress bar)
             if (ariaValue && parseInt(ariaValue) >= 100) {
                 console.log("✅ Generation complete (aria-valuenow = 100)");
                 return true;
             }
-            
+
             // Check text in progress container only
             const percentMatch = progressText.match(/(\d+)\s*%/);
             if (percentMatch) {
@@ -721,10 +721,10 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
             const i = img as HTMLImageElement;
             const src = i.src || '';
             // Look for generated images (usually blob URLs or specific patterns)
-            return (src.startsWith('blob:') || src.includes('generated') || src.includes('result')) 
-                   && i.naturalWidth > 200 && i.naturalHeight > 200;
+            return (src.startsWith('blob:') || src.includes('generated') || src.includes('result'))
+                && i.naturalWidth > 200 && i.naturalHeight > 200;
         });
-        
+
         if (resultImages.length > 0) {
             console.log("✅ Generated image detected");
             await delay(1000); // Give it a moment to fully render
@@ -733,7 +733,7 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
 
         await delay(2000);
     }
-    
+
     console.warn("⚠️ Generation timeout reached");
     return false;
 };
@@ -741,19 +741,19 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
 const waitForVideoComplete = async (timeout = 300000): Promise<string | null> => {
     const startTime = Date.now();
     let lastProgress = -1;
-    
+
     console.log("⏳ Waiting for video generation...");
-    
+
     while (Date.now() - startTime < timeout) {
         // Strategy 1: Check progress percentage
         const allElements = findAllElementsDeep('div, span, p');
         for (const el of allElements) {
             const text = (el.textContent || '').trim();
             const rect = el.getBoundingClientRect();
-            
+
             // Only check small elements that likely show progress
             if (rect.width > 300 || rect.height > 100) continue;
-            
+
             const percentMatch = text.match(/^(\d+)\s*%$/);
             if (percentMatch) {
                 const progress = parseInt(percentMatch[1]);
@@ -768,7 +768,7 @@ const waitForVideoComplete = async (timeout = 300000): Promise<string | null> =>
                 }
             }
         }
-        
+
         // Strategy 2: Check for video element with src
         const videos = findAllElementsDeep('video');
         for (const v of videos) {
@@ -778,7 +778,7 @@ const waitForVideoComplete = async (timeout = 300000): Promise<string | null> =>
                 return vid.src;
             }
         }
-        
+
         // Strategy 3: Check for download button (indicates video is ready)
         const buttons = findAllElementsDeep('button, a');
         for (const btn of buttons) {
@@ -793,10 +793,10 @@ const waitForVideoComplete = async (timeout = 300000): Promise<string | null> =>
                 }
             }
         }
-        
+
         await delay(5000);
     }
-    
+
     console.warn("⚠️ Video generation timeout");
     return null;
 };
@@ -821,30 +821,30 @@ const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<bo
         const target = candidateImages[candidateImages.length - 1];
         const parent = target.closest('button, a, [role="button"], div[class*="card"], div[class*="result"]') || target;
         const hoverTarget = parent as HTMLElement;
-        
+
         console.log("✅ Found generated image, HOVERING to reveal buttons...");
 
         // HOVER simulation (mouseenter, mouseover, mousemove)
         const rect = hoverTarget.getBoundingClientRect();
-        const hoverOpts = { 
-            bubbles: true, 
-            cancelable: true, 
+        const hoverOpts = {
+            bubbles: true,
+            cancelable: true,
             view: window,
             clientX: rect.left + rect.width / 2,
             clientY: rect.top + rect.height / 2
         };
-        
+
         hoverTarget.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
         hoverTarget.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
         hoverTarget.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
-        
+
         // Wait for hover UI to appear
         console.log("⏳ Waiting for hover UI to appear...");
         await delay(2000);
 
         // ========== STEP 2: Click "เพิ่มไปยังพรอมต์" / "Add to prompt" ==========
         console.log("🔍 Looking for 'Add to prompt' button...");
-        
+
         const addToPromptTriggers = [
             ...selectors.generation.addToPromptTriggers,
             'เพิ่มไปยังพรอมต์',
@@ -860,7 +860,7 @@ const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<bo
         // Try to find and click the "Add to prompt" button
         for (let attempt = 1; attempt <= 5; attempt++) {
             console.log(`🔄 Looking for 'Add to prompt' (Attempt ${attempt})...`);
-            
+
             const buttons = findAllElementsDeep('button, [role="button"], a');
             for (const btn of buttons) {
                 const text = (btn.textContent || '').trim();
@@ -869,17 +869,17 @@ const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<bo
 
                 if (addToPromptTriggers.some(t => text.includes(t))) {
                     console.log(`✅ Found "Add to prompt" button: "${text}"`);
-                    
+
                     // Click it
                     const btnRect = btn.getBoundingClientRect();
-                    const btnClickOpts = { 
-                        bubbles: true, 
-                        cancelable: true, 
+                    const btnClickOpts = {
+                        bubbles: true,
+                        cancelable: true,
                         view: window,
                         clientX: btnRect.left + btnRect.width / 2,
                         clientY: btnRect.top + btnRect.height / 2
                     };
-                    
+
                     (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerdown', { ...btnClickOpts, pointerType: 'mouse' }));
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', btnClickOpts));
                     await delay(50);
@@ -887,13 +887,13 @@ const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<bo
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', btnClickOpts));
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('click', btnClickOpts));
                     (btn as HTMLElement).click();
-                    
+
                     console.log("✅ 'Add to prompt' clicked! Should transition to video mode...");
                     await delay(2000); // Wait for transition
                     return true;
                 }
             }
-            
+
             await delay(1000);
         }
 
@@ -917,128 +917,128 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
     // Step 1: First check if "Ingredients to Video" button is already visible (after Add to Prompt)
     console.log("🔍 Step 1: Looking for 'Ingredients to Video' button (combobox)...");
     let videoModeClicked = false;
-    
+
     for (let attempt = 1; attempt <= 3 && !videoModeClicked; attempt++) {
         console.log(`🔄 Attempt ${attempt} to find 'Ingredients to Video' button...`);
-        
+
         // Find button with role="combobox" that already shows "Ingredients to Video"
         const buttons = findAllElementsDeep('button[role="combobox"], button');
         for (const btn of buttons) {
             const text = (btn.textContent || '').trim();
             const rect = btn.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) continue;
-            
+
             // Check for arrow_drop_down icon inside
             const hasDropdownIcon = btn.querySelector('i.material-icons')?.textContent?.includes('arrow_drop_down');
-            
+
             // Check if button already shows "Ingredients to Video"
-            const isVideoModeButton = videoModeTriggers.some(trigger => 
+            const isVideoModeButton = videoModeTriggers.some(trigger =>
                 text.toLowerCase().includes(trigger.toLowerCase())
             );
-            
+
             if (isVideoModeButton && hasDropdownIcon) {
                 console.log(`✅ Found 'Ingredients to Video' button: "${text.substring(0, 40)}"`);
-                
+
                 // Click to confirm/proceed
-                const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width/2, clientY: rect.top + rect.height/2 };
+                const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
                 (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
                 await delay(50);
                 (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
                 (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
                 (btn as HTMLElement).click();
-                
+
                 videoModeClicked = true;
                 console.log("✅ Clicked 'Ingredients to Video' button!");
                 break;
             }
         }
-        
+
         if (!videoModeClicked) {
             await delay(1000);
         }
     }
-    
+
     // Fallback: If no "Ingredients to Video" button, try "Create Image" dropdown
     if (!videoModeClicked) {
         console.log("🔍 Fallback: Looking for 'Create Image' dropdown...");
-        
+
         for (let attempt = 1; attempt <= 3 && !videoModeClicked; attempt++) {
             const buttons = findAllElementsDeep('button[role="combobox"], button');
             for (const btn of buttons) {
                 const text = (btn.textContent || '').trim();
                 const rect = btn.getBoundingClientRect();
                 if (rect.width === 0 || rect.height === 0) continue;
-                
+
                 const hasDropdownIcon = btn.querySelector('i.material-icons')?.textContent?.includes('arrow_drop_down');
                 const matchesTrigger = dropdownTriggers.some(trigger => text.includes(trigger));
-                
+
                 if (matchesTrigger || (hasDropdownIcon && text.length < 30)) {
                     console.log(`✅ Found 'Create Image' dropdown: "${text.substring(0, 30)}"`);
-                    
-                    const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width/2, clientY: rect.top + rect.height/2 };
+
+                    const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
                     await delay(50);
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
                     (btn as HTMLElement).click();
-                    
+
                     videoModeClicked = true;
                     break;
                 }
             }
-            
+
             if (!videoModeClicked) {
                 await delay(1000);
             }
         }
     }
-    
+
     if (!videoModeClicked) {
         console.warn("⚠️ Could not find any dropdown button");
     }
-    
+
     // Wait for dropdown menu to appear
     await delay(2000);
-    
+
     // Step 2: ALWAYS look for "Ingredients to Video" menu item and click it
     // (Both "Ingredients to Video" button and "Create Image" button will open a dropdown menu)
     console.log("🔍 Step 2: Looking for 'Ingredients to Video' menu item in dropdown...");
     let menuItemClicked = false;
-    
+
     for (let attempt = 1; attempt <= 5 && !menuItemClicked; attempt++) {
         console.log(`🔄 Attempt ${attempt} to find menu item...`);
-        
+
         // Find all possible menu items
         const menuItems = findAllElementsDeep('div[role="menuitem"], div[role="option"], button, div, span');
         console.log(`   Found ${menuItems.length} elements`);
-        
+
         // Collect candidates with EXACT text match and small size
         let bestCandidate: Element | null = null;
         let bestSize = Infinity;
-        
+
         for (const item of menuItems) {
             const text = (item.textContent || '').trim();
             const rect = item.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) continue;
-            
+
             // Log relevant items (both Thai and English)
             if (text.includes('ส่วนผสม') || text.toLowerCase().includes('ingredients')) {
                 console.log(`   Candidate: "${text.substring(0, 40)}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
             }
-            
+
             // Check if text matches any video mode trigger from config
             // Size should be small (menu item ~100-250px wide, ~24-50px tall)
             const isSmallSize = rect.width < 300 && rect.height < 60;
             const matchesTrigger = videoModeTriggers.some(trigger => {
                 const lowerText = text.toLowerCase();
                 const lowerTrigger = trigger.toLowerCase();
-                return text === trigger || 
-                       text.endsWith(trigger) || 
-                       lowerText === lowerTrigger ||
-                       lowerText.endsWith(lowerTrigger) ||
-                       text.includes('photo_merge_auto' + trigger);
+                return text === trigger ||
+                    text.endsWith(trigger) ||
+                    lowerText === lowerTrigger ||
+                    lowerText.endsWith(lowerTrigger) ||
+                    text.includes('photo_merge_auto' + trigger);
             });
-            
+
             if (matchesTrigger && isSmallSize) {
                 const size = rect.width * rect.height;
                 if (size < bestSize) {
@@ -1048,27 +1048,27 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
                 }
             }
         }
-        
+
         if (bestCandidate) {
             const text = (bestCandidate.textContent || '').trim();
             const rect = bestCandidate.getBoundingClientRect();
             console.log(`✅ Clicking menu item: "${text}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
-            
-            const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width/2, clientY: rect.top + rect.height/2 };
+
+            const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
             (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
             await delay(50);
             (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
             (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
             (bestCandidate as HTMLElement).click();
-            
+
             menuItemClicked = true;
         }
-        
+
         if (!menuItemClicked) {
             await delay(1000);
         }
     }
-    
+
     if (!menuItemClicked) {
         console.warn("⚠️ Could not find 'Ingredients to Video' menu item");
     }
@@ -1083,35 +1083,59 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
 };
 
 // รอให้ทุก clip gen เสร็จ 100% ก่อน download
-const waitForAllClipsComplete = async (maxWaitMs: number = 300000): Promise<boolean> => {
-    console.log("⏳ Waiting for all clips to complete 100%...");
+const waitForAllClipsComplete = async (maxWaitMs: number = 300000, expectedClipCount: number = 0): Promise<boolean> => {
+    console.log(`⏳ Waiting for all clips to complete 100%... (Expected: ${expectedClipCount || 'unknown'} clips)`);
     const startTime = Date.now();
     const checkInterval = 3000; // เช็คทุก 3 วินาที
-    
+    let consecutiveCompleteChecks = 0; // ต้องเช็คผ่าน 2 ครั้งติดกัน
+
     while (Date.now() - startTime < maxWaitMs) {
-        // เช็คว่ามี loading/progress/spinner อยู่ไหม
+        // ===== 1. เช็คว่ามี loading/progress/spinner อยู่ไหม =====
         const loadingIndicators = findAllElementsDeep(
             '[class*="loading"], [class*="progress"], [class*="spinner"], ' +
             '[class*="generating"], [aria-busy="true"], [class*="pending"]'
         );
-        
+
         // กรองเฉพาะ element ที่ visible
         const visibleLoading = loadingIndicators.filter(el => {
             const rect = (el as HTMLElement).getBoundingClientRect();
             return rect.width > 0 && rect.height > 0;
         });
-        
-        // เช็คว่าปุ่ม download พร้อมใช้งานไหม (icon "download" ใน google-symbols)
+
+        // ===== 2. เช็ค progress percentage ของทุก clip =====
+        let allProgressAt100 = true;
+        let foundProgressElements = 0;
+        const allTextElements = findAllElementsDeep('div, span, p');
+
+        for (const el of allTextElements) {
+            const text = (el.textContent || '').trim();
+            const rect = (el as HTMLElement).getBoundingClientRect();
+
+            // มองหา percentage display (เช่น "50%", "100%")
+            if (rect.width > 0 && rect.width < 150 && rect.height > 0 && rect.height < 60) {
+                const percentMatch = text.match(/^(\d+)\s*%$/);
+                if (percentMatch) {
+                    const percent = parseInt(percentMatch[1]);
+                    foundProgressElements++;
+                    console.log(`  📊 Found progress: ${percent}%`);
+                    if (percent < 100) {
+                        allProgressAt100 = false;
+                    }
+                }
+            }
+        }
+
+        // ===== 3. เช็คว่าปุ่ม download พร้อมใช้งานไหม =====
         const downloadIcons = findAllElementsDeep('i.google-symbols');
         let downloadReady = false;
-        
+
         for (const icon of downloadIcons) {
             if (icon.textContent?.trim() === 'download') {
                 const btn = icon.closest('button');
                 if (btn) {
-                    const isDisabled = btn.hasAttribute('disabled') || 
-                                       btn.getAttribute('aria-disabled') === 'true' ||
-                                       btn.classList.contains('disabled');
+                    const isDisabled = btn.hasAttribute('disabled') ||
+                        btn.getAttribute('aria-disabled') === 'true' ||
+                        btn.classList.contains('disabled');
                     if (!isDisabled) {
                         downloadReady = true;
                         break;
@@ -1119,24 +1143,145 @@ const waitForAllClipsComplete = async (maxWaitMs: number = 300000): Promise<bool
                 }
             }
         }
-        
-        console.log(`  Checking: loading=${visibleLoading.length}, downloadReady=${downloadReady}`);
-        
-        // ถ้าไม่มี loading และปุ่ม download พร้อม = เสร็จแล้ว
-        if (visibleLoading.length === 0 && downloadReady) {
-            console.log("✅ All clips completed! Download button is ready.");
-            return true;
+
+        // ===== 4. เช็ค video thumbnails ในไทม์ไลน์ =====
+        const videoThumbnails = findAllElementsDeep('video').filter(v => {
+            const vid = v as HTMLVideoElement;
+            const rect = vid.getBoundingClientRect();
+            return rect.width > 20 && rect.height > 20 && vid.readyState >= 2;
+        });
+
+        console.log(`  Checking: loading=${visibleLoading.length}, progress100=${allProgressAt100}, downloadReady=${downloadReady}, videoThumbs=${videoThumbnails.length}`);
+
+        // ===== 5. ตรวจสอบว่าเสร็จสมบูรณ์หรือยัง =====
+        const isComplete = visibleLoading.length === 0 && downloadReady && allProgressAt100;
+
+        if (isComplete) {
+            consecutiveCompleteChecks++;
+            console.log(`  ✓ Completion check ${consecutiveCompleteChecks}/2 passed`);
+
+            // ต้องผ่านการเช็ค 2 ครั้งติดกัน เพื่อให้แน่ใจว่าไม่ใช่ flash state
+            if (consecutiveCompleteChecks >= 2) {
+                console.log("✅ All clips appear complete! Waiting 5 seconds for full render...");
+                await delay(5000);
+
+                // Double-check ครั้งสุดท้ายหลังจากรอ 5 วินาที
+                const finalLoadingCheck = findAllElementsDeep(
+                    '[class*="loading"], [class*="progress"], [class*="spinner"], [class*="generating"]'
+                ).filter(el => {
+                    const rect = (el as HTMLElement).getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                });
+
+                if (finalLoadingCheck.length === 0) {
+                    console.log("✅ Final check passed! All clips confirmed complete!");
+                    return true;
+                } else {
+                    console.log(`⚠️ Final check found ${finalLoadingCheck.length} loading elements, continuing to wait...`);
+                    consecutiveCompleteChecks = 0; // Reset counter
+                }
+            }
+        } else {
+            consecutiveCompleteChecks = 0; // Reset if not complete
+
+            // ถ้าไม่มี loading แต่ปุ่ม download ยังไม่พร้อม ให้รอเพิ่ม
+            if (visibleLoading.length === 0 && !downloadReady) {
+                console.log("  No loading but download not ready, waiting...");
+            }
         }
-        
-        // ถ้าไม่มี loading แต่ปุ่ม download ยังไม่พร้อม ให้รอเพิ่ม
-        if (visibleLoading.length === 0 && !downloadReady) {
-            console.log("  No loading but download not ready, waiting...");
-        }
-        
+
         await delay(checkInterval);
     }
-    
+
     console.warn("⚠️ Timeout waiting for clips to complete");
+    return false;
+};
+
+// รอให้ VideoFX export วิดีโอรวมเสร็จ (หลังกดปุ่ม Download)
+const waitForExportComplete = async (maxWaitMs: number = 180000): Promise<boolean> => {
+    console.log("⏳ Waiting for video export to complete...");
+    const startTime = Date.now();
+    const checkInterval = 2000;
+    let exportStarted = false;
+    let noExportFoundCount = 0;
+
+    while (Date.now() - startTime < maxWaitMs) {
+        // หา export progress indicators (dialog, modal, progress bar)
+        const allElements = findAllElementsDeep('div, span, p, dialog, [role="dialog"], [role="alertdialog"]');
+
+        let isExporting = false;
+        let exportProgress = '';
+
+        for (const el of allElements) {
+            const text = (el.textContent || '').trim().toLowerCase();
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            // เช็ค text ที่บอกว่ากำลัง export (Thai + English)
+            const exportKeywords = [
+                'exporting', 'rendering', 'processing', 'preparing',
+                'กำลังส่งออก', 'กำลังประมวลผล', 'กำลังเตรียม', 'กำลังสร้าง',
+                'generating', 'creating video', 'combining'
+            ];
+
+            for (const keyword of exportKeywords) {
+                if (text.includes(keyword)) {
+                    isExporting = true;
+                    exportProgress = text.substring(0, 50);
+                    break;
+                }
+            }
+
+            // เช็ค percentage ใน export dialog
+            const percentMatch = text.match(/(\d+)\s*%/);
+            if (percentMatch && rect.width > 100 && rect.width < 500) {
+                // อาจเป็น export progress
+                const percent = parseInt(percentMatch[1]);
+                if (percent > 0 && percent < 100) {
+                    isExporting = true;
+                    exportProgress = `${percent}%`;
+                }
+            }
+        }
+
+        // เช็ค modal/dialog ที่กำลังแสดง
+        const modals = findAllElementsDeep('[role="dialog"], [role="alertdialog"], [class*="modal"], [class*="dialog"]');
+        const visibleModals = modals.filter(m => {
+            const rect = (m as HTMLElement).getBoundingClientRect();
+            return rect.width > 50 && rect.height > 50;
+        });
+
+        if (isExporting || visibleModals.length > 0) {
+            exportStarted = true;
+            noExportFoundCount = 0;
+            console.log(`  📥 Export in progress... ${exportProgress}`);
+        } else if (exportStarted) {
+            noExportFoundCount++;
+            console.log(`  📥 Export dialog gone (check ${noExportFoundCount}/3)...`);
+
+            // ต้องเห็น dialog หายไป 3 ครั้งติดกัน (6 วินาที) ถึงจะถือว่าเสร็จ
+            if (noExportFoundCount >= 3) {
+                console.log("✅ Export completed! (dialog disappeared)");
+                await delay(2000); // รอเพิ่มให้ download เริ่ม
+                return true;
+            }
+        } else {
+            // ยังไม่เห็น export dialog เลย - อาจ download ตรงๆ
+            noExportFoundCount++;
+            console.log(`  📥 No export dialog found (check ${noExportFoundCount}/5)...`);
+
+            // ถ้าไม่เห็น export 5 ครั้งติดกัน (10 วินาที) = อาจไม่ต้อง export
+            if (noExportFoundCount >= 5) {
+                console.log("✅ No export dialog detected, download may proceed directly");
+                await delay(3000);
+                return true;
+            }
+        }
+
+        await delay(checkInterval);
+    }
+
+    console.warn("⚠️ Export wait timeout");
     return false;
 };
 
@@ -1149,14 +1294,24 @@ const handleVideoDownload = async (selectors: AutomationSelectors): Promise<stri
         if (icon.textContent?.trim() === 'download') {
             const btn = icon.closest('button') as HTMLElement;
             if (btn) {
-                console.log("✅ Found download button with google-symbols icon");
+                console.log("✅ Found download button, clicking...");
                 btn.click();
-                await delay(500);
-                return "Download Triggered via google-symbols";
+
+                // รอให้ VideoFX export วิดีโอรวมเสร็จ (สำหรับ multi-clip)
+                console.log("⏳ Waiting for export to complete (up to 3 mins)...");
+                const exportComplete = await waitForExportComplete(180000);
+
+                if (exportComplete) {
+                    console.log("✅ Export completed, download should be in progress!");
+                    return "Download Complete (Export Finished)";
+                } else {
+                    console.warn("⚠️ Export timeout, download may still work");
+                    return "Download Triggered (Export Status Unknown)";
+                }
             }
         }
     }
-    
+
     // 2. Fallback: Try clicking by text
     const downloadClicked = await clickByText(selectors.download.downloadButtonTriggers, 'button, a');
     if (downloadClicked) {
@@ -1347,7 +1502,7 @@ export const runTwoStagePipeline = async (
             console.warn("⚠️ Character upload failed, continuing anyway...");
         }
         await delay(2000); // Wait for dialog to close
-        
+
         report("Uploading Product...", 5, 12);
         console.log("📷 Uploading Product Image...");
         const productUploadSuccess = await uploadSingleImage(config.productImage, 2, selectors);
@@ -1355,7 +1510,7 @@ export const runTwoStagePipeline = async (
             console.warn("⚠️ Product upload failed, continuing anyway...");
         }
         await delay(2000);
-        
+
         if (!charUploadSuccess && !productUploadSuccess) {
             throw new Error("Failed to upload any images.");
         }
@@ -1415,7 +1570,7 @@ export const runTwoStagePipeline = async (
         // Always return the actual video source URL for the overlay to display
         // downloadResult may be "Manual Download Triggered" which is not a valid URL
         const isValidVideoUrl = downloadResult && downloadResult.startsWith('http');
-        
+
         return {
             success: true,
             generatedImageUrl: "Process Complete",
@@ -1544,7 +1699,7 @@ const clickAddClipButton = async (): Promise<boolean> => {
         const el = element as HTMLElement;
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await delay(300);
-        
+
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return false;
 
@@ -1560,21 +1715,21 @@ const clickAddClipButton = async (): Promise<boolean> => {
         await delay(50);
         el.dispatchEvent(new MouseEvent('mouseup', { ...mouseOpts, button: 0 }));
         el.dispatchEvent(new MouseEvent('click', { ...mouseOpts, button: 0 }));
-        
+
         // Method 2: Pointer events
         el.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
         await delay(50);
         el.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
-        
+
         // Method 3: Direct click
         el.click();
-        
+
         // Method 4: Focus + Enter
         el.focus();
         await delay(50);
         el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
         el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-        
+
         return true;
     };
 
@@ -1642,10 +1797,10 @@ const clickAddClipButton = async (): Promise<boolean> => {
     await delay(2000);
 
     console.log("🔍 Step 2: Looking for 'Extend...' / 'ขยาย' menu item...");
-    
+
     for (let attempt = 1; attempt <= 10; attempt++) {
         console.log(`🔄 Attempt ${attempt}/10 to find Extend button...`);
-        
+
         // หา menu items ทั้งหมด
         const menuItems = [
             ...findAllElementsDeep('[role="menuitem"]'),
@@ -1653,26 +1808,26 @@ const clickAddClipButton = async (): Promise<boolean> => {
             ...findAllElementsDeep('button'),
             ...findAllElementsDeep('span')
         ];
-        
+
         console.log(`  Found ${menuItems.length} potential elements`);
-        
+
         // เก็บปุ่ม Extend/ขยาย ที่หาเจอ
         const extendButtons: { element: Element, right: number }[] = [];
-        
+
         for (const el of menuItems) {
             const text = (el.textContent || '').trim().toLowerCase();
             const rect = (el as HTMLElement).getBoundingClientRect();
-            
+
             // หาทั้ง "extend" (EN) และ "ขยาย" (TH)
             const isExtendButton = text.includes('extend') || text.includes('ขยาย');
-            
+
             if (isExtendButton && rect.width > 0 && rect.height > 0) {
                 const clickTarget = el.closest('[role="menuitem"]') || el.closest('button') || el;
                 extendButtons.push({ element: clickTarget, right: rect.right });
                 console.log(`  Found Extend/ขยาย: "${text.substring(0, 20)}" at x=${rect.right.toFixed(0)}`);
             }
         }
-        
+
         // Method 2: Find by icon "logout" (ลูกศรออก) - icon ของปุ่ม Extend
         const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i');
         for (const icon of icons) {
@@ -1690,21 +1845,21 @@ const clickAddClipButton = async (): Promise<boolean> => {
                 }
             }
         }
-        
+
         console.log(`  Total Extend buttons found: ${extendButtons.length}`);
-        
+
         // เลือกปุ่มที่อยู่ขวาสุด (เป็นของ clip ใหม่ล่าสุด)
         if (extendButtons.length > 0) {
             extendButtons.sort((a, b) => b.right - a.right);
             const targetBtn = extendButtons[0];
-            
+
             console.log(`✅ Clicking Extend button at x=${targetBtn.right.toFixed(0)}`);
             await robustClick(targetBtn.element);
             console.log("✅ 'Extend' clicked! Waiting for expand view to fully load...");
-            
+
             // รอนานขึ้นให้ expand view โหลดเสร็จสมบูรณ์ (4 วินาที)
             await delay(4000);
-            
+
             // ตรวจสอบว่า expand view เปิดจริง โดยหา prompt textarea
             console.log("🔍 Verifying expand view is open...");
             for (let verifyAttempt = 1; verifyAttempt <= 5; verifyAttempt++) {
@@ -1720,11 +1875,11 @@ const clickAddClipButton = async (): Promise<boolean> => {
                 console.log(`  Verify attempt ${verifyAttempt}/5 - waiting...`);
                 await delay(1000);
             }
-            
+
             console.log("⚠️ Expand view may not be fully open, but continuing...");
             return true;
         }
-        
+
         await delay(800);
     }
 
@@ -1741,23 +1896,23 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
 
     // Find the prompt textarea - look for "เหตุการณ์นี้เกิดขึ้นแล้ว" or similar
     const textareas = findAllElementsDeep('textarea, [contenteditable="true"], input[type="text"]');
-    
+
     let promptInput: HTMLElement | null = null;
-    
+
     for (const ta of textareas) {
         const placeholder = (ta as HTMLInputElement).placeholder || '';
         const ariaLabel = ta.getAttribute('aria-label') || '';
         const rect = ta.getBoundingClientRect();
-        
+
         // Check if it's the prompt input
         if (rect.width > 100 && rect.height > 20) {
-            const isPromptInput = 
+            const isPromptInput =
                 placeholder.includes('เหตุการณ์') ||
                 placeholder.includes('Describe') ||
                 placeholder.includes('prompt') ||
                 placeholder.includes('ฉาก') ||
                 ariaLabel.includes('prompt');
-            
+
             if (isPromptInput || textareas.length === 1) {
                 promptInput = ta as HTMLElement;
                 break;
@@ -1804,17 +1959,17 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
     // Click generate button (arrow_forward icon) - ใช้วิธีเดียวกับ fillPromptAndGenerate
     console.log("🔍 Looking for Generate button (arrow_forward)...");
     await delay(1500);
-    
+
     let targetBtn: HTMLElement | null = null;
-    
+
     // METHOD 1: Find button with google-symbols icon "arrow_forward" (เหมือน fillPromptAndGenerate)
     const arrowForwardIcons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"]');
     console.log(`🔍 Found ${arrowForwardIcons.length} google-symbols icons`);
-    
+
     for (const icon of arrowForwardIcons) {
         const iconText = icon.textContent?.trim();
         console.log(`   Icon: "${iconText}"`);
-        
+
         // ONLY accept arrow_forward - this is THE generate button
         if (iconText === 'arrow_forward') {
             const parentBtn = icon.closest('button');
@@ -1829,13 +1984,13 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
             }
         }
     }
-    
+
     // METHOD 2: Text Match Fallback (สร้าง, generate)
     if (!targetBtn) {
         console.log("🔍 Method 2: Looking for button with generate text...");
         const allButtons = findAllElementsDeep('button, [role="button"]');
         const generateKeywords = ['generate', 'create', 'run', 'make', 'send', 'submit', 'ส่ง', 'สร้าง'];
-        
+
         for (const btn of allButtons) {
             const text = (btn.textContent || '').toLowerCase().trim();
             const label = (btn.getAttribute('aria-label') || '').toLowerCase();
@@ -1852,44 +2007,44 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
             }
         }
     }
-    
+
     // METHOD 3: Find rightmost small circular button
     if (!targetBtn) {
         console.log("🔍 Method 3: Looking for rightmost circular button...");
         const allButtons = findAllElementsDeep('button, [role="button"]');
         let rightmostBtn: HTMLElement | null = null;
         let maxRight = 0;
-        
+
         for (const btn of allButtons) {
             const rect = btn.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) continue;
-            
+
             const isCircular = rect.width > 30 && rect.width < 80 && Math.abs(rect.width - rect.height) < 15;
-            
+
             if (isCircular && rect.right > maxRight) {
                 maxRight = rect.right;
                 rightmostBtn = btn as HTMLElement;
             }
         }
-        
+
         if (rightmostBtn) {
             targetBtn = rightmostBtn;
             console.log(`🎯 Found rightmost circular button at x=${maxRight}`);
         }
     }
-    
+
     // CLICK THE BUTTON
     if (targetBtn) {
         console.log("🖱️ Clicking generate button...");
-        
+
         targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await delay(300);
-        
+
         const rect = targetBtn.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
         const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY };
-        
+
         targetBtn.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
         targetBtn.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
         await delay(100);
@@ -1901,7 +2056,7 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
         await delay(50);
         targetBtn.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
         targetBtn.click();
-        
+
         console.log("✅ Generate clicked for next scene!");
         return true;
     }
@@ -1931,16 +2086,20 @@ export const runMultiScenePipeline = async (
 ): Promise<{
     success: boolean;
     videoUrl?: string;
+    videoUrls?: string[];  // Array of all clip URLs for multi-scene
     error?: string;
 }> => {
     const { sceneCount, sceneScripts } = config;
     const totalSteps = sceneCount === 1 ? 12 : 12 + (sceneCount - 1) * 4;
-    
+
     console.log(`🚀 Starting Multi-Scene Pipeline - ${sceneCount} scene(s)`);
     console.log(`📝 Scene Scripts:`, sceneScripts);
 
     // Reset upload state
     resetUploadState();
+
+    // Array to collect all video URLs for multi-scene
+    const videoUrls: string[] = [];
 
     const report = (step: string, current: number, total: number) => {
         if (onProgress) onProgress(step, current, total);
@@ -2021,7 +2180,7 @@ export const runMultiScenePipeline = async (
         report("Generating Scene 1...", 9, totalSteps);
         // Scene 1 uses full videoPrompt but ONLY with Scene 1 script (remove Scene 2, 3 scripts)
         let scene1Prompt = config.videoPrompt || sceneScripts[0] || config.imagePrompt;
-        
+
         // If videoPrompt contains multiple scenes, keep only Scene 1 script
         if (scene1Prompt.includes('🎬 ฉาก 2:') || scene1Prompt.includes('🎬 ฉาก 3:')) {
             // Remove Scene 2 and Scene 3 scripts from the prompt
@@ -2032,12 +2191,16 @@ export const runMultiScenePipeline = async (
                 .trim();
             console.log("📝 Scene 1 prompt cleaned - removed Scene 2, 3 scripts");
         }
-        
+
         await switchToVideoModeAndGenerate(scene1Prompt, selectors);
 
         report("Waiting for Video 1...", 10, totalSteps);
         const video1Src = await waitForVideoComplete(300000);
         if (!video1Src) throw new Error("Video 1 Generation Timeout");
+
+        // เก็บ URL ของ scene 1
+        videoUrls.push(video1Src);
+        console.log(`📹 Collected video URL 1: ${video1Src.substring(0, 50)}...`);
 
         console.log("✅ Scene 1 Video Complete!");
 
@@ -2046,11 +2209,12 @@ export const runMultiScenePipeline = async (
             report("Downloading...", 11, totalSteps);
             await delay(2000);
             const downloadResult = await handleVideoDownload(selectors);
-            
+
             report("Complete!", 12, totalSteps);
             return {
                 success: true,
-                videoUrl: downloadResult?.startsWith('http') ? downloadResult : video1Src
+                videoUrl: downloadResult?.startsWith('http') ? downloadResult : video1Src,
+                videoUrls: videoUrls  // Single scene = array with 1 element
             };
         }
 
@@ -2069,7 +2233,7 @@ export const runMultiScenePipeline = async (
         // Generate additional scenes
         console.log("📋 Scene Scripts Array:", sceneScripts);
         console.log("📋 Scene Scripts Length:", sceneScripts.length);
-        
+
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
             const sceneNum = sceneIndex + 1;
             const stepBase = 12 + (sceneIndex - 1) * 4;
@@ -2080,7 +2244,7 @@ export const runMultiScenePipeline = async (
             // ===== STEP 1: Click + button to add new clip =====
             report(`Adding Clip ${sceneNum}...`, stepBase, totalSteps);
             console.log(`\n🎯 STEP 1: Click + and Extend for Scene ${sceneNum}...`);
-            
+
             const clipAdded = await clickAddClipButton();
             if (!clipAdded) {
                 console.warn(`⚠️ Could not add clip ${sceneNum} - clickAddClipButton failed`);
@@ -2095,29 +2259,48 @@ export const runMultiScenePipeline = async (
             console.log(`\n🎯 STEP 2: Filling prompt for Scene ${sceneNum}...`);
             report(`Filling Scene ${sceneNum} Prompt...`, stepBase + 1, totalSteps);
             await delay(2000); // รอ 2 วินาทีก่อนใส่ prompt
-            
+
             // Get the script for this scene (index 1 = scene 2, index 2 = scene 3)
             const basePrompt = sceneScripts[sceneIndex];
-            
+
             if (!basePrompt || basePrompt.trim() === '') {
                 console.error(`❌ ERROR: No script found for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
                 continue;
             }
-            
+
             console.log(`📝 Base Prompt for Scene ${sceneNum}: "${basePrompt.substring(0, 80)}..."`);
-            
-            // Add voice consistency + story continuity instruction (ภาษาไทย)
+
+            // Determine scene role in advertisement structure
+            const sceneRole = sceneNum === 2 ? 'DEMO (โชว์การใช้งาน/คุณสมบัติหลัก)' : 'CLOSING (สรุปและ Call-to-Action)';
+            const totalScenes = sceneCount;
+
+            // Enhanced consistency instructions (Thai + English for VideoFX)
             const scenePrompt = `${basePrompt}
 
-[ข้อกำหนดสำคัญ:]
-1. เสียงเดียวกัน: ใช้เสียง น้ำเสียง และสไตล์การพูดเหมือนกับฉาก 1 ทุกประการ
-2. คนเดียวกัน: รักษาใบหน้า รูปร่าง เสื้อผ้า ให้เหมือนกับฉาก 1 ทุกประการ
-3. ภาษาเดียวกัน: ใช้ภาษาเดียวกันกับฉาก 1 (ภาษาไทย) ห้ามเปลี่ยนภาษา
-4. เรื่องราวต่อเนื่อง: นี่คือฉากต่อเนื่องจากฉากก่อนหน้า เหตุการณ์ต้องไหลลื่นต่อกัน
-5. การเชื่อมต่อราบรื่น: การกระทำต้องต่อเนื่องจากจุดที่ฉาก ${sceneNum - 1} จบลง`;
-            
+[🎬 ข้อกำหนดสำคัญสำหรับฉาก ${sceneNum}/${totalScenes}:]
+
+🎭 ความต่อเนื่องของตัวละคร (CHARACTER CONSISTENCY):
+- ใช้คนเดียวกับฉาก 1 ทุกประการ: หน้าตา ผิวพรรณ ทรงผม เสื้อผ้า
+- เสียงพากย์เดียวกัน: น้ำเสียง สำเนียง ความเร็วการพูด เหมือนฉาก 1
+- ภาษาเดียวกัน: ใช้ภาษาไทยตลอด ห้ามเปลี่ยนภาษา
+
+📦 ความต่อเนื่องของสินค้า (PRODUCT CONSISTENCY):
+- รักษาสินค้าเดียวกับฉาก 1: packaging, สี, รูปทรง, ขนาด ต้องเหมือนกัน
+- ถือสินค้าด้วยมือเดียวกัน ในมุมที่คล้ายกัน
+- สินค้าต้องเด่นชัดในเฟรม
+
+📖 โครงสร้างโฆษณา (AD STRUCTURE):
+- ฉากนี้คือ: ${sceneRole}
+- ต่อเนื่องจากฉาก ${sceneNum - 1} โดยตรง
+- การกระทำต้องไหลลื่นจากจุดที่ฉากก่อนหน้าจบลง
+
+🔗 การเชื่อมต่อเรื่องราว (STORY CONTINUITY):
+- ห้ามเริ่มใหม่ ห้ามเปลี่ยนฉากหลัง ห้ามเปลี่ยนมุมกล้องอย่างกระทันหัน
+- เหตุการณ์ต้องต่อเนื่องราวกับตัดจากคลิปเดียวกัน
+- อารมณ์และพลังงานต้องไหลต่อจากฉากก่อนหน้า`;
+
             console.log(`📝 Full Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
-            
+
             // ===== STEP 3: Fill prompt and generate =====
             console.log(`\n🎯 STEP 3: Fill prompt and click Generate for Scene ${sceneNum}...`);
             const promptFilled = await fillNextScenePromptAndGenerate(scenePrompt, selectors);
@@ -2125,7 +2308,7 @@ export const runMultiScenePipeline = async (
                 console.warn(`⚠️ Could not fill prompt for scene ${sceneNum}`);
                 continue;
             }
-            
+
             // รอ 3 วินาทีหลังกด generate
             console.log(`⏳ Waiting 3 seconds after clicking generate...`);
             await delay(3000);
@@ -2139,9 +2322,13 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
+            // เก็บ URL ของ scene นี้
+            videoUrls.push(sceneVideoSrc);
+            console.log(`📹 Collected video URL ${sceneNum}: ${sceneVideoSrc.substring(0, 50)}...`);
+
             console.log(`✅ Scene ${sceneNum} Complete!`);
             report(`Scene ${sceneNum} Done!`, stepBase + 3, totalSteps);
-            
+
             // ===== รอ 5 วินาทีก่อนทำฉากถัดไป =====
             if (sceneIndex < sceneCount - 1) {
                 console.log(`\n⏳ Waiting 5 seconds before starting next scene...`);
@@ -2151,8 +2338,8 @@ export const runMultiScenePipeline = async (
 
         // รอให้ทุก clip gen เสร็จ 100% ก่อน download
         report("Waiting for all clips to complete 100%...", totalSteps - 2, totalSteps);
-        const allComplete = await waitForAllClipsComplete(300000); // รอสูงสุด 5 นาที
-        
+        const allComplete = await waitForAllClipsComplete(300000, sceneCount); // รอสูงสุด 5 นาที, ส่งจำนวนฉากไปด้วย
+
         if (!allComplete) {
             console.warn("⚠️ Some clips may not be complete, attempting download anyway...");
         }
@@ -2164,9 +2351,14 @@ export const runMultiScenePipeline = async (
 
         report("All Scenes Complete!", totalSteps, totalSteps);
 
+        // Log summary of collected URLs
+        console.log(`🎬 Video collection complete! Total: ${videoUrls.length} clips`);
+        videoUrls.forEach((url, i) => console.log(`  Clip ${i + 1}: ${url.substring(0, 60)}...`));
+
         return {
             success: true,
-            videoUrl: finalDownload?.startsWith('http') ? finalDownload : video1Src
+            videoUrl: finalDownload?.startsWith('http') ? finalDownload : video1Src,
+            videoUrls: videoUrls  // Array ของ URL ทุก clip สำหรับเล่นต่อเนื่อง
         };
 
     } catch (error: any) {

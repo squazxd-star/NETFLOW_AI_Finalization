@@ -113,12 +113,13 @@ const renderRoot = ReactDOM.createRoot(shadowRoot);
 
 const ContentScriptApp = () => {
     const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
+    const [videoUrls, setVideoUrls] = React.useState<string[]>([]);  // Array for multi-scene
     const [isAutomationRunning, setIsAutomationRunning] = React.useState(false);
     const [currentStep, setCurrentStep] = React.useState("Initializing...");
     const [stepNumber, setStepNumber] = React.useState(0);
     const [totalSteps, setTotalSteps] = React.useState(12);
     const [currentSceneCount, setCurrentSceneCount] = React.useState(1);
-    
+
     // คำนวณ totalSteps ตามจำนวนฉาก
     const calculateTotalSteps = (sceneCount: number): number => {
         // 1 ฉาก: 12 steps (upload, gen image, select, gen video, download)
@@ -126,7 +127,7 @@ const ContentScriptApp = () => {
         // 3 ฉาก: 20 steps (+ add clip, fill prompt, gen video scene 3, wait)
         return 12 + (sceneCount - 1) * 4;
     };
-    
+
     // สร้าง step labels ตามจำนวนฉาก
     const getStepLabel = (step: number, sceneCount: number): string => {
         const baseSteps = [
@@ -142,16 +143,16 @@ const ContentScriptApp = () => {
             `กำลังสร้างวิดีโอฉาก 1...`,            // 10
             "กำลังรอวิดีโอฉาก 1...",               // 11
         ];
-        
+
         if (step <= 11) {
             return baseSteps[step - 1] || `ขั้นตอนที่ ${step}`;
         }
-        
+
         // สำหรับ multi-scene
         if (sceneCount > 1) {
             const sceneIndex = Math.floor((step - 12) / 4) + 2; // ฉากที่ 2, 3...
             const sceneStep = (step - 12) % 4;
-            
+
             if (sceneIndex <= sceneCount) {
                 switch (sceneStep) {
                     case 0: return `กำลังเพิ่มคลิปฉาก ${sceneIndex}...`;
@@ -161,12 +162,12 @@ const ContentScriptApp = () => {
                 }
             }
         }
-        
+
         // ขั้นตอนสุดท้าย
         const total = calculateTotalSteps(sceneCount);
         if (step === total - 1) return "กำลังรอทุกคลิปเสร็จ 100%...";
         if (step === total) return "กำลังดาวน์โหลด...";
-        
+
         return `ขั้นตอนที่ ${step}`;
     };
 
@@ -190,7 +191,7 @@ const ContentScriptApp = () => {
 
                 const payload = message.payload;
                 console.log("📦 Received payload:", payload);
-                
+
                 const {
                     characterImage,
                     productImage,
@@ -219,7 +220,7 @@ const ContentScriptApp = () => {
                 // Determine scene count (default 1 if not specified)
                 const sceneCount = payloadSceneCount || Math.max(1, Math.floor((clipDuration || 8) / 8));
                 console.log(`🎬 Scene Count: ${sceneCount}`);
-                
+
                 // ตั้งค่า overlay state
                 setCurrentSceneCount(sceneCount);
                 setTotalSteps(calculateTotalSteps(sceneCount));
@@ -236,29 +237,29 @@ const ContentScriptApp = () => {
                     console.log("📝 Using explicit prompts from Workflow Control");
                     imagePrompt = explicitImagePrompt;
                     videoPrompt = explicitVideoPrompt;  // Full prompt for Scene 1
-                    
+
                     // Parse individual scene scripts for Scene 2+
                     console.log("🔍 Parsing scene scripts from prompt...");
-                    
+
                     // Try multiple regex patterns
                     let sceneMatches: string[] | null = null;
-                    
+
                     // Pattern 1: Curly double quotes ""
                     sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
                     console.log("  Pattern 1 (curly double):", sceneMatches?.length || 0);
-                    
+
                     // Pattern 2: Regular double quotes ""
                     if (!sceneMatches || sceneMatches.length === 0) {
                         sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
                         console.log("  Pattern 2 (regular double):", sceneMatches?.length || 0);
                     }
-                    
+
                     // Pattern 3: Any quotes variation
                     if (!sceneMatches || sceneMatches.length === 0) {
                         sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*["""''']([^"""''']+)["""''']/g);
                         console.log("  Pattern 3 (any quotes):", sceneMatches?.length || 0);
                     }
-                    
+
                     if (sceneMatches && sceneMatches.length > 0) {
                         sceneScripts = sceneMatches.map((m, idx) => {
                             // Extract text between any type of quotes
@@ -268,7 +269,7 @@ const ContentScriptApp = () => {
                         });
                         console.log("✅ Parsed scene scripts count:", sceneScripts.length);
                     }
-                    
+
                     if (sceneScripts.length === 0) {
                         console.warn("⚠️ Could not parse scene scripts, using full prompt for all scenes");
                         sceneScripts = Array(sceneCount).fill(explicitVideoPrompt);
@@ -301,21 +302,21 @@ const ContentScriptApp = () => {
                             const prompts = await generatePrompts(promptConfig);
                             imagePrompt = prompts.imagePrompt;
                             videoPrompt = prompts.videoPrompt;  // Full prompt for Scene 1
-                            
+
                             // Parse individual scene scripts for Scene 2+
                             console.log("🔍 AI: Parsing scene scripts...");
                             let sceneMatches: string[] | null = null;
-                            
+
                             // Pattern 1: Curly double quotes ""
                             sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
                             console.log("  Pattern 1:", sceneMatches?.length || 0);
-                            
+
                             // Pattern 2: Regular double quotes ""
                             if (!sceneMatches || sceneMatches.length === 0) {
                                 sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
                                 console.log("  Pattern 2:", sceneMatches?.length || 0);
                             }
-                            
+
                             if (sceneMatches && sceneMatches.length > 0) {
                                 sceneScripts = sceneMatches.map((m, idx) => {
                                     const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
@@ -323,7 +324,7 @@ const ContentScriptApp = () => {
                                     return extracted;
                                 });
                             }
-                            
+
                             if (sceneScripts.length === 0) {
                                 console.warn("⚠️ Could not parse AI scene scripts, using full prompt");
                                 sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
@@ -364,7 +365,7 @@ const ContentScriptApp = () => {
                 console.log("📋 Final Config:");
                 console.log("  Image Prompt:", imagePrompt.substring(0, 100) + "...");
                 console.log("  Scene Count:", sceneCount);
-                console.log("  Scene Scripts:", sceneScripts.map((s, i) => `Scene ${i+1}: ${s.substring(0, 50)}...`));
+                console.log("  Scene Scripts:", sceneScripts.map((s, i) => `Scene ${i + 1}: ${s.substring(0, 50)}...`));
 
                 try {
                     const result = await runMultiScenePipeline({
@@ -392,10 +393,17 @@ const ContentScriptApp = () => {
                             setVideoUrl(result.videoUrl);
                         }
 
+                        // เก็บ videoUrls array สำหรับ multi-scene playback
+                        if (result.videoUrls && result.videoUrls.length > 0) {
+                            console.log(`🎬 Collected ${result.videoUrls.length} video URLs for playback`);
+                            setVideoUrls(result.videoUrls);
+                        }
+
                         // Notify the extension popup
                         chrome.runtime.sendMessage({
                             type: 'VIDEO_GENERATION_COMPLETE',
-                            videoUrl: result.videoUrl
+                            videoUrl: result.videoUrl,
+                            videoUrls: result.videoUrls  // ส่ง array ไปด้วย
                         });
                     } else {
                         console.error("❌ Pipeline failed:", result.error);
@@ -474,7 +482,7 @@ const ContentScriptApp = () => {
 
         console.log("✨ Automation Sequence Complete. Ready for User to clicking Generate.");
     };
-    
+
     // Handler สำหรับหยุด automation
     const handleStopAutomation = () => {
         console.log("🛑 User requested to stop automation");
@@ -494,7 +502,11 @@ const ContentScriptApp = () => {
             {videoUrl && (
                 <VideoResultOverlay
                     videoUrl={videoUrl}
-                    onClose={() => setVideoUrl(null)}
+                    videoUrls={videoUrls}
+                    onClose={() => {
+                        setVideoUrl(null);
+                        setVideoUrls([]);
+                    }}
                 />
             )}
         </>
