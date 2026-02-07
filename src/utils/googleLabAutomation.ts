@@ -2539,39 +2539,73 @@ export const runMultiScenePipeline = async (
         console.log("📹 Collecting all video URLs from timeline...");
         report("Collecting Videos...", totalSteps - 1, totalSteps);
 
-        // หา video elements ทั้งหมดใน timeline
-        await delay(2000);
-        const allVideos = findAllElementsDeep('video');
-        const completedVideos = allVideos.filter(v => {
-            const video = v as HTMLVideoElement;
-            const hasSource = video.src && (video.src.includes('blob:') || video.src.includes('http'));
-            const isPlayable = video.readyState >= 2;
-            const hasSize = video.videoWidth > 100 && video.videoHeight > 100;
-            return hasSource && (isPlayable || hasSize);
-        });
+        // รอ 5 วินาทีให้ทุกคลิป render เสร็จ
+        await delay(5000);
 
-        console.log(`📹 Found ${completedVideos.length} completed videos`);
+        // หา video elements ทั้งหมด - ค้นหาหลายครั้ง
+        let allVideoSrcs: string[] = [];
 
-        // เก็บ URLs (ไม่ซ้ำกัน)
-        const uniqueUrls = new Set<string>();
-        uniqueUrls.add(video1Src); // เพิ่ม Scene 1
+        for (let searchAttempt = 1; searchAttempt <= 5; searchAttempt++) {
+            console.log(`📹 Search attempt ${searchAttempt}/5 for video elements...`);
 
-        for (const video of completedVideos) {
-            const src = (video as HTMLVideoElement).src;
-            if (src && !uniqueUrls.has(src)) {
-                uniqueUrls.add(src);
-                console.log(`  📹 Video URL: ${src.substring(0, 50)}...`);
+            // หา video elements ทั้งหมด
+            const allVideos = findAllElementsDeep('video');
+            console.log(`  Found ${allVideos.length} video elements total`);
+
+            // Filter เฉพาะ video ที่มี src
+            for (const v of allVideos) {
+                const video = v as HTMLVideoElement;
+                const src = video.src;
+                const currentSrc = video.currentSrc;
+
+                // Log ทุก video ที่เจอ
+                console.log(`  Video: src=${src?.substring(0, 50) || 'none'}, currentSrc=${currentSrc?.substring(0, 50) || 'none'}`);
+
+                // เก็บทั้ง src และ currentSrc
+                if (src && (src.includes('blob:') || src.includes('http'))) {
+                    if (!allVideoSrcs.includes(src)) {
+                        allVideoSrcs.push(src);
+                        console.log(`  ✅ Added video src: ${src.substring(0, 60)}...`);
+                    }
+                }
+                if (currentSrc && currentSrc !== src && (currentSrc.includes('blob:') || currentSrc.includes('http'))) {
+                    if (!allVideoSrcs.includes(currentSrc)) {
+                        allVideoSrcs.push(currentSrc);
+                        console.log(`  ✅ Added video currentSrc: ${currentSrc.substring(0, 60)}...`);
+                    }
+                }
+            }
+
+            console.log(`  Total unique URLs found so far: ${allVideoSrcs.length}`);
+
+            // ถ้าเจอครบตามที่ต้องการ ออกจาก loop
+            if (allVideoSrcs.length >= sceneCount) {
+                console.log(`✅ Found ${allVideoSrcs.length} videos, matches expected ${sceneCount} scenes!`);
+                break;
+            }
+
+            // รอก่อนหาใหม่
+            if (searchAttempt < 5) {
+                await delay(2000);
             }
         }
 
-        // เพิ่มเข้า videoUrls array
-        for (const url of uniqueUrls) {
+        // เพิ่ม video1Src ถ้ายังไม่อยู่ใน list
+        if (video1Src && !allVideoSrcs.includes(video1Src)) {
+            allVideoSrcs.unshift(video1Src); // เพิ่มไว้หน้าสุดเป็น Scene 1
+            console.log(`📹 Added Scene 1 URL: ${video1Src.substring(0, 60)}...`);
+        }
+
+        // เพิ่มเข้า videoUrls array (ไม่ซ้ำ)
+        videoUrls.length = 0; // Clear ก่อน
+        for (const url of allVideoSrcs) {
             if (!videoUrls.includes(url)) {
                 videoUrls.push(url);
             }
         }
 
         console.log(`✅ Collected ${videoUrls.length} video URLs total`);
+        videoUrls.forEach((url, i) => console.log(`  Clip ${i + 1}: ${url.substring(0, 70)}...`));
 
         // Final download
         report("Downloading Final Video...", totalSteps - 1, totalSteps);
