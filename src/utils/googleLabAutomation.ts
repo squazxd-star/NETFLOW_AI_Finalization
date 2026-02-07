@@ -2512,36 +2512,64 @@ export const runMultiScenePipeline = async (
             console.log(`⏳ Waiting 3 seconds after clicking generate...`);
             await delay(3000);
 
-            // ===== STEP 4: Wait for video generation =====
-            console.log(`\n🎯 STEP 4: Waiting for Scene ${sceneNum} video to complete...`);
-            report(`Generating Scene ${sceneNum}...`, stepBase + 2, totalSteps);
-            const sceneVideoSrc = await waitForVideoComplete(300000);
-            if (!sceneVideoSrc) {
-                console.warn(`⚠️ Scene ${sceneNum} generation timeout`);
-                continue;
-            }
+            // ===== SKIP WAITING - Just queue and move to next scene =====
+            // VideoFX จะ gen ฉากนี้อยู่เบื้องหลัง เราไปเพิ่มฉากถัดไปเลย
+            console.log(`✅ Scene ${sceneNum} queued for generation! Moving to next scene...`);
+            report(`Scene ${sceneNum} Queued`, stepBase + 2, totalSteps);
 
-            // เก็บ URL ของ scene นี้
-            videoUrls.push(sceneVideoSrc);
-            console.log(`📹 Collected video URL ${sceneNum}: ${sceneVideoSrc.substring(0, 50)}...`);
-
-            console.log(`✅ Scene ${sceneNum} Complete!`);
-            report(`Scene ${sceneNum} Done!`, stepBase + 3, totalSteps);
-
-            // ===== รอ 5 วินาทีก่อนทำฉากถัดไป =====
+            // รอ 3 วินาทีก่อนเพิ่มฉากถัดไป (ให้ UI พร้อม)
             if (sceneIndex < sceneCount - 1) {
-                console.log(`\n⏳ Waiting 5 seconds before starting next scene...`);
-                await delay(5000);
+                console.log(`\n⏳ Waiting 3 seconds before adding next scene...`);
+                await delay(3000);
             }
         }
 
-        // รอให้ทุก clip gen เสร็จ 100% ก่อน download
-        report("Waiting for all clips to complete 100%...", totalSteps - 2, totalSteps);
+        // ===== รอให้ทุกฉาก gen เสร็จพร้อมกัน =====
+        console.log(`\n🎬 All ${sceneCount} scenes queued! Waiting for all to complete...`);
+        report(`Waiting for all ${sceneCount} scenes...`, totalSteps - 2, totalSteps);
         const allComplete = await waitForAllClipsComplete(300000, sceneCount); // รอสูงสุด 5 นาที, ส่งจำนวนฉากไปด้วย
 
         if (!allComplete) {
-            console.warn("⚠️ Some clips may not be complete, attempting download anyway...");
+            console.warn("⚠️ Some clips may not be complete, attempting to collect anyway...");
         }
+
+        // ===== เก็บ URL ของทุกวิดีโอที่ gen เสร็จแล้ว =====
+        console.log("📹 Collecting all video URLs from timeline...");
+        report("Collecting Videos...", totalSteps - 1, totalSteps);
+
+        // หา video elements ทั้งหมดใน timeline
+        await delay(2000);
+        const allVideos = findAllElementsDeep('video');
+        const completedVideos = allVideos.filter(v => {
+            const video = v as HTMLVideoElement;
+            const hasSource = video.src && (video.src.includes('blob:') || video.src.includes('http'));
+            const isPlayable = video.readyState >= 2;
+            const hasSize = video.videoWidth > 100 && video.videoHeight > 100;
+            return hasSource && (isPlayable || hasSize);
+        });
+
+        console.log(`📹 Found ${completedVideos.length} completed videos`);
+
+        // เก็บ URLs (ไม่ซ้ำกัน)
+        const uniqueUrls = new Set<string>();
+        uniqueUrls.add(video1Src); // เพิ่ม Scene 1
+
+        for (const video of completedVideos) {
+            const src = (video as HTMLVideoElement).src;
+            if (src && !uniqueUrls.has(src)) {
+                uniqueUrls.add(src);
+                console.log(`  📹 Video URL: ${src.substring(0, 50)}...`);
+            }
+        }
+
+        // เพิ่มเข้า videoUrls array
+        for (const url of uniqueUrls) {
+            if (!videoUrls.includes(url)) {
+                videoUrls.push(url);
+            }
+        }
+
+        console.log(`✅ Collected ${videoUrls.length} video URLs total`);
 
         // Final download
         report("Downloading Final Video...", totalSteps - 1, totalSteps);
