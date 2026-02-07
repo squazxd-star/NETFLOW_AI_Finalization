@@ -10,6 +10,90 @@ import Controls from './services/automation/controls';
 console.log('NetFlow AI Content Script Loaded');
 Controls.init();
 
+// ========== CHARACTER CONSISTENCY HELPER ==========
+/**
+ * Build detailed character description from payload settings
+ * This description is prepended to every scene prompt to maintain visual consistency
+ */
+const buildCharacterDescFromPayload = (payload: any, productName: string): string => {
+    const gender = payload.gender || 'female';
+    const expression = payload.expression || payload.emotion || 'happy';
+    const movement = payload.movement || 'minimal';
+    const ageRange = payload.ageRange || 'young-adult';
+    const personality = payload.personality || 'cheerful';
+    const clothingStyles = payload.clothingStyles || ['casual'];
+    const background = payload.background || 'studio';
+
+    // Gender + Age mapping
+    const genderText = gender === 'male' ? 'Thai man' : 'Thai woman';
+    const ageMapping: Record<string, string> = {
+        'teen': '16-20 years old',
+        'young-adult': '25-30 years old',
+        'adult': '35-40 years old',
+        'middle-age': '50-55 years old',
+        'senior': '65-70 years old'
+    };
+    const ageText = ageMapping[ageRange] || '25-30 years old';
+
+    // Physical appearance (fixed for consistency)
+    const physicalAppearance = gender === 'female'
+        ? 'shoulder-length straight black hair with side bangs, oval face, light honey-brown skin, natural makeup, slim build 165cm'
+        : 'short black hair neatly styled, angular face, light brown skin, clean-shaven, average build 175cm';
+
+    // Personality to expression
+    const personalityMapping: Record<string, string> = {
+        'cheerful': 'energetic enthusiastic presenter, bright smile',
+        'calm': 'calm composed demeanor, gentle smile',
+        'professional': 'professional trustworthy, confident posture',
+        'playful': 'playful fun personality, animated expressions',
+        'mysterious': 'cool mysterious vibe, subtle smile'
+    };
+    const personalityText = personalityMapping[personality] || 'energetic enthusiastic presenter';
+
+    // Clothing
+    const clothingMapping: Record<string, string> = {
+        'casual': gender === 'female' ? 'white V-neck t-shirt, light blue jeans' : 'navy polo shirt, khaki pants',
+        'formal': gender === 'female' ? 'cream silk blouse, black skirt' : 'white dress shirt, blue suit',
+        'fashion': gender === 'female' ? 'trendy cropped top, high-waisted pants' : 'designer t-shirt, fitted blazer',
+        'sporty': gender === 'female' ? 'athletic tank top, yoga pants' : 'sports jersey, athletic shorts'
+    };
+    const mainStyle = clothingStyles[0] || 'casual';
+    const clothingText = clothingMapping[mainStyle] || clothingMapping['casual'];
+
+    // Background
+    const backgroundMapping: Record<string, string> = {
+        'studio': 'clean white studio backdrop, soft lighting',
+        'outdoor': 'bright outdoor setting, natural sunlight',
+        'home': 'cozy modern living room, warm ambient light',
+        'office': 'professional office, neutral colors',
+        'abstract': 'abstract gradient background'
+    };
+    const backgroundText = backgroundMapping[background] || 'clean studio backdrop';
+
+    // Expression mapping
+    const expressionMapping: Record<string, string> = {
+        'neutral': 'natural pleasant expression',
+        'happy': 'bright genuine smile',
+        'excited': 'enthusiastic excited expression'
+    };
+    const expressionText = expressionMapping[expression] || 'natural pleasant expression';
+
+    return `[CHARACTER - MUST BE IDENTICAL IN ALL SCENES:]
+${genderText}, ${ageText}
+Physical: ${physicalAppearance}
+Outfit: ${clothingText}, gold accessories
+Personality: ${personalityText}
+Expression: ${expressionText}
+
+[ENVIRONMENT - SAME THROUGHOUT:]
+${backgroundText}
+
+[PRODUCT - ALWAYS VISIBLE:]
+${productName || 'the advertised product'}
+
+[CRITICAL: Same person, same face, same clothes, same location in every scene]`;
+};
+
 // ========== AUTO-CLICK NEW PROJECT ==========
 const autoClickNewProject = async () => {
     console.log('🔄 Auto-click: Scanning for "New Project" button...');
