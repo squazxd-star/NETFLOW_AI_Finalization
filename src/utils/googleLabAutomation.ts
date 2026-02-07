@@ -1962,41 +1962,50 @@ const clickAddClipButton = async (): Promise<boolean> => {
         return false;
     }
 
-    // STEP 2: Wait and click "Extend..." / "ขยาย" button (menu item)
+    // STEP 2: Wait and click "Extend..." / "ขยาย..." button (menu item)
     // ปุ่มนี้อยู่ใน popup menu หลังจากกดปุ่ม + มี icon logout (ลูกศรออก)
-    // รองรับทั้งภาษาไทย (ขยาย) และอังกฤษ (Extend)
     console.log("⏳ Waiting for menu to appear...");
     await delay(2000);
 
-    console.log("🔍 Step 2: Looking for 'Extend...' / 'ขยาย' menu item...");
+    console.log("🔍 Step 2: Looking for 'Extend...' / 'ขยาย...' menu item...");
 
     for (let attempt = 1; attempt <= 10; attempt++) {
         console.log(`🔄 Attempt ${attempt}/10 to find Extend button...`);
 
-        // หา menu items ทั้งหมด
+        // หา menu items ทั้งหมด - รวมทุก element types
         const menuItems = [
             ...findAllElementsDeep('[role="menuitem"]'),
-            ...findAllElementsDeep('div[class*="sc-93fd5d6e"]'),
+            ...findAllElementsDeep('[role="menuitemradio"]'),
+            ...findAllElementsDeep('div[class*="menu"]'),
             ...findAllElementsDeep('button'),
-            ...findAllElementsDeep('span')
+            ...findAllElementsDeep('span'),
+            ...findAllElementsDeep('div')
         ];
 
         console.log(`  Found ${menuItems.length} potential elements`);
 
         // เก็บปุ่ม Extend/ขยาย ที่หาเจอ
-        const extendButtons: { element: Element, right: number }[] = [];
+        const extendButtons: { element: Element, right: number, y: number }[] = [];
 
         for (const el of menuItems) {
-            const text = (el.textContent || '').trim().toLowerCase();
+            const text = (el.textContent || '').trim();
+            const textLower = text.toLowerCase();
             const rect = (el as HTMLElement).getBoundingClientRect();
 
-            // หาทั้ง "extend" (EN) และ "ขยาย" (TH)
-            const isExtendButton = text.includes('extend') || text.includes('ขยาย');
+            // หาทั้ง "extend" (EN) และ "ขยาย" (TH) - ไม่ใช้ toLowerCase สำหรับ Thai
+            const hasExtendEN = textLower.includes('extend');
+            const hasExtendTH = text.includes('ขยาย');
+            const isExtendButton = hasExtendEN || hasExtendTH;
+
+            // Log ทุก visible element ที่มี text
+            if (rect.width > 0 && rect.height > 0 && text.length > 0 && text.length < 50) {
+                console.log(`    📋 Menu item: "${text}" (visible, ${rect.width.toFixed(0)}x${rect.height.toFixed(0)})`);
+            }
 
             if (isExtendButton && rect.width > 0 && rect.height > 0) {
                 const clickTarget = el.closest('[role="menuitem"]') || el.closest('button') || el;
-                extendButtons.push({ element: clickTarget, right: rect.right });
-                console.log(`  Found Extend/ขยาย: "${text.substring(0, 20)}" at x=${rect.right.toFixed(0)}`);
+                extendButtons.push({ element: clickTarget, right: rect.right, y: rect.top });
+                console.log(`  ✅ Found Extend/ขยาย: "${text}" at x=${rect.right.toFixed(0)}, y=${rect.top.toFixed(0)}`);
             }
         }
 
@@ -2013,8 +2022,8 @@ const clickAddClipButton = async (): Promise<boolean> => {
                     const rect = (parent as HTMLElement).getBoundingClientRect();
                     // Accept if text contains extend/ขยาย OR if it's just the icon itself
                     if (rect.width > 0 && rect.height > 0) {
-                        extendButtons.push({ element: parent, right: rect.right });
-                        console.log(`  Found Extend via ${iconText} icon at x=${rect.right.toFixed(0)}, text: "${parentText.substring(0, 20)}"`);
+                        extendButtons.push({ element: parent, right: rect.right, y: rect.top });
+                        console.log(`  Found Extend via ${iconText} icon at x=${rect.right.toFixed(0)}, y=${rect.top.toFixed(0)}, text: "${parentText.substring(0, 20)}..."`);
                     }
                 }
             }
