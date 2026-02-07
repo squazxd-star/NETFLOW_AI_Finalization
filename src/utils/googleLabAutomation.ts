@@ -2000,19 +2000,21 @@ const clickAddClipButton = async (): Promise<boolean> => {
             }
         }
 
-        // Method 2: Find by icon "logout" (ลูกศรออก) - icon ของปุ่ม Extend
+        // Method 2: Find by icon - รองรับหลาย icon ที่ VideoFX อาจใช้
         const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i');
         for (const icon of icons) {
             const iconText = icon.textContent?.trim();
-            // icon logout หรือ arrow_forward หรือ open_in_new
-            if (iconText === 'logout' || iconText === 'arrow_forward' || iconText === 'open_in_new' || iconText === 'exit_to_app') {
+            // รองรับ icon หลายแบบ: logout, arrow_forward, open_in_new, arrow_outward, expand, east
+            const extendIcons = ['logout', 'arrow_forward', 'open_in_new', 'exit_to_app', 'arrow_outward', 'expand', 'open_in_full', 'east', 'fullscreen'];
+            if (iconText && extendIcons.includes(iconText)) {
                 const parent = icon.closest('[role="menuitem"]') || icon.closest('button') || icon.parentElement;
                 if (parent) {
                     const parentText = (parent.textContent || '').toLowerCase();
                     const rect = (parent as HTMLElement).getBoundingClientRect();
-                    if ((parentText.includes('extend') || parentText.includes('ขยาย')) && rect.width > 0) {
+                    // Accept if text contains extend/ขยาย OR if it's just the icon itself
+                    if (rect.width > 0 && rect.height > 0) {
                         extendButtons.push({ element: parent, right: rect.right });
-                        console.log(`  Found Extend via ${iconText} icon at x=${rect.right.toFixed(0)}`);
+                        console.log(`  Found Extend via ${iconText} icon at x=${rect.right.toFixed(0)}, text: "${parentText.substring(0, 20)}"`);
                     }
                 }
             }
