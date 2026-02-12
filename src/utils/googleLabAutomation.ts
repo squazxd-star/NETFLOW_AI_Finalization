@@ -1317,16 +1317,23 @@ const waitForAllClipsComplete = async (maxWaitMs: number = 300000, expectedClipC
         }
 
         // ===== 4. เช็ค video thumbnails ในไทม์ไลน์ =====
-        const videoThumbnails = findAllElementsDeep('video').filter(v => {
+        const allVideosForCount = findAllElementsDeep('video');
+        const timelineLikeVideos = allVideosForCount.filter(v => {
             const vid = v as HTMLVideoElement;
             const rect = vid.getBoundingClientRect();
-            return rect.width > 20 && rect.height > 20 && vid.readyState >= 2;
+            // Timeline thumbs are usually smaller than the main preview
+            const sizeOk = rect.width > 30 && rect.height > 30 && rect.width < 420 && rect.height < 420;
+            return sizeOk && vid.readyState >= 2;
         });
 
-        console.log(`  Checking: loading=${visibleLoading.length}, progress100=${allProgressAt100}, downloadReady=${downloadReady}, videoThumbs=${videoThumbnails.length}`);
+        const clipCountOk = expectedClipCount <= 0 || timelineLikeVideos.length >= expectedClipCount;
+
+        console.log(
+            `  Checking: loading=${visibleLoading.length}, progress100=${allProgressAt100}, downloadReady=${downloadReady}, timelineVideos=${timelineLikeVideos.length}, expected=${expectedClipCount || 'n/a'}`
+        );
 
         // ===== 5. ตรวจสอบว่าเสร็จสมบูรณ์หรือยัง =====
-        const isComplete = visibleLoading.length === 0 && downloadReady && allProgressAt100;
+        const isComplete = visibleLoading.length === 0 && downloadReady && allProgressAt100 && clipCountOk;
 
         if (isComplete) {
             consecutiveCompleteChecks++;
@@ -1878,29 +1885,33 @@ const clickAddClipButton = async (): Promise<boolean> => {
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
+        const top = document.elementFromPoint(centerX, centerY) as HTMLElement | null;
+        const topClickable = top?.closest('button,[role="menuitem"],[role="menuitemradio"],[role="option"],[role="button"]') as HTMLElement | null;
+        const clickTarget = topClickable || top || el;
+
         // Method 1: Mouse events sequence
-        const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY };
-        el.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
-        el.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
+        const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY, button: 0, buttons: 1 };
+        clickTarget.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
+        clickTarget.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
         await delay(100);
-        el.dispatchEvent(new MouseEvent('mousedown', { ...mouseOpts, button: 0 }));
+        clickTarget.dispatchEvent(new MouseEvent('mousedown', mouseOpts));
         await delay(50);
-        el.dispatchEvent(new MouseEvent('mouseup', { ...mouseOpts, button: 0 }));
-        el.dispatchEvent(new MouseEvent('click', { ...mouseOpts, button: 0 }));
+        clickTarget.dispatchEvent(new MouseEvent('mouseup', mouseOpts));
+        clickTarget.dispatchEvent(new MouseEvent('click', mouseOpts));
 
         // Method 2: Pointer events
-        el.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
         await delay(50);
-        el.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
 
         // Method 3: Direct click
-        el.click();
+        clickTarget.click();
 
         // Method 4: Focus + Enter
-        el.focus();
+        clickTarget.focus();
         await delay(50);
-        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-        el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+        clickTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        clickTarget.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
 
         return true;
     };
@@ -1953,6 +1964,8 @@ const clickAddClipButton = async (): Promise<boolean> => {
         }
     }
 
+    const addButtonRect = addButton ? (addButton as HTMLElement).getBoundingClientRect() : null;
+
     if (addButton) {
         console.log("✅ Found Add Clip (+) button! Clicking...");
         addButtonClicked = await robustClick(addButton);
@@ -1969,23 +1982,34 @@ const clickAddClipButton = async (): Promise<boolean> => {
 
     console.log("🔍 Step 2: Looking for 'Extend...' / 'ขยาย...' menu item...");
 
+    const anchorX = addButtonRect ? addButtonRect.left + addButtonRect.width / 2 : window.innerWidth / 2;
+    const anchorY = addButtonRect ? addButtonRect.bottom : window.innerHeight / 2;
+
     for (let attempt = 1; attempt <= 10; attempt++) {
         console.log(`🔄 Attempt ${attempt}/10 to find Extend button...`);
 
+        const roleMenuItems = findAllElementsDeep('[role="menuitem"], [role="menuitemradio"], [role="option"]');
+        const hasMenu = roleMenuItems.length > 0 || findAllElementsDeep('[role="menu"], [role="listbox"], [role="dialog"], dialog').length > 0;
+        if (!hasMenu && addButton) {
+            console.log('  ℹ️ No menu detected yet, re-clicking + button...');
+            await robustClick(addButton);
+            await delay(800);
+        }
+
         // หา menu items ทั้งหมด - รวมทุก element types
-        const menuItems = [
-            ...findAllElementsDeep('[role="menuitem"]'),
-            ...findAllElementsDeep('[role="menuitemradio"]'),
-            ...findAllElementsDeep('div[class*="menu"]'),
-            ...findAllElementsDeep('button'),
-            ...findAllElementsDeep('span'),
-            ...findAllElementsDeep('div')
-        ];
+        const menuItems = roleMenuItems.length > 0
+            ? roleMenuItems
+            : [
+                ...findAllElementsDeep('div[class*="menu"]'),
+                ...findAllElementsDeep('button'),
+                ...findAllElementsDeep('span'),
+                ...findAllElementsDeep('div')
+            ];
 
         console.log(`  Found ${menuItems.length} potential elements`);
 
         // เก็บปุ่ม Extend/ขยาย ที่หาเจอ
-        const extendButtons: { element: Element, right: number, y: number }[] = [];
+        const extendButtons: { element: Element, dist: number, area: number }[] = [];
 
         for (const el of menuItems) {
             const text = (el.textContent || '').trim();
@@ -1998,14 +2022,17 @@ const clickAddClipButton = async (): Promise<boolean> => {
             const isExtendButton = hasExtendEN || hasExtendTH;
 
             // Log ทุก visible element ที่มี text
-            if (rect.width > 0 && rect.height > 0 && text.length > 0 && text.length < 50) {
+            if (rect.width > 0 && rect.height > 0 && rect.width < 600 && rect.height < 120 && text.length > 0 && text.length < 50) {
                 console.log(`    📋 Menu item: "${text}" (visible, ${rect.width.toFixed(0)}x${rect.height.toFixed(0)})`);
             }
 
             if (isExtendButton && rect.width > 0 && rect.height > 0) {
                 const clickTarget = el.closest('[role="menuitem"]') || el.closest('button') || el;
-                extendButtons.push({ element: clickTarget, right: rect.right, y: rect.top });
-                console.log(`  ✅ Found Extend/ขยาย: "${text}" at x=${rect.right.toFixed(0)}, y=${rect.top.toFixed(0)}`);
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dist = Math.hypot(cx - anchorX, cy - anchorY);
+                extendButtons.push({ element: clickTarget, dist, area: rect.width * rect.height });
+                console.log(`  ✅ Found Extend/ขยาย: "${text}" dist=${dist.toFixed(0)}`);
             }
         }
 
@@ -2022,8 +2049,11 @@ const clickAddClipButton = async (): Promise<boolean> => {
                     const rect = (parent as HTMLElement).getBoundingClientRect();
                     // Accept if text contains extend/ขยาย OR if it's just the icon itself
                     if (rect.width > 0 && rect.height > 0) {
-                        extendButtons.push({ element: parent, right: rect.right, y: rect.top });
-                        console.log(`  Found Extend via ${iconText} icon at x=${rect.right.toFixed(0)}, y=${rect.top.toFixed(0)}, text: "${parentText.substring(0, 20)}..."`);
+                        const cx = rect.left + rect.width / 2;
+                        const cy = rect.top + rect.height / 2;
+                        const dist = Math.hypot(cx - anchorX, cy - anchorY);
+                        extendButtons.push({ element: parent, dist, area: rect.width * rect.height });
+                        console.log(`  Found Extend via ${iconText} icon dist=${dist.toFixed(0)}, text: "${parentText.substring(0, 20)}..."`);
                     }
                 }
             }
@@ -2031,12 +2061,12 @@ const clickAddClipButton = async (): Promise<boolean> => {
 
         console.log(`  Total Extend buttons found: ${extendButtons.length}`);
 
-        // เลือกปุ่มที่อยู่ขวาสุด (เป็นของ clip ใหม่ล่าสุด)
+        // เลือกปุ่มที่ใกล้ปุ่ม + ที่สุด (เสถียรกว่าการเลือกขวาสุด)
         if (extendButtons.length > 0) {
-            extendButtons.sort((a, b) => b.right - a.right);
+            extendButtons.sort((a, b) => a.dist - b.dist || a.area - b.area);
             const targetBtn = extendButtons[0];
 
-            console.log(`✅ Clicking Extend button at x=${targetBtn.right.toFixed(0)}`);
+            console.log(`✅ Clicking Extend button (dist=${targetBtn.dist.toFixed(0)})`);
             await robustClick(targetBtn.element);
             console.log("✅ 'Extend' clicked! Waiting for expand view to fully load...");
 
