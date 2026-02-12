@@ -2171,47 +2171,117 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
         return false;
     }
 
-    console.log("✅ Found prompt input, filling...");
+    console.log("✅ Found prompt input, filling with multi-strategy approach...");
 
-    // Clear and fill the prompt using native setter (same technique as Scene 1)
-    // React ignores .value = assignment, MUST use native setter to trigger React state update
+    // ===== MULTI-STRATEGY PROMPT INJECTION =====
+    // VideoFX's React textarea ignores native setter, need aggressive approach
+    let filled = false;
+
     promptInput.focus();
-    await delay(200);
+    promptInput.click();
+    await delay(300);
 
-    if (promptInput.tagName === 'TEXTAREA' || promptInput.tagName === 'INPUT') {
+    // STRATEGY 1: execCommand('insertText') — most reliable for React
+    try {
         const inputEl = promptInput as HTMLInputElement | HTMLTextAreaElement;
-        const prototype = promptInput.tagName === 'TEXTAREA'
-            ? window.HTMLTextAreaElement.prototype
-            : window.HTMLInputElement.prototype;
-        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
 
-        if (nativeSetter) {
-            // Clear first
-            nativeSetter.call(inputEl, '');
-            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            await delay(100);
-
-            // Set new value using native setter (React will see this!)
-            nativeSetter.call(inputEl, scenePrompt);
-            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-            console.log(`✅ Prompt filled via native setter`);
+        // Select all existing text first
+        if (inputEl.select) {
+            inputEl.select();
         } else {
-            // Fallback: direct assignment + extra events
-            inputEl.value = '';
-            inputEl.value = scenePrompt;
-            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-            console.warn(`⚠️ Native setter not available, used direct assignment`);
+            // For contenteditable
+            const range = document.createRange();
+            range.selectNodeContents(promptInput);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
         }
-    } else {
-        // ContentEditable
-        promptInput.textContent = '';
-        promptInput.textContent = scenePrompt;
-        promptInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await delay(100);
+
+        // Delete selected text
+        document.execCommand('delete', false);
+        await delay(100);
+
+        // Insert new text via execCommand (triggers React's onChange!)
+        const inserted = document.execCommand('insertText', false, scenePrompt);
+        if (inserted) {
+            console.log(`✅ Strategy 1: execCommand('insertText') succeeded`);
+            filled = true;
+        } else {
+            console.log(`⚠️ Strategy 1: execCommand returned false`);
+        }
+    } catch (e) {
+        console.warn("Strategy 1 failed:", e);
     }
 
-    console.log(`📝 Prompt filled: "${scenePrompt.substring(0, 50)}..."`);
+    await delay(200);
+
+    // STRATEGY 2: Native setter + full event sequence (fallback)
+    if (!filled || !(promptInput as HTMLInputElement).value) {
+        try {
+            const inputEl = promptInput as HTMLInputElement | HTMLTextAreaElement;
+            const prototype = promptInput.tagName === 'TEXTAREA'
+                ? window.HTMLTextAreaElement.prototype
+                : window.HTMLInputElement.prototype;
+            const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
+            if (nativeSetter) {
+                nativeSetter.call(inputEl, '');
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                await delay(50);
+                nativeSetter.call(inputEl, scenePrompt);
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                console.log(`✅ Strategy 2: native setter applied`);
+                filled = true;
+            }
+        } catch (e) {
+            console.warn("Strategy 2 failed:", e);
+        }
+    }
+
+    // STRATEGY 3: Clipboard paste simulation
+    if (!filled || !(promptInput as HTMLInputElement).value) {
+        try {
+            promptInput.focus();
+            const inputEl = promptInput as HTMLInputElement | HTMLTextAreaElement;
+            if (inputEl.select) inputEl.select();
+            await delay(100);
+
+            // Simulate paste via DataTransfer
+            const dt = new DataTransfer();
+            dt.setData('text/plain', scenePrompt);
+            const pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true, cancelable: true, clipboardData: dt
+            });
+            promptInput.dispatchEvent(pasteEvent);
+            console.log(`✅ Strategy 3: paste simulation applied`);
+            filled = true;
+        } catch (e) {
+            console.warn("Strategy 3 failed:", e);
+        }
+    }
+
+    // Dispatch full event sequence (critical for React state sync)
+    await delay(100);
+    const events = ['keydown', 'keypress', 'input', 'keyup', 'change'];
+    for (const type of events) {
+        promptInput.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+        await delay(30);
+    }
+    promptInput.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    await delay(200);
+    promptInput.focus();
+
+    // VERIFY: Check if prompt actually got filled
+    const currentValue = (promptInput as HTMLInputElement).value || promptInput.textContent || '';
+    if (currentValue.length > 10) {
+        console.log(`✅ Prompt verified! (${currentValue.length} chars): "${currentValue.substring(0, 50)}..."`);
+    } else {
+        console.warn(`⚠️ Prompt may not be filled! Current value: "${currentValue.substring(0, 50)}" (${currentValue.length} chars)`);
+    }
+
+    console.log(`📝 Prompt fill complete: "${scenePrompt.substring(0, 50)}..."`);
     await delay(1000);
 
     // Click generate button (arrow_forward icon) - ใช้วิธีเดียวกับ fillPromptAndGenerate
