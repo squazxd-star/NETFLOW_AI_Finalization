@@ -71,22 +71,34 @@ const NetflowPanel = () => {
                     </TabsTrigger>
                 </TabsList>
 
-                {/* Create Video Tab */}
-                <TabsContent value="create" className="mt-0 data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-left-2 data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 duration-200">
+                {/* Create Video Tab - forceMount to preserve form state */}
+                <TabsContent 
+                    value="create" 
+                    forceMount
+                    className="mt-0 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-left-2 duration-200"
+                >
                     <ErrorBoundary>
                         <CreateVideoTab />
                     </ErrorBoundary>
                 </TabsContent>
 
-                {/* NetCast Pro Tab */}
-                <TabsContent value="netcast" className="mt-0 data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-right-2 data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 duration-200">
+                {/* NetCast Pro Tab - forceMount to preserve form state */}
+                <TabsContent 
+                    value="netcast" 
+                    forceMount
+                    className="mt-0 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-right-2 duration-200"
+                >
                     <ErrorBoundary>
                         <NetCastTab />
                     </ErrorBoundary>
                 </TabsContent>
 
-                {/* TikTok Settings Tab */}
-                <TabsContent value="tiktok" className="mt-0 data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-right-2 data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 duration-200">
+                {/* TikTok Settings Tab - forceMount to preserve form state */}
+                <TabsContent 
+                    value="tiktok" 
+                    forceMount
+                    className="mt-0 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-right-2 duration-200"
+                >
                     <ErrorBoundary>
                         <TikTokSettingsTab />
                     </ErrorBoundary>

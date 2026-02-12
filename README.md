@@ -21,30 +21,72 @@ NETFLOW AI is a modern, high-performance web application designed for AI-powered
 
 ### Prerequisites
 
-- Node.js & npm
+- **Node.js** >= 18.x (LTS recommended)
+- **npm** >= 9.x
+- **Chrome** >= 116 (required for Side Panel API)
+- Works on **Windows**, **macOS**, and **Linux**
 
-### Installation
+### Installation (All Platforms)
 
 1. Clone the repository:
    ```bash
    git clone <YOUR_GIT_URL>
+   cd NETFLOW_AI_REAL_PRODUCTION-main
    ```
 
-2. Install dependencies:
+2. **Delete `node_modules` if present** (critical for cross-platform):
+   ```bash
+   rm -rf node_modules
+   ```
+
+3. Install dependencies fresh:
    ```bash
    npm install
    ```
 
-3. Start the development server:
+4. (Optional) Copy environment variables:
    ```bash
-   npm run dev
+   cp .env.example .env
+   # Then edit .env with your API keys
    ```
+
+5. Build the Chrome Extension:
+   ```bash
+   npm run build
+   ```
+
+6. Load in Chrome:
+   - Open `chrome://extensions/`
+   - Enable **Developer mode**
+   - Click **Load unpacked** → select the `dist/` folder
+   - Open any tab → click the NetFlow AI icon to open the side panel
+
+### macOS Specific Notes
+
+- If `npm install` fails with `@swc/core` errors, run:
+  ```bash
+  npm install --force
+  ```
+- If you see permission errors:
+  ```bash
+  sudo chown -R $(whoami) ~/.npm
+  ```
+- Make sure Chrome is version 116+ (check `chrome://version`)
+
+### Development
+
+```bash
+npm run dev
+```
 
 ## Project Structure
 
-- `/src/components`: UI components
-- `/src/pages`: Application pages
-- `/public`: Static assets
+- `/src/components` — UI components (Side Panel)
+- `/src/content.tsx` — Content script (runs on Google Labs VideoFX)
+- `/src/utils/googleLabAutomation.ts` — VideoFX automation engine
+- `/src/services/aiPromptService.ts` — AI prompt generation
+- `/public/service-worker.js` — Background service worker
+- `/public/manifest.json` — Chrome Extension manifest
 
 ## License
 

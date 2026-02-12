@@ -592,10 +592,14 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                     inputEl.focus();
                     await delay(100);
 
-                    // Use execCommand for older React versions
-                    if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
-                        document.execCommand('selectAll', false);
-                        document.execCommand('insertText', false, prompt);
+                    // Use execCommand for older React versions (with deprecation safety)
+                    try {
+                        if (typeof document.execCommand === 'function') {
+                            document.execCommand('selectAll', false);
+                            document.execCommand('insertText', false, prompt);
+                        }
+                    } catch (cmdError) {
+                        console.warn("execCommand fallback failed (deprecated API):", cmdError);
                     }
 
                     // Dispatch React-specific events

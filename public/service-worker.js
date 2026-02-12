@@ -117,9 +117,24 @@ async function handleStartVideoGeneration(payload) {
     }
 }
 
-// Handle extension icon click - open side panel
-chrome.action.onClicked.addListener((tab) => {
-    chrome.sidePanel.open({ tabId: tab.id });
-});
+// Handle extension icon click - open side panel (cross-platform safe)
+if (chrome.sidePanel) {
+    // Chrome 116+: Use setPanelBehavior for automatic side panel opening
+    chrome.sidePanel
+        .setPanelBehavior({ openPanelOnActionClick: true })
+        .catch((error) => {
+            console.warn("[ServiceWorker] setPanelBehavior failed, using fallback:", error);
+            // Fallback: manually open side panel on action click
+            chrome.action.onClicked.addListener((tab) => {
+                chrome.sidePanel.open({ windowId: tab.windowId }).catch(console.error);
+            });
+        });
+} else {
+    // Chrome < 114: sidePanel API not available
+    console.warn("[ServiceWorker] chrome.sidePanel not available. Extension requires Chrome 114+.");
+    chrome.action.onClicked.addListener(() => {
+        chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
+    });
+}
 
 console.log("[ServiceWorker] NetflowAI Service Worker initialized");

@@ -1,9 +1,5 @@
-// Background script to manage side panel behavior
-
-// Allow users to open the side panel by clicking the action toolbar icon
-chrome.sidePanel
-    .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch((error) => console.error(error));
+// Background script - Side panel behavior is now handled in service-worker.js
+// This file is kept for compatibility with service-worker-loader.js
 
 chrome.runtime.onInstalled.addListener(() => {
     console.log("NetFlow AI Extension Installed");

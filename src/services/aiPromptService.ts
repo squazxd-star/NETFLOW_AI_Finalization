@@ -823,14 +823,18 @@ const buildVideoPrompt = (
     
     // Use user-provided script if available, otherwise generate automatically
     let fullThaiScript: string;
+    let sceneScriptsFormatted: string; // Format for content.tsx parsing
+    
     if (config.userScript && config.userScript.trim()) {
         // Parse user script from scene cards (joined by \n\n)
         const scenes = config.userScript.split(/\n{2,}/).filter(s => s.trim());
         const sceneCount = Math.min(scenes.length, 3);
-        fullThaiScript = scenes.map((script, i) => `🎬 ฉาก ${i + 1}: "${script.trim()}"`).join('\n');
+        sceneScriptsFormatted = scenes.map((script, i) => `🎬 ฉาก ${i + 1}: "${script.trim()}"`).join('\n');
+        fullThaiScript = sceneScriptsFormatted;
         console.log("📝 Using user-provided script:", fullThaiScript);
     } else {
-        fullThaiScript = generateThaiScript(
+        // Generate script parts
+        const rawScript = generateThaiScript(
             config.productName,
             config.template,
             config.voiceTone,
@@ -840,6 +844,31 @@ const buildVideoPrompt = (
             config.clipDuration,
             category
         );
+        fullThaiScript = rawScript;
+        
+        // Convert to scene format for content.tsx parsing
+        // Split based on clipDuration: 8s=1 scene, 16s=2 scenes, 24s=3 scenes
+        const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
+        const scriptLines = rawScript.split('\n').filter(l => l.trim());
+        
+        // Group script lines into scenes
+        const linesPerScene = Math.ceil(scriptLines.length / sceneCount);
+        const sceneGroups: string[] = [];
+        
+        for (let i = 0; i < sceneCount; i++) {
+            const start = i * linesPerScene;
+            const end = Math.min(start + linesPerScene, scriptLines.length);
+            const sceneLines = scriptLines.slice(start, end);
+            // Extract just the quoted text from each line
+            const sceneText = sceneLines.map(line => {
+                const match = line.match(/"([^"]+)"/);
+                return match ? match[1] : line.replace(/^[🎬💬✨😍🔥💡🎯]\s*\S+:\s*/, '').replace(/"/g, '');
+            }).join(' ');
+            sceneGroups.push(sceneText);
+        }
+        
+        sceneScriptsFormatted = sceneGroups.map((text, i) => `🎬 ฉาก ${i + 1}: "${text}"`).join('\n');
+        console.log("📝 Auto-generated scene scripts:", sceneScriptsFormatted);
     }
     
     const storyboard = buildStoryboardSection(config, category);
@@ -891,6 +920,9 @@ ${fullThaiScript}
 ${thaiVoiceScript}
 
 ${storyboard}
+
+🎬 SCENE SCRIPTS (สำหรับ automation):
+${sceneScriptsFormatted}
 
 ${productAnalysis ? `📸 PRODUCT REFERENCE: ${productAnalysis}` : ''}
 
