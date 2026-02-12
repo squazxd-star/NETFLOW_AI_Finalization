@@ -1344,13 +1344,13 @@ const waitForAllClipsComplete = async (maxWaitMs: number = 300000, expectedClipC
         const coreComplete = visibleLoading.length === 0 && downloadReady && allProgressAt100;
         const isComplete = coreComplete && clipCountOk;
 
-        // Fallback: if core signals say done but timeline videos not found for 30+ seconds, accept it
+        // Fallback: if core signals say done but timeline videos not found, accept after 3 checks (~9s)
         if (coreComplete && !clipCountOk) {
             consecutiveCompleteChecks++;
-            console.log(`  ⏳ Core complete but timelineVideos=${timelineLikeVideos.length}/${expectedClipCount}, fallback check ${consecutiveCompleteChecks}/10`);
-            if (consecutiveCompleteChecks >= 10) {
-                console.log("✅ Core signals confirmed complete (progress=100%, download ready, no loading). Proceeding without timeline video count.");
-                await delay(3000);
+            console.log(`  ⏳ Core complete but timelineVideos=${timelineLikeVideos.length}/${expectedClipCount}, fallback check ${consecutiveCompleteChecks}/3`);
+            if (consecutiveCompleteChecks >= 3) {
+                console.log("✅ Core signals confirmed complete (progress=100%, download ready, no loading). Proceeding.");
+                await delay(2000);
                 return true;
             }
             await delay(checkInterval);
