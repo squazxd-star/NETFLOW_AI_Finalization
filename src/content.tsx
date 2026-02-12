@@ -476,16 +476,17 @@ const ContentScriptApp = () => {
 
                     const identityLock = `Same person in every scene, matching the reference face image exactly. Same voice, same tone, same speaking speed, Thai language only throughout.`;
 
-                    // Wrap each scene script with character description prefix
+                    // Scene 1: full character desc (first generation, needs full context)
+                    // Scene 2+: raw script only (Extend mode continues from previous scene,
+                    //   repeating character desc confuses the model and wastes prompt space)
                     sceneScripts = sceneScripts.map((script, index) => {
                         const sceneNum = index + 1;
-                        const sceneRole = sceneNum === 1 ? 'HOOK - grab attention'
-                            : sceneNum === 2 ? 'DEMO - show product usage'
-                                : 'CTA - call to action';
-
-                        return `${characterDesc}
-${identityLock}
-Scene ${sceneNum} (${sceneRole}): ${script}`;
+                        if (sceneNum === 1) {
+                            return `${characterDesc}\n${identityLock}\nScene 1 (HOOK): ${script}`;
+                        }
+                        // Scene 2+ : Extend mode already knows character/setting from previous scene
+                        // Only provide the action script - keep it short and focused
+                        return script;
                     });
 
                     // Ensure Scene 1 prompt also carries the same identity constraints.

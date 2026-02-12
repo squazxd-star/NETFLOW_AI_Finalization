@@ -2632,10 +2632,18 @@ export const runMultiScenePipeline = async (
             const sceneRole = sceneNum === 2 ? 'DEMO (โชว์การใช้งาน/คุณสมบัติหลัก)' : 'CLOSING (สรุปและ Call-to-Action)';
             const totalScenes = sceneCount;
 
-            // Concise consistency instructions - keep prompt short to avoid 403
+            // Extend mode prompt: action-focused, brief continuity reminders
+            // VideoFX Extend already continues from previous scene's last frame
+            // Don't repeat character description - it confuses the model
             const scenePrompt = `${basePrompt}
 
-Continue from scene ${sceneNum - 1}. Same person, same voice, same tone, same outfit, same product, same background. Thai language only. Scene ${sceneNum}/${totalScenes}: ${sceneRole}. Smooth transition, one continuous take.`;
+[Continue seamlessly from previous scene]
+- Same voice: identical pitch, tone, speed, accent as the previous scene
+- Same person: same face, outfit, hair, accessories
+- Same background and lighting
+- Thai language only, natural speaking rhythm
+- This is scene ${sceneNum}/${totalScenes} (${sceneRole})
+- Smooth natural transition, as if filmed in one continuous shot`;
 
             console.log(`📝 Full Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
 
