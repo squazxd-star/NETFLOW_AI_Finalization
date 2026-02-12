@@ -1327,7 +1327,8 @@ const waitForAllClipsComplete = async (maxWaitMs: number = 300000, expectedClipC
             const rect = vid.getBoundingClientRect();
             // Timeline thumbs are usually smaller than the main preview
             const sizeOk = rect.width > 30 && rect.height > 30 && rect.width < 420 && rect.height < 420;
-            return sizeOk && vid.readyState >= 2;
+            // Accept videos even if readyState is low (they may be lazy-loaded in timeline)
+            return sizeOk && (vid.readyState >= 1 || vid.src || vid.currentSrc);
         });
 
         const clipCountOk = expectedClipCount <= 0 || timelineLikeVideos.length >= expectedClipCount;
@@ -1337,7 +1338,24 @@ const waitForAllClipsComplete = async (maxWaitMs: number = 300000, expectedClipC
         );
 
         // ===== 5. ตรวจสอบว่าเสร็จสมบูรณ์หรือยัง =====
-        const isComplete = visibleLoading.length === 0 && downloadReady && allProgressAt100 && clipCountOk;
+        // Primary: progress + download + no loading = complete
+        // Timeline video count is a bonus check, NOT a hard requirement
+        // (scene builder may render clips as canvas/thumbnails, not <video> elements)
+        const coreComplete = visibleLoading.length === 0 && downloadReady && allProgressAt100;
+        const isComplete = coreComplete && clipCountOk;
+
+        // Fallback: if core signals say done but timeline videos not found for 30+ seconds, accept it
+        if (coreComplete && !clipCountOk) {
+            consecutiveCompleteChecks++;
+            console.log(`  ⏳ Core complete but timelineVideos=${timelineLikeVideos.length}/${expectedClipCount}, fallback check ${consecutiveCompleteChecks}/10`);
+            if (consecutiveCompleteChecks >= 10) {
+                console.log("✅ Core signals confirmed complete (progress=100%, download ready, no loading). Proceeding without timeline video count.");
+                await delay(3000);
+                return true;
+            }
+            await delay(checkInterval);
+            continue;
+        }
 
         if (isComplete) {
             consecutiveCompleteChecks++;
