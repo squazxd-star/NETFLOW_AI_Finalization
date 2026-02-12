@@ -2630,30 +2630,38 @@ export const runMultiScenePipeline = async (
             const sceneRole = sceneNum === 2 ? 'DEMO (โชว์การใช้งาน/คุณสมบัติหลัก)' : 'CLOSING (สรุปและ Call-to-Action)';
             const totalScenes = sceneCount;
 
-            // Enhanced consistency instructions (Thai + English for VideoFX)
+            // Enhanced consistency instructions (English primary for VideoFX)
             const scenePrompt = `${basePrompt}
 
-[🎬 ข้อกำหนดสำคัญสำหรับฉาก ${sceneNum}/${totalScenes}:]
+[SCENE ${sceneNum}/${totalScenes} - CRITICAL REQUIREMENTS:]
 
-🎭 ความต่อเนื่องของตัวละคร (CHARACTER CONSISTENCY):
-- ใช้คนเดียวกับฉาก 1 ทุกประการ: หน้าตา ผิวพรรณ ทรงผม เสื้อผ้า
-- เสียงพากย์เดียวกัน: น้ำเสียง สำเนียง ความเร็วการพูด เหมือนฉาก 1
-- ภาษาเดียวกัน: ใช้ภาษาไทยตลอด ห้ามเปลี่ยนภาษา
+[VOICE CONTINUITY - HIGHEST PRIORITY:]
+- Use the EXACT SAME voice as Scene 1: same person, same pitch, same tone, same accent
+- Same speaking speed, same vocal energy, same intonation patterns
+- Speaking language: Thai only - do NOT switch to English or any other language
+- The voice must sound like ONE continuous recording from the same speaker
+- Do NOT change voice actor, do NOT alter vocal characteristics between scenes
+- Match the breathing patterns, speech rhythm, and emotional delivery from Scene 1
 
-📦 ความต่อเนื่องของสินค้า (PRODUCT CONSISTENCY):
-- รักษาสินค้าเดียวกับฉาก 1: packaging, สี, รูปทรง, ขนาด ต้องเหมือนกัน
-- ถือสินค้าด้วยมือเดียวกัน ในมุมที่คล้ายกัน
-- สินค้าต้องเด่นชัดในเฟรม
+[CHARACTER CONTINUITY:]
+- Same person as Scene 1: identical face, skin, hair, outfit, accessories
+- Same body language style and mannerisms
+- Same makeup, same jewelry, same clothing
 
-📖 โครงสร้างโฆษณา (AD STRUCTURE):
-- ฉากนี้คือ: ${sceneRole}
-- ต่อเนื่องจากฉาก ${sceneNum - 1} โดยตรง
-- การกระทำต้องไหลลื่นจากจุดที่ฉากก่อนหน้าจบลง
+[PRODUCT CONTINUITY:]
+- Same product as Scene 1: same packaging, color, shape, size
+- Product must be clearly visible in frame
+- Same hand holding position and angle
 
-🔗 การเชื่อมต่อเรื่องราว (STORY CONTINUITY):
-- ห้ามเริ่มใหม่ ห้ามเปลี่ยนฉากหลัง ห้ามเปลี่ยนมุมกล้องอย่างกระทันหัน
-- เหตุการณ์ต้องต่อเนื่องราวกับตัดจากคลิปเดียวกัน
-- อารมณ์และพลังงานต้องไหลต่อจากฉากก่อนหน้า`;
+[SCENE STRUCTURE:]
+- This scene is: ${sceneRole}
+- Directly continues from Scene ${sceneNum - 1}
+- Actions must flow smoothly from where the previous scene ended
+
+[STORY FLOW:]
+- Do NOT restart, do NOT change background, do NOT jump-cut
+- Events must continue as if cut from ONE continuous take
+- Emotion and energy must carry over from the previous scene`;
 
             console.log(`📝 Full Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
 

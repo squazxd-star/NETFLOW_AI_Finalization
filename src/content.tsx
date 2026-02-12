@@ -99,10 +99,15 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
         .map((a: string) => cameraAngleMapping[a] || a)
         .join(', ');
 
+    // Voice description with specific characteristics for consistency
+    const voiceGenderDesc = gender === 'male'
+        ? 'adult Thai male voice, medium-low pitch, warm confident tone'
+        : 'adult Thai female voice, medium-high pitch, warm friendly tone';
+
     const voiceSettingMapping: Record<string, string> = {
-        'original': 'natural human voiceover style',
-        'ai-generated': 'AI voiceover style (but still natural and consistent)',
-        'text-to-speech': 'text-to-speech voiceover style (clear and consistent)'
+        'original': `${voiceGenderDesc}, natural human voiceover, moderate speaking pace, Thai language only`,
+        'ai-generated': `${voiceGenderDesc}, AI voiceover (natural-sounding), consistent tone, Thai language only`,
+        'text-to-speech': `${voiceGenderDesc}, clear text-to-speech, consistent pace, Thai language only`
     };
     const voiceSettingText = voiceSettingMapping[voiceSetting] || voiceSettingMapping['original'];
 
@@ -494,12 +499,27 @@ const ContentScriptApp = () => {
                     // Build detailed character description based on UI settings
                     const characterDesc = buildCharacterDescFromPayload(payload, productName);
 
+                    // Voice characteristics based on gender for consistency
+                    const voiceGender = (payload.gender || 'female') === 'male' ? 'male' : 'female';
+                    const voiceCharacteristics = voiceGender === 'male'
+                        ? 'adult Thai male voice, medium-low pitch, warm confident tone, moderate speaking pace'
+                        : 'adult Thai female voice, medium-high pitch, warm friendly tone, moderate speaking pace';
+
                     const identityLock = `[IDENTITY LOCK - NON-NEGOTIABLE]
  - MUST be the exact same person from the reference face image in every scene
  - Do NOT change face shape, eye shape, nose, lips, jawline, hairstyle, skin tone, age, or ethnicity
  - No face swap, no random person, no different actor, no morphing across scenes
  - Keep the same outfit, accessories, makeup style, and overall look
- - If anything conflicts with the prompt text, ALWAYS follow the reference face image`;
+ - If anything conflicts with the prompt text, ALWAYS follow the reference face image
+
+[VOICE LOCK - NON-NEGOTIABLE]
+ - MUST use the EXACT SAME voice in every scene: same person, same pitch, same tone, same accent
+ - Voice characteristics: ${voiceCharacteristics}
+ - Speaking language: Thai (ภาษาไทย) throughout ALL scenes - do NOT switch language
+ - Same speaking speed, same vocal energy, same intonation patterns as Scene 1
+ - Do NOT change the voice actor, do NOT use a different voice, do NOT alter pitch or tone
+ - The voice must sound like ONE continuous recording from the same person
+ - If narrating/speaking, maintain the same speech rhythm and breathing patterns`;
 
                     // Wrap each scene script with character description prefix
                     sceneScripts = sceneScripts.map((script, index) => {
