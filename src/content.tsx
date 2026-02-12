@@ -569,6 +569,11 @@ Script: "${script}"
                                 setVideoUrls(result.videoUrls);
                             }
 
+                            // เก็บ sceneCount สำหรับแสดงผลใน overlay
+                            if (result.sceneCount) {
+                                setCurrentSceneCount(result.sceneCount);
+                            }
+
                             // Notify the extension popup
                             chrome.runtime.sendMessage({
                                 type: 'VIDEO_GENERATION_COMPLETE',
@@ -680,9 +685,11 @@ Script: "${script}"
                 <VideoResultOverlay
                     videoUrl={videoUrl}
                     videoUrls={videoUrls}
+                    sceneCount={currentSceneCount}
                     onClose={() => {
                         setVideoUrl(null);
                         setVideoUrls([]);
+                        setCurrentSceneCount(1);
                     }}
                 />
             )}

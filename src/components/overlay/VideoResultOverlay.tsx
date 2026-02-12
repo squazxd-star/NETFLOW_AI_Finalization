@@ -6,10 +6,11 @@ import { mergeVideos, getTotalDuration, formatDuration } from '@/services/videoM
 interface VideoResultOverlayProps {
     videoUrl: string;
     videoUrls?: string[];  // Optional array for multi-scene
+    sceneCount?: number;   // Actual number of scenes generated
     onClose: () => void;
 }
 
-const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, videoUrls, onClose }) => {
+const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, videoUrls, sceneCount = 1, onClose }) => {
     // Use videoUrls array if provided, otherwise use single videoUrl
     const urls = videoUrls && videoUrls.length > 0 ? videoUrls : [videoUrl];
     const hasMultipleClips = urls.length > 1;
@@ -18,11 +19,24 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
     const [isMerging, setIsMerging] = useState(false);
     const [mergeProgress, setMergeProgress] = useState("");
     const [mergeError, setMergeError] = useState<string | null>(null);
+    const [actualDuration, setActualDuration] = useState<number | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    const totalDuration = getTotalDuration(urls.length);
-    const durationText = formatDuration(totalDuration);
+    // Use actual video duration if available, otherwise estimate from sceneCount
+    const estimatedDuration = sceneCount * 8; // 8s per scene
+    const totalDuration = actualDuration || estimatedDuration;
+    const durationText = formatDuration(Math.round(totalDuration));
+    const displaySceneCount = sceneCount || urls.length;
+
+    // Get actual duration from video element when loaded
+    const handleLoadedMetadata = () => {
+        if (videoRef.current && videoRef.current.duration && isFinite(videoRef.current.duration)) {
+            const dur = videoRef.current.duration;
+            console.log(`📹 Actual video duration: ${dur.toFixed(1)}s`);
+            setActualDuration(dur);
+        }
+    };
 
     // Auto-merge when multiple clips are provided
     // Skip merge if only 1 URL (blob from scene builder = already combined by VideoFX)
@@ -87,7 +101,7 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
                         <Play className="w-5 h-5 text-red-500 fill-current" />
                         <h2 className="text-lg font-semibold text-white">NetFlow AI Video Result</h2>
                         <span className="px-2 py-1 bg-red-500/20 text-red-400 text-sm rounded-full">
-                            {urls.length} คลิป (รวม {durationText})
+                            {displaySceneCount} ฉาก (รวม {durationText})
                         </span>
                     </div>
                     <button
@@ -108,7 +122,7 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
                                 <p className="text-lg font-medium">กำลังรวมวิดีโอ...</p>
                                 <p className="text-sm text-gray-400 mt-1">{mergeProgress}</p>
                                 <p className="text-xs text-gray-500 mt-2">
-                                    รวม {urls.length} คลิป เป็น {durationText}
+                                    รวม {displaySceneCount} ฉาก เป็น {durationText}
                                 </p>
                             </div>
                         </div>
@@ -133,6 +147,7 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
                             src={displayUrl}
                             controls
                             autoPlay
+                            onLoadedMetadata={handleLoadedMetadata}
                             className="w-full h-full object-contain"
                         />
                     ) : (
@@ -144,8 +159,8 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
                 {/* Footer / Actions */}
                 <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-[#121212]">
                     <div className="text-sm text-gray-400">
-                        {hasMultipleClips && mergedVideoUrl && (
-                            <span className="text-green-400">✓ รวมแล้ว {urls.length} คลิป</span>
+                        {displaySceneCount > 1 && (mergedVideoUrl || displayUrl) && (
+                            <span className="text-green-400">✓ {displaySceneCount} ฉาก{actualDuration ? ` (${durationText})` : ''}</span>
                         )}
                     </div>
                     <div className="flex gap-3">

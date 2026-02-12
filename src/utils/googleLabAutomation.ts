@@ -2415,6 +2415,7 @@ export const runMultiScenePipeline = async (
     success: boolean;
     videoUrl?: string;
     videoUrls?: string[];  // Array of all clip URLs for multi-scene
+    sceneCount?: number;   // Actual scene count for overlay display
     error?: string;
 }> => {
     const { sceneCount, sceneScripts } = config;
@@ -2791,7 +2792,8 @@ export const runMultiScenePipeline = async (
         return {
             success: true,
             videoUrl: primaryUrl,
-            videoUrls: videoUrls  // Single combined URL or individual real URLs
+            videoUrls: videoUrls,  // Single combined URL or individual real URLs
+            sceneCount: sceneCount  // Pass actual scene count for overlay display
         };
 
     } catch (error: any) {
