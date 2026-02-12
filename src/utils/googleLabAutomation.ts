@@ -2173,17 +2173,40 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
 
     console.log("✅ Found prompt input, filling...");
 
-    // Clear and fill the prompt
+    // Clear and fill the prompt using native setter (same technique as Scene 1)
+    // React ignores .value = assignment, MUST use native setter to trigger React state update
     promptInput.focus();
-    await delay(100);
+    await delay(200);
 
     if (promptInput.tagName === 'TEXTAREA' || promptInput.tagName === 'INPUT') {
-        (promptInput as HTMLInputElement).value = '';
-        (promptInput as HTMLInputElement).value = scenePrompt;
-        promptInput.dispatchEvent(new Event('input', { bubbles: true }));
-        promptInput.dispatchEvent(new Event('change', { bubbles: true }));
+        const inputEl = promptInput as HTMLInputElement | HTMLTextAreaElement;
+        const prototype = promptInput.tagName === 'TEXTAREA'
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
+        if (nativeSetter) {
+            // Clear first
+            nativeSetter.call(inputEl, '');
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            await delay(100);
+
+            // Set new value using native setter (React will see this!)
+            nativeSetter.call(inputEl, scenePrompt);
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log(`✅ Prompt filled via native setter`);
+        } else {
+            // Fallback: direct assignment + extra events
+            inputEl.value = '';
+            inputEl.value = scenePrompt;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            console.warn(`⚠️ Native setter not available, used direct assignment`);
+        }
     } else {
         // ContentEditable
+        promptInput.textContent = '';
         promptInput.textContent = scenePrompt;
         promptInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
