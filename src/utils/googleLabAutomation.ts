@@ -2575,6 +2575,8 @@ export const runMultiScenePipeline = async (
         console.log("📋 Scene Scripts Array:", sceneScripts);
         console.log("📋 Scene Scripts Length:", sceneScripts.length);
 
+        let actualScenesGenerated = 1; // Scene 1 already done
+
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
             const sceneNum = sceneIndex + 1;
             const stepBase = 12 + (sceneIndex - 1) * 4;
@@ -2651,7 +2653,8 @@ Continue from scene ${sceneNum - 1}. Same person, same voice, same tone, same ou
 
             // ===== SKIP WAITING - Just queue and move to next scene =====
             // VideoFX จะ gen ฉากนี้อยู่เบื้องหลัง เราไปเพิ่มฉากถัดไปเลย
-            console.log(`✅ Scene ${sceneNum} queued for generation! Moving to next scene...`);
+            actualScenesGenerated++;
+            console.log(`✅ Scene ${sceneNum} queued for generation! (${actualScenesGenerated} scenes total) Moving to next scene...`);
             report(`Scene ${sceneNum} Queued`, stepBase + 2, totalSteps);
 
             // รอ 3 วินาทีก่อนเพิ่มฉากถัดไป (ให้ UI พร้อม)
@@ -2773,7 +2776,7 @@ Continue from scene ${sceneNum - 1}. Same person, same voice, same tone, same ou
             success: true,
             videoUrl: primaryUrl,
             videoUrls: videoUrls,  // Single combined URL or individual real URLs
-            sceneCount: sceneCount  // Pass actual scene count for overlay display
+            sceneCount: actualScenesGenerated  // Actual successful scenes, not config value
         };
 
     } catch (error: any) {

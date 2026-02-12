@@ -24,10 +24,12 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
     const videoRef = useRef<HTMLVideoElement>(null);
 
     // Use actual video duration if available, otherwise estimate from sceneCount
-    const estimatedDuration = sceneCount * 8; // 8s per scene
-    const totalDuration = actualDuration || estimatedDuration;
+    const totalDuration = actualDuration || (sceneCount * 8);
     const durationText = formatDuration(Math.round(totalDuration));
-    const displaySceneCount = sceneCount || urls.length;
+    // Derive scene count from actual duration (8s per scene) - don't trust config value
+    const displaySceneCount = actualDuration
+        ? Math.max(1, Math.round(actualDuration / 8))
+        : (sceneCount || urls.length);
 
     // Get actual duration from video element when loaded
     const handleLoadedMetadata = () => {
