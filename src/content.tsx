@@ -18,12 +18,10 @@ Controls.init();
 const buildCharacterDescFromPayload = (payload: any, productName: string): string => {
     const gender = payload.gender || 'female';
     const expression = payload.expression || payload.emotion || 'happy';
-    const movement = payload.movement || 'minimal';
     const ageRange = payload.ageRange || 'young-adult';
     const personality = payload.personality || 'cheerful';
     const clothingStyles = payload.clothingStyles || ['casual'];
     const background = payload.background || 'studio';
-    const touchLevel = payload.touchLevel || 'medium';
     const cameraAngles = payload.cameraAngles || ['front'];
     const voiceSetting = payload.voiceSetting || 'original';
 
@@ -37,11 +35,6 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
         'senior': '65-70 years old'
     };
     const ageText = ageMapping[ageRange] || '25-30 years old';
-
-    // Physical appearance
-    // IMPORTANT: We intentionally avoid detailed hard-coded facial features here.
-    // The reference face image must be treated as the source of truth to prevent identity drift.
-    const physicalAppearance = 'Use the exact same face identity and facial features from the reference face image (image 1). Do not invent or modify facial structure.';
 
     // Personality to expression
     const personalityMapping: Record<string, string> = {
@@ -81,13 +74,6 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
     };
     const expressionText = expressionMapping[expression] || 'natural pleasant expression';
 
-    const touchMapping: Record<string, string> = {
-        'low': 'minimal retouch, keep natural skin texture, no beauty filter that changes facial structure',
-        'medium': 'light retouch only, preserve natural facial features, no face morphing',
-        'high': 'high-end beauty retouch but MUST preserve exact facial structure and identity (no face shape changes)'
-    };
-    const touchText = touchMapping[touchLevel] || touchMapping['medium'];
-
     const cameraAngleMapping: Record<string, string> = {
         'front': 'front-facing medium shot, eye-level',
         'side': '3/4 side angle, flattering profile',
@@ -111,23 +97,12 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
     };
     const voiceSettingText = voiceSettingMapping[voiceSetting] || voiceSettingMapping['original'];
 
-    return `[CHARACTER - MUST BE IDENTICAL IN ALL SCENES:]
-${genderText}, ${ageText}
-Physical: ${physicalAppearance}
-Outfit: ${clothingText}, gold accessories
-Personality: ${personalityText}
-Expression: ${expressionText}
-Touch/Retouch: ${touchText}
-Camera Preference: ${cameraAngleText}
-Voice Preference: ${voiceSettingText}
-
-[ENVIRONMENT - SAME THROUGHOUT:]
-${backgroundText}
-
-[PRODUCT - ALWAYS VISIBLE:]
-${productName || 'the advertised product'}
-
-[CRITICAL: Same person, same face, same clothes, same location in every scene]`;
+    return `${genderText}, ${ageText}, ${personalityText}, ${expressionText}
+Outfit: ${clothingText}
+Voice: ${voiceSettingText}
+Setting: ${backgroundText}
+Product: ${productName || 'the advertised product'}
+Camera: ${cameraAngleText}`;
 };
 
 // ========== AUTO-CLICK NEW PROJECT ==========
@@ -499,27 +474,7 @@ const ContentScriptApp = () => {
                     // Build detailed character description based on UI settings
                     const characterDesc = buildCharacterDescFromPayload(payload, productName);
 
-                    // Voice characteristics based on gender for consistency
-                    const voiceGender = (payload.gender || 'female') === 'male' ? 'male' : 'female';
-                    const voiceCharacteristics = voiceGender === 'male'
-                        ? 'adult Thai male voice, medium-low pitch, warm confident tone, moderate speaking pace'
-                        : 'adult Thai female voice, medium-high pitch, warm friendly tone, moderate speaking pace';
-
-                    const identityLock = `[IDENTITY LOCK - NON-NEGOTIABLE]
- - MUST be the exact same person from the reference face image in every scene
- - Do NOT change face shape, eye shape, nose, lips, jawline, hairstyle, skin tone, age, or ethnicity
- - No face swap, no random person, no different actor, no morphing across scenes
- - Keep the same outfit, accessories, makeup style, and overall look
- - If anything conflicts with the prompt text, ALWAYS follow the reference face image
-
-[VOICE LOCK - NON-NEGOTIABLE]
- - MUST use the EXACT SAME voice in every scene: same person, same pitch, same tone, same accent
- - Voice characteristics: ${voiceCharacteristics}
- - Speaking language: Thai (ภาษาไทย) throughout ALL scenes - do NOT switch language
- - Same speaking speed, same vocal energy, same intonation patterns as Scene 1
- - Do NOT change the voice actor, do NOT use a different voice, do NOT alter pitch or tone
- - The voice must sound like ONE continuous recording from the same person
- - If narrating/speaking, maintain the same speech rhythm and breathing patterns`;
+                    const identityLock = `Same person in every scene, matching the reference face image exactly. Same voice, same tone, same speaking speed, Thai language only throughout.`;
 
                     // Wrap each scene script with character description prefix
                     sceneScripts = sceneScripts.map((script, index) => {
@@ -529,24 +484,19 @@ const ContentScriptApp = () => {
                                 : 'CTA - call to action';
 
                         return `${characterDesc}
-
 ${identityLock}
-
-[SCENE ${sceneNum} - ${sceneRole}]
-Script: "${script}"
-
-[CAMERA: Medium shot, professional video ad style]`;
+Scene ${sceneNum} (${sceneRole}): ${script}`;
                     });
 
                     // Ensure Scene 1 prompt also carries the same identity constraints.
                     // runMultiScenePipeline prefers `videoPrompt` for Scene 1, so we prefix it here.
                     if (videoPrompt && videoPrompt.trim()) {
-                        videoPrompt = `${characterDesc}\n\n${identityLock}\n\n${videoPrompt}`;
+                        videoPrompt = `${characterDesc}\n${identityLock}\n${videoPrompt}`;
                     }
 
                     // Also constrain the base image generation prompt.
                     if (imagePrompt && imagePrompt.trim()) {
-                        imagePrompt = `${characterDesc}\n\n${identityLock}\n\n${imagePrompt}`;
+                        imagePrompt = `${characterDesc}\n${imagePrompt}`;
                     }
 
                     console.log("✅ Character consistency description injected into all scenes");
