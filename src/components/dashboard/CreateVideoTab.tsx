@@ -109,18 +109,34 @@ const CreateVideoTab = () => {
                     
                     // Language
                     language: data.language,
+                    accent: data.accent,
                     
                     // Script Elements
                     hookText: data.hookEnabled ? data.hookText : "",
                     ctaText: data.ctaEnabled ? data.ctaText : "",
                     mustUseKeywords: data.mustUseKeywords,
                     avoidKeywords: data.avoidKeywords,
+
+                    // Character Details
+                    ageRange: data.ageRange,
+                    personality: data.personality,
+                    clothingStyles: data.clothingStyles,
+                    background: data.background,
+                    voiceSetting: data.voiceSetting,
+                    touchLevel: data.touchLevel,
+                    cameraAngles: data.cameraAngles,
                     
                     // Character & Video Settings
                     gender: data.gender,
                     expression: data.expression,
                     movement: data.movement,
                     clipDuration: data.clipDuration,
+                    sceneCount: data.sceneCount,
+                    aspectRatio: data.aspectRatio,
+                    videoDuration: data.videoDuration,
+                    restInterval: data.restInterval,
+                    autoPostTikTok: data.autoPostTikTok,
+                    autoPostYoutube: data.autoPostYoutube,
                     
                     // AI Prompt (manual override)
                     aiPrompt: data.useAiScript ? "" : data.aiPrompt,
@@ -245,11 +261,13 @@ const CreateVideoTab = () => {
                                     voiceTone: data.voiceTone || "friendly",
                                     saleStyle: data.saleStyle || "storytelling",
                                     language: data.language || "th-central",
+                                    accent: data.accent || "central",
                                     hookText: data.hookEnabled ? data.hookText : "",
                                     ctaText: data.ctaEnabled ? data.ctaText : "",
                                     mustUseKeywords: data.mustUseKeywords || "",
                                     avoidKeywords: data.avoidKeywords || "",
                                     clipDuration: data.clipDuration || 16,
+                                    aspectRatio: data.aspectRatio || "9:16",
                                     gender: data.gender || "female",
                                     expression: data.expression || "happy",
                                     movement: data.movement || "minimal",
@@ -346,12 +364,35 @@ const CreateVideoTab = () => {
                             const payload = {
                                 productName: data.productName,
                                 gender: data.gender,
+                                expression: data.expression,
                                 emotion: data.expression,
                                 productImage: productImages[0],
                                 characterImage: characterImages[0],
                                 clipDuration: data.clipDuration,
+                                sceneCount: data.sceneCount,
                                 sceneDescription: data.aiPrompt, // Original scene desc
                                 movement: data.movement,
+                                template: data.template,
+                                voiceTone: data.voiceTone,
+                                saleStyle: data.saleStyle,
+                                language: data.language,
+                                accent: data.accent,
+                                hookText: data.hookEnabled ? data.hookText : "",
+                                ctaText: data.ctaEnabled ? data.ctaText : "",
+                                mustUseKeywords: data.mustUseKeywords,
+                                avoidKeywords: data.avoidKeywords,
+                                ageRange: data.ageRange,
+                                personality: data.personality,
+                                clothingStyles: data.clothingStyles,
+                                background: data.background,
+                                voiceSetting: data.voiceSetting,
+                                touchLevel: data.touchLevel,
+                                cameraAngles: data.cameraAngles,
+                                aspectRatio: data.aspectRatio,
+                                videoDuration: data.videoDuration,
+                                restInterval: data.restInterval,
+                                autoPostTikTok: data.autoPostTikTok,
+                                autoPostYoutube: data.autoPostYoutube,
                                 // Pass the edited prompts!
                                 videoPrompt: generatedVideoPrompt,
                                 imagePrompt: generatedImagePrompt

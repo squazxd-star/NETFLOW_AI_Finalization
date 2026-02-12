@@ -140,6 +140,13 @@ const LANGUAGE_ACCENT_THAI: Record<string, { dialect: string; characteristic: st
     "th-isan": { dialect: "ภาษาอีสาน", characteristic: "สำเนียงเป็นกันเอง ม่วนซื่น" }
 };
 
+const ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> = {
+    "central": { dialect: "ภาษากลาง", characteristic: "สำเนียงมาตรฐาน ชัดเจน" },
+    "north": { dialect: "ภาษาเหนือ", characteristic: "สำเนียงอ่อนหวาน ม่วนใจ๋" },
+    "south": { dialect: "ภาษาใต้", characteristic: "สำเนียงเข้มแข็ง พูดเร็ว" },
+    "isan": { dialect: "ภาษาอีสาน", characteristic: "สำเนียงเป็นกันเอง ม่วนซื่น" }
+};
+
 // Randomized Hook variations per template (many options!)
 const HOOK_VARIATIONS: Record<string, string[]> = {
     "product-review": [
@@ -596,6 +603,7 @@ export interface PromptGenerationConfig {
     
     // Video Settings
     clipDuration: number;       // 8, 16, 24
+    aspectRatio?: string;       // 9:16, 16:9
     gender?: string;
     expression?: string;
     movement?: string;
@@ -766,6 +774,8 @@ const buildImagePrompt = (
     const expressionText = config.expression || 'happy and confident';
     const category = detectProductCategory(config.productName, productAnalysis, config.template);
     
+    const aspectRatio = config.aspectRatio || '9:16';
+
     let prompt = `Professional photograph for ${templateConfig.thaiName} video thumbnail.
 
 Subject: ${genderText}, ${expressionText} expression, holding/presenting ${config.productName}.
@@ -780,7 +790,7 @@ Reference Images:
 
 ${productAnalysis ? `Product Details: ${productAnalysis}` : ''}
 
-Technical: High resolution, studio lighting, sharp focus, social media optimized, 9:16 portrait orientation.
+Technical: High resolution, studio lighting, sharp focus, social media optimized, ${aspectRatio} orientation.
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}
 
@@ -807,7 +817,9 @@ const buildVideoPrompt = (
     // Get Thai voice configs
     const voiceTone = VOICE_TONE_THAI[config.voiceTone] || VOICE_TONE_THAI["friendly"];
     const saleStyle = SALE_STYLE_THAI[config.saleStyle] || SALE_STYLE_THAI["storytelling"];
-    const languageAccent = LANGUAGE_ACCENT_THAI[config.language] || LANGUAGE_ACCENT_THAI["th-central"];
+    const languageAccent = (config.accent && ACCENT_THAI[config.accent])
+        ? ACCENT_THAI[config.accent]
+        : (LANGUAGE_ACCENT_THAI[config.language] || LANGUAGE_ACCENT_THAI["th-central"]);
     
     // Use user-provided script if available, otherwise generate automatically
     let fullThaiScript: string;
@@ -855,6 +867,8 @@ ${fullThaiScript}
     };
     const toneText = toneDescriptions[config.voiceTone] || toneDescriptions["friendly"];
 
+    const aspectRatio = config.aspectRatio || '9:16';
+
     let prompt = `${durationConfig.description} video for ${templateConfig.thaiName} content.
 
 📹 SCENE:
@@ -884,7 +898,7 @@ ${productAnalysis ? `📸 PRODUCT REFERENCE: ${productAnalysis}` : ''}
 
 ⚙️ TECHNICAL:
 - Duration: ${config.clipDuration} seconds
-- Aspect Ratio: 9:16 (TikTok/Reels)
+- Aspect Ratio: ${aspectRatio}
 - Quality: 4K, professional grade
 - NO text overlays
 - Maintain face/identity consistency from reference image

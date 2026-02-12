@@ -10,6 +10,7 @@ export const createVideoSchema = z.object({
     aiPrompt: z.string().default(""),
     saleStyle: z.enum(["hard", "soft", "educational", "storytelling"]).default("hard"),
     language: z.enum(["th-central", "th-north", "th-south", "th-isan"]).default("th-central"),
+    accent: z.enum(["central", "north", "south", "isan"]).default("central"),
     voiceTone: z.enum(["energetic", "calm", "friendly", "professional"]).default("energetic"),
     template: z.enum([
         "product-review",
@@ -79,6 +80,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     aiPrompt: "",
     saleStyle: "storytelling",
     language: "th-central",
+    accent: "central",
     voiceTone: "energetic",
     template: "mini-drama",
     hookText: "",

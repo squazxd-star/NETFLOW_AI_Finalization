@@ -23,6 +23,9 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
     const personality = payload.personality || 'cheerful';
     const clothingStyles = payload.clothingStyles || ['casual'];
     const background = payload.background || 'studio';
+    const touchLevel = payload.touchLevel || 'medium';
+    const cameraAngles = payload.cameraAngles || ['front'];
+    const voiceSetting = payload.voiceSetting || 'original';
 
     // Gender + Age mapping
     const genderText = gender === 'male' ? 'Thai man' : 'Thai woman';
@@ -35,10 +38,10 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
     };
     const ageText = ageMapping[ageRange] || '25-30 years old';
 
-    // Physical appearance (fixed for consistency)
-    const physicalAppearance = gender === 'female'
-        ? 'shoulder-length straight black hair with side bangs, oval face, light honey-brown skin, natural makeup, slim build 165cm'
-        : 'short black hair neatly styled, angular face, light brown skin, clean-shaven, average build 175cm';
+    // Physical appearance
+    // IMPORTANT: We intentionally avoid detailed hard-coded facial features here.
+    // The reference face image must be treated as the source of truth to prevent identity drift.
+    const physicalAppearance = 'Use the exact same face identity and facial features from the reference face image (image 1). Do not invent or modify facial structure.';
 
     // Personality to expression
     const personalityMapping: Record<string, string> = {
@@ -78,12 +81,40 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
     };
     const expressionText = expressionMapping[expression] || 'natural pleasant expression';
 
+    const touchMapping: Record<string, string> = {
+        'low': 'minimal retouch, keep natural skin texture, no beauty filter that changes facial structure',
+        'medium': 'light retouch only, preserve natural facial features, no face morphing',
+        'high': 'high-end beauty retouch but MUST preserve exact facial structure and identity (no face shape changes)'
+    };
+    const touchText = touchMapping[touchLevel] || touchMapping['medium'];
+
+    const cameraAngleMapping: Record<string, string> = {
+        'front': 'front-facing medium shot, eye-level',
+        'side': '3/4 side angle, flattering profile',
+        'close-up': 'close-up on face and product details (keep face identical)',
+        'full-body': 'full-body shot showing outfit and product',
+        'dynamic': 'dynamic camera movement but keep identity consistent'
+    };
+    const cameraAngleText = (Array.isArray(cameraAngles) ? cameraAngles : [cameraAngles])
+        .map((a: string) => cameraAngleMapping[a] || a)
+        .join(', ');
+
+    const voiceSettingMapping: Record<string, string> = {
+        'original': 'natural human voiceover style',
+        'ai-generated': 'AI voiceover style (but still natural and consistent)',
+        'text-to-speech': 'text-to-speech voiceover style (clear and consistent)'
+    };
+    const voiceSettingText = voiceSettingMapping[voiceSetting] || voiceSettingMapping['original'];
+
     return `[CHARACTER - MUST BE IDENTICAL IN ALL SCENES:]
 ${genderText}, ${ageText}
 Physical: ${physicalAppearance}
 Outfit: ${clothingText}, gold accessories
 Personality: ${personalityText}
 Expression: ${expressionText}
+Touch/Retouch: ${touchText}
+Camera Preference: ${cameraAngleText}
+Voice Preference: ${voiceSettingText}
 
 [ENVIRONMENT - SAME THROUGHOUT:]
 ${backgroundText}
@@ -256,7 +287,7 @@ const ContentScriptApp = () => {
     };
 
     React.useEffect(() => {
-        const messageListener = async (message: any, sender: any, sendResponse: any) => {
+        const messageListener = (message: any, sender: any, sendResponse: any) => {
             if (message.type === 'SHOW_VIDEO_RESULT' && message.videoUrl) {
                 console.log('Received video URL:', message.videoUrl);
                 setVideoUrl(message.videoUrl);
@@ -269,266 +300,304 @@ const ContentScriptApp = () => {
 
             // NEW: Multi-Scene Pipeline Handler
             if (message.type === 'TWO_STAGE_PIPELINE') {
-                console.log('🚀 Starting Multi-Scene Pipeline:', message);
-                const { runMultiScenePipeline } = await import('./utils/googleLabAutomation');
-                const { generatePrompts, generateQuickPrompts } = await import('./services/aiPromptService');
+                // Acknowledge immediately so chrome.tabs.sendMessage callback doesn't hit lastError
+                try {
+                    sendResponse?.({ received: true, status: 'processing' });
+                } catch {
+                    // ignore
+                }
 
-                const payload = message.payload;
-                console.log("📦 Received payload:", payload);
+                (async () => {
+                    console.log('🚀 Starting Multi-Scene Pipeline:', message);
+                    const { runMultiScenePipeline } = await import('./utils/googleLabAutomation');
+                    const { generatePrompts, generateQuickPrompts } = await import('./services/aiPromptService');
 
-                const {
-                    characterImage,
-                    productImage,
-                    productName,
-                    template,
-                    voiceTone,
-                    saleStyle,
-                    language,
-                    hookText,
-                    ctaText,
-                    mustUseKeywords,
-                    avoidKeywords,
-                    gender,
-                    expression,
-                    emotion,  // alias for expression
-                    movement,
-                    clipDuration,
-                    aiPrompt,
-                    useAiScript,
-                    sceneCount: payloadSceneCount,  // Number of scenes (1, 2, or 3)
-                    // Explicit prompts from Workflow Control
-                    videoPrompt: explicitVideoPrompt,
-                    imagePrompt: explicitImagePrompt
-                } = payload;
+                    const payload = message.payload;
+                    console.log("📦 Received payload:", payload);
 
-                // Determine scene count (default 1 if not specified)
-                const sceneCount = payloadSceneCount || Math.max(1, Math.floor((clipDuration || 8) / 8));
-                console.log(`🎬 Scene Count: ${sceneCount}`);
-
-                // ตั้งค่า overlay state
-                setCurrentSceneCount(sceneCount);
-                setTotalSteps(calculateTotalSteps(sceneCount));
-                setIsAutomationRunning(true);
-                setStepNumber(1);
-                setCurrentStep(getStepLabel(1, sceneCount));
-
-                let imagePrompt: string;
-                let videoPrompt: string = "";  // Full video prompt for Scene 1
-                let sceneScripts: string[] = [];  // Individual scripts for Scene 2+
-
-                // Priority 1: Use explicit prompts if provided (from Workflow Control step 3)
-                if (explicitVideoPrompt && explicitImagePrompt) {
-                    console.log("📝 Using explicit prompts from Workflow Control");
-                    imagePrompt = explicitImagePrompt;
-                    videoPrompt = explicitVideoPrompt;  // Full prompt for Scene 1
-
-                    // Parse individual scene scripts for Scene 2+
-                    console.log("🔍 Parsing scene scripts from prompt...");
-
-                    // Try multiple regex patterns
-                    let sceneMatches: string[] | null = null;
-
-                    // Pattern 1: Curly double quotes ""
-                    sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
-                    console.log("  Pattern 1 (curly double):", sceneMatches?.length || 0);
-
-                    // Pattern 2: Regular double quotes ""
-                    if (!sceneMatches || sceneMatches.length === 0) {
-                        sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
-                        console.log("  Pattern 2 (regular double):", sceneMatches?.length || 0);
-                    }
-
-                    // Pattern 3: Any quotes variation
-                    if (!sceneMatches || sceneMatches.length === 0) {
-                        sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*["""''']([^"""''']+)["""''']/g);
-                        console.log("  Pattern 3 (any quotes):", sceneMatches?.length || 0);
-                    }
-
-                    if (sceneMatches && sceneMatches.length > 0) {
-                        sceneScripts = sceneMatches.map((m, idx) => {
-                            // Extract text between any type of quotes
-                            const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
-                            console.log(`  📝 Scene ${idx + 1} script: "${extracted.substring(0, 50)}..."`);
-                            return extracted;
-                        });
-                        console.log("✅ Parsed scene scripts count:", sceneScripts.length);
-                    }
-
-                    if (sceneScripts.length === 0) {
-                        console.warn("⚠️ Could not parse scene scripts, using full prompt for all scenes");
-                        sceneScripts = Array(sceneCount).fill(explicitVideoPrompt);
-                    }
-                } else {
-                    // Build prompt config for generation
-                    const promptConfig = {
-                        productImage,
+                    const {
                         characterImage,
-                        productName: productName || "Product",
-                        template: template || "product-review",
-                        voiceTone: voiceTone || "friendly",
-                        saleStyle: saleStyle || "storytelling",
-                        language: language || "th-central",
-                        hookText: hookText || "",
-                        ctaText: ctaText || "",
-                        mustUseKeywords: mustUseKeywords || "",
-                        avoidKeywords: avoidKeywords || "",
-                        clipDuration: clipDuration || 16,
-                        gender: gender || "female",
-                        expression: expression || emotion || "happy",
-                        movement: movement || "minimal",
-                        userScript: aiPrompt || ""  // User-provided script
-                    };
+                        productImage,
+                        productName,
+                        template,
+                        voiceTone,
+                        saleStyle,
+                        language,
+                        accent,
+                        hookText,
+                        ctaText,
+                        mustUseKeywords,
+                        avoidKeywords,
+                        gender,
+                        expression,
+                        emotion,  // alias for expression
+                        movement,
+                        clipDuration,
+                        aspectRatio,
+                        videoDuration,
+                        aiPrompt,
+                        useAiScript,
+                        sceneCount: payloadSceneCount,  // Number of scenes (1, 2, or 3)
+                        // Explicit prompts from Workflow Control
+                        videoPrompt: explicitVideoPrompt,
+                        imagePrompt: explicitImagePrompt
+                    } = payload;
 
-                    // Generate prompts using AI or quick mode
-                    if (useAiScript && productImage) {
-                        console.log("🤖 Using AI to generate prompts...");
-                        try {
-                            const prompts = await generatePrompts(promptConfig);
-                            imagePrompt = prompts.imagePrompt;
-                            videoPrompt = prompts.videoPrompt;  // Full prompt for Scene 1
+                    // Determine scene count (default 1 if not specified)
+                    const sceneCount = payloadSceneCount || Math.max(1, Math.floor((clipDuration || 8) / 8));
+                    console.log(`🎬 Scene Count: ${sceneCount}`);
 
-                            // Parse individual scene scripts for Scene 2+
-                            console.log("🔍 AI: Parsing scene scripts...");
-                            let sceneMatches: string[] | null = null;
+                    // ตั้งค่า overlay state
+                    setCurrentSceneCount(sceneCount);
+                    setTotalSteps(calculateTotalSteps(sceneCount));
+                    setIsAutomationRunning(true);
+                    setStepNumber(1);
+                    setCurrentStep(getStepLabel(1, sceneCount));
 
-                            // Pattern 1: Curly double quotes ""
-                            sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
-                            console.log("  Pattern 1:", sceneMatches?.length || 0);
+                    let imagePrompt: string;
+                    let videoPrompt: string = "";  // Full video prompt for Scene 1
+                    let sceneScripts: string[] = [];  // Individual scripts for Scene 2+
 
-                            // Pattern 2: Regular double quotes ""
-                            if (!sceneMatches || sceneMatches.length === 0) {
-                                sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
-                                console.log("  Pattern 2:", sceneMatches?.length || 0);
-                            }
+                    // Priority 1: Use explicit prompts if provided (from Workflow Control step 3)
+                    if (explicitVideoPrompt && explicitImagePrompt) {
+                        console.log("📝 Using explicit prompts from Workflow Control");
+                        imagePrompt = explicitImagePrompt;
+                        videoPrompt = explicitVideoPrompt;  // Full prompt for Scene 1
 
-                            if (sceneMatches && sceneMatches.length > 0) {
-                                sceneScripts = sceneMatches.map((m, idx) => {
-                                    const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
-                                    console.log(`  📝 Scene ${idx + 1}: "${extracted.substring(0, 50)}..."`);
-                                    return extracted;
-                                });
-                            }
+                        // Parse individual scene scripts for Scene 2+
+                        console.log("🔍 Parsing scene scripts from prompt...");
 
-                            if (sceneScripts.length === 0) {
-                                console.warn("⚠️ Could not parse AI scene scripts, using full prompt");
+                        // Try multiple regex patterns
+                        let sceneMatches: string[] | null = null;
+
+                        // Pattern 1: Curly double quotes ""
+                        sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
+                        console.log("  Pattern 1 (curly double):", sceneMatches?.length || 0);
+
+                        // Pattern 2: Regular double quotes ""
+                        if (!sceneMatches || sceneMatches.length === 0) {
+                            sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
+                            console.log("  Pattern 2 (regular double):", sceneMatches?.length || 0);
+                        }
+
+                        // Pattern 3: Any quotes variation
+                        if (!sceneMatches || sceneMatches.length === 0) {
+                            sceneMatches = explicitVideoPrompt.match(/🎬 ฉาก \d+:\s*["""''']([^"""''']+)["""''']/g);
+                            console.log("  Pattern 3 (any quotes):", sceneMatches?.length || 0);
+                        }
+
+                        if (sceneMatches && sceneMatches.length > 0) {
+                            sceneScripts = sceneMatches.map((m, idx) => {
+                                // Extract text between any type of quotes
+                                const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
+                                console.log(`  📝 Scene ${idx + 1} script: "${extracted.substring(0, 50)}..."`);
+                                return extracted;
+                            });
+                            console.log("✅ Parsed scene scripts count:", sceneScripts.length);
+                        }
+
+                        if (sceneScripts.length === 0) {
+                            console.warn("⚠️ Could not parse scene scripts, using full prompt for all scenes");
+                            sceneScripts = Array(sceneCount).fill(explicitVideoPrompt);
+                        }
+                    } else {
+                        // Build prompt config for generation
+                        const promptConfig = {
+                            productImage,
+                            characterImage,
+                            productName: productName || "Product",
+                            template: template || "product-review",
+                            voiceTone: voiceTone || "friendly",
+                            saleStyle: saleStyle || "storytelling",
+                            language: language || "th-central",
+                            accent: accent || "central",
+                            hookText: hookText || "",
+                            ctaText: ctaText || "",
+                            mustUseKeywords: mustUseKeywords || "",
+                            avoidKeywords: avoidKeywords || "",
+                            clipDuration: clipDuration || 16,
+                            aspectRatio: aspectRatio || "9:16",
+                            gender: gender || "female",
+                            expression: expression || emotion || "happy",
+                            movement: movement || "minimal",
+                            userScript: aiPrompt || ""  // User-provided script
+                        };
+
+                        // Generate prompts using AI or quick mode
+                        if (useAiScript && productImage) {
+                            console.log("🤖 Using AI to generate prompts...");
+                            try {
+                                const prompts = await generatePrompts(promptConfig);
+                                imagePrompt = prompts.imagePrompt;
+                                videoPrompt = prompts.videoPrompt;  // Full prompt for Scene 1
+
+                                // Parse individual scene scripts for Scene 2+
+                                console.log("🔍 AI: Parsing scene scripts...");
+                                let sceneMatches: string[] | null = null;
+
+                                // Pattern 1: Curly double quotes ""
+                                sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
+                                console.log("  Pattern 1:", sceneMatches?.length || 0);
+
+                                // Pattern 2: Regular double quotes ""
+                                if (!sceneMatches || sceneMatches.length === 0) {
+                                    sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
+                                    console.log("  Pattern 2:", sceneMatches?.length || 0);
+                                }
+
+                                if (sceneMatches && sceneMatches.length > 0) {
+                                    sceneScripts = sceneMatches.map((m, idx) => {
+                                        const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
+                                        console.log(`  📝 Scene ${idx + 1}: "${extracted.substring(0, 50)}..."`);
+                                        return extracted;
+                                    });
+                                }
+
+                                if (sceneScripts.length === 0) {
+                                    console.warn("⚠️ Could not parse AI scene scripts, using full prompt");
+                                    sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
+                                }
+                                console.log("✅ AI Prompts generated, scenes:", sceneScripts.length);
+                            } catch (e) {
+                                console.warn("⚠️ AI prompt generation failed, using quick mode:", e);
+                                const prompts = generateQuickPrompts(promptConfig);
+                                imagePrompt = prompts.imagePrompt;
+                                videoPrompt = prompts.videoPrompt;
                                 sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
                             }
-                            console.log("✅ AI Prompts generated, scenes:", sceneScripts.length);
-                        } catch (e) {
-                            console.warn("⚠️ AI prompt generation failed, using quick mode:", e);
+                        } else if (aiPrompt) {
+                            console.log("📝 Using manual aiPrompt");
+                            // Parse user-provided scripts (split by double newline for each scene)
+                            const userScenes = aiPrompt.split(/\n{2,}/).filter((s: string) => s.trim());
+                            // Scene 1 uses full aiPrompt as videoPrompt
+                            videoPrompt = aiPrompt;
+                            imagePrompt = userScenes[0] || aiPrompt;
+                            // Scene 2+ uses individual scripts
+                            if (userScenes.length >= sceneCount) {
+                                sceneScripts = userScenes.slice(0, sceneCount);
+                            } else {
+                                sceneScripts = [...userScenes];
+                                while (sceneScripts.length < sceneCount) {
+                                    sceneScripts.push(userScenes[userScenes.length - 1] || aiPrompt);
+                                }
+                            }
+                        } else {
+                            console.log("⚡ Using quick prompt generation");
                             const prompts = generateQuickPrompts(promptConfig);
                             imagePrompt = prompts.imagePrompt;
                             videoPrompt = prompts.videoPrompt;
                             sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
                         }
-                    } else if (aiPrompt) {
-                        console.log("📝 Using manual aiPrompt");
-                        // Parse user-provided scripts (split by double newline for each scene)
-                        const userScenes = aiPrompt.split(/\n{2,}/).filter((s: string) => s.trim());
-                        // Scene 1 uses full aiPrompt as videoPrompt
-                        videoPrompt = aiPrompt;
-                        imagePrompt = userScenes[0] || aiPrompt;
-                        // Scene 2+ uses individual scripts
-                        if (userScenes.length >= sceneCount) {
-                            sceneScripts = userScenes.slice(0, sceneCount);
-                        } else {
-                            sceneScripts = [...userScenes];
-                            while (sceneScripts.length < sceneCount) {
-                                sceneScripts.push(userScenes[userScenes.length - 1] || aiPrompt);
-                            }
-                        }
-                    } else {
-                        console.log("⚡ Using quick prompt generation");
-                        const prompts = generateQuickPrompts(promptConfig);
-                        imagePrompt = prompts.imagePrompt;
-                        videoPrompt = prompts.videoPrompt;
-                        sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
                     }
-                }
 
-                // ========== INJECT CHARACTER DESCRIPTION FOR CONSISTENCY ==========
-                // Build detailed character description based on UI settings
-                const characterDesc = buildCharacterDescFromPayload(payload, productName);
+                    // ========== INJECT CHARACTER DESCRIPTION FOR CONSISTENCY ==========
+                    // Build detailed character description based on UI settings
+                    const characterDesc = buildCharacterDescFromPayload(payload, productName);
 
-                // Wrap each scene script with character description prefix
-                sceneScripts = sceneScripts.map((script, index) => {
-                    const sceneNum = index + 1;
-                    const sceneRole = sceneNum === 1 ? 'HOOK - grab attention'
-                        : sceneNum === 2 ? 'DEMO - show product usage'
-                            : 'CTA - call to action';
+                    const identityLock = `[IDENTITY LOCK - NON-NEGOTIABLE]
+ - MUST be the exact same person from the reference face image in every scene
+ - Do NOT change face shape, eye shape, nose, lips, jawline, hairstyle, skin tone, age, or ethnicity
+ - No face swap, no random person, no different actor, no morphing across scenes
+ - Keep the same outfit, accessories, makeup style, and overall look
+ - If anything conflicts with the prompt text, ALWAYS follow the reference face image`;
 
-                    return `${characterDesc}
+                    // Wrap each scene script with character description prefix
+                    sceneScripts = sceneScripts.map((script, index) => {
+                        const sceneNum = index + 1;
+                        const sceneRole = sceneNum === 1 ? 'HOOK - grab attention'
+                            : sceneNum === 2 ? 'DEMO - show product usage'
+                                : 'CTA - call to action';
+
+                        return `${characterDesc}
+
+${identityLock}
 
 [SCENE ${sceneNum} - ${sceneRole}]
 Script: "${script}"
 
 [CAMERA: Medium shot, professional video ad style]`;
-                });
-
-                console.log("✅ Character consistency description injected into all scenes");
-                // ===================================================================
-
-                console.log("📋 Final Config:");
-                console.log("  Image Prompt:", imagePrompt.substring(0, 100) + "...");
-                console.log("  Scene Count:", sceneCount);
-                console.log("  Scene Scripts:", sceneScripts.map((s, i) => `Scene ${i + 1}: ${s.substring(0, 50)}...`));
-
-                try {
-                    const result = await runMultiScenePipeline({
-                        characterImage,
-                        productImage,
-                        imagePrompt,
-                        videoPrompt,
-                        sceneCount,
-                        sceneScripts
-                    }, (step, current, total) => {
-                        // Update Overlay State
-                        setIsAutomationRunning(true);
-                        setCurrentStep(step);
-                        setStepNumber(current);
-                        setTotalSteps(total);
                     });
 
-                    console.log("🎬 Pipeline Result:", result);
+                    // Ensure Scene 1 prompt also carries the same identity constraints.
+                    // runMultiScenePipeline prefers `videoPrompt` for Scene 1, so we prefix it here.
+                    if (videoPrompt && videoPrompt.trim()) {
+                        videoPrompt = `${characterDesc}\n\n${identityLock}\n\n${videoPrompt}`;
+                    }
 
-                    // Show video result if successful
-                    if (result.success) {
-                        console.log("✅ Pipeline Success! Result:", result);
+                    // Also constrain the base image generation prompt.
+                    if (imagePrompt && imagePrompt.trim()) {
+                        imagePrompt = `${characterDesc}\n\n${identityLock}\n\n${imagePrompt}`;
+                    }
 
-                        if (result.videoUrl) {
-                            setVideoUrl(result.videoUrl);
-                        }
+                    console.log("✅ Character consistency description injected into all scenes");
+                    // ===================================================================
 
-                        // เก็บ videoUrls array สำหรับ multi-scene playback
-                        if (result.videoUrls && result.videoUrls.length > 0) {
-                            console.log(`🎬 Collected ${result.videoUrls.length} video URLs for playback`);
-                            setVideoUrls(result.videoUrls);
-                        }
+                    console.log("📋 Final Config:");
+                    console.log("  Image Prompt:", imagePrompt.substring(0, 100) + "...");
+                    console.log("  Scene Count:", sceneCount);
+                    console.log("  Scene Scripts:", sceneScripts.map((s, i) => `Scene ${i + 1}: ${s.substring(0, 50)}...`));
 
-                        // Notify the extension popup
-                        chrome.runtime.sendMessage({
-                            type: 'VIDEO_GENERATION_COMPLETE',
-                            videoUrl: result.videoUrl,
-                            videoUrls: result.videoUrls  // ส่ง array ไปด้วย
+                    try {
+                        const result = await runMultiScenePipeline({
+                            characterImage,
+                            productImage,
+                            imagePrompt,
+                            videoPrompt,
+                            sceneCount,
+                            sceneScripts
+                        }, (step, current, total) => {
+                            // Update Overlay State
+                            setIsAutomationRunning(true);
+                            setCurrentStep(step);
+                            setStepNumber(current);
+                            setTotalSteps(total);
                         });
-                    } else {
-                        console.error("❌ Pipeline failed:", result.error);
-                        // Send error back to extension
+
+                        console.log("🎬 Pipeline Result:", result);
+
+                        // Show video result if successful
+                        if (result.success) {
+                            console.log("✅ Pipeline Success! Result:", result);
+
+                            if (result.videoUrl) {
+                                setVideoUrl(result.videoUrl);
+                            }
+
+                            // เก็บ videoUrls array สำหรับ multi-scene playback
+                            if (result.videoUrls && result.videoUrls.length > 0) {
+                                console.log(`🎬 Collected ${result.videoUrls.length} video URLs for playback`);
+                                setVideoUrls(result.videoUrls);
+                            }
+
+                            // Notify the extension popup
+                            chrome.runtime.sendMessage({
+                                type: 'VIDEO_GENERATION_COMPLETE',
+                                videoUrl: result.videoUrl,
+                                videoUrls: result.videoUrls  // ส่ง array ไปด้วย
+                            });
+                        } else {
+                            console.error("❌ Pipeline failed:", result.error);
+                            // Send error back to extension
+                            chrome.runtime.sendMessage({
+                                type: 'PIPELINE_ERROR',
+                                error: result.error
+                            });
+                        }
+                    } catch (error) {
+                        console.error("❌ An unexpected error occurred during pipeline execution:", error);
                         chrome.runtime.sendMessage({
                             type: 'PIPELINE_ERROR',
-                            error: result.error
+                            error: (error as Error).message || 'Unknown pipeline error'
                         });
+                    } finally {
+                        setIsAutomationRunning(false);
                     }
-                } catch (error) {
-                    console.error("❌ An unexpected error occurred during pipeline execution:", error);
-                    chrome.runtime.sendMessage({
-                        type: 'PIPELINE_ERROR',
-                        error: (error as Error).message || 'Unknown pipeline error'
-                    });
-                } finally {
-                    setIsAutomationRunning(false);
-                }
+                })();
+
+                return true;
             }
+
+            return false;
         };
 
         chrome.runtime.onMessage.addListener(messageListener);

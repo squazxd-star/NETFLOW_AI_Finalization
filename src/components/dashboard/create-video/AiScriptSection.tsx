@@ -161,14 +161,13 @@ const AiScriptSection = ({
                     {/* Sale Style & Voice Tone - Row */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className={`text-xs mb-1.5 block flex items-center gap-1 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                            <label className="text-xs mb-1.5 block flex items-center gap-1 text-muted-foreground">
                                 <Mic className="w-3 h-3" />
                                 น้ำเสียง & อารมณ์
                             </label>
                             <select
                                 {...register("voiceTone")}
-                                disabled={isAiMode}
-                                className={`w-full neon-select ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className="w-full neon-select"
                             >
                                 {voiceToneOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -178,14 +177,13 @@ const AiScriptSection = ({
                             </select>
                         </div>
                         <div>
-                            <label className={`text-xs mb-1.5 block flex items-center gap-1 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                            <label className="text-xs mb-1.5 block flex items-center gap-1 text-muted-foreground">
                                 <Sparkles className="w-3 h-3" />
                                 ระดับพลังงาน
                             </label>
                             <select
                                 {...register("saleStyle")}
-                                disabled={isAiMode}
-                                className={`w-full neon-select ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className="w-full neon-select"
                             >
                                 {saleStyleOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -215,12 +213,12 @@ const AiScriptSection = ({
                             </select>
                         </div>
                         <div>
-                            <label className={`text-xs mb-1.5 block flex items-center gap-1 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                            <label className="text-xs mb-1.5 block flex items-center gap-1 text-muted-foreground">
                                 สำเนียง/ภาษาถิ่น
                             </label>
                             <select
-                                disabled={isAiMode}
-                                className={`w-full neon-select ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                {...register("accent")}
+                                className="w-full neon-select"
                             >
                                 {accentOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -243,12 +241,11 @@ const AiScriptSection = ({
                                             type="checkbox"
                                             checked={field.value}
                                             onChange={(e) => field.onChange(e.target.checked)}
-                                            disabled={isAiMode}
-                                            className={`w-3 h-3 rounded accent-neon-red ${isAiMode ? 'opacity-50' : ''}`}
+                                            className="w-3 h-3 rounded accent-neon-red"
                                         />
                                     )}
                                 />
-                                <label className={`text-xs ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                                <label className="text-xs text-muted-foreground">
                                     ประโยคเปิด (Hook)
                                 </label>
                             </div>
@@ -256,8 +253,8 @@ const AiScriptSection = ({
                                 type="text"
                                 {...register("hookText")}
                                 placeholder="เช่น หยุดดูคลิปนี้ก่อน..."
-                                disabled={!hookEnabled || isAiMode}
-                                className={`w-full neon-input text-xs ${(!hookEnabled || isAiMode) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={!hookEnabled}
+                                className={`w-full neon-input text-xs ${!hookEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
                         </div>
                         <div>
@@ -270,12 +267,11 @@ const AiScriptSection = ({
                                             type="checkbox"
                                             checked={field.value}
                                             onChange={(e) => field.onChange(e.target.checked)}
-                                            disabled={isAiMode}
-                                            className={`w-3 h-3 rounded accent-neon-red ${isAiMode ? 'opacity-50' : ''}`}
+                                            className="w-3 h-3 rounded accent-neon-red"
                                         />
                                     )}
                                 />
-                                <label className={`text-xs ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                                <label className="text-xs text-muted-foreground">
                                     ปุ่มกระตุ้น (CTA)
                                 </label>
                             </div>
@@ -283,8 +279,8 @@ const AiScriptSection = ({
                                 type="text"
                                 {...register("ctaText")}
                                 placeholder="เช่น กดตะกร้าเลย..."
-                                disabled={!ctaEnabled || isAiMode}
-                                className={`w-full neon-input text-xs ${(!ctaEnabled || isAiMode) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={!ctaEnabled}
+                                className={`w-full neon-input text-xs ${!ctaEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -292,27 +288,25 @@ const AiScriptSection = ({
                     {/* Keyword Tags - Disabled in AI mode */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className={`text-xs mb-1.5 block ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                            <label className="text-xs mb-1.5 block text-muted-foreground">
                                 คำสำคัญที่ต้องใช้
                             </label>
                             <input
                                 type="text"
                                 {...register("mustUseKeywords")}
                                 placeholder="ค้นด้วยเครื่องหมาย จุลภาค"
-                                disabled={isAiMode}
-                                className={`w-full neon-input text-xs ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className="w-full neon-input text-xs"
                             />
                         </div>
                         <div>
-                            <label className={`text-xs mb-1.5 block ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                            <label className="text-xs mb-1.5 block text-muted-foreground">
                                 คำที่ต้องหลีกเลี่ยง
                             </label>
                             <input
                                 type="text"
                                 {...register("avoidKeywords")}
                                 placeholder="ค้นด้วยเครื่องหมาย จุลภาค"
-                                disabled={isAiMode}
-                                className={`w-full neon-input text-xs ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className="w-full neon-input text-xs"
                             />
                         </div>
                     </div>
