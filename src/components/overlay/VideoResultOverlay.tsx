@@ -25,9 +25,18 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
     const durationText = formatDuration(totalDuration);
 
     // Auto-merge when multiple clips are provided
+    // Skip merge if only 1 URL (blob from scene builder = already combined by VideoFX)
     useEffect(() => {
         if (hasMultipleClips && !mergedVideoUrl && !isMerging && !mergeError) {
-            mergAllClips();
+            // Filter out blob URLs from different origins (they can't be fetched for merge)
+            const fetchableUrls = urls.filter(u => u.startsWith('http'));
+            if (fetchableUrls.length > 1) {
+                mergAllClips();
+            } else {
+                console.log('📹 Skipping FFmpeg merge: VideoFX already combined the video');
+                // Use the first available URL directly
+                setMergedVideoUrl(urls[0]);
+            }
         }
     }, [hasMultipleClips, urls]);
 
@@ -37,15 +46,30 @@ const VideoResultOverlay: React.FC<VideoResultOverlayProps> = ({ videoUrl, video
         setMergeError(null);
 
         try {
-            console.log(`🎬 Starting merge of ${urls.length} clips...`);
-            const merged = await mergeVideos(urls, (msg) => {
+            // Only merge real HTTP URLs (blob URLs from scene builder are already combined)
+            const fetchableUrls = urls.filter(u => u.startsWith('http'));
+            if (fetchableUrls.length <= 1) {
+                console.log('📹 Only 1 fetchable URL, using directly');
+                setMergedVideoUrl(urls[0]);
+                return;
+            }
+
+            console.log(`🎬 Starting merge of ${fetchableUrls.length} clips...`);
+            const merged = await mergeVideos(fetchableUrls, (msg) => {
                 setMergeProgress(msg);
             });
             setMergedVideoUrl(merged);
             console.log("✅ Merge complete!");
         } catch (error) {
-            console.error("❌ Merge failed:", error);
-            setMergeError((error as Error).message);
+            console.error("❌ Merge failed, falling back to first URL:", error);
+            // Graceful fallback: play first available URL instead of showing error
+            const fallbackUrl = urls.find(u => u.startsWith('http')) || urls[0];
+            if (fallbackUrl) {
+                setMergedVideoUrl(fallbackUrl);
+                console.log('📹 Fallback: using', fallbackUrl.substring(0, 60));
+            } else {
+                setMergeError((error as Error).message);
+            }
         } finally {
             setIsMerging(false);
         }

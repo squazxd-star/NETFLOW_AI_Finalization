@@ -1499,8 +1499,8 @@ const handleVideoDownload = async (selectors: AutomationSelectors): Promise<stri
                 btn.click();
 
                 // รอให้ VideoFX export วิดีโอรวมเสร็จ (สำหรับ multi-clip)
-                console.log("⏳ Waiting for export to complete (up to 3 mins)...");
-                const exportComplete = await waitForExportComplete(180000);
+                console.log("⏳ Waiting for export to complete (up to 5 mins)...");
+                const exportComplete = await waitForExportComplete(300000);
 
                 if (exportComplete) {
                     console.log("✅ Export completed, download should be in progress!");
@@ -2651,38 +2651,54 @@ export const runMultiScenePipeline = async (
             }
         }
 
-        // เพิ่ม video1Src ถ้ายังไม่อยู่ใน list
-        if (video1Src && !allVideoSrcs.includes(video1Src)) {
-            allVideoSrcs.unshift(video1Src); // เพิ่มไว้หน้าสุดเป็น Scene 1
-            console.log(`📹 Added Scene 1 URL: ${video1Src.substring(0, 60)}...`);
+        // ===== SMART VIDEO COLLECTION =====
+        // In scene builder, blob URL IS the combined video (all scenes merged by VideoFX)
+        // Don't mix blob (combined) with individual scene URLs - that would cause wrong merge
+        const blobUrls = allVideoSrcs.filter(u => u.startsWith('blob:'));
+        const realUrls = allVideoSrcs.filter(u => u.startsWith('http'));
+
+        console.log(`📹 Found ${blobUrls.length} blob URLs, ${realUrls.length} real URLs`);
+
+        // If we have a blob URL from scene builder, it's the COMBINED video
+        // Use it as single source - no merge needed
+        if (blobUrls.length > 0) {
+            console.log(`📹 Scene builder blob = combined video, using as single source`);
+            videoUrls.length = 0;
+            videoUrls.push(blobUrls[0]); // Combined video
+        } else if (realUrls.length > 0) {
+            videoUrls.length = 0;
+            for (const url of realUrls) {
+                if (!videoUrls.includes(url)) videoUrls.push(url);
+            }
         }
 
-        // เพิ่มเข้า videoUrls array (ไม่ซ้ำ)
-        videoUrls.length = 0; // Clear ก่อน
-        for (const url of allVideoSrcs) {
-            if (!videoUrls.includes(url)) {
-                videoUrls.push(url);
-            }
+        // เพิ่ม video1Src เป็น fallback ถ้ายังไม่มี
+        if (video1Src && videoUrls.length === 0) {
+            videoUrls.push(video1Src);
+            console.log(`📹 Added Scene 1 URL as fallback: ${video1Src.substring(0, 60)}...`);
         }
 
         console.log(`✅ Collected ${videoUrls.length} video URLs total`);
         videoUrls.forEach((url, i) => console.log(`  Clip ${i + 1}: ${url.substring(0, 70)}...`));
 
-        // Final download
+        // Final download via VideoFX's built-in export (combines all scenes)
         report("Downloading Final Video...", totalSteps - 1, totalSteps);
         await delay(2000);
         const finalDownload = await handleVideoDownload(selectors);
 
         report("All Scenes Complete!", totalSteps, totalSteps);
 
-        // Log summary of collected URLs
+        // Log summary
         console.log(`🎬 Video collection complete! Total: ${videoUrls.length} clips`);
         videoUrls.forEach((url, i) => console.log(`  Clip ${i + 1}: ${url.substring(0, 60)}...`));
 
+        // Primary URL: prefer Scene 1 real URL for preview (blob may not work in side panel)
+        const primaryUrl = video1Src || (realUrls.length > 0 ? realUrls[0] : blobUrls[0]) || '';
+
         return {
             success: true,
-            videoUrl: finalDownload?.startsWith('http') ? finalDownload : video1Src,
-            videoUrls: videoUrls  // Array ของ URL ทุก clip สำหรับเล่นต่อเนื่อง
+            videoUrl: primaryUrl,
+            videoUrls: videoUrls  // Single combined URL or individual real URLs
         };
 
     } catch (error: any) {
