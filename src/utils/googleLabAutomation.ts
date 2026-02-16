@@ -47,6 +47,52 @@ const findAllElementsDeep = (selector: string = '*', root: Document | ShadowRoot
     return elements;
 };
 
+// Helper: Auto-handle ANY "Switch to Veo 3.1 - ..." banner (Fast↔Quality)
+const autoHandleVeoSwitchBanner = async (): Promise<boolean> => {
+    console.log("🔍 Checking for Veo version switch banner...");
+    await delay(1500);
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const allElements = findAllElementsDeep('a, button, span, div');
+        let handled = false;
+
+        for (const el of allElements) {
+            const text = (el.textContent || '').trim();
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            // Match ANY "Switch to Veo ..." link (Fast or Quality)
+            if (text.includes('Switch to Veo') || text.includes('เปลี่ยนเป็น Veo')) {
+                console.log(`✅ Found Veo switch link: "${text.substring(0, 60)}" — clicking...`);
+                (el as HTMLElement).click();
+                (el as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                console.log("✅ Veo version switched!");
+                handled = true;
+                await delay(3000);
+                break;
+            }
+        }
+
+        if (handled) return true;
+
+        // Try dismiss if switch link not found
+        for (const el of allElements) {
+            const text = (el.textContent || '').trim();
+            if (text === 'Dismiss' || text === 'ปิด') {
+                console.log(`  🔄 Dismissing banner: "${text}"`);
+                (el as HTMLElement).click();
+                await delay(1000);
+                return true;
+            }
+        }
+
+        await delay(1000);
+    }
+
+    console.log("  ℹ️ No Veo switch banner found (OK)");
+    return false;
+};
+
 // Helper: Click element by text (supports array of triggers)
 export const clickByText = async (searchText: string | string[], tagFilter?: string): Promise<boolean> => {
     const targets = Array.isArray(searchText) ? searchText : [searchText];
@@ -1259,48 +1305,8 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
         console.warn("⚠️ Could not find 'Ingredients to Video' menu item");
     }
 
-    // Step 3: Handle "Switch to Veo 3.1 - Fast" banner if it appears
-    // "Ingredients to Video" is NOT supported on Veo 3.1 - Quality
-    console.log("🔍 Step 3: Checking for 'Switch to Veo 3.1 - Fast' banner...");
-    await delay(2000);
-
-    for (let bannerAttempt = 1; bannerAttempt <= 3; bannerAttempt++) {
-        const allElements = findAllElementsDeep('a, button, span, div');
-        let switched = false;
-
-        for (const el of allElements) {
-            const text = (el.textContent || '').trim();
-            const rect = (el as HTMLElement).getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
-
-            // Match "Switch to Veo 3.1 - Fast" or Thai equivalent
-            if (text.includes('Switch to Veo 3.1 - Fast') || text.includes('เปลี่ยนเป็น Veo 3.1 - Fast') ||
-                text.includes('Switch to Veo 3.1') || text.includes('เปลี่ยนเป็น Veo')) {
-                console.log(`✅ Found Veo switch link: "${text.substring(0, 50)}" — clicking...`);
-                (el as HTMLElement).click();
-                (el as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                console.log("✅ Switched to Veo 3.1 - Fast!");
-                switched = true;
-                await delay(3000);
-                break;
-            }
-        }
-
-        if (switched) break;
-
-        // Also try to dismiss the banner if "Switch" wasn't found
-        for (const el of allElements) {
-            const text = (el.textContent || '').trim();
-            if (text === 'Dismiss' || text === 'ปิด') {
-                console.log(`  🔄 Dismissing banner: "${text}"`);
-                (el as HTMLElement).click();
-                await delay(1000);
-                break;
-            }
-        }
-
-        await delay(1000);
-    }
+    // Step 3: Handle "Switch to Veo 3.1" banner (Ingredients to Video needs Fast)
+    await autoHandleVeoSwitchBanner();
 
     // Step 4: Wait for video mode to fully load
     console.log("⏳ Waiting 3 seconds for video mode to load...");
@@ -2344,6 +2350,10 @@ const clickAddClipButton = async (): Promise<boolean> => {
             await robustClick(extendBtn);
             console.log(`✅ '${menuText}' clicked! Waiting for expand view...`);
             await delay(4000);
+
+            // Handle "Switch to Veo 3.1 - Quality" banner (Jump to needs Quality)
+            await autoHandleVeoSwitchBanner();
+
             return true;
         }
 
