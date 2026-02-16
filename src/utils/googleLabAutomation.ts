@@ -12,26 +12,36 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const findAllElementsDeep = (selector: string = '*', root: Document | ShadowRoot | Element = document): Element[] => {
     let elements: Element[] = [];
 
-    // 1. Get elements in current root
     try {
-        const nodes = (root as ParentNode).querySelectorAll(selector);
-        elements.push(...Array.from(nodes));
-    } catch (e) { }
-
-    // 2. Traverse Shadow Roots
-    const walker = document.createTreeWalker(
-        root === document ? document.body : (root as Node),
-        NodeFilter.SHOW_ELEMENT,
-        {
-            acceptNode: (node) => (node as Element).shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+        // Safety: check if root is valid and connected (if it's an element)
+        if (root !== document && 'isConnected' in root && !(root as Element).isConnected) {
+            return [];
         }
-    );
 
-    while (walker.nextNode()) {
-        const shadowRoot = (walker.currentNode as Element).shadowRoot;
-        if (shadowRoot) {
-            elements.push(...findAllElementsDeep(selector, shadowRoot));
+        // 1. Get elements in current root
+        try {
+            const nodes = (root as ParentNode).querySelectorAll(selector);
+            elements.push(...Array.from(nodes));
+        } catch (e) { }
+
+        // 2. Traverse Shadow Roots
+        const walker = document.createTreeWalker(
+            root === document ? document.body : (root as Node),
+            NodeFilter.SHOW_ELEMENT,
+            {
+                acceptNode: (node) => (node as Element).shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+            }
+        );
+
+        while (walker.nextNode()) {
+            const currentNode = walker.currentNode as Element;
+            const shadowRoot = currentNode.shadowRoot;
+            if (shadowRoot) {
+                elements.push(...findAllElementsDeep(selector, shadowRoot));
+            }
         }
+    } catch (e) {
+        console.warn('⚠️ Error in findAllElementsDeep:', e);
     }
 
     return elements;
@@ -1887,6 +1897,55 @@ const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<
 };
 
 /**
+ * Find the "ขยาย..." / "Extend..." menu item from the dropdown near the anchor point.
+ * Returns the element to click, or null if not found.
+ */
+const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null => {
+    const candidates: { element: Element; dist: number }[] = [];
+
+    // Method 1: Search by role="menuitem" text
+    const menuItems = findAllElementsDeep('[role="menuitem"], [role="menuitemradio"], [role="option"]');
+    for (const el of menuItems) {
+        const text = (el.textContent || '').trim();
+        const rect = (el as HTMLElement).getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+
+        const isExtend = text.includes('ขยาย') || text.toLowerCase().includes('extend');
+        if (isExtend) {
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            candidates.push({ element: el, dist: Math.hypot(cx - anchorX, cy - anchorY) });
+            console.log(`  📋 Found menu item: "${text}" dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
+        }
+    }
+
+    // Method 2: Search by icon (logout, arrow_forward, etc.)
+    if (candidates.length === 0) {
+        const icons = findAllElementsDeep('i');
+        const extendIcons = ['logout', 'arrow_forward', 'open_in_new', 'exit_to_app', 'arrow_outward', 'expand', 'east'];
+        for (const icon of icons) {
+            const iconText = icon.textContent?.trim();
+            if (iconText && extendIcons.includes(iconText)) {
+                const parent = icon.closest('[role="menuitem"]') || icon.closest('button') || icon.parentElement;
+                if (!parent) continue;
+                const rect = (parent as HTMLElement).getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) continue;
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                candidates.push({ element: parent, dist: Math.hypot(cx - anchorX, cy - anchorY) });
+                console.log(`  📋 Found via icon "${iconText}" dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
+            }
+        }
+    }
+
+    if (candidates.length === 0) return null;
+
+    // Return closest to anchor
+    candidates.sort((a, b) => a.dist - b.dist);
+    return candidates[0].element;
+};
+
+/**
  * Click the + button (PINHOLE_ADD_CLIP_CARD_ID) then click "ขยาย..." from menu
  * Element: <button id="PINHOLE_ADD_CLIP_CARD_ID" class="sc-c177465c-1 hVamcH sc-6a896c9b-1 jKwUyp sc-6a896c9b-0 iSHRLI">
  * Menu: <div role="menuitem" class="sc-93fd5d6e-2 hDmRLS">ขยาย…</div>
@@ -1895,7 +1954,7 @@ const clickAddClipButton = async (): Promise<boolean> => {
     console.log("➕ Step 1: Looking for Add Clip button (PINHOLE_ADD_CLIP_CARD_ID)...");
     await delay(3000);
 
-    // Helper function for robust clicking
+    // Helper function for robust clicking — always dispatch on the actual element (bypass overlay)
     const robustClick = async (element: Element): Promise<boolean> => {
         const el = element as HTMLElement;
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1907,9 +1966,8 @@ const clickAddClipButton = async (): Promise<boolean> => {
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
-        const top = document.elementFromPoint(centerX, centerY) as HTMLElement | null;
-        const topClickable = top?.closest('button,[role="menuitem"],[role="menuitemradio"],[role="option"],[role="button"]') as HTMLElement | null;
-        const clickTarget = topClickable || top || el;
+        // Always use the original element as click target (don't trust elementFromPoint which may return overlay)
+        const clickTarget = el;
 
         // Method 1: Mouse events sequence
         const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY, button: 0, buttons: 1 };
@@ -1988,137 +2046,35 @@ const clickAddClipButton = async (): Promise<boolean> => {
 
     const addButtonRect = addButton ? (addButton as HTMLElement).getBoundingClientRect() : null;
 
-    if (addButton) {
-        console.log("✅ Found Add Clip (+) button! Clicking...");
-        addButtonClicked = await robustClick(addButton);
-        console.log(`✅ + button click result: ${addButtonClicked}`);
-    } else {
+    if (!addButton) {
         console.warn("⚠️ Could not find Add Clip button with any method");
         return false;
     }
 
-    // STEP 2: Wait and click "Extend..." / "ขยาย..." button (menu item)
-    // ปุ่มนี้อยู่ใน popup menu หลังจากกดปุ่ม + มี icon logout (ลูกศรออก)
-    console.log("⏳ Waiting for menu to appear...");
-    await delay(2000);
-
-    console.log("🔍 Step 2: Looking for 'Extend...' / 'ขยาย...' menu item...");
-
     const anchorX = addButtonRect ? addButtonRect.left + addButtonRect.width / 2 : window.innerWidth / 2;
     const anchorY = addButtonRect ? addButtonRect.bottom : window.innerHeight / 2;
 
-    for (let attempt = 1; attempt <= 10; attempt++) {
-        console.log(`🔄 Attempt ${attempt}/10 to find Extend button...`);
+    // กด "+" แล้วรอ dropdown — ถ้า dropdown ไม่ขึ้นค่อย re-click (สูงสุด 3 ครั้ง)
+    for (let plusAttempt = 1; plusAttempt <= 3; plusAttempt++) {
+        console.log(`✅ Clicking + button (attempt ${plusAttempt}/3)...`);
+        await robustClick(addButton);
+        await delay(2000);
 
-        const roleMenuItems = findAllElementsDeep('[role="menuitem"], [role="menuitemradio"], [role="option"]');
-        const hasMenu = roleMenuItems.length > 0 || findAllElementsDeep('[role="menu"], [role="listbox"], [role="dialog"], dialog').length > 0;
-        if (!hasMenu && addButton) {
-            console.log('  ℹ️ No menu detected yet, re-clicking + button...');
-            await robustClick(addButton);
-            await delay(800);
-        }
-
-        // หา menu items ทั้งหมด - รวมทุก element types
-        const menuItems = roleMenuItems.length > 0
-            ? roleMenuItems
-            : [
-                ...findAllElementsDeep('div[class*="menu"]'),
-                ...findAllElementsDeep('button'),
-                ...findAllElementsDeep('span'),
-                ...findAllElementsDeep('div')
-            ];
-
-        console.log(`  Found ${menuItems.length} potential elements`);
-
-        // เก็บปุ่ม Extend/ขยาย ที่หาเจอ
-        const extendButtons: { element: Element, dist: number, area: number }[] = [];
-
-        for (const el of menuItems) {
-            const text = (el.textContent || '').trim();
-            const textLower = text.toLowerCase();
-            const rect = (el as HTMLElement).getBoundingClientRect();
-
-            // หาทั้ง "extend" (EN) และ "ขยาย" (TH) - ไม่ใช้ toLowerCase สำหรับ Thai
-            const hasExtendEN = textLower.includes('extend');
-            const hasExtendTH = text.includes('ขยาย');
-            const isExtendButton = hasExtendEN || hasExtendTH;
-
-            // Log ทุก visible element ที่มี text
-            if (rect.width > 0 && rect.height > 0 && rect.width < 600 && rect.height < 120 && text.length > 0 && text.length < 50) {
-                console.log(`    📋 Menu item: "${text}" (visible, ${rect.width.toFixed(0)}x${rect.height.toFixed(0)})`);
-            }
-
-            if (isExtendButton && rect.width > 0 && rect.height > 0) {
-                const clickTarget = el.closest('[role="menuitem"]') || el.closest('button') || el;
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const dist = Math.hypot(cx - anchorX, cy - anchorY);
-                extendButtons.push({ element: clickTarget, dist, area: rect.width * rect.height });
-                console.log(`  ✅ Found Extend/ขยาย: "${text}" dist=${dist.toFixed(0)}`);
-            }
-        }
-
-        // Method 2: Find by icon - รองรับหลาย icon ที่ VideoFX อาจใช้
-        const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i');
-        for (const icon of icons) {
-            const iconText = icon.textContent?.trim();
-            // รองรับ icon หลายแบบ: logout, arrow_forward, open_in_new, arrow_outward, expand, east
-            const extendIcons = ['logout', 'arrow_forward', 'open_in_new', 'exit_to_app', 'arrow_outward', 'expand', 'open_in_full', 'east', 'fullscreen'];
-            if (iconText && extendIcons.includes(iconText)) {
-                const parent = icon.closest('[role="menuitem"]') || icon.closest('button') || icon.parentElement;
-                if (parent) {
-                    const parentText = (parent.textContent || '').toLowerCase();
-                    const rect = (parent as HTMLElement).getBoundingClientRect();
-                    // Accept if text contains extend/ขยาย OR if it's just the icon itself
-                    if (rect.width > 0 && rect.height > 0) {
-                        const cx = rect.left + rect.width / 2;
-                        const cy = rect.top + rect.height / 2;
-                        const dist = Math.hypot(cx - anchorX, cy - anchorY);
-                        extendButtons.push({ element: parent, dist, area: rect.width * rect.height });
-                        console.log(`  Found Extend via ${iconText} icon dist=${dist.toFixed(0)}, text: "${parentText.substring(0, 20)}..."`);
-                    }
-                }
-            }
-        }
-
-        console.log(`  Total Extend buttons found: ${extendButtons.length}`);
-
-        // เลือกปุ่มที่ใกล้ปุ่ม + ที่สุด (เสถียรกว่าการเลือกขวาสุด)
-        if (extendButtons.length > 0) {
-            extendButtons.sort((a, b) => a.dist - b.dist || a.area - b.area);
-            const targetBtn = extendButtons[0];
-
-            console.log(`✅ Clicking Extend button (dist=${targetBtn.dist.toFixed(0)})`);
-            await robustClick(targetBtn.element);
-            console.log("✅ 'Extend' clicked! Waiting for expand view to fully load...");
-
-            // รอนานขึ้นให้ expand view โหลดเสร็จสมบูรณ์ (4 วินาที)
+        // หา "ขยาย" / "Extend" จาก dropdown
+        const extendBtn = findExtendMenuItem(anchorX, anchorY);
+        if (extendBtn) {
+            console.log(`✅ Found "ขยาย" — clicking now...`);
+            await robustClick(extendBtn);
+            console.log("✅ 'Extend' clicked! Waiting for expand view...");
             await delay(4000);
-
-            // ตรวจสอบว่า expand view เปิดจริง โดยหา prompt textarea
-            console.log("🔍 Verifying expand view is open...");
-            for (let verifyAttempt = 1; verifyAttempt <= 5; verifyAttempt++) {
-                const textareas = findAllElementsDeep('textarea');
-                const visibleTextarea = textareas.find(ta => {
-                    const rect = (ta as HTMLElement).getBoundingClientRect();
-                    return rect.width > 100 && rect.height > 20;
-                });
-                if (visibleTextarea) {
-                    console.log(`✅ Expand view confirmed open! (textarea found)`);
-                    return true;
-                }
-                console.log(`  Verify attempt ${verifyAttempt}/5 - waiting...`);
-                await delay(1000);
-            }
-
-            console.log("⚠️ Expand view may not be fully open, but continuing...");
             return true;
         }
 
-        await delay(800);
+        console.log(`  ⚠️ Dropdown not found, will re-click +...`);
+        await delay(1000);
     }
 
-    console.warn("⚠️ Could not find 'Extend' button after 10 attempts");
+    console.warn("⚠️ Could not find 'Extend' button after 3 attempts");
     return false;
 };
 
@@ -2284,41 +2240,74 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
     console.log(`📝 Prompt fill complete: "${scenePrompt.substring(0, 50)}..."`);
     await delay(1000);
 
-    // Click generate button (arrow_forward icon) - ใช้วิธีเดียวกับ fillPromptAndGenerate
-    console.log("🔍 Looking for Generate button (arrow_forward)...");
-    await delay(1500);
+    // Click generate button with retries + verification.
+    // Root cause fix: previously we returned true immediately after click simulation,
+    // even when button was wrong/disabled and generation never started.
+    console.log("🔍 Looking for Generate button in expand view...");
+    await delay(1200);
 
-    let targetBtn: HTMLElement | null = null;
+    const isButtonDisabled = (btn: HTMLElement | null): boolean => {
+        if (!btn) return true;
+        return btn.hasAttribute('disabled') ||
+            btn.getAttribute('aria-disabled') === 'true' ||
+            btn.classList.contains('disabled') ||
+            (btn as HTMLButtonElement).disabled === true;
+    };
 
-    // METHOD 1: Find button with google-symbols icon "arrow_forward" (เหมือน fillPromptAndGenerate)
-    const arrowForwardIcons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"]');
-    console.log(`🔍 Found ${arrowForwardIcons.length} google-symbols icons`);
+    const commitPromptState = async () => {
+        const inputEl = promptInput as HTMLInputElement | HTMLTextAreaElement;
+        inputEl.focus();
+        await delay(80);
+        inputEl.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertText',
+            data: currentValue || scenePrompt
+        }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        await delay(80);
+        inputEl.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+        await delay(120);
+        inputEl.focus();
+    };
 
-    for (const icon of arrowForwardIcons) {
-        const iconText = icon.textContent?.trim();
-        console.log(`   Icon: "${iconText}"`);
+    const findGenerateButton = (): HTMLElement | null => {
+        const inputRect = promptInput.getBoundingClientRect();
+        const inputCenterX = inputRect.left + inputRect.width / 2;
+        const inputCenterY = inputRect.top + inputRect.height / 2;
 
-        // ONLY accept arrow_forward - this is THE generate button
-        if (iconText === 'arrow_forward') {
-            const parentBtn = icon.closest('button');
-            if (parentBtn) {
-                const rect = parentBtn.getBoundingClientRect();
-                // Generate button should be small and circular (~40-60px)
-                if (rect.width <= 70 && rect.height <= 70) {
-                    targetBtn = parentBtn as HTMLElement;
-                    console.log(`✅ Found generate button: icon="${iconText}", size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
-                    break;
-                }
-            }
+        const candidates: Array<{ btn: HTMLElement; score: number; reason: string }> = [];
+
+        // Method 1: Icon-based candidates near prompt
+        const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i');
+        for (const icon of icons) {
+            const iconText = (icon.textContent || '').trim();
+            const allowedIcons = ['arrow_forward', 'send', 'spark', 'pen_spark', 'auto_awesome'];
+            if (!allowedIcons.includes(iconText)) continue;
+
+            const parentBtn = icon.closest('button, [role="button"]') as HTMLElement | null;
+            if (!parentBtn) continue;
+
+            const rect = parentBtn.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            if (rect.width > 110 || rect.height > 110) continue;
+
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const dist = Math.hypot(cx - inputCenterX, cy - inputCenterY);
+            if (dist > 550) continue;
+
+            const disabledPenalty = isButtonDisabled(parentBtn) ? 1200 : 0;
+            candidates.push({
+                btn: parentBtn,
+                score: dist + disabledPenalty,
+                reason: `icon:${iconText}`
+            });
         }
-    }
 
-    // METHOD 2: Text Match Fallback (สร้าง, generate)
-    if (!targetBtn) {
-        console.log("🔍 Method 2: Looking for button with generate text...");
-        const allButtons = findAllElementsDeep('button, [role="button"]');
+        // Method 2: Text-based fallback
+        const allButtons = findAllElementsDeep('button, [role="button"]') as HTMLElement[];
         const generateKeywords = ['generate', 'create', 'run', 'make', 'send', 'submit', 'ส่ง', 'สร้าง'];
-
         for (const btn of allButtons) {
             const text = (btn.textContent || '').toLowerCase().trim();
             const label = (btn.getAttribute('aria-label') || '').toLowerCase();
@@ -2326,70 +2315,142 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
             if (rect.width === 0 || rect.height === 0) continue;
 
             if (generateKeywords.some(w => text.includes(w) || label.includes(w))) {
-                const excluded = ['tool', 'scene', 'ฉาก', 'เครื่องมือ', 'setting', 'ตั้งค่า'];
+                const excluded = ['tool', 'scene', 'ฉาก', 'เครื่องมือ', 'setting', 'ตั้งค่า', 'edit', 'แก้ไข'];
                 if (excluded.some(ex => text.includes(ex) || label.includes(ex))) continue;
 
-                targetBtn = btn as HTMLElement;
-                console.log(`🎯 Found button by text: "${text || label}"`);
-                break;
-            }
-        }
-    }
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dist = Math.hypot(cx - inputCenterX, cy - inputCenterY);
+                if (dist > 650) continue;
 
-    // METHOD 3: Find rightmost small circular button
-    if (!targetBtn) {
-        console.log("🔍 Method 3: Looking for rightmost circular button...");
-        const allButtons = findAllElementsDeep('button, [role="button"]');
-        let rightmostBtn: HTMLElement | null = null;
-        let maxRight = 0;
-
-        for (const btn of allButtons) {
-            const rect = btn.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
-
-            const isCircular = rect.width > 30 && rect.width < 80 && Math.abs(rect.width - rect.height) < 15;
-
-            if (isCircular && rect.right > maxRight) {
-                maxRight = rect.right;
-                rightmostBtn = btn as HTMLElement;
+                const disabledPenalty = isButtonDisabled(btn) ? 1200 : 0;
+                candidates.push({
+                    btn,
+                    score: dist + 200 + disabledPenalty,
+                    reason: `text:${text || label}`
+                });
             }
         }
 
-        if (rightmostBtn) {
-            targetBtn = rightmostBtn;
-            console.log(`🎯 Found rightmost circular button at x=${maxRight}`);
-        }
-    }
+        if (candidates.length === 0) return null;
 
-    // CLICK THE BUTTON
-    if (targetBtn) {
-        console.log("🖱️ Clicking generate button...");
+        candidates.sort((a, b) => a.score - b.score);
+        const best = candidates[0];
+        console.log(`🎯 Generate candidate selected (${best.reason}), score=${best.score.toFixed(0)}, disabled=${isButtonDisabled(best.btn)}`);
+        return best.btn;
+    };
 
-        targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await delay(300);
+    const clickButtonRobust = async (btn: HTMLElement) => {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await delay(200);
 
-        const rect = targetBtn.getBoundingClientRect();
+        const rect = btn.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        const mouseOpts = { bubbles: true, cancelable: true, view: window, clientX: centerX, clientY: centerY };
+        const mouseOpts = {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: centerX,
+            clientY: centerY,
+            button: 0
+        };
 
-        targetBtn.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
-        targetBtn.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
-        await delay(100);
-        targetBtn.dispatchEvent(new MouseEvent('mousedown', { ...mouseOpts, button: 0 }));
-        await delay(50);
-        targetBtn.dispatchEvent(new MouseEvent('mouseup', { ...mouseOpts, button: 0 }));
-        targetBtn.dispatchEvent(new MouseEvent('click', { ...mouseOpts, button: 0 }));
-        targetBtn.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
-        await delay(50);
-        targetBtn.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
-        targetBtn.click();
+        btn.dispatchEvent(new MouseEvent('mouseover', mouseOpts));
+        btn.dispatchEvent(new MouseEvent('mouseenter', mouseOpts));
+        await delay(60);
+        btn.dispatchEvent(new PointerEvent('pointerdown', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        btn.dispatchEvent(new MouseEvent('mousedown', mouseOpts));
+        await delay(40);
+        btn.dispatchEvent(new PointerEvent('pointerup', { ...mouseOpts, pointerType: 'mouse', isPrimary: true }));
+        btn.dispatchEvent(new MouseEvent('mouseup', mouseOpts));
+        btn.dispatchEvent(new MouseEvent('click', mouseOpts));
+        btn.click();
+    };
 
-        console.log("✅ Generate clicked for next scene!");
-        return true;
+    const waitForGenerationStartSignal = async (): Promise<boolean> => {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 7000) {
+            const progressEls = findAllElementsDeep('[role="progressbar"], [aria-busy="true"], [class*="progress"], [class*="loading"], [class*="spinner"]');
+            if (progressEls.length > 0) {
+                console.log(`✅ Generation start signal detected (${progressEls.length} progress/loading elements)`);
+                return true;
+            }
+
+            const statusEls = findAllElementsDeep('div, span, p');
+            for (const el of statusEls) {
+                const rect = (el as HTMLElement).getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0 || rect.width > 500 || rect.height > 120) continue;
+                const text = (el.textContent || '').trim().toLowerCase();
+                if (!text) continue;
+
+                if (/\b\d{1,3}\s*%\b/.test(text) ||
+                    text.includes('generating') ||
+                    text.includes('creating') ||
+                    text.includes('processing') ||
+                    text.includes('กำลังสร้าง') ||
+                    text.includes('กำลังประมวลผล')) {
+                    console.log(`✅ Generation status text detected: "${text.substring(0, 40)}"`);
+                    return true;
+                }
+            }
+
+            await delay(400);
+        }
+
+        return false;
+    };
+
+    for (let clickAttempt = 1; clickAttempt <= 6; clickAttempt++) {
+        console.log(`🚀 Generate click attempt ${clickAttempt}/6...`);
+
+        const targetBtn = findGenerateButton();
+        if (!targetBtn) {
+            console.warn("⚠️ Generate button not found near prompt");
+            await commitPromptState();
+            await delay(700);
+            continue;
+        }
+
+        if (isButtonDisabled(targetBtn)) {
+            console.warn(`⚠️ Generate button is disabled on attempt ${clickAttempt}, trying to re-sync prompt state...`);
+            await commitPromptState();
+            await delay(900);
+            continue;
+        }
+
+        await clickButtonRobust(targetBtn);
+        await delay(300);
+
+        // If it turns disabled right after click, generation usually started.
+        if (isButtonDisabled(targetBtn)) {
+            console.log("✅ Generate accepted (button disabled after click)");
+            return true;
+        }
+
+        // Otherwise, wait for progress/status evidence.
+        const started = await waitForGenerationStartSignal();
+        if (started) {
+            console.log("✅ Generate triggered for next scene");
+            return true;
+        }
+
+        // Fallback: Enter key on prompt input.
+        console.warn("⚠️ No generation signal after click, trying Enter fallback...");
+        promptInput.focus();
+        promptInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        promptInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+
+        const startedByEnter = await waitForGenerationStartSignal();
+        if (startedByEnter) {
+            console.log("✅ Generate triggered via Enter fallback");
+            return true;
+        }
+
+        await delay(700);
     }
 
-    console.warn("⚠️ Could not find Generate button after all methods");
+    console.warn("⚠️ Failed to trigger generate for next scene after all retries");
     return false;
 };
 
@@ -2628,14 +2689,19 @@ export const runMultiScenePipeline = async (
 
             console.log(`📝 Base Prompt for Scene ${sceneNum}: "${basePrompt.substring(0, 80)}..."`);
 
-            // Determine scene role in advertisement structure
-            const sceneRole = sceneNum === 2 ? 'DEMO (โชว์การใช้งาน/คุณสมบัติหลัก)' : 'CLOSING (สรุปและ Call-to-Action)';
             const totalScenes = sceneCount;
 
-            // Extend mode prompt: action-focused, brief continuity reminders
-            // VideoFX Extend already continues from previous scene's last frame
-            // Don't repeat character description - it confuses the model
-            const scenePrompt = `${basePrompt}
+            // If prompt already follows unified format from content.tsx, use it directly.
+            // This keeps the same formation for all scenes (only script changes).
+            const hasUnifiedTemplate = /\[SCENE\s+\d+\/\d+\]/i.test(basePrompt)
+                || basePrompt.includes('Restrictions: IMPORTANT: No CTA');
+
+            let scenePrompt = basePrompt;
+
+            // Fallback for legacy/raw scripts: append concise continuity guidance.
+            if (!hasUnifiedTemplate) {
+                const sceneRole = sceneNum === 2 ? 'DEMO (show product usage)' : 'CLOSING (summary and CTA-free ending)';
+                scenePrompt = `${basePrompt}
 
 [Continue seamlessly from previous scene]
 - Same voice: identical pitch, tone, speed, accent as the previous scene
@@ -2644,6 +2710,7 @@ export const runMultiScenePipeline = async (
 - Thai language only, natural speaking rhythm
 - This is scene ${sceneNum}/${totalScenes} (${sceneRole})
 - Smooth natural transition, as if filmed in one continuous shot`;
+            }
 
             console.log(`📝 Full Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
 
@@ -2736,25 +2803,23 @@ export const runMultiScenePipeline = async (
             }
         }
 
-        // ===== SMART VIDEO COLLECTION =====
-        // In scene builder, blob URL IS the combined video (all scenes merged by VideoFX)
-        // Don't mix blob (combined) with individual scene URLs - that would cause wrong merge
+        // ===== COLLECT ALL VIDEO URLs =====
+        // เก็บทุก video URL ที่หาเจอ (ทั้ง blob และ http)
+        // FFmpeg WASM จะ merge ให้เป็นวิดีโอเดียวสำหรับ auto TikTok upload
         const blobUrls = allVideoSrcs.filter(u => u.startsWith('blob:'));
         const realUrls = allVideoSrcs.filter(u => u.startsWith('http'));
 
         console.log(`📹 Found ${blobUrls.length} blob URLs, ${realUrls.length} real URLs`);
 
-        // If we have a blob URL from scene builder, it's the COMBINED video
-        // Use it as single source - no merge needed
-        if (blobUrls.length > 0) {
-            console.log(`📹 Scene builder blob = combined video, using as single source`);
+        // Use DOM search results only if they found MORE URLs than per-scene collection
+        if (allVideoSrcs.length > videoUrls.length) {
+            console.log(`📹 DOM search found ${allVideoSrcs.length} URLs (more than collected ${videoUrls.length}), using DOM results`);
             videoUrls.length = 0;
-            videoUrls.push(blobUrls[0]); // Combined video
-        } else if (realUrls.length > 0) {
-            videoUrls.length = 0;
-            for (const url of realUrls) {
+            for (const url of allVideoSrcs) {
                 if (!videoUrls.includes(url)) videoUrls.push(url);
             }
+        } else {
+            console.log(`📹 Using ${videoUrls.length} per-scene collected URLs`);
         }
 
         // เพิ่ม video1Src เป็น fallback ถ้ายังไม่มี
@@ -2783,7 +2848,7 @@ export const runMultiScenePipeline = async (
         return {
             success: true,
             videoUrl: primaryUrl,
-            videoUrls: videoUrls,  // Single combined URL or individual real URLs
+            videoUrls: videoUrls,  // All scene URLs for FFmpeg WASM merge
             sceneCount: actualScenesGenerated  // Actual successful scenes, not config value
         };
 

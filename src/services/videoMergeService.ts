@@ -133,8 +133,8 @@ export const mergeVideos = async (
 
         // Read output file
         onProgress?.("กำลังสร้างไฟล์...");
-        const outputData = await ff.readFile('output.mp4');
-        const outputBlob = new Blob([outputData], { type: 'video/mp4' });
+        const outputData = await ff.readFile('output.mp4') as Uint8Array;
+        const outputBlob = new Blob([new Uint8Array(outputData)], { type: 'video/mp4' });
         const outputUrl = URL.createObjectURL(outputBlob);
 
         console.log(`✅ Merged video ready: ${outputUrl.substring(0, 50)}... (${outputBlob.size} bytes)`);

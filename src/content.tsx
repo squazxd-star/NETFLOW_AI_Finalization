@@ -85,91 +85,171 @@ const buildCharacterDescFromPayload = (payload: any, productName: string): strin
         .map((a: string) => cameraAngleMapping[a] || a)
         .join(', ');
 
-    // Voice description with specific characteristics for consistency
-    const voiceGenderDesc = gender === 'male'
-        ? 'adult Thai male voice, medium-low pitch, warm confident tone'
-        : 'adult Thai female voice, medium-high pitch, warm friendly tone';
-
-    const voiceSettingMapping: Record<string, string> = {
-        'original': `${voiceGenderDesc}, natural human voiceover, moderate speaking pace, Thai language only`,
-        'ai-generated': `${voiceGenderDesc}, AI voiceover (natural-sounding), consistent tone, Thai language only`,
-        'text-to-speech': `${voiceGenderDesc}, clear text-to-speech, consistent pace, Thai language only`
-    };
-    const voiceSettingText = voiceSettingMapping[voiceSetting] || voiceSettingMapping['original'];
-
     return `${genderText}, ${ageText}, ${personalityText}, ${expressionText}
 Outfit: ${clothingText}
-Voice: ${voiceSettingText}
 Setting: ${backgroundText}
 Product: ${productName || 'the advertised product'}
 Camera: ${cameraAngleText}`;
+};
+
+const buildUnifiedScenePrompt = (
+    payload: any,
+    productName: string,
+    characterDesc: string,
+    identityLock: string,
+    sceneNum: number,
+    totalScenes: number,
+    script: string
+): string => {
+    const styleText = payload.style || 'User-generated content style, natural smartphone footage, authentic real-person feel, casual framing';
+    const aspectRatioText = payload.aspectRatio || '9:16';
+    const sceneText = payload.scene || payload.background || 'living_room';
+    const cameraValue = Array.isArray(payload.cameraAngles) ? payload.cameraAngles[0] : (payload.cameraAngles || 'front');
+    const cameraTextMap: Record<string, string> = {
+        'front': 'Static camera, eye-level medium shot',
+        'side': 'Static camera, 3/4 side angle',
+        'close-up': 'Static camera, close-up framing',
+        'full-body': 'Static camera, full-body framing',
+        'dynamic': 'Smooth handheld-style movement, no sudden jumps'
+    };
+    const cameraText = cameraTextMap[cameraValue] || 'Static camera, steady shot';
+    // Model description: use explicit payload fields if available, else built characterDesc
+    const modelDesc = payload.modelDescription
+        || payload.model?.description
+        || characterDesc.replace(/\n+/g, ', ').trim();
+
+    // Action: visual action description (what the person DOES on screen)
+    const movementMap: Record<string, string> = {
+        'static': `holds ${productName || 'the product'} steadily, looking at the camera`,
+        'minimal': `presents ${productName || 'the product'} with gentle hand gestures, smiling warmly`,
+        'active': `energetically showcases ${productName || 'the product'}, rotating it to show details`
+    };
+    const actionText = payload.action
+        || movementMap[payload.movement || 'minimal']
+        || `presents ${productName || 'the product'} naturally to the camera`;
+
+    const cleanScript = (script || '').trim();
+
+    // ===== Voice section as JSON — simple format for voice consistency =====
+    const voiceGender = payload.gender === 'male' ? 'Male' : 'Female';
+    const voiceJson = JSON.stringify({
+        voice: `${voiceGender} Thai voice speaking`,
+        voiceover: {
+            language: 'thai',
+            text: cleanScript
+        }
+    });
+
+    return `[SCENE ${sceneNum}/${totalScenes}]
+Style: ${styleText}
+Aspect ratio: ${aspectRatioText}
+Model: ${modelDesc}
+Identity: ${identityLock} Use exactly the same voice, same pitch, same tone, same speaking speed in every scene.
+Camera: ${cameraText}
+Scene: ${sceneText}
+Background: from reference image
+Product: ${productName || 'the advertised product'}
+Action: ${actionText}
+${voiceJson}
+Restrictions: IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video.`;
+};
+
+// Global Error Handler to catch "Node cannot be found"
+window.onerror = (msg, url, line, col, error) => {
+    if (typeof msg === 'string' && msg.includes('Node cannot be found')) {
+        console.error('🔥 EXCEPTION CAUGHT: Node cannot be found');
+        console.error('Stack:', error?.stack);
+        console.error('Location:', url, line, col);
+        // Prevent default logging if we handled it, but usually we want to see it
+        return false;
+    }
 };
 
 // ========== AUTO-CLICK NEW PROJECT ==========
 const autoClickNewProject = async () => {
     console.log('🔄 Auto-click: Scanning for "New Project" button...');
 
-    // Wait for page to fully load
-    await new Promise(r => setTimeout(r, 2000));
+    try {
+        // Wait for page to fully load
+        await new Promise(r => setTimeout(r, 2000));
 
-    // Check if we're on dashboard (not in workspace)
-    const isWorkspace = document.body.innerText.includes('สร้าง') &&
-        (document.querySelector('textarea') !== null ||
-            document.body.innerText.includes('อัพโหลด'));
+        // Check if we're on dashboard (not in workspace)
+        const isWorkspace = document.body.innerText.includes('สร้าง') &&
+            (document.querySelector('textarea') !== null ||
+                document.body.innerText.includes('อัพโหลด'));
 
-    if (isWorkspace) {
-        console.log('📍 Already in workspace, skipping auto-click');
-        return;
-    }
-
-    // Find the button - target <button> containing "โปรเจ็กต์ใหม่"
-    const allButtons = document.querySelectorAll('button');
-    console.log(`🔍 Found ${allButtons.length} buttons on page`);
-
-    for (const btn of allButtons) {
-        const text = btn.textContent?.trim() || '';
-        if (text.includes('โปรเจ็กต์ใหม่') || text.includes('New project')) {
-            console.log(`✅ Found target button: "${text}"`);
-
-            // Get button center coordinates
-            const rect = btn.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-
-            console.log(`📍 Button position: (${centerX}, ${centerY}), size: ${rect.width}x${rect.height}`);
-
-            // Simulate full click sequence
-            const eventOpts = {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                clientX: centerX,
-                clientY: centerY,
-                button: 0,
-                buttons: 1
-            };
-
-            btn.dispatchEvent(new PointerEvent('pointerdown', { ...eventOpts, pointerType: 'mouse' }));
-            btn.dispatchEvent(new MouseEvent('mousedown', eventOpts));
-            btn.dispatchEvent(new PointerEvent('pointerup', { ...eventOpts, pointerType: 'mouse' }));
-            btn.dispatchEvent(new MouseEvent('mouseup', eventOpts));
-            btn.dispatchEvent(new MouseEvent('click', eventOpts));
-            btn.click();
-
-            console.log('🎯 CLICKED! Waiting for navigation...');
+        if (isWorkspace) {
+            console.log('📍 Already in workspace, skipping auto-click');
             return;
         }
-    }
 
-    console.warn('⚠️ "New Project" button not found. Buttons on page:');
-    allButtons.forEach((b, i) => console.log(`  ${i}: "${b.textContent?.trim().substring(0, 30)}"`));
+        // Find the button - target <button> containing "โปรเจ็กต์ใหม่"
+        // Use Array.from to get a stable static list
+        const allButtons = Array.from(document.querySelectorAll('button'));
+        console.log(`🔍 Found ${allButtons.length} buttons on page`);
+
+        for (const btn of allButtons) {
+            // Safety check: ensure button is still connected to DOM
+            if (!btn.isConnected) continue;
+
+            const text = btn.textContent?.trim() || '';
+            if (text.includes('โปรเจ็กต์ใหม่') || text.includes('New project')) {
+                console.log(`✅ Found target button: "${text}"`);
+
+                // Double check connection before accessing rect
+                if (!btn.isConnected) {
+                    console.warn('⚠️ Button detached before click, tracking...');
+                    continue;
+                }
+
+                // Get button center coordinates
+                const rect = btn.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                console.log(`📍 Button position: (${centerX}, ${centerY}), size: ${rect.width}x${rect.height}`);
+
+                // Simulate full click sequence
+                const eventOpts = {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: centerX,
+                    clientY: centerY,
+                    button: 0,
+                    buttons: 1
+                };
+
+                try {
+                    btn.dispatchEvent(new PointerEvent('pointerdown', { ...eventOpts, pointerType: 'mouse' }));
+                    btn.dispatchEvent(new MouseEvent('mousedown', eventOpts));
+                    btn.dispatchEvent(new PointerEvent('pointerup', { ...eventOpts, pointerType: 'mouse' }));
+                    btn.dispatchEvent(new MouseEvent('mouseup', eventOpts));
+                    btn.dispatchEvent(new MouseEvent('click', eventOpts));
+                    btn.click();
+                    console.log('🎯 CLICKED! Waiting for navigation...');
+                } catch (clickErr) {
+                    console.error('❌ Error during click dispatch:', clickErr);
+                }
+
+                return;
+            }
+        }
+
+        console.warn('⚠️ "New Project" button not found. Buttons on page:');
+        // truncated logging to avoid spam
+        // allButtons.forEach((b, i) => console.log(`  ${i}: "${b.textContent?.trim().substring(0, 30)}"`));
+    } catch (e) {
+        console.error("❌ Critical error in autoClickNewProject:", e);
+    }
 };
 
 // Run auto-click after page loads
 if (document.readyState === 'complete') {
-    autoClickNewProject();
+    // Add small delay to ensure everything is stable
+    setTimeout(autoClickNewProject, 500);
 } else {
-    window.addEventListener('load', autoClickNewProject);
+    window.addEventListener('load', () => setTimeout(autoClickNewProject, 500));
 }
 
 // Create a container for our overlay
@@ -476,23 +556,29 @@ const ContentScriptApp = () => {
 
                     const identityLock = `Same person in every scene, matching the reference face image exactly. Same voice, same tone, same speaking speed, Thai language only throughout.`;
 
-                    // Scene 1: full character desc (first generation, needs full context)
-                    // Scene 2+: raw script only (Extend mode continues from previous scene,
-                    //   repeating character desc confuses the model and wastes prompt space)
-                    sceneScripts = sceneScripts.map((script, index) => {
-                        const sceneNum = index + 1;
-                        if (sceneNum === 1) {
-                            return `${characterDesc}\n${identityLock}\nScene 1 (HOOK): ${script}`;
-                        }
-                        // Scene 2+ : Extend mode already knows character/setting from previous scene
-                        // Only provide the action script - keep it short and focused
-                        return script;
+                    // Use one consistent prompt template for ALL scenes.
+                    // Only script content changes by scene, as requested.
+                    const rawScripts = sceneScripts.map((s) => (s || '').trim()).filter(Boolean);
+                    sceneScripts = Array.from({ length: sceneCount }, (_, index) => {
+                        const sourceScript = rawScripts[index]
+                            || rawScripts[rawScripts.length - 1]
+                            || (videoPrompt || '').trim()
+                            || '';
+
+                        return buildUnifiedScenePrompt(
+                            payload,
+                            productName,
+                            characterDesc,
+                            identityLock,
+                            index + 1,
+                            sceneCount,
+                            sourceScript
+                        );
                     });
 
-                    // Ensure Scene 1 prompt also carries the same identity constraints.
-                    // runMultiScenePipeline prefers `videoPrompt` for Scene 1, so we prefix it here.
-                    if (videoPrompt && videoPrompt.trim()) {
-                        videoPrompt = `${characterDesc}\n${identityLock}\n${videoPrompt}`;
+                    // Scene 1 prompt uses the exact same template as other scenes.
+                    if (sceneScripts.length > 0) {
+                        videoPrompt = sceneScripts[0];
                     }
 
                     // Also constrain the base image generation prompt.
@@ -643,7 +729,6 @@ const ContentScriptApp = () => {
 
     return (
         <>
-            {/* TEMPORARILY DISABLED - User wants to see process
             <AutomationOverlay
                 isVisible={isAutomationRunning}
                 currentStep={currentStep}
@@ -651,19 +736,7 @@ const ContentScriptApp = () => {
                 totalSteps={totalSteps}
                 onStop={handleStopAutomation}
             />
-            */}
-            {videoUrl && (
-                <VideoResultOverlay
-                    videoUrl={videoUrl}
-                    videoUrls={videoUrls}
-                    sceneCount={currentSceneCount}
-                    onClose={() => {
-                        setVideoUrl(null);
-                        setVideoUrls([]);
-                        setCurrentSceneCount(1);
-                    }}
-                />
-            )}
+            {/* VideoResultOverlay removed — disabled for now */}
         </>
     );
 };

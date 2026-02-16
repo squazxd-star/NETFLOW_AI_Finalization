@@ -98,7 +98,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     cameraAngles: ["dynamic"],
     movement: "active",
     clipCount: 5,
-    sceneCount: 2,
+    sceneCount: 3,
     aspectRatio: "9:16",
     videoDuration: "medium",
     clipDuration: 16,
