@@ -154,9 +154,13 @@ const buildUnifiedScenePrompt = (
         restrictions: 'IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video'
     };
 
-    // For scenes 2+: explicit voice lock — tell AI to NOT re-interpret, keep first clip's voice
+    // For scenes 2+: Gemini-recommended contextual prompting for voice/scene continuity
     if (sceneNum > 1) {
-        promptObj.voice_continuity = 'CRITICAL: Do NOT generate a new voice. Continue using the EXACT same voice from the previous clip — same person, same pitch, same tone, same speed, same accent. The voice must sound like one continuous recording.';
+        promptObj.continuity = {
+            voice: `Continue with the exact same ${voiceGender} Thai voice — maintain identical pitch, tone, speed, and accent. Keep the same speaking style as a continuous recording.`,
+            subject: 'Maintain the same person from reference image — same face, outfit, hair, accessories, lighting. Keep all visual elements consistent.',
+            environment: `Keep the same ${sceneText}, same camera style, same background, same ambient atmosphere. Do not change any visual or audio style.`
+        };
     }
 
     return JSON.stringify(promptObj);
