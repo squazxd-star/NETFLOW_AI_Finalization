@@ -1259,11 +1259,54 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
         console.warn("⚠️ Could not find 'Ingredients to Video' menu item");
     }
 
-    // Step 3: Wait 5 seconds for video mode to fully load
-    console.log("⏳ Waiting 5 seconds for video mode to load...");
-    await delay(5000);
+    // Step 3: Handle "Switch to Veo 3.1 - Fast" banner if it appears
+    // "Ingredients to Video" is NOT supported on Veo 3.1 - Quality
+    console.log("🔍 Step 3: Checking for 'Switch to Veo 3.1 - Fast' banner...");
+    await delay(2000);
 
-    // Step 4: Fill video prompt and generate
+    for (let bannerAttempt = 1; bannerAttempt <= 3; bannerAttempt++) {
+        const allElements = findAllElementsDeep('a, button, span, div');
+        let switched = false;
+
+        for (const el of allElements) {
+            const text = (el.textContent || '').trim();
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            // Match "Switch to Veo 3.1 - Fast" or Thai equivalent
+            if (text.includes('Switch to Veo 3.1 - Fast') || text.includes('เปลี่ยนเป็น Veo 3.1 - Fast') ||
+                text.includes('Switch to Veo 3.1') || text.includes('เปลี่ยนเป็น Veo')) {
+                console.log(`✅ Found Veo switch link: "${text.substring(0, 50)}" — clicking...`);
+                (el as HTMLElement).click();
+                (el as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                console.log("✅ Switched to Veo 3.1 - Fast!");
+                switched = true;
+                await delay(3000);
+                break;
+            }
+        }
+
+        if (switched) break;
+
+        // Also try to dismiss the banner if "Switch" wasn't found
+        for (const el of allElements) {
+            const text = (el.textContent || '').trim();
+            if (text === 'Dismiss' || text === 'ปิด') {
+                console.log(`  🔄 Dismissing banner: "${text}"`);
+                (el as HTMLElement).click();
+                await delay(1000);
+                break;
+            }
+        }
+
+        await delay(1000);
+    }
+
+    // Step 4: Wait for video mode to fully load
+    console.log("⏳ Waiting 3 seconds for video mode to load...");
+    await delay(3000);
+
+    // Step 5: Fill video prompt and generate
     console.log("🎬 Filling Video Prompt...");
     return await fillPromptAndGenerate(videoPrompt);
 };
