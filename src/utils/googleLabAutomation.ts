@@ -105,6 +105,154 @@ const autoHandleVeoSwitchBanner = async (): Promise<boolean> => {
     return false;
 };
 
+const detectGenerationMode = (): 'video' | 'image' | 'unknown' => {
+    const videoTriggers = [
+        'ingredients to video',
+        'ส่วนผสมในวิดีโอ',
+        'ผสมวิดีโอ',
+        'jump to',
+        'frames to video',
+        'extend'
+    ];
+    const imageTriggers = [
+        'create image',
+        'สร้างรูปภาพ',
+        'สร้างภาพ',
+        'generate an image'
+    ];
+
+    let hasVideo = false;
+    let hasImage = false;
+
+    const modeButtons = findAllElementsDeep('button[role="combobox"], button');
+    for (const btn of modeButtons) {
+        const el = btn as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+
+        const text = (el.textContent || '').trim().toLowerCase();
+        if (!text || text.length > 120) continue;
+
+        if (videoTriggers.some((t) => text.includes(t))) hasVideo = true;
+        if (imageTriggers.some((t) => text.includes(t))) hasImage = true;
+    }
+
+    if (hasVideo) return 'video';
+    if (hasImage) return 'image';
+    return 'unknown';
+};
+
+const robustElementClick = async (el: HTMLElement): Promise<void> => {
+    const rect = el.getBoundingClientRect();
+    const clickOpts = {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2
+    };
+
+    el.dispatchEvent(new PointerEvent('pointerdown', { ...clickOpts, pointerType: 'mouse' }));
+    el.dispatchEvent(new MouseEvent('mousedown', clickOpts));
+    await delay(40);
+    el.dispatchEvent(new PointerEvent('pointerup', { ...clickOpts, pointerType: 'mouse' }));
+    el.dispatchEvent(new MouseEvent('mouseup', clickOpts));
+    el.dispatchEvent(new MouseEvent('click', clickOpts));
+    el.click();
+};
+
+const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount: number = 1): Promise<void> => {
+    const mode = detectGenerationMode();
+    if (mode !== 'video') return;
+
+    const promptRect = promptInput.getBoundingClientRect();
+    const isNearPrompt = (rect: DOMRect) => {
+        const nearY = rect.bottom >= promptRect.top - 180 && rect.top <= promptRect.bottom + 180;
+        const nearX = rect.left >= promptRect.left - 360 && rect.right <= promptRect.right + 120;
+        return nearY && nearX;
+    };
+
+    const chipImages = findAllElementsDeep('img').filter((img) => {
+        const el = img as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 18 || rect.width > 120 || rect.height < 18 || rect.height > 120) return false;
+        if (el.offsetParent === null) return false;
+        return isNearPrompt(rect);
+    }) as HTMLElement[];
+
+    if (chipImages.length <= keepCount) return;
+
+    console.log(`🧹 Found ${chipImages.length} reference chips near prompt, keeping ${keepCount}...`);
+
+    // Hover chips to reveal close buttons if hidden until hover.
+    for (const chip of chipImages) {
+        const rect = chip.getBoundingClientRect();
+        const hoverOpts = {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2
+        };
+        chip.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+        chip.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+    }
+    await delay(250);
+
+    const closeButtons = findAllElementsDeep('button, [role="button"]').filter((btn) => {
+        const el = btn as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return false;
+        if (rect.width > 56 || rect.height > 56) return false;
+        if (!isNearPrompt(rect)) return false;
+
+        const iconText = (el.querySelector('i, .material-icons, .google-symbols')?.textContent || '').trim().toLowerCase();
+        const text = (el.textContent || '').trim().toLowerCase();
+        return iconText === 'close' || text === 'close' || text === 'remove';
+    }) as HTMLElement[];
+
+    if (closeButtons.length === 0) {
+        console.warn('⚠️ Duplicate reference chips found but no close buttons detected near prompt');
+        return;
+    }
+
+    const sortedImages = [...chipImages].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+    const toRemove = sortedImages.slice(0, Math.max(0, sortedImages.length - keepCount)); // Keep right-most/latest chips
+
+    let removed = 0;
+    const remainingCloseBtns = [...closeButtons];
+
+    for (const chip of toRemove) {
+        const chipRect = chip.getBoundingClientRect();
+        const chipCx = chipRect.left + chipRect.width / 2;
+        const chipCy = chipRect.top + chipRect.height / 2;
+
+        let bestBtn: HTMLElement | null = null;
+        let bestDist = Infinity;
+
+        for (const btn of remainingCloseBtns) {
+            const r = btn.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const dist = Math.hypot(cx - chipCx, cy - chipCy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestBtn = btn;
+            }
+        }
+
+        if (bestBtn && bestDist < 140) {
+            await robustElementClick(bestBtn);
+            removed++;
+            await delay(300);
+            const idx = remainingCloseBtns.indexOf(bestBtn);
+            if (idx >= 0) remainingCloseBtns.splice(idx, 1);
+        }
+    }
+
+    console.log(`✅ Reference chip cleanup complete. Removed ${removed}/${toRemove.length}`);
+};
+
 // Helper: Click element by text (supports array of triggers)
 export const clickByText = async (searchText: string | string[], tagFilter?: string): Promise<boolean> => {
     const targets = Array.isArray(searchText) ? searchText : [searchText];
@@ -565,6 +713,10 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
 
         await delay(1500); // Wait for UI to enable button
 
+        // Video mode only: keep exactly ONE reference chip near prompt to avoid
+        // VideoFX reference-image 403 when duplicate chips are attached.
+        await normalizeVideoReferenceChips(inputEl, 1);
+
         // RETRY LOOP 2: CLICK GENERATE (5 Attempts)
         for (let attempt = 1; attempt <= 5; attempt++) {
             console.log(`🚀 Clicking Generate (Attempt ${attempt})...`);
@@ -738,6 +890,9 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                 if (bannerHandled) {
                     console.log("🔄 Veo switched! Re-clicking Generate...");
                     await delay(2000);
+
+                    // Re-check duplicates after switch banner interactions.
+                    await normalizeVideoReferenceChips(inputEl, 1);
 
                     // Find generate button again and click
                     const retryIcons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"]');
@@ -1861,8 +2016,14 @@ export const runTwoStagePipeline = async (
 
         report("Uploading Product...", 5, 12);
         console.log("📷 Uploading Product Image...");
-        const productUploadSuccess = await uploadSingleImage(config.productImage, 2, selectors);
-        if (!productUploadSuccess) {
+        const shouldUploadProduct = !!config.productImage && config.productImage !== config.characterImage;
+        const productUploadSuccess = shouldUploadProduct
+            ? await uploadSingleImage(config.productImage, 2, selectors)
+            : false;
+        if (!shouldUploadProduct) {
+            console.log("ℹ️ Skip product upload: missing or same as character image (prevents duplicate references)");
+        }
+        if (shouldUploadProduct && !productUploadSuccess) {
             console.warn("⚠️ Product upload failed, continuing anyway...");
         }
         await delay(2000);
@@ -2932,7 +3093,12 @@ export const runMultiScenePipeline = async (
         await delay(2000);
 
         report("Uploading Product...", 5, totalSteps);
-        await uploadSingleImage(config.productImage, 2, selectors);
+        const shouldUploadProduct = !!config.productImage && config.productImage !== config.characterImage;
+        if (shouldUploadProduct) {
+            await uploadSingleImage(config.productImage, 2, selectors);
+        } else {
+            console.log("ℹ️ Skip product upload: missing or same as character image (prevents duplicate references)");
+        }
         await delay(2000);
 
         console.log("⏳ Waiting for images to load...");
