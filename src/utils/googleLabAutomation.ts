@@ -1897,15 +1897,17 @@ const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<
 };
 
 /**
- * Find the "ขยาย..." / "Extend..." menu item from the dropdown near the anchor point.
+ * Find the "Jump to..." / "ข้ามไปยัง..." menu item from the dropdown near the anchor point.
+ * Falls back to "Extend" if Jump to is not found.
  * Returns the element to click, or null if not found.
  */
 const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null => {
-    const candidates: { element: Element; dist: number }[] = [];
+    // priority: 0 = Jump to (preferred), 1 = Extend (fallback)
+    const candidates: { element: Element; dist: number; priority: number }[] = [];
 
     // Method 1: Search by role="menuitem" text
     const menuItems = findAllElementsDeep('[role="menuitem"], [role="menuitemradio"], [role="option"]');
-    // DEBUG: Log ALL visible menu items so we can see what options exist (Extend? Jump to? etc.)
+    // DEBUG: Log ALL visible menu items
     console.log(`🔍 [DEBUG] All visible menu items (${menuItems.length} total):`);
     for (const el of menuItems) {
         const text = (el.textContent || '').trim();
@@ -1919,39 +1921,51 @@ const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null =>
         const rect = (el as HTMLElement).getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) continue;
 
+        // Prefer "Jump to" (priority 0) over "Extend" (priority 1)
+        // Jump to = independent clip = consistent voice across scenes
+        const isJumpTo = text.includes('ข้ามไปยัง') || text.toLowerCase().includes('jump to');
         const isExtend = text.includes('ขยาย') || text.toLowerCase().includes('extend');
-        if (isExtend) {
+        if (isJumpTo || isExtend) {
             const cx = rect.left + rect.width / 2;
             const cy = rect.top + rect.height / 2;
-            candidates.push({ element: el, dist: Math.hypot(cx - anchorX, cy - anchorY) });
-            console.log(`  📋 Found menu item: "${text}" dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
+            const priority = isJumpTo ? 0 : 1;
+            candidates.push({ element: el, dist: Math.hypot(cx - anchorX, cy - anchorY), priority });
+            console.log(`  📋 Found menu item: "${text}" priority=${priority} (${isJumpTo ? 'JUMP TO' : 'EXTEND'}) dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
         }
     }
 
-    // Method 2: Search by icon (logout, arrow_forward, etc.)
+    // Method 2: Search by icon (airline_stops for Jump to, logout for Extend)
     if (candidates.length === 0) {
         const icons = findAllElementsDeep('i');
+        const jumpToIcons = ['airline_stops'];
         const extendIcons = ['logout', 'arrow_forward', 'open_in_new', 'exit_to_app', 'arrow_outward', 'expand', 'east'];
         for (const icon of icons) {
             const iconText = icon.textContent?.trim();
-            if (iconText && extendIcons.includes(iconText)) {
+            if (!iconText) continue;
+            const isJumpIcon = jumpToIcons.includes(iconText);
+            const isExtendIcon = extendIcons.includes(iconText);
+            if (isJumpIcon || isExtendIcon) {
                 const parent = icon.closest('[role="menuitem"]') || icon.closest('button') || icon.parentElement;
                 if (!parent) continue;
                 const rect = (parent as HTMLElement).getBoundingClientRect();
                 if (rect.width === 0 || rect.height === 0) continue;
                 const cx = rect.left + rect.width / 2;
                 const cy = rect.top + rect.height / 2;
-                candidates.push({ element: parent, dist: Math.hypot(cx - anchorX, cy - anchorY) });
-                console.log(`  📋 Found via icon "${iconText}" dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
+                const priority = isJumpIcon ? 0 : 1;
+                candidates.push({ element: parent, dist: Math.hypot(cx - anchorX, cy - anchorY), priority });
+                console.log(`  📋 Found via icon "${iconText}" priority=${priority} dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
             }
         }
     }
 
     if (candidates.length === 0) return null;
 
-    // Return closest to anchor
-    candidates.sort((a, b) => a.dist - b.dist);
-    return candidates[0].element;
+    // Sort by priority first (Jump to = 0 preferred), then by distance
+    candidates.sort((a, b) => a.priority - b.priority || a.dist - b.dist);
+    const chosen = candidates[0];
+    const chosenText = (chosen.element.textContent || '').trim();
+    console.log(`  ✅ CHOSEN: "${chosenText}" priority=${chosen.priority} (${chosen.priority === 0 ? 'JUMP TO' : 'EXTEND'})`);
+    return chosen.element;
 };
 
 /**
@@ -2069,12 +2083,13 @@ const clickAddClipButton = async (): Promise<boolean> => {
         await robustClick(addButton);
         await delay(2000);
 
-        // หา "ขยาย" / "Extend" จาก dropdown
+        // หา "Jump to" (preferred) หรือ "Extend" จาก dropdown
         const extendBtn = findExtendMenuItem(anchorX, anchorY);
         if (extendBtn) {
-            console.log(`✅ Found "ขยาย" — clicking now...`);
+            const menuText = (extendBtn.textContent || '').trim();
+            console.log(`✅ Found menu item "${menuText}" — clicking now...`);
             await robustClick(extendBtn);
-            console.log("✅ 'Extend' clicked! Waiting for expand view...");
+            console.log(`✅ '${menuText}' clicked! Waiting for expand view...`);
             await delay(4000);
             return true;
         }
@@ -2083,7 +2098,7 @@ const clickAddClipButton = async (): Promise<boolean> => {
         await delay(1000);
     }
 
-    console.warn("⚠️ Could not find 'Extend' button after 3 attempts");
+    console.warn("⚠️ Could not find 'Jump to' or 'Extend' button after 3 attempts");
     return false;
 };
 
