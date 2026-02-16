@@ -104,30 +104,30 @@ const buildUnifiedScenePrompt = (
     // ===== Camera (from UI: cameraAngles) =====
     const cameraValue = Array.isArray(payload.cameraAngles) ? payload.cameraAngles[0] : (payload.cameraAngles || 'front');
     const cameraTextMap: Record<string, string> = {
-        'front': 'Static camera, steady centered shot, eye-level framing',
-        'side': 'Static camera, 3/4 side angle, natural perspective',
-        'close-up': 'Close-up camera, tight framing on face and product, shallow depth of field',
-        'full-body': 'Static camera, full-body framing, wide shot',
-        'dynamic': 'Dynamic camera, smooth natural handheld movement, subtle focus shifts'
+        'front': 'Static camera, steady shot',
+        'side': 'Static camera, side angle',
+        'close-up': 'Close-up shot',
+        'full-body': 'Full-body framing',
+        'dynamic': 'Dynamic handheld camera'
     };
     const cameraText = cameraTextMap[cameraValue] || 'Static camera, steady shot';
 
     // ===== Scene (from UI: background) =====
     const sceneMap: Record<string, string> = {
-        'studio': 'Modern high-end indoor studio, soft professional lighting',
-        'outdoor': 'Natural outdoor setting, warm ambient sunlight',
-        'home': 'Cozy living room setting, warm indoor lighting',
-        'office': 'Clean modern office, professional lighting',
-        'abstract': 'Modern high-end indoor setting, soft natural lighting'
+        'studio': 'modern studio',
+        'outdoor': 'outdoor setting',
+        'home': 'living room',
+        'office': 'office setting',
+        'abstract': 'modern setting'
     };
-    const sceneText = sceneMap[payload.background || 'studio'] || 'Modern high-end indoor setting, soft natural lighting';
+    const sceneText = sceneMap[payload.background || 'studio'] || 'modern setting';
 
     // ===== Action (from UI: movement + product) =====
     const pName = productName || 'the product';
     const movementMap: Record<string, string> = {
-        'static': `Holds ${pName} steadily at chest level, looking directly at camera with confident posture`,
-        'minimal': `Presents ${pName} with gentle hand gestures, showing key features with natural movements`,
-        'active': `Energetically showcases ${pName}, rotating it to catch the light, showing fine details`
+        'static': `holds ${pName} steadily, looking at camera`,
+        'minimal': `presents ${pName} with gentle gestures`,
+        'active': `showcases ${pName}, showing details`
     };
     const actionText = payload.action
         || movementMap[payload.movement || 'minimal']
@@ -143,12 +143,12 @@ const buildUnifiedScenePrompt = (
 
     // ===== Voice Delivery (from UI: voiceTone) =====
     const deliveryMap: Record<string, string> = {
-        'energetic': 'Natural, enthusiastic, and high-energy tone with excitement',
-        'calm': 'Calm, measured, and soothing conversational tone',
-        'friendly': 'Natural, warm, and friendly conversational tone',
-        'professional': 'Clear, confident, and professional tone'
+        'energetic': 'energetic enthusiastic',
+        'calm': 'calm soothing',
+        'friendly': 'warm friendly',
+        'professional': 'confident professional'
     };
-    const deliveryText = deliveryMap[payload.voiceTone || 'energetic'] || 'Natural, enthusiastic, and friendly tone';
+    const deliveryText = deliveryMap[payload.voiceTone || 'energetic'] || 'energetic';
 
     // ===== Expression (from UI: expression) =====
     const expressionMap: Record<string, string> = {
@@ -159,30 +159,29 @@ const buildUnifiedScenePrompt = (
     };
     const expressionText = expressionMap[payload.expression || 'neutral'] || 'natural pleasant expression';
 
-    const cleanScript = (script || '').trim();
+    // Strip surrounding quotes that cause escaped \" in JSON
+    const cleanScript = (script || '').trim().replace(/^"+|"+$/g, '');
 
-    // ===== PROVEN WORKING JSON structure — same fields, same nesting =====
-    // All audio/voice info merged into 'voice' field. No new unknown fields.
+    // ===== SHORT + CLEAN prompt — proven working structure =====
     const promptObj: Record<string, any> = {
-        style: 'UGC style, natural smartphone footage, real-person feel, casual framing',
+        style: 'UGC, natural smartphone footage, real-person feel',
         aspect_ratio: payload.aspectRatio || '9:16',
-        model: { description: `Person from the reference image, ${expressionText}` },
+        model: { description: 'Person from the reference image' },
         camera: cameraText,
         scene: sceneText,
         background: 'Background from reference image',
         product: pName,
         action: actionText,
-        voice: `${voiceGender} Thai voice, ${deliveryText}, consistent volume, clear recording, clean indoor sound`,
+        voice: `${voiceGender} Thai voice speaking, ${deliveryText}, steady volume, clear sound`,
         voiceover: {
             language: 'thai',
             text: cleanScript
         },
-        restrictions: 'No text overlays, no subtitles, no floating text in the video'
+        restrictions: 'No text overlays, no floating text in the video'
     };
 
-    // For scenes 2+: voice + visual continuity (same field name as before)
     if (sceneNum > 1) {
-        promptObj.voice_continuity = `Continue with the exact same ${voiceGender.toLowerCase()} Thai voice from previous clip. Same pitch, tone, speed, same volume level, same audio clarity. Same lighting, same background, same person.`;
+        promptObj.voice_continuity = `Same ${voiceGender.toLowerCase()} Thai voice, same pitch, tone, speed. Same lighting, background, person.`;
     }
 
     return JSON.stringify(promptObj);
