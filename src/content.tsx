@@ -136,8 +136,8 @@ const buildUnifiedScenePrompt = (
     const voiceGender = (payload.gender || 'female') === 'male' ? 'Male' : 'Female';
     const cleanScript = (script || '').trim();
 
-    // ===== Exact competitor JSON format — proven to give consistent voice =====
-    return JSON.stringify({
+    // ===== Full JSON prompt =====
+    const promptObj: Record<string, any> = {
         style: 'User-generated content style, natural smartphone footage, authentic real-person feel, casual framing',
         aspect_ratio: payload.aspectRatio || '9:16',
         model: { description: 'Person from the reference image' },
@@ -152,7 +152,14 @@ const buildUnifiedScenePrompt = (
             text: cleanScript
         },
         restrictions: 'IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video'
-    });
+    };
+
+    // For scenes 2+: explicit voice lock — tell AI to NOT re-interpret, keep first clip's voice
+    if (sceneNum > 1) {
+        promptObj.voice_continuity = 'CRITICAL: Do NOT generate a new voice. Continue using the EXACT same voice from the previous clip — same person, same pitch, same tone, same speed, same accent. The voice must sound like one continuous recording.';
+    }
+
+    return JSON.stringify(promptObj);
 };
 
 // Global Error Handler to catch "Node cannot be found"
