@@ -419,7 +419,7 @@ const CreateVideoTab = () => {
                                                 // Check if content script received the message
                                                 if (chrome.runtime.lastError) {
                                                     console.error("❌ Content script not responding:", chrome.runtime.lastError.message);
-                                                    alert("⚠️ Extension ไม่สามารถเชื่อมต่อกับหน้า VideoFX ได้\n\nกรุณาตรวจสอบ:\n1. เปิด Site Access ให้ labs.google ใน Extension Settings\n2. Refresh หน้า VideoFX แล้วลองใหม่\n3. รอ 3-5 วินาทีหลังเปิดหน้า VideoFX ก่อนกด Generate");
+                                                    console.warn("⚠️ Extension ไม่สามารถเชื่อมต่อกับหน้า VideoFX ได้ — ลอง Refresh หน้า VideoFX แล้วกดใหม่");
                                                 } else {
                                                     console.log("✅ Message sent successfully");
                                                 }
@@ -435,21 +435,21 @@ const CreateVideoTab = () => {
                                                     }, (response) => {
                                                         if (chrome.runtime.lastError) {
                                                             console.error("❌ Fallback failed:", chrome.runtime.lastError.message);
-                                                            alert("⚠️ ไม่พบหน้า VideoFX ที่เปิดอยู่\n\nกรุณา:\n1. กดปุ่ม 'เปิด Google VideoFX' ก่อน\n2. รอหน้าโหลดเสร็จ 3-5 วินาที\n3. กด GENERATE VIDEO อีกครั้ง");
+                                                            console.warn("⚠️ ไม่พบหน้า VideoFX — ลองเปิดหน้า VideoFX แล้วกดใหม่");
                                                         }
                                                     });
                                                 } else {
-                                                    alert("⚠️ ไม่พบ Tab ที่เปิดอยู่\n\nกรุณาเปิดหน้า Google VideoFX ก่อน");
+                                                    console.warn("⚠️ ไม่พบ Tab ที่เปิดอยู่ — กรุณาเปิดหน้า Google VideoFX ก่อน");
                                                 }
                                             });
                                         }
                                     });
                                 } else {
-                                    alert("⚠️ Extension API ไม่พร้อมใช้งาน\n\nกรุณาตรวจสอบว่า Extension ถูกติดตั้งอย่างถูกต้อง");
+                                    console.warn("⚠️ Extension API ไม่พร้อมใช้งาน");
                                 }
                             } catch (e) { 
                                 console.error("❌ Error:", e);
-                                alert("⚠️ เกิดข้อผิดพลาด: " + (e as Error).message);
+                                console.warn("⚠️ เกิดข้อผิดพลาด:", (e as Error).message);
                             }
 
                             // Also trigger the standard hook logic for tracking (optional, or just for UI loading state)
