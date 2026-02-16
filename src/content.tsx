@@ -141,14 +141,24 @@ const buildUnifiedScenePrompt = (
     };
     const ageText = ageMap[payload.ageRange || 'young-adult'] || '25-year-old';
 
-    // ===== Voice Delivery (from UI: voiceTone) =====
+    // ===== Voice Delivery (from UI: voiceTone) — detailed for voice lock =====
     const deliveryMap: Record<string, string> = {
-        'energetic': 'energetic enthusiastic',
-        'calm': 'calm soothing',
-        'friendly': 'warm friendly',
-        'professional': 'confident professional'
+        'energetic': 'fast-paced, high-energy, upbeat rhythm, bright and lively',
+        'calm': 'slow-paced, gentle, measured rhythm, soft and soothing',
+        'friendly': 'moderate pace, warm and conversational, natural rhythm',
+        'professional': 'measured pace, clear articulation, confident and composed'
     };
-    const deliveryText = deliveryMap[payload.voiceTone || 'energetic'] || 'energetic';
+    const deliveryText = deliveryMap[payload.voiceTone || 'energetic'] || 'fast-paced, high-energy, bright and lively';
+
+    // ===== Voice Pitch/Timbre (from age + gender) =====
+    const pitchMap: Record<string, string> = {
+        'teen': 'high-pitched, bright and youthful timbre',
+        'young-adult': 'mid-high pitch, clear and bright timbre',
+        'adult': 'mid-range pitch, clear and confident timbre',
+        'middle-age': 'mid-low pitch, warm and rich timbre',
+        'senior': 'lower pitch, deep and mature timbre'
+    };
+    const pitchText = pitchMap[payload.ageRange || 'young-adult'] || 'mid-high pitch, clear and bright timbre';
 
     // ===== Expression (from UI: expression) =====
     const expressionMap: Record<string, string> = {
@@ -162,11 +172,14 @@ const buildUnifiedScenePrompt = (
     // Strip surrounding quotes
     const cleanScript = (script || '').trim().replace(/^"+|"+$/g, '');
 
-    // ===== PLAIN TEXT prompt (VideoFX rejects all JSON formats with 403) =====
-    let prompt = `Person from the reference image ${actionText} in a ${sceneText}. ${cameraText}. ${voiceGender} Thai voice speaking, ${deliveryText}, steady volume, clear sound. The person says in Thai: ${cleanScript}. No text overlays or floating text in the video.`;
+    // ===== PLAIN TEXT prompt (VideoFX compatible) =====
+    // Voice identity locked: gender + age + pitch + timbre + delivery style
+    const voiceIdentity = `${voiceGender} Thai voice, ${pitchText}, ${deliveryText}, steady consistent volume, clean close-mic recording`;
+
+    let prompt = `Person from the reference image ${actionText} in a ${sceneText}. ${cameraText}. Voice: ${voiceIdentity}. The person says in Thai: ${cleanScript}. No text overlays or floating text in the video.`;
 
     if (sceneNum > 1) {
-        prompt += ` Continue with the same ${voiceGender.toLowerCase()} Thai voice, same pitch, tone, speed. Same lighting, background, person.`;
+        prompt += ` VOICE CONTINUITY: Use the EXACT same voice from the previous clip. Identical ${voiceGender.toLowerCase()} Thai voice, identical pitch, identical speed, identical energy, identical tone, identical recording quality. This is a continuous take from the same speaker.`;
     }
 
     return prompt;
