@@ -172,17 +172,29 @@ const buildUnifiedScenePrompt = (
     // Strip surrounding quotes
     const cleanScript = (script || '').trim().replace(/^"+|"+$/g, '');
 
-    // ===== PLAIN TEXT prompt (VideoFX compatible) =====
-    // Voice identity locked: gender + age + pitch + timbre + delivery style
-    const voiceIdentity = `${voiceGender} Thai voice, ${pitchText}, ${deliveryText}, steady consistent volume, clean close-mic recording`;
-
-    let prompt = `Person from the reference image ${actionText} in a ${sceneText}. ${cameraText}. Voice: ${voiceIdentity}. The person says in Thai: ${cleanScript}. No text overlays or floating text in the video.`;
+    // ===== JSON prompt — same structure as before, upgraded voice clarity =====
+    const promptObj: Record<string, any> = {
+        style: 'UGC, natural smartphone footage, real-person feel',
+        aspect_ratio: payload.aspectRatio || '9:16',
+        model: { description: 'Person from the reference image' },
+        camera: cameraText,
+        scene: sceneText,
+        background: 'Background from reference image',
+        product: pName,
+        action: actionText,
+        voice: `${voiceGender} Thai voice speaking, ${pitchText}, ${deliveryText}, steady consistent volume, clean close-mic recording`,
+        voiceover: {
+            language: 'thai',
+            text: cleanScript
+        },
+        restrictions: 'No text overlays, no floating text in the video'
+    };
 
     if (sceneNum > 1) {
-        prompt += ` VOICE CONTINUITY: Use the EXACT same voice from the previous clip. Identical ${voiceGender.toLowerCase()} Thai voice, identical pitch, identical speed, identical energy, identical tone, identical recording quality. This is a continuous take from the same speaker.`;
+        promptObj.voice_continuity = `Use the EXACT same ${voiceGender.toLowerCase()} Thai voice from previous clip. Identical pitch, identical speed, identical energy, identical tone, identical recording quality. Continuous take from the same speaker.`;
     }
 
-    return prompt;
+    return JSON.stringify(promptObj);
 };
 
 // Global Error Handler to catch "Node cannot be found"
