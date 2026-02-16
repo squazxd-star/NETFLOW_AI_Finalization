@@ -92,6 +92,46 @@ Product: ${productName || 'the advertised product'}
 Camera: ${cameraAngleText}`;
 };
 
+const normalizeSceneScriptText = (rawScript: string, sceneNum: number): string => {
+    const collapseWhitespace = (text: string) => text.replace(/\r?\n+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    const source = (rawScript || '').trim();
+    if (!source) return '';
+
+    // If automation accidentally passes a full JSON prompt, extract only voiceover.text
+    if (source.startsWith('{') && source.endsWith('}')) {
+        try {
+            const parsed = JSON.parse(source);
+            const voiceText = parsed?.voiceover?.text;
+            if (typeof voiceText === 'string' && voiceText.trim()) {
+                return collapseWhitespace(voiceText.replace(/^"+|"+$/g, ''));
+            }
+        } catch {
+            // Keep fallback parsing below
+        }
+    }
+
+    // Prefer explicit scene line, e.g. 🎬 ฉาก 2: "..."
+    const sceneRegex = new RegExp(`(?:🎬\\s*)?(?:ฉาก|scene)\\s*${sceneNum}\\s*:\\s*"?([^"\\n]+)"?`, 'i');
+    const sceneMatch = source.match(sceneRegex);
+    if (sceneMatch?.[1]) {
+        return collapseWhitespace(sceneMatch[1]);
+    }
+
+    // Fallback: first quoted text block
+    const quotedMatch = source.match(/"([^"]+)"/);
+    if (quotedMatch?.[1]) {
+        return collapseWhitespace(quotedMatch[1]);
+    }
+
+    const withoutPrefix = source
+        .replace(/^🎬\s*(?:ฉาก|scene)\s*\d+\s*:\s*/i, '')
+        .replace(/^script\s*:\s*/i, '')
+        .replace(/^voiceover\s*:\s*/i, '')
+        .replace(/^"+|"+$/g, '');
+
+    return collapseWhitespace(withoutPrefix);
+};
+
 const buildUnifiedScenePrompt = (
     payload: any,
     productName: string,
@@ -169,29 +209,37 @@ const buildUnifiedScenePrompt = (
     };
     const expressionText = expressionMap[payload.expression || 'neutral'] || 'natural pleasant expression';
 
-    // Strip surrounding quotes
-    const cleanScript = (script || '').trim().replace(/^"+|"+$/g, '');
+    const cleanScript = normalizeSceneScriptText(script, sceneNum);
+    const spokenScript = cleanScript || `แนะนำ ${pName} อย่างเป็นธรรมชาติและน่าเชื่อถือ`;
 
     // ===== JSON prompt — same structure as before, upgraded voice clarity =====
     const promptObj: Record<string, any> = {
         style: 'UGC, natural smartphone footage, real-person feel',
         aspect_ratio: payload.aspectRatio || '9:16',
-        model: { description: 'Person from the reference image' },
+        model: {
+            description: 'Person from the reference image',
+            appearance: characterDesc,
+            identity_lock: identityLock
+        },
         camera: cameraText,
         scene: sceneText,
         background: 'Background from reference image',
         product: pName,
-        action: actionText,
-        voice: `${voiceGender} Thai voice speaking, ${pitchText}, ${deliveryText}, steady consistent volume, clean close-mic recording`,
+        action: `${actionText}; ${expressionText}`,
+        quality: 'High detail, realistic skin texture, stable lighting, natural motion, artifact-free render',
+        audio_quality: 'Single-speaker Thai close-mic recording, clean vocal presence, no clipping, no sudden loudness jumps',
+        voice: `${voiceGender} Thai voice speaking, ${ageText}, ${pitchText}, ${deliveryText}, steady consistent volume, clean close-mic recording`,
         voiceover: {
             language: 'thai',
-            text: cleanScript
+            text: spokenScript
         },
         restrictions: 'No text overlays, no floating text in the video'
     };
 
     if (sceneNum > 1) {
         promptObj.voice_continuity = `Use the EXACT same ${voiceGender.toLowerCase()} Thai voice from previous clip. Identical pitch, identical speed, identical energy, identical tone, identical recording quality. Continuous take from the same speaker.`;
+        promptObj.visual_continuity = `Keep EXACT same face identity, hairstyle, outfit, makeup, accessories, and background mood from Scene ${sceneNum - 1}. No character drift.`;
+        promptObj.audio_continuity = 'Match previous scene loudness, mic distance, room tone, and pacing for seamless transitions.';
     }
 
     return JSON.stringify(promptObj);
