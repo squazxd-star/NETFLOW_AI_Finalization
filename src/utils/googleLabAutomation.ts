@@ -2265,6 +2265,76 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
         }
     }
 
+    // Strategy 3: Click white "+" near clip/video, then choose "Save frame as asset" from menu.
+    // This handles the flow shown in UI where save-frame is exposed as a menu action from the clip "+".
+    console.log("  🔍 Strategy 3: Probing white '+' buttons near scene builder clip...");
+
+    const plusButtons = findAllElementsDeep('button, [role="button"]').filter((btn) => {
+        const el = btn as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return false;
+        if (rect.width < 14 || rect.height < 14 || rect.width > 70 || rect.height > 70) return false;
+
+        const iconText = (el.querySelector('i, .material-icons, .google-symbols')?.textContent || '').trim().toLowerCase();
+        const text = (el.textContent || '').trim().toLowerCase();
+        return iconText === 'add' || text === '+' || text === 'add';
+    }) as HTMLElement[];
+
+    const findSaveFrameMenuItem = (): HTMLElement | null => {
+        const menuItems = findAllElementsDeep('[role="menuitem"], button, div, span');
+        for (const item of menuItems) {
+            const el = item as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            const text = (el.textContent || '').trim().toLowerCase();
+            const isSaveFrame =
+                text.includes('save frame') ||
+                text.includes('frame as asset') ||
+                text.includes('save as asset') ||
+                text.includes('บันทึกเฟรม');
+
+            if (isSaveFrame) {
+                return (el.closest('[role="menuitem"], button, [role="button"]') as HTMLElement) || el;
+            }
+        }
+        return null;
+    };
+
+    const sortedPlusButtons = [...plusButtons].sort((a, b) => {
+        const aRect = a.getBoundingClientRect();
+        const bRect = b.getBoundingClientRect();
+
+        // De-prioritize timeline add-clip button; try clip save-frame + first.
+        const aPenalty = a.id === 'PINHOLE_ADD_CLIP_CARD_ID' ? 10000 : 0;
+        const bPenalty = b.id === 'PINHOLE_ADD_CLIP_CARD_ID' ? 10000 : 0;
+
+        return (aRect.top + aPenalty) - (bRect.top + bPenalty);
+    });
+
+    for (const plusBtn of sortedPlusButtons.slice(0, 12)) {
+        const rect = plusBtn.getBoundingClientRect();
+        console.log(`  🖱️ Trying '+' button at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}) size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+
+        await robustElementClick(plusBtn);
+        await delay(500);
+
+        const saveFrameMenuItem = findSaveFrameMenuItem();
+        if (saveFrameMenuItem) {
+            const itemText = (saveFrameMenuItem.textContent || '').trim();
+            console.log(`  ✅ Found save-frame menu item: "${itemText}"`);
+            await robustElementClick(saveFrameMenuItem);
+            await delay(3000);
+            console.log("  ✅ Clicked 'Save frame as asset' from '+' menu");
+            return true;
+        }
+
+        // Close unrelated menu (e.g. Jump to / Extend) and keep probing.
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+        document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', bubbles: true }));
+        await delay(250);
+    }
+
     console.warn("  ⚠️ Could not find 'Save frame as asset' button");
     return false;
 };
@@ -3024,7 +3094,7 @@ export const runMultiScenePipeline = async (
     error?: string;
 }> => {
     const { sceneCount, sceneScripts } = config;
-    const totalSteps = sceneCount === 1 ? 12 : 12 + (sceneCount - 1) * 4;
+    const totalSteps = sceneCount === 1 ? 12 : 12 + (sceneCount - 1) * 3;
 
     console.log(`🚀 Starting Multi-Scene Pipeline - ${sceneCount} scene(s)`);
     console.log(`📝 Scene Scripts:`, sceneScripts);
@@ -3169,7 +3239,7 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Add to Scene → Save Frame → Upload last frame as ref → Same prompt, new script → Generate =====
+        // ===== MULTI-SCENE: Add to Scene → Save Frame as Asset (+) → Fill prompt → Generate =====
         // NO Jump to / Extend — stays in Ingredients to Video mode
         console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s)...`);
         console.log("📋 Scene Scripts Array:", sceneScripts);
@@ -3186,7 +3256,7 @@ export const runMultiScenePipeline = async (
 
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
             const sceneNum = sceneIndex + 1;
-            const stepBase = 12 + (sceneIndex - 1) * 4;
+            const stepBase = 12 + (sceneIndex - 1) * 3;
 
             console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
 
@@ -3200,25 +3270,11 @@ export const runMultiScenePipeline = async (
             } else {
                 console.warn(`⚠️ Could not save frame as asset, continuing...`);
             }
-            await delay(2000);
+            await delay(1500);
 
-            // ===== STEP 2: Capture last frame from video + Upload as reference =====
-            report(`Uploading Reference...`, stepBase + 1, totalSteps);
-            console.log(`🎯 STEP 2: Capture last frame and upload as reference...`);
-
-            const lastFrame = await captureVideoLastFrame();
-            if (lastFrame) {
-                console.log(`✅ Last frame captured! Uploading as reference...`);
-                await uploadSingleImage(lastFrame, 1, selectors);
-                await delay(3000);
-                console.log(`✅ Last frame uploaded as reference for Scene ${sceneNum}!`);
-            } else {
-                console.warn(`⚠️ Could not capture last frame — existing references will be used`);
-            }
-
-            // ===== STEP 3: Fill prompt with new script and generate =====
-            report(`Generating Scene ${sceneNum}...`, stepBase + 2, totalSteps);
-            console.log(`🎯 STEP 3: Fill prompt for Scene ${sceneNum} and generate...`);
+            // ===== STEP 2: Fill prompt with new script and generate immediately =====
+            report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
+            console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
 
             const scenePrompt = sceneScripts[sceneIndex];
             if (!scenePrompt || scenePrompt.trim() === '') {
@@ -3234,9 +3290,9 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // ===== STEP 4: Wait for video to complete =====
-            report(`Waiting for Video ${sceneNum}...`, stepBase + 3, totalSteps);
-            console.log(`🎯 STEP 4: Waiting for Scene ${sceneNum} video...`);
+            // ===== STEP 3: Wait for video to complete =====
+            report(`Waiting for Video ${sceneNum}...`, stepBase + 2, totalSteps);
+            console.log(`🎯 STEP 3: Waiting for Scene ${sceneNum} video...`);
 
             const videoSrc = await waitForVideoComplete(300000);
             if (videoSrc) {
@@ -3257,7 +3313,7 @@ export const runMultiScenePipeline = async (
         videoUrls.forEach((url, i) => console.log(`  Video ${i + 1}: ${url.substring(0, 60)}...`));
 
         // Download final video
-        report("Downloading Final Video...", totalSteps - 1, totalSteps);
+        report("Downloading Final Video...", totalSteps, totalSteps);
         await delay(2000);
         const finalDownload = await handleVideoDownload(selectors);
 
