@@ -982,6 +982,61 @@ const captureGeneratedImageBase64 = async (): Promise<string | null> => {
 };
 
 /**
+ * Capture the last frame from the generated video as base64
+ * Used as reference image for the next scene to maintain visual continuity
+ */
+const captureVideoLastFrame = async (): Promise<string | null> => {
+    console.log("🎞️ Capturing last frame from generated video...");
+
+    try {
+        const videos = findAllElementsDeep('video');
+        const candidateVideos = videos.filter(v => {
+            const vid = v as HTMLVideoElement;
+            const hasSize = vid.videoWidth > 200 || vid.offsetWidth > 200;
+            const isVisible = vid.offsetParent !== null;
+            return hasSize && isVisible;
+        });
+
+        if (candidateVideos.length === 0) {
+            console.warn("⚠️ No video found to capture frame from");
+            return null;
+        }
+
+        const target = candidateVideos[candidateVideos.length - 1] as HTMLVideoElement;
+        console.log(`🎥 Found video: ${target.videoWidth}x${target.videoHeight}, duration=${target.duration?.toFixed(1)}s`);
+
+        // Seek to last frame
+        if (target.duration && isFinite(target.duration) && target.duration > 0) {
+            target.currentTime = Math.max(0, target.duration - 0.1);
+            // Wait for seek to complete
+            await new Promise<void>((resolve) => {
+                const onSeeked = () => { target.removeEventListener('seeked', onSeeked); resolve(); };
+                target.addEventListener('seeked', onSeeked);
+                setTimeout(resolve, 2000); // Fallback timeout
+            });
+        }
+
+        // Capture via canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = target.videoWidth || target.offsetWidth || 720;
+        canvas.height = target.videoHeight || target.offsetHeight || 1280;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.warn("⚠️ Could not get canvas context");
+            return null;
+        }
+
+        ctx.drawImage(target, 0, 0, canvas.width, canvas.height);
+        const base64 = canvas.toDataURL('image/png');
+        console.log(`✅ Captured last frame: ${canvas.width}x${canvas.height} (${(base64.length / 1024).toFixed(0)} KB)`);
+        return base64;
+    } catch (error) {
+        console.error("❌ Error capturing video frame:", error);
+        return null;
+    }
+};
+
+/**
  * Upload reference image to the expanded clip view
  * Used for Scene 2/3 to maintain character/product consistency
  */
@@ -2948,215 +3003,96 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Save frame → Jump to → Select asset → Frames to Video → Generate =====
-        console.log(`🎬 Multi-scene mode: Adding ${sceneCount - 1} more scene(s) via Save Frame + Jump to...`);
-
-        // Hover video and click "เพิ่มลงในฉาก" (Add to Scene Builder)
-        report("Adding to Scene Builder...", 11, totalSteps);
-        const addedToScene = await hoverVideoAndAddToScene(selectors);
-        if (!addedToScene) {
-            console.warn("⚠️ Could not add to scene, trying to continue...");
-        }
-
-        await delay(5000); // Wait for scene builder to load
-
+        // ===== MULTI-SCENE: Capture last frame → Upload as reference → Same prompt, new script =====
+        // NO scene builder, NO Jump to, NO Extend
+        // Stay in "Ingredients to Video" mode — each scene generates independently
+        console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s) via last frame reference...`);
         console.log("📋 Scene Scripts Array:", sceneScripts);
-        console.log("📋 Scene Scripts Length:", sceneScripts.length);
 
         let actualScenesGenerated = 1; // Scene 1 already done
 
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
             const sceneNum = sceneIndex + 1;
-            const stepBase = 12 + (sceneIndex - 1) * 5;
+            const stepBase = 11 + (sceneIndex - 1) * 3;
 
-            console.log(`🎬 ========== Generating Scene ${sceneNum} ==========`);
-            console.log(`📝 sceneScripts[${sceneIndex}] = "${sceneScripts[sceneIndex]?.substring(0, 100) || 'UNDEFINED'}..."`);
+            console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
 
-            // ===== STEP 1: Save frame as asset (white + button) =====
-            report(`Saving Frame...`, stepBase, totalSteps);
-            console.log(`\n🎯 STEP 1: Click 'Save frame as asset' for Scene ${sceneNum}...`);
+            // ===== STEP 1: Capture last frame from previous video =====
+            report(`Capturing Last Frame...`, stepBase, totalSteps);
+            console.log(`🎯 STEP 1: Capture last frame from Scene ${sceneNum - 1} video...`);
 
-            const frameSaved = await clickSaveFrameAsAsset();
-            if (!frameSaved) {
-                console.warn(`⚠️ Could not save frame as asset for Scene ${sceneNum}, continuing anyway...`);
+            const lastFrame = await captureVideoLastFrame();
+            if (lastFrame) {
+                console.log(`✅ Last frame captured! Uploading as new reference...`);
+
+                // Upload last frame as reference image (replaces character slot)
+                await uploadSingleImage(lastFrame, 1, selectors);
+                await delay(3000);
+                console.log(`✅ Last frame uploaded as reference for Scene ${sceneNum}!`);
             } else {
-                console.log(`✅ Frame saved as asset for Scene ${sceneNum}!`);
-            }
-            await delay(2000);
-
-            // ===== STEP 2: Click + button → Jump to =====
-            report(`Adding Clip ${sceneNum}...`, stepBase + 1, totalSteps);
-            console.log(`\n🎯 STEP 2: Click + and Jump to for Scene ${sceneNum}...`);
-
-            const clipAdded = await clickAddClipButton();
-            if (!clipAdded) {
-                console.warn(`⚠️ Could not add clip ${sceneNum} - clickAddClipButton failed`);
-                continue;
+                console.warn(`⚠️ Could not capture last frame — existing references will be used`);
             }
 
-            // รอให้ expand view โหลดเสร็จสมบูรณ์
-            console.log(`⏳ Waiting 5 seconds for expand view to fully load...`);
-            await delay(5000);
-
-            // ===== STEP 3: Select saved asset as reference → Frames to Video =====
-            report(`Selecting Reference...`, stepBase + 2, totalSteps);
-            console.log(`\n🎯 STEP 3: Select saved frame asset as reference for Scene ${sceneNum}...`);
-
-            const assetSelected = await selectLatestAssetAsReference();
-            if (assetSelected) {
-                console.log(`✅ Saved frame selected as reference! Mode: Frames to Video`);
-            } else {
-                console.warn(`⚠️ Could not select saved frame, using prompt-only consistency`);
-            }
-            await delay(3000);
-
-            // ===== STEP 4: Fill prompt for this scene =====
-            console.log(`\n🎯 STEP 4: Filling prompt for Scene ${sceneNum}...`);
-            report(`Filling Scene ${sceneNum} Prompt...`, stepBase + 3, totalSteps);
-            await delay(2000);
+            // ===== STEP 2: Fill prompt with new script and generate =====
+            report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
+            console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
 
             const scenePrompt = sceneScripts[sceneIndex];
             if (!scenePrompt || scenePrompt.trim() === '') {
-                console.error(`❌ ERROR: No script found for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
+                console.error(`❌ No script for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
                 continue;
             }
 
-            console.log(`📝 Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
+            console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
 
-            // ===== STEP 5: Fill prompt and generate =====
-            console.log(`\n🎯 STEP 5: Fill prompt and click Generate for Scene ${sceneNum}...`);
-            const promptFilled = await fillNextScenePromptAndGenerate(scenePrompt, selectors);
-            if (!promptFilled) {
-                console.warn(`⚠️ Could not fill prompt for scene ${sceneNum}`);
+            // Use fillPromptAndGenerate — this handles:
+            // - Finding prompt input
+            // - Typing new prompt (clears old)
+            // - Clicking Generate
+            // - Auto Veo switch banner + re-generate if needed
+            const generated = await fillPromptAndGenerate(scenePrompt);
+            if (!generated) {
+                console.warn(`⚠️ Could not generate Scene ${sceneNum}`);
                 continue;
             }
 
-            // รอ 3 วินาทีหลังกด generate
-            console.log(`⏳ Waiting 3 seconds after clicking generate...`);
-            await delay(3000);
+            // ===== STEP 3: Wait for video to complete =====
+            report(`Waiting for Video ${sceneNum}...`, stepBase + 2, totalSteps);
+            console.log(`🎯 STEP 3: Waiting for Scene ${sceneNum} video...`);
 
-            actualScenesGenerated++;
-            console.log(`✅ Scene ${sceneNum} queued for generation! (${actualScenesGenerated} scenes total)`);
-            report(`Scene ${sceneNum} Queued`, stepBase + 4, totalSteps);
+            const videoSrc = await waitForVideoComplete(300000);
+            if (videoSrc) {
+                videoUrls.push(videoSrc);
+                actualScenesGenerated++;
+                console.log(`✅ Scene ${sceneNum} Complete! URL: ${videoSrc.substring(0, 50)}...`);
+            } else {
+                console.warn(`⚠️ Scene ${sceneNum} video timed out`);
+            }
 
-            // รอ 3 วินาทีก่อนเพิ่มฉากถัดไป
+            // Small delay before next scene
             if (sceneIndex < sceneCount - 1) {
-                console.log(`\n⏳ Waiting 3 seconds before adding next scene...`);
                 await delay(3000);
             }
         }
 
-        // ===== รอให้ทุกฉาก gen เสร็จพร้อมกัน =====
-        console.log(`\n🎬 All ${sceneCount} scenes queued! Waiting for all to complete...`);
-        report(`Waiting for all ${sceneCount} scenes...`, totalSteps - 2, totalSteps);
-        const allComplete = await waitForAllClipsComplete(300000, sceneCount); // รอสูงสุด 5 นาที, ส่งจำนวนฉากไปด้วย
+        // ===== ALL SCENES DONE =====
+        console.log(`\n🎬 All scenes complete! Generated ${actualScenesGenerated}/${sceneCount} scenes`);
+        videoUrls.forEach((url, i) => console.log(`  Video ${i + 1}: ${url.substring(0, 60)}...`));
 
-        if (!allComplete) {
-            console.warn("⚠️ Some clips may not be complete, attempting to collect anyway...");
-        }
-
-        // ===== เก็บ URL ของทุกวิดีโอที่ gen เสร็จแล้ว =====
-        console.log("📹 Collecting all video URLs from timeline...");
-        report("Collecting Videos...", totalSteps - 1, totalSteps);
-
-        // รอ 5 วินาทีให้ทุกคลิป render เสร็จ
-        await delay(5000);
-
-        // หา video elements ทั้งหมด - ค้นหาหลายครั้ง
-        let allVideoSrcs: string[] = [];
-
-        for (let searchAttempt = 1; searchAttempt <= 5; searchAttempt++) {
-            console.log(`📹 Search attempt ${searchAttempt}/5 for video elements...`);
-
-            // หา video elements ทั้งหมด
-            const allVideos = findAllElementsDeep('video');
-            console.log(`  Found ${allVideos.length} video elements total`);
-
-            // Filter เฉพาะ video ที่มี src
-            for (const v of allVideos) {
-                const video = v as HTMLVideoElement;
-                const src = video.src;
-                const currentSrc = video.currentSrc;
-
-                // Log ทุก video ที่เจอ
-                console.log(`  Video: src=${src?.substring(0, 50) || 'none'}, currentSrc=${currentSrc?.substring(0, 50) || 'none'}`);
-
-                // เก็บทั้ง src และ currentSrc
-                if (src && (src.includes('blob:') || src.includes('http'))) {
-                    if (!allVideoSrcs.includes(src)) {
-                        allVideoSrcs.push(src);
-                        console.log(`  ✅ Added video src: ${src.substring(0, 60)}...`);
-                    }
-                }
-                if (currentSrc && currentSrc !== src && (currentSrc.includes('blob:') || currentSrc.includes('http'))) {
-                    if (!allVideoSrcs.includes(currentSrc)) {
-                        allVideoSrcs.push(currentSrc);
-                        console.log(`  ✅ Added video currentSrc: ${currentSrc.substring(0, 60)}...`);
-                    }
-                }
-            }
-
-            console.log(`  Total unique URLs found so far: ${allVideoSrcs.length}`);
-
-            // ถ้าเจอครบตามที่ต้องการ ออกจาก loop
-            if (allVideoSrcs.length >= sceneCount) {
-                console.log(`✅ Found ${allVideoSrcs.length} videos, matches expected ${sceneCount} scenes!`);
-                break;
-            }
-
-            // รอก่อนหาใหม่
-            if (searchAttempt < 5) {
-                await delay(2000);
-            }
-        }
-
-        // ===== COLLECT ALL VIDEO URLs =====
-        // เก็บทุก video URL ที่หาเจอ (ทั้ง blob และ http)
-        // FFmpeg WASM จะ merge ให้เป็นวิดีโอเดียวสำหรับ auto TikTok upload
-        const blobUrls = allVideoSrcs.filter(u => u.startsWith('blob:'));
-        const realUrls = allVideoSrcs.filter(u => u.startsWith('http'));
-
-        console.log(`📹 Found ${blobUrls.length} blob URLs, ${realUrls.length} real URLs`);
-
-        // Use DOM search results only if they found MORE URLs than per-scene collection
-        if (allVideoSrcs.length > videoUrls.length) {
-            console.log(`📹 DOM search found ${allVideoSrcs.length} URLs (more than collected ${videoUrls.length}), using DOM results`);
-            videoUrls.length = 0;
-            for (const url of allVideoSrcs) {
-                if (!videoUrls.includes(url)) videoUrls.push(url);
-            }
-        } else {
-            console.log(`📹 Using ${videoUrls.length} per-scene collected URLs`);
-        }
-
-        // เพิ่ม video1Src เป็น fallback ถ้ายังไม่มี
-        if (video1Src && videoUrls.length === 0) {
-            videoUrls.push(video1Src);
-            console.log(`📹 Added Scene 1 URL as fallback: ${video1Src.substring(0, 60)}...`);
-        }
-
-        console.log(`✅ Collected ${videoUrls.length} video URLs total`);
-        videoUrls.forEach((url, i) => console.log(`  Clip ${i + 1}: ${url.substring(0, 70)}...`));
-
-        // Final download via VideoFX's built-in export (combines all scenes)
+        // Download final video
         report("Downloading Final Video...", totalSteps - 1, totalSteps);
         await delay(2000);
         const finalDownload = await handleVideoDownload(selectors);
 
         report("All Scenes Complete!", totalSteps, totalSteps);
 
-        // Log summary
-        console.log(`🎬 Video collection complete! Total: ${videoUrls.length} clips`);
-        videoUrls.forEach((url, i) => console.log(`  Clip ${i + 1}: ${url.substring(0, 60)}...`));
-
-        // Primary URL: prefer Scene 1 real URL for preview (blob may not work in side panel)
-        const primaryUrl = video1Src || (realUrls.length > 0 ? realUrls[0] : blobUrls[0]) || '';
+        const primaryUrl = video1Src || videoUrls[0] || '';
 
         return {
             success: true,
             videoUrl: primaryUrl,
-            videoUrls: videoUrls,  // All scene URLs for FFmpeg WASM merge
-            sceneCount: actualScenesGenerated  // Actual successful scenes, not config value
+            videoUrls: videoUrls,
+            sceneCount: actualScenesGenerated
         };
 
     } catch (error: any) {
