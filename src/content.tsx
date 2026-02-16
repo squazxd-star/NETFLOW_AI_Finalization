@@ -104,62 +104,95 @@ const buildUnifiedScenePrompt = (
     // ===== Camera (from UI: cameraAngles) =====
     const cameraValue = Array.isArray(payload.cameraAngles) ? payload.cameraAngles[0] : (payload.cameraAngles || 'front');
     const cameraTextMap: Record<string, string> = {
-        'front': 'Static camera, steady shot',
-        'side': 'Static camera, 3/4 side angle',
-        'close-up': 'Static camera, close-up framing',
-        'full-body': 'Static camera, full-body framing',
-        'dynamic': 'Dynamic camera, smooth handheld movement'
+        'front': 'Static camera, steady centered shot, eye-level framing',
+        'side': 'Static camera, 3/4 side angle, natural perspective',
+        'close-up': 'Close-up camera, tight framing on face and product, shallow depth of field',
+        'full-body': 'Static camera, full-body framing, wide shot',
+        'dynamic': 'Dynamic camera, smooth natural handheld movement, subtle focus shifts'
     };
     const cameraText = cameraTextMap[cameraValue] || 'Static camera, steady shot';
 
     // ===== Scene (from UI: background) =====
     const sceneMap: Record<string, string> = {
-        'studio': 'modern setting',
-        'outdoor': 'outdoor setting',
-        'home': 'living_room',
-        'office': 'office setting',
-        'abstract': 'modern setting'
+        'studio': 'Modern high-end indoor studio, soft professional lighting',
+        'outdoor': 'Natural outdoor setting, warm ambient sunlight',
+        'home': 'Cozy living room setting, warm indoor lighting',
+        'office': 'Clean modern office, professional lighting',
+        'abstract': 'Modern high-end indoor setting, soft natural lighting'
     };
-    const sceneText = sceneMap[payload.background || 'studio'] || 'modern setting';
+    const sceneText = sceneMap[payload.background || 'studio'] || 'Modern high-end indoor setting, soft natural lighting';
 
     // ===== Action (from UI: movement + product) =====
+    const pName = productName || 'the product';
     const movementMap: Record<string, string> = {
-        'static': `holds ${productName || 'the product'} steadily, looking at the camera`,
-        'minimal': `presents ${productName || 'the product'} with gentle hand gestures, smiling warmly`,
-        'active': `energetically showcases ${productName || 'the product'}, rotating it to show details`
+        'static': `Holds ${pName} steadily at chest level, looking directly at camera with confident posture`,
+        'minimal': `Presents ${pName} with gentle hand gestures, showing key features with natural movements`,
+        'active': `Energetically showcases ${pName}, rotating it to catch the light, showing fine details`
     };
     const actionText = payload.action
         || movementMap[payload.movement || 'minimal']
-        || `presents ${productName || 'the product'} naturally to the camera`;
+        || `Presents ${pName} naturally to the camera`;
 
-    // ===== Voice (from UI: gender) =====
+    // ===== Voice Identity (from UI: gender + ageRange + voiceTone) =====
     const voiceGender = (payload.gender || 'female') === 'male' ? 'Male' : 'Female';
+    const ageMap: Record<string, string> = {
+        'teen': '18-year-old', 'young-adult': '25-year-old', 'adult': '30-year-old',
+        'middle-age': '40-year-old', 'senior': '50-year-old'
+    };
+    const ageText = ageMap[payload.ageRange || 'young-adult'] || '25-year-old';
+
+    // ===== Voice Delivery (from UI: voiceTone) =====
+    const deliveryMap: Record<string, string> = {
+        'energetic': 'Natural, enthusiastic, and high-energy tone with excitement',
+        'calm': 'Calm, measured, and soothing conversational tone',
+        'friendly': 'Natural, warm, and friendly conversational tone',
+        'professional': 'Clear, confident, and professional tone'
+    };
+    const deliveryText = deliveryMap[payload.voiceTone || 'energetic'] || 'Natural, enthusiastic, and friendly tone';
+
+    // ===== Expression (from UI: expression) =====
+    const expressionMap: Record<string, string> = {
+        'neutral': 'natural pleasant expression',
+        'happy': 'warm smile, friendly and approachable',
+        'excited': 'excited, enthusiastic expression with energy',
+        'serious': 'serious, focused and confident expression'
+    };
+    const expressionText = expressionMap[payload.expression || 'neutral'] || 'natural pleasant expression';
+
     const cleanScript = (script || '').trim();
 
-    // ===== Full JSON prompt =====
+    // ===== Full Enhanced JSON prompt =====
     const promptObj: Record<string, any> = {
-        style: 'User-generated content style, natural smartphone footage, authentic real-person feel, casual framing',
+        style: 'User-generated content (UGC), natural smartphone footage, authentic 4K real-person feel, casual handheld framing',
         aspect_ratio: payload.aspectRatio || '9:16',
-        model: { description: 'Person from the reference image' },
+        model: {
+            description: 'Person from the reference image',
+            consistency: `Identical face, hair, outfit, and accessories as seen in reference. Expression: ${expressionText}`
+        },
         camera: cameraText,
         scene: sceneText,
-        background: 'Background from reference image',
-        product: productName || 'the advertised product',
+        background: 'Background from reference image, maintain identical depth of field',
+        product: pName,
         action: actionText,
-        voice: `${voiceGender} Thai voice speaking`,
+        audio_engineering: {
+            voice_identity: `Bright, ${payload.voiceTone || 'energetic'} ${ageText} Thai ${voiceGender.toLowerCase()} voice, natural conversational rhythm`,
+            loudness_control: 'Locked loudness level, normalized to -1.0 dB True Peak',
+            consistency: 'Zero volume fluctuations, constant gain throughout the entire clip, high-fidelity (Hi-Fi) recording',
+            environment: 'Modern indoor room acoustics, clean audio with no echo, consistent microphone distance'
+        },
         voiceover: {
             language: 'thai',
-            text: cleanScript
+            text: cleanScript,
+            delivery: deliveryText
         },
-        restrictions: 'IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video'
+        restrictions: 'IMPORTANT: No CTA (call-to-action) text, no popup text, no floating text, no overlay text, no subtitles in the video'
     };
 
-    // For scenes 2+: Gemini-recommended contextual prompting for voice/scene continuity
+    // For scenes 2+: full continuity lock (voice + visuals)
     if (sceneNum > 1) {
         promptObj.continuity = {
-            voice: `Continue with the exact same ${voiceGender} Thai voice — maintain identical pitch, tone, speed, and accent. Keep the same speaking style as a continuous recording.`,
-            subject: 'Maintain the same person from reference image — same face, outfit, hair, accessories, lighting. Keep all visual elements consistent.',
-            environment: `Keep the same ${sceneText}, same camera style, same background, same ambient atmosphere. Do not change any visual or audio style.`
+            voice: `Maintain identical pitch, tone, resonance, speed, and energy from the previous segment. Strictly continuous recording style. Same ${voiceGender.toLowerCase()} Thai voice, same microphone distance, same room acoustics.`,
+            visuals: `Consistent lighting, color grading, and subject positioning. Keep the same ${sceneText}, same camera style, same background. Do not change any visual or audio parameters.`
         };
     }
 
