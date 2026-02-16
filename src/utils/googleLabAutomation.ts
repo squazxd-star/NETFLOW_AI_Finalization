@@ -2691,9 +2691,8 @@ export const runMultiScenePipeline = async (
 
             const totalScenes = sceneCount;
 
-            // If prompt already follows unified format from content.tsx, use it directly.
-            // This keeps the same formation for all scenes (only script changes).
-            const hasUnifiedTemplate = /\[SCENE\s+\d+\/\d+\]/i.test(basePrompt)
+            // If prompt already follows unified JSON format from content.tsx, use it directly.
+            const hasUnifiedTemplate = (basePrompt.trimStart().startsWith('{') && basePrompt.includes('"voiceover"'))
                 || basePrompt.includes('Restrictions: IMPORTANT: No CTA');
 
             let scenePrompt = basePrompt;

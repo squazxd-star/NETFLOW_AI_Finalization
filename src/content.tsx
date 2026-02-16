@@ -101,8 +101,6 @@ const buildUnifiedScenePrompt = (
     totalScenes: number,
     script: string
 ): string => {
-    const styleText = payload.style || 'User-generated content style, natural smartphone footage, authentic real-person feel, casual framing';
-    const aspectRatioText = payload.aspectRatio || '9:16';
     const sceneText = payload.scene || payload.background || 'living_room';
     const cameraValue = Array.isArray(payload.cameraAngles) ? payload.cameraAngles[0] : (payload.cameraAngles || 'front');
     const cameraTextMap: Record<string, string> = {
@@ -113,12 +111,13 @@ const buildUnifiedScenePrompt = (
         'dynamic': 'Smooth handheld-style movement, no sudden jumps'
     };
     const cameraText = cameraTextMap[cameraValue] || 'Static camera, steady shot';
-    // Model description: use explicit payload fields if available, else built characterDesc
+
+    // Model description
     const modelDesc = payload.modelDescription
         || payload.model?.description
         || characterDesc.replace(/\n+/g, ', ').trim();
 
-    // Action: visual action description (what the person DOES on screen)
+    // Action
     const movementMap: Record<string, string> = {
         'static': `holds ${productName || 'the product'} steadily, looking at the camera`,
         'minimal': `presents ${productName || 'the product'} with gentle hand gestures, smiling warmly`,
@@ -129,29 +128,29 @@ const buildUnifiedScenePrompt = (
         || `presents ${productName || 'the product'} naturally to the camera`;
 
     const cleanScript = (script || '').trim();
-
-    // ===== Voice section as JSON — simple format for voice consistency =====
     const voiceGender = payload.gender === 'male' ? 'Male' : 'Female';
-    const voiceJson = JSON.stringify({
+
+    // ===== Full JSON prompt format (same structure as competitor for voice consistency) =====
+    const promptObj: Record<string, any> = {
+        style: payload.style || 'User-generated content style, natural smartphone footage, authentic real-person feel, casual framing',
+        aspect_ratio: payload.aspectRatio || '9:16',
+        model: {
+            description: modelDesc,
+        },
+        camera: cameraText,
+        scene: sceneText,
+        background: 'Background from reference image',
+        product: productName || 'the advertised product',
+        action: actionText,
         voice: `${voiceGender} Thai voice speaking`,
         voiceover: {
             language: 'thai',
             text: cleanScript
-        }
-    });
+        },
+        restrictions: 'IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video'
+    };
 
-    return `[SCENE ${sceneNum}/${totalScenes}]
-Style: ${styleText}
-Aspect ratio: ${aspectRatioText}
-Model: ${modelDesc}
-Identity: ${identityLock} Use exactly the same voice, same pitch, same tone, same speaking speed in every scene.
-Camera: ${cameraText}
-Scene: ${sceneText}
-Background: from reference image
-Product: ${productName || 'the advertised product'}
-Action: ${actionText}
-${voiceJson}
-Restrictions: IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video.`;
+    return JSON.stringify(promptObj);
 };
 
 // Global Error Handler to catch "Node cannot be found"
