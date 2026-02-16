@@ -1897,6 +1897,275 @@ const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<
 };
 
 /**
+ * Click "Save frame as asset" button — the white "+" on the clip/video in the scene builder.
+ * This saves the last frame of the current clip as a reusable asset in the asset library.
+ */
+const clickSaveFrameAsAsset = async (): Promise<boolean> => {
+    console.log("📸 Looking for 'Save frame as asset' button (white + on clip)...");
+    await delay(2000);
+
+    // Strategy 1: Search by tooltip/aria-label/title containing "save frame" or "บันทึกเฟรม"
+    const allButtons = findAllElementsDeep('button, [role="button"]');
+    console.log(`  🔍 Found ${allButtons.length} buttons total, searching for Save frame...`);
+
+    for (const btn of allButtons) {
+        const el = btn as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+
+        const text = (el.textContent || '').trim().toLowerCase();
+        const title = (el.getAttribute('title') || '').toLowerCase();
+        const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+        const tooltip = title || ariaLabel;
+
+        // Check for "save frame as asset" or Thai equivalent
+        const isSaveFrame =
+            tooltip.includes('save frame') ||
+            tooltip.includes('บันทึกเฟรม') ||
+            text.includes('save frame') ||
+            text.includes('บันทึกเฟรม');
+
+        if (isSaveFrame) {
+            console.log(`  ✅ Found 'Save frame as asset' button via tooltip: "${tooltip || text}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
+            el.click();
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            console.log("  ✅ Clicked 'Save frame as asset'!");
+            await delay(3000);
+            return true;
+        }
+    }
+
+    // Strategy 2: Search for the small white "+" button near the clip in timeline
+    // It's typically a small button (< 50x50) with white/light background near the video clip
+    console.log("  🔍 Strategy 2: Looking for small + button near clip in timeline...");
+
+    // Find the clip container in scene builder (the timeline area)
+    const clipElements = findAllElementsDeep('[class*="clip"], [class*="timeline"], [class*="scene-builder"]');
+    const videoElements = findAllElementsDeep('video');
+
+    // Look for small buttons with add/plus icon near the top of clip thumbnails
+    for (const btn of allButtons) {
+        const el = btn as HTMLElement;
+        const rect = el.getBoundingClientRect();
+
+        // The "Save frame as asset" button is small (roughly 24-48px)
+        if (rect.width < 16 || rect.width > 60 || rect.height < 16 || rect.height > 60) continue;
+
+        const icon = el.querySelector('i, .material-icons, .google-symbols, span[class*="icon"]');
+        const iconText = (icon?.textContent || '').trim();
+        const bgColor = window.getComputedStyle(el).backgroundColor;
+
+        // Check: has add/plus icon + light background
+        const hasAddIcon = iconText === 'add' || iconText === 'add_box' || iconText === 'add_circle' ||
+            iconText === 'add_to_photos' || iconText === 'save' || iconText === 'bookmark_add';
+        const hasLightBg = bgColor.includes('255') || bgColor.includes('rgb(255') || bgColor === 'rgba(0, 0, 0, 0)';
+
+        // Also check: the inner span mentioning "asset"
+        const innerText = (el.innerHTML || '').toLowerCase();
+        const mentionsAsset = innerText.includes('asset') || innerText.includes('frame');
+
+        if ((hasAddIcon && rect.width <= 50) || mentionsAsset) {
+            console.log(`  📋 Candidate: icon="${iconText}" size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} bg="${bgColor}" mentionsAsset=${mentionsAsset}`);
+
+            // Hover first to see if tooltip appears
+            el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            await delay(500);
+
+            // Re-check tooltip after hover
+            const postHoverTitle = (el.getAttribute('title') || '').toLowerCase();
+            const postHoverAria = (el.getAttribute('aria-label') || '').toLowerCase();
+            if (postHoverTitle.includes('save frame') || postHoverTitle.includes('asset') ||
+                postHoverAria.includes('save frame') || postHoverAria.includes('asset') || mentionsAsset) {
+                console.log(`  ✅ Confirmed 'Save frame as asset' button after hover!`);
+                el.click();
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                console.log("  ✅ Clicked 'Save frame as asset'!");
+                await delay(3000);
+                return true;
+            }
+        }
+    }
+
+    // Strategy 3: Brute force — find any small button near the top-right of the clip thumbnail
+    console.log("  🔍 Strategy 3: Looking for small button overlaid on clip thumbnail...");
+    for (const vid of videoElements) {
+        const vidRect = (vid as HTMLElement).getBoundingClientRect();
+        if (vidRect.width < 100) continue;
+
+        // The save button is usually at top-right of the clip or the video preview area
+        for (const btn of allButtons) {
+            const btnRect = (btn as HTMLElement).getBoundingClientRect();
+            if (btnRect.width < 16 || btnRect.width > 50) continue;
+
+            // Check if button is within or near the video area
+            const isNearVideo =
+                btnRect.left >= vidRect.left - 50 &&
+                btnRect.right <= vidRect.right + 50 &&
+                btnRect.top >= vidRect.top - 50 &&
+                btnRect.bottom <= vidRect.bottom + 50;
+
+            if (isNearVideo) {
+                const innerSpan = (btn as HTMLElement).querySelector('span');
+                const spanText = (innerSpan?.textContent || '').toLowerCase();
+                if (spanText.includes('asset') || spanText.includes('frame') || spanText.includes('save')) {
+                    console.log(`  ✅ Found button near video: "${spanText}" at (${btnRect.left.toFixed(0)}, ${btnRect.top.toFixed(0)})`);
+                    (btn as HTMLElement).click();
+                    await delay(3000);
+                    return true;
+                }
+            }
+        }
+    }
+
+    console.warn("  ⚠️ Could not find 'Save frame as asset' button");
+    return false;
+};
+
+/**
+ * In the expand view (after Jump to), select the most recently saved asset as a reference image.
+ * This triggers "Frames to Video" mode for the new clip.
+ */
+const selectLatestAssetAsReference = async (): Promise<boolean> => {
+    console.log("🖼️ Selecting latest saved asset as reference in expand view...");
+    await delay(2000);
+
+    // Step 1: Find the "+" button in the reference/ingredient area of the expand view
+    // This is the small "+" button near the prompt input for adding reference images
+    const allButtons = findAllElementsDeep('button, [role="button"]');
+    let addRefBtn: HTMLElement | null = null;
+
+    // Look for add buttons in the lower part of the expand view (near prompt area)
+    for (const btn of allButtons) {
+        const el = btn as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+
+        const icon = el.querySelector('i, .material-icons, .google-symbols, span[class*="icon"]');
+        const iconText = (icon?.textContent || '').trim();
+
+        // The add reference button has "add" icon and is in the prompt area (bottom half of screen)
+        if (iconText === 'add' && rect.width <= 60 && rect.height <= 60 && rect.top > window.innerHeight * 0.5) {
+            console.log(`  📋 Found add reference button: icon="${iconText}" at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}) size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+            addRefBtn = el;
+            break;
+        }
+    }
+
+    if (!addRefBtn) {
+        // Fallback: look for any "+" button near the prompt textarea
+        const textareas = findAllElementsDeep('textarea');
+        for (const ta of textareas) {
+            const taRect = (ta as HTMLElement).getBoundingClientRect();
+            if (taRect.width < 100) continue;
+
+            for (const btn of allButtons) {
+                const btnRect = (btn as HTMLElement).getBoundingClientRect();
+                const icon = (btn as HTMLElement).querySelector('i, .google-symbols');
+                const iconText = (icon?.textContent || '').trim();
+
+                // Button near the textarea with add icon
+                if (iconText === 'add' && btnRect.width <= 60 &&
+                    Math.abs(btnRect.top - taRect.top) < 100 &&
+                    Math.abs(btnRect.left - taRect.left) < taRect.width) {
+                    console.log(`  📋 Found add button near textarea: icon="${iconText}" at (${btnRect.left.toFixed(0)}, ${btnRect.top.toFixed(0)})`);
+                    addRefBtn = btn as HTMLElement;
+                    break;
+                }
+            }
+            if (addRefBtn) break;
+        }
+    }
+
+    if (!addRefBtn) {
+        console.warn("  ⚠️ Could not find add reference button in expand view");
+        return false;
+    }
+
+    // Step 2: Click the add button to open asset picker
+    console.log("  🖱️ Clicking add reference button...");
+    addRefBtn.click();
+    addRefBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await delay(3000);
+
+    // Step 3: Find the asset picker/gallery and select the most recent asset
+    // The asset gallery shows saved frames as clickable items (Image 5)
+    console.log("  🔍 Looking for asset picker/gallery...");
+
+    // Look for the asset gallery — it usually contains multiple image items
+    const assetImages = findAllElementsDeep('img, [class*="asset"], [class*="thumbnail"]');
+    let latestAsset: HTMLElement | null = null;
+    let latestAssetRect: DOMRect | null = null;
+
+    for (const img of assetImages) {
+        const el = img as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 40 || rect.height < 40) continue;
+        if (rect.width > 300 || rect.height > 300) continue; // Too large = main preview, not thumbnail
+
+        // Look for asset thumbnails that appeared after clicking "+"
+        const parent = el.closest('button, [role="button"], a, div[class*="card"], div[class*="asset"]');
+        if (parent) {
+            const pRect = (parent as HTMLElement).getBoundingClientRect();
+            // The asset picker is likely a horizontal gallery
+            if (!latestAsset || pRect.left > (latestAssetRect?.left || 0)) {
+                // Prefer leftmost after Upload button (most recent assets appear first)
+                latestAsset = parent as HTMLElement;
+                latestAssetRect = pRect;
+            }
+        }
+    }
+
+    // Alternative: find clickable items in the asset picker
+    if (!latestAsset) {
+        console.log("  🔍 Looking for clickable asset items...");
+        const allItems = findAllElementsDeep('[class*="asset-item"], [class*="media-item"], [class*="gallery-item"], [class*="thumbnail"]');
+        for (const item of allItems) {
+            const rect = (item as HTMLElement).getBoundingClientRect();
+            if (rect.width >= 50 && rect.height >= 50 && rect.width <= 200) {
+                latestAsset = item as HTMLElement;
+                console.log(`  📋 Found asset item: size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+                break;
+            }
+        }
+    }
+
+    if (!latestAsset) {
+        // Last resort: find the first non-upload button in the asset area
+        console.log("  🔍 Last resort: looking for first selectable asset...");
+        const buttons = findAllElementsDeep('button');
+        for (const btn of buttons) {
+            const el = btn as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            if (rect.width < 50 || rect.width > 200) continue;
+            if (rect.height < 50 || rect.height > 200) continue;
+
+            const hasImg = el.querySelector('img') !== null;
+            const text = (el.textContent || '').trim().toLowerCase();
+            const isUpload = text.includes('upload') || text.includes('อัปโหลด');
+
+            if (hasImg && !isUpload) {
+                latestAsset = el;
+                console.log(`  📋 Found image button: "${text.substring(0, 30)}" size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                break;
+            }
+        }
+    }
+
+    if (latestAsset) {
+        console.log("  🖱️ Clicking on latest saved asset...");
+        latestAsset.click();
+        latestAsset.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await delay(3000);
+        console.log("  ✅ Asset selected as reference! Mode should switch to 'Frames to Video'");
+        return true;
+    }
+
+    console.warn("  ⚠️ Could not find any asset to select in the picker");
+    return false;
+};
+
+/**
  * Find the "Jump to..." / "ข้ามไปยัง..." menu item from the dropdown near the anchor point.
  * Falls back to "Extend" if Jump to is not found.
  * Returns the element to click, or null if not found.
@@ -2644,10 +2913,10 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Add more clips via "+" → Extend =====
-        console.log(`🎬 Multi-scene mode: Adding ${sceneCount - 1} more scene(s) via Extend...`);
+        // ===== MULTI-SCENE: Save frame → Jump to → Select asset → Frames to Video → Generate =====
+        console.log(`🎬 Multi-scene mode: Adding ${sceneCount - 1} more scene(s) via Save Frame + Jump to...`);
 
-        // Hover video and click "เพิ่มลงในฉาก"
+        // Hover video and click "เพิ่มลงในฉาก" (Add to Scene Builder)
         report("Adding to Scene Builder...", 11, totalSteps);
         const addedToScene = await hoverVideoAndAddToScene(selectors);
         if (!addedToScene) {
@@ -2663,14 +2932,26 @@ export const runMultiScenePipeline = async (
 
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
             const sceneNum = sceneIndex + 1;
-            const stepBase = 12 + (sceneIndex - 1) * 4;
+            const stepBase = 12 + (sceneIndex - 1) * 5;
 
             console.log(`🎬 ========== Generating Scene ${sceneNum} ==========`);
             console.log(`📝 sceneScripts[${sceneIndex}] = "${sceneScripts[sceneIndex]?.substring(0, 100) || 'UNDEFINED'}..."`);
 
-            // ===== STEP 1: Click + button to add new clip =====
-            report(`Adding Clip ${sceneNum}...`, stepBase, totalSteps);
-            console.log(`\n🎯 STEP 1: Click + and Extend for Scene ${sceneNum}...`);
+            // ===== STEP 1: Save frame as asset (white + button) =====
+            report(`Saving Frame...`, stepBase, totalSteps);
+            console.log(`\n🎯 STEP 1: Click 'Save frame as asset' for Scene ${sceneNum}...`);
+
+            const frameSaved = await clickSaveFrameAsAsset();
+            if (!frameSaved) {
+                console.warn(`⚠️ Could not save frame as asset for Scene ${sceneNum}, continuing anyway...`);
+            } else {
+                console.log(`✅ Frame saved as asset for Scene ${sceneNum}!`);
+            }
+            await delay(2000);
+
+            // ===== STEP 2: Click + button → Jump to =====
+            report(`Adding Clip ${sceneNum}...`, stepBase + 1, totalSteps);
+            console.log(`\n🎯 STEP 2: Click + and Jump to for Scene ${sceneNum}...`);
 
             const clipAdded = await clickAddClipButton();
             if (!clipAdded) {
@@ -2678,28 +2959,25 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // ===== รอให้ expand view โหลดเสร็จสมบูรณ์ (5 วินาที) =====
+            // รอให้ expand view โหลดเสร็จสมบูรณ์
             console.log(`⏳ Waiting 5 seconds for expand view to fully load...`);
             await delay(5000);
 
-            // ===== STEP 1.5: Upload reference image for consistency =====
-            if (scene1GeneratedImage) {
-                console.log(`\n📷 Uploading Scene 1 reference image for Scene ${sceneNum} consistency...`);
-                report(`Uploading Reference Image...`, stepBase, totalSteps);
-                const refUploaded = await uploadReferenceImageToExpandedClip(scene1GeneratedImage, selectors);
-                if (refUploaded) {
-                    console.log(`✅ Reference image uploaded for Scene ${sceneNum}!`);
-                } else {
-                    console.warn(`⚠️ Could not upload reference image for Scene ${sceneNum}, using prompt-only consistency`);
-                }
-                await delay(3000);
-            } else {
-                console.log(`⚠️ No reference image available for Scene ${sceneNum}`);
-            }
+            // ===== STEP 3: Select saved asset as reference → Frames to Video =====
+            report(`Selecting Reference...`, stepBase + 2, totalSteps);
+            console.log(`\n🎯 STEP 3: Select saved frame asset as reference for Scene ${sceneNum}...`);
 
-            // ===== STEP 2: Fill prompt for this scene =====
-            console.log(`\n🎯 STEP 2: Filling prompt for Scene ${sceneNum}...`);
-            report(`Filling Scene ${sceneNum} Prompt...`, stepBase + 1, totalSteps);
+            const assetSelected = await selectLatestAssetAsReference();
+            if (assetSelected) {
+                console.log(`✅ Saved frame selected as reference! Mode: Frames to Video`);
+            } else {
+                console.warn(`⚠️ Could not select saved frame, using prompt-only consistency`);
+            }
+            await delay(3000);
+
+            // ===== STEP 4: Fill prompt for this scene =====
+            console.log(`\n🎯 STEP 4: Filling prompt for Scene ${sceneNum}...`);
+            report(`Filling Scene ${sceneNum} Prompt...`, stepBase + 3, totalSteps);
             await delay(2000);
 
             const scenePrompt = sceneScripts[sceneIndex];
@@ -2710,8 +2988,8 @@ export const runMultiScenePipeline = async (
 
             console.log(`📝 Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
 
-            // ===== STEP 3: Fill prompt and generate =====
-            console.log(`\n🎯 STEP 3: Fill prompt and click Generate for Scene ${sceneNum}...`);
+            // ===== STEP 5: Fill prompt and generate =====
+            console.log(`\n🎯 STEP 5: Fill prompt and click Generate for Scene ${sceneNum}...`);
             const promptFilled = await fillNextScenePromptAndGenerate(scenePrompt, selectors);
             if (!promptFilled) {
                 console.warn(`⚠️ Could not fill prompt for scene ${sceneNum}`);
@@ -2724,7 +3002,7 @@ export const runMultiScenePipeline = async (
 
             actualScenesGenerated++;
             console.log(`✅ Scene ${sceneNum} queued for generation! (${actualScenesGenerated} scenes total)`);
-            report(`Scene ${sceneNum} Queued`, stepBase + 2, totalSteps);
+            report(`Scene ${sceneNum} Queued`, stepBase + 4, totalSteps);
 
             // รอ 3 วินาทีก่อนเพิ่มฉากถัดไป
             if (sceneIndex < sceneCount - 1) {
