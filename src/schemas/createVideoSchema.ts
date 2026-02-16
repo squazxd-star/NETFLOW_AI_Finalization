@@ -54,7 +54,7 @@ export const createVideoSchema = z.object({
         z.literal(100),
         z.literal("unlimited")
     ]).default(50),
-    sceneCount: z.number().int().min(1).max(3).default(1),
+    sceneCount: z.number().int().min(1).max(3).default(2),
     aspectRatio: z.enum(["9:16", "16:9"]).default("9:16"),
     videoDuration: z.enum(["short", "medium", "long"]).default("short"),
     clipDuration: z.union([z.literal(8), z.literal(16), z.literal(24)]).default(16),
@@ -98,7 +98,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     cameraAngles: ["dynamic"],
     movement: "active",
     clipCount: 5,
-    sceneCount: 3,
+    sceneCount: 2,
     aspectRatio: "9:16",
     videoDuration: "medium",
     clipDuration: 16,
