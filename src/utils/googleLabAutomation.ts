@@ -1935,86 +1935,27 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
         }
     }
 
-    // Strategy 2: Search for the small white "+" button near the clip in timeline
-    // It's typically a small button (< 50x50) with white/light background near the video clip
-    console.log("  🔍 Strategy 2: Looking for small + button near clip in timeline...");
+    // Strategy 2: Search for ANY visible element with text "Save frame as asset" or "บันทึกเฟรม"
+    // Only match by VISIBLE textContent, never by innerHTML/classnames to avoid false positives
+    console.log("  🔍 Strategy 2: Looking for visible 'Save frame as asset' text...");
 
-    // Find the clip container in scene builder (the timeline area)
-    const clipElements = findAllElementsDeep('[class*="clip"], [class*="timeline"], [class*="scene-builder"]');
-    const videoElements = findAllElementsDeep('video');
+    const allElements = findAllElementsDeep('button, [role="button"], span, div, a');
+    for (const el of allElements) {
+        const text = ((el as HTMLElement).textContent || '').trim();
+        const rect = (el as HTMLElement).getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
 
-    // Look for small buttons with add/plus icon near the top of clip thumbnails
-    for (const btn of allButtons) {
-        const el = btn as HTMLElement;
-        const rect = el.getBoundingClientRect();
+        // Only match exact visible text — safe, no false positives
+        if (text.includes('Save frame as asset') || text.includes('บันทึกเฟรมเป็น') || text.includes('บันทึกเฟรม')) {
+            console.log(`  ✅ Found 'Save frame as asset' element: "${text.substring(0, 50)}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
 
-        // The "Save frame as asset" button is small (roughly 24-48px)
-        if (rect.width < 16 || rect.width > 60 || rect.height < 16 || rect.height > 60) continue;
-
-        const icon = el.querySelector('i, .material-icons, .google-symbols, span[class*="icon"]');
-        const iconText = (icon?.textContent || '').trim();
-        const bgColor = window.getComputedStyle(el).backgroundColor;
-
-        // Check: has add/plus icon + light background
-        const hasAddIcon = iconText === 'add' || iconText === 'add_box' || iconText === 'add_circle' ||
-            iconText === 'add_to_photos' || iconText === 'save' || iconText === 'bookmark_add';
-        const hasLightBg = bgColor.includes('255') || bgColor.includes('rgb(255') || bgColor === 'rgba(0, 0, 0, 0)';
-
-        // Also check: the inner span mentioning "asset"
-        const innerText = (el.innerHTML || '').toLowerCase();
-        const mentionsAsset = innerText.includes('asset') || innerText.includes('frame');
-
-        if ((hasAddIcon && rect.width <= 50) || mentionsAsset) {
-            console.log(`  📋 Candidate: icon="${iconText}" size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} bg="${bgColor}" mentionsAsset=${mentionsAsset}`);
-
-            // Hover first to see if tooltip appears
-            el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-            await delay(500);
-
-            // Re-check tooltip after hover
-            const postHoverTitle = (el.getAttribute('title') || '').toLowerCase();
-            const postHoverAria = (el.getAttribute('aria-label') || '').toLowerCase();
-            if (postHoverTitle.includes('save frame') || postHoverTitle.includes('asset') ||
-                postHoverAria.includes('save frame') || postHoverAria.includes('asset') || mentionsAsset) {
-                console.log(`  ✅ Confirmed 'Save frame as asset' button after hover!`);
-                el.click();
-                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                console.log("  ✅ Clicked 'Save frame as asset'!");
-                await delay(3000);
-                return true;
-            }
-        }
-    }
-
-    // Strategy 3: Brute force — find any small button near the top-right of the clip thumbnail
-    console.log("  🔍 Strategy 3: Looking for small button overlaid on clip thumbnail...");
-    for (const vid of videoElements) {
-        const vidRect = (vid as HTMLElement).getBoundingClientRect();
-        if (vidRect.width < 100) continue;
-
-        // The save button is usually at top-right of the clip or the video preview area
-        for (const btn of allButtons) {
-            const btnRect = (btn as HTMLElement).getBoundingClientRect();
-            if (btnRect.width < 16 || btnRect.width > 50) continue;
-
-            // Check if button is within or near the video area
-            const isNearVideo =
-                btnRect.left >= vidRect.left - 50 &&
-                btnRect.right <= vidRect.right + 50 &&
-                btnRect.top >= vidRect.top - 50 &&
-                btnRect.bottom <= vidRect.bottom + 50;
-
-            if (isNearVideo) {
-                const innerSpan = (btn as HTMLElement).querySelector('span');
-                const spanText = (innerSpan?.textContent || '').toLowerCase();
-                if (spanText.includes('asset') || spanText.includes('frame') || spanText.includes('save')) {
-                    console.log(`  ✅ Found button near video: "${spanText}" at (${btnRect.left.toFixed(0)}, ${btnRect.top.toFixed(0)})`);
-                    (btn as HTMLElement).click();
-                    await delay(3000);
-                    return true;
-                }
-            }
+            // Click the element or its closest button parent
+            const clickTarget = (el as HTMLElement).closest('button') || el as HTMLElement;
+            clickTarget.click();
+            clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            console.log("  ✅ Clicked 'Save frame as asset'!");
+            await delay(3000);
+            return true;
         }
     }
 
