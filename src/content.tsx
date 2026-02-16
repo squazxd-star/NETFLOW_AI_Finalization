@@ -161,27 +161,28 @@ const buildUnifiedScenePrompt = (
 
     const cleanScript = (script || '').trim();
 
-    // ===== Clean JSON prompt (VideoFX compatible) =====
+    // ===== PROVEN WORKING JSON structure — same fields, same nesting =====
+    // All audio/voice info merged into 'voice' field. No new unknown fields.
     const promptObj: Record<string, any> = {
         style: 'UGC style, natural smartphone footage, real-person feel, casual framing',
         aspect_ratio: payload.aspectRatio || '9:16',
-        model: 'Person from the reference image',
-        expression: expressionText,
+        model: { description: `Person from the reference image, ${expressionText}` },
         camera: cameraText,
         scene: sceneText,
         background: 'Background from reference image',
         product: pName,
         action: actionText,
-        voice: `${ageText} Thai ${voiceGender.toLowerCase()} voice, ${payload.voiceTone || 'energetic'} and natural`,
-        voiceover: cleanScript,
-        delivery: deliveryText,
-        audio_quality: 'Consistent volume level throughout the clip, no sudden loud or quiet moments, perfectly steady audio, crystal clear studio-grade voice recording, close and clear voice capture with no background echo, clean indoor room sound',
+        voice: `${voiceGender} Thai voice, ${deliveryText}, consistent volume, clear recording, clean indoor sound`,
+        voiceover: {
+            language: 'thai',
+            text: cleanScript
+        },
         restrictions: 'No text overlays, no subtitles, no floating text in the video'
     };
 
-    // For scenes 2+: voice + visual continuity
+    // For scenes 2+: voice + visual continuity (same field name as before)
     if (sceneNum > 1) {
-        promptObj.continuity = `Continue with the exact same ${voiceGender.toLowerCase()} Thai voice from previous clip. Same pitch, tone, speed, same volume level, same audio clarity. Same lighting, same background, same person.`;
+        promptObj.voice_continuity = `Continue with the exact same ${voiceGender.toLowerCase()} Thai voice from previous clip. Same pitch, tone, speed, same volume level, same audio clarity. Same lighting, same background, same person.`;
     }
 
     return JSON.stringify(promptObj);
