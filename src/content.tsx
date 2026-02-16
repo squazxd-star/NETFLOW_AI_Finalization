@@ -175,12 +175,13 @@ const buildUnifiedScenePrompt = (
         voice: `${ageText} Thai ${voiceGender.toLowerCase()} voice, ${payload.voiceTone || 'energetic'} and natural`,
         voiceover: cleanScript,
         delivery: deliveryText,
+        audio_quality: 'Consistent volume level throughout the clip, no sudden loud or quiet moments, perfectly steady audio, crystal clear studio-grade voice recording, close and clear voice capture with no background echo, clean indoor room sound',
         restrictions: 'No text overlays, no subtitles, no floating text in the video'
     };
 
     // For scenes 2+: voice + visual continuity
     if (sceneNum > 1) {
-        promptObj.continuity = `Continue with the exact same ${voiceGender.toLowerCase()} Thai voice from previous clip. Same pitch, tone, speed. Same lighting, same background, same person.`;
+        promptObj.continuity = `Continue with the exact same ${voiceGender.toLowerCase()} Thai voice from previous clip. Same pitch, tone, speed, same volume level, same audio clarity. Same lighting, same background, same person.`;
     }
 
     return JSON.stringify(promptObj);
