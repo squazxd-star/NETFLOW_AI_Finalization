@@ -160,41 +160,30 @@ const buildUnifiedScenePrompt = (
     const expressionText = expressionMap[payload.expression || 'neutral'] || 'natural pleasant expression';
 
     const cleanScript = (script || '').trim();
-    const aspectRatio = payload.aspectRatio || '9:16';
 
-    // ===== Build flat natural language prompt (VideoFX compatible) =====
-    const lines: string[] = [];
+    // ===== Clean JSON prompt (VideoFX compatible) =====
+    const promptObj: Record<string, any> = {
+        style: 'UGC style, natural smartphone footage, real-person feel, casual framing',
+        aspect_ratio: payload.aspectRatio || '9:16',
+        model: 'Person from the reference image',
+        expression: expressionText,
+        camera: cameraText,
+        scene: sceneText,
+        background: 'Background from reference image',
+        product: pName,
+        action: actionText,
+        voice: `${ageText} Thai ${voiceGender.toLowerCase()} voice, ${payload.voiceTone || 'energetic'} and natural`,
+        voiceover: cleanScript,
+        delivery: deliveryText,
+        restrictions: 'No text overlays, no subtitles, no floating text in the video'
+    };
 
-    // Style & Framing
-    lines.push(`User-generated content (UGC), natural smartphone footage, authentic 4K real-person feel, casual handheld framing. Aspect ratio: ${aspectRatio}.`);
-
-    // Model & Expression
-    lines.push(`Model: Person from the reference image. Identical face, hair, outfit, and accessories as seen in reference. Expression: ${expressionText}.`);
-
-    // Camera
-    lines.push(`Camera: ${cameraText}.`);
-
-    // Scene & Background
-    lines.push(`Scene: ${sceneText}. Background from reference image, maintain identical depth of field.`);
-
-    // Product & Action
-    lines.push(`Product: ${pName}. Action: ${actionText}.`);
-
-    // Audio Engineering (all fields preserved as flat text)
-    lines.push(`Voice: Bright, ${payload.voiceTone || 'energetic'} ${ageText} Thai ${voiceGender.toLowerCase()} voice, natural conversational rhythm. Locked loudness level, normalized to -1.0 dB True Peak. Zero volume fluctuations, constant gain throughout the entire clip, high-fidelity recording. Modern indoor room acoustics, clean audio with no echo, consistent microphone distance.`);
-
-    // Voiceover
-    lines.push(`Voiceover (Thai): "${cleanScript}" — Delivery: ${deliveryText}.`);
-
-    // Restrictions
-    lines.push(`IMPORTANT: No CTA (call-to-action) text, no popup text, no floating text, no overlay text, no subtitles in the video.`);
-
-    // Continuity for scenes 2+
+    // For scenes 2+: voice + visual continuity
     if (sceneNum > 1) {
-        lines.push(`CONTINUITY: Maintain identical pitch, tone, resonance, speed, and energy from the previous segment. Strictly continuous recording style. Same ${voiceGender.toLowerCase()} Thai voice, same microphone distance, same room acoustics. Consistent lighting, color grading, and subject positioning. Keep the same ${sceneText}, same camera style, same background. Do not change any visual or audio parameters.`);
+        promptObj.continuity = `Continue with the exact same ${voiceGender.toLowerCase()} Thai voice from previous clip. Same pitch, tone, speed. Same lighting, same background, same person.`;
     }
 
-    return lines.join('\n');
+    return JSON.stringify(promptObj);
 };
 
 // Global Error Handler to catch "Node cannot be found"
