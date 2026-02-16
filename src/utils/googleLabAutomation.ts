@@ -48,45 +48,57 @@ const findAllElementsDeep = (selector: string = '*', root: Document | ShadowRoot
 };
 
 // Helper: Auto-handle ANY "Switch to Veo 3.1 - ..." banner (Fast↔Quality)
+// Uses exact element: <button data-radix-toast-announce-exclude class="sc-1e64bb07-3 etsAIJ">Switch to Veo 3.1 - Fast/Quality</button>
 const autoHandleVeoSwitchBanner = async (): Promise<boolean> => {
     console.log("🔍 Checking for Veo version switch banner...");
-    await delay(1500);
+    await delay(2000);
 
     for (let attempt = 1; attempt <= 3; attempt++) {
-        const allElements = findAllElementsDeep('a, button, span, div');
-        let handled = false;
-
-        for (const el of allElements) {
-            const text = (el.textContent || '').trim();
-            const rect = (el as HTMLElement).getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
-
-            // Match ANY "Switch to Veo ..." link (Fast or Quality)
+        // Method 1: Exact selector from user's element
+        const exactBtns = findAllElementsDeep('button[data-radix-toast-announce-exclude]');
+        for (const btn of exactBtns) {
+            const text = (btn.textContent || '').trim();
             if (text.includes('Switch to Veo') || text.includes('เปลี่ยนเป็น Veo')) {
-                console.log(`✅ Found Veo switch link: "${text.substring(0, 60)}" — clicking...`);
-                (el as HTMLElement).click();
-                (el as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                console.log(`✅ Found Veo switch button (exact selector): "${text}"`);
+                (btn as HTMLElement).click();
+                (btn as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
                 console.log("✅ Veo version switched!");
-                handled = true;
                 await delay(3000);
-                break;
-            }
-        }
-
-        if (handled) return true;
-
-        // Try dismiss if switch link not found
-        for (const el of allElements) {
-            const text = (el.textContent || '').trim();
-            if (text === 'Dismiss' || text === 'ปิด') {
-                console.log(`  🔄 Dismissing banner: "${text}"`);
-                (el as HTMLElement).click();
-                await delay(1000);
                 return true;
             }
         }
 
-        await delay(1000);
+        // Method 2: Class selector fallback
+        const classBtns = findAllElementsDeep('button.etsAIJ, button[class*="sc-1e64bb07"]');
+        for (const btn of classBtns) {
+            const text = (btn.textContent || '').trim();
+            if (text.includes('Switch to Veo') || text.includes('เปลี่ยนเป็น Veo')) {
+                console.log(`✅ Found Veo switch button (class selector): "${text}"`);
+                (btn as HTMLElement).click();
+                (btn as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                console.log("✅ Veo version switched!");
+                await delay(3000);
+                return true;
+            }
+        }
+
+        // Method 3: Text-based search (broadest fallback)
+        const allElements = findAllElementsDeep('button, a, span');
+        for (const el of allElements) {
+            const text = (el.textContent || '').trim();
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            if (text.includes('Switch to Veo') || text.includes('เปลี่ยนเป็น Veo')) {
+                console.log(`✅ Found Veo switch link (text match): "${text.substring(0, 60)}"`);
+                (el as HTMLElement).click();
+                (el as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                console.log("✅ Veo version switched!");
+                await delay(3000);
+                return true;
+            }
+        }
+
+        await delay(1500);
     }
 
     console.log("  ℹ️ No Veo switch banner found (OK)");
@@ -717,7 +729,36 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
             }
 
             if (clicked) {
-                await delay(2000);
+                await delay(3000);
+
+                // Check for Veo switch banner AFTER clicking generate
+                // Banner: "This feature isn't supported on Veo 3.1 - Quality/Fast"
+                // If banner appears → click switch → click generate AGAIN
+                const bannerHandled = await autoHandleVeoSwitchBanner();
+                if (bannerHandled) {
+                    console.log("🔄 Veo switched! Re-clicking Generate...");
+                    await delay(2000);
+
+                    // Find generate button again and click
+                    const retryIcons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"]');
+                    for (const icon of retryIcons) {
+                        if (icon.textContent?.trim() === 'arrow_forward') {
+                            const parentBtn = icon.closest('button');
+                            if (parentBtn) {
+                                const r = parentBtn.getBoundingClientRect();
+                                if (r.width <= 70 && r.height <= 70) {
+                                    console.log("🎯 Re-clicking generate button...");
+                                    (parentBtn as HTMLElement).click();
+                                    (parentBtn as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                                    console.log("✅ Generate re-clicked after Veo switch!");
+                                    await delay(2000);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 return true;
             }
             await delay(1500);
