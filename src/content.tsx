@@ -159,32 +159,17 @@ const buildUnifiedScenePrompt = (
     };
     const expressionText = expressionMap[payload.expression || 'neutral'] || 'natural pleasant expression';
 
-    // Strip surrounding quotes that cause escaped \" in JSON
+    // Strip surrounding quotes
     const cleanScript = (script || '').trim().replace(/^"+|"+$/g, '');
 
-    // ===== SHORT + CLEAN prompt — proven working structure =====
-    const promptObj: Record<string, any> = {
-        style: 'UGC, natural smartphone footage, real-person feel',
-        aspect_ratio: payload.aspectRatio || '9:16',
-        model: { description: 'Person from the reference image' },
-        camera: cameraText,
-        scene: sceneText,
-        background: 'Background from reference image',
-        product: pName,
-        action: actionText,
-        voice: `${voiceGender} Thai voice speaking, ${deliveryText}, steady volume, clear sound`,
-        voiceover: {
-            language: 'thai',
-            text: cleanScript
-        },
-        restrictions: 'No text overlays, no floating text in the video'
-    };
+    // ===== PLAIN TEXT prompt (VideoFX rejects all JSON formats with 403) =====
+    let prompt = `Person from the reference image ${actionText} in a ${sceneText}. ${cameraText}. ${voiceGender} Thai voice speaking, ${deliveryText}, steady volume, clear sound. The person says in Thai: ${cleanScript}. No text overlays or floating text in the video.`;
 
     if (sceneNum > 1) {
-        promptObj.voice_continuity = `Same ${voiceGender.toLowerCase()} Thai voice, same pitch, tone, speed. Same lighting, background, person.`;
+        prompt += ` Continue with the same ${voiceGender.toLowerCase()} Thai voice, same pitch, tone, speed. Same lighting, background, person.`;
     }
 
-    return JSON.stringify(promptObj);
+    return prompt;
 };
 
 // Global Error Handler to catch "Node cannot be found"
