@@ -160,43 +160,41 @@ const buildUnifiedScenePrompt = (
     const expressionText = expressionMap[payload.expression || 'neutral'] || 'natural pleasant expression';
 
     const cleanScript = (script || '').trim();
+    const aspectRatio = payload.aspectRatio || '9:16';
 
-    // ===== Full Enhanced JSON prompt =====
-    const promptObj: Record<string, any> = {
-        style: 'User-generated content (UGC), natural smartphone footage, authentic 4K real-person feel, casual handheld framing',
-        aspect_ratio: payload.aspectRatio || '9:16',
-        model: {
-            description: 'Person from the reference image',
-            consistency: `Identical face, hair, outfit, and accessories as seen in reference. Expression: ${expressionText}`
-        },
-        camera: cameraText,
-        scene: sceneText,
-        background: 'Background from reference image, maintain identical depth of field',
-        product: pName,
-        action: actionText,
-        audio_engineering: {
-            voice_identity: `Bright, ${payload.voiceTone || 'energetic'} ${ageText} Thai ${voiceGender.toLowerCase()} voice, natural conversational rhythm`,
-            loudness_control: 'Locked loudness level, normalized to -1.0 dB True Peak',
-            consistency: 'Zero volume fluctuations, constant gain throughout the entire clip, high-fidelity (Hi-Fi) recording',
-            environment: 'Modern indoor room acoustics, clean audio with no echo, consistent microphone distance'
-        },
-        voiceover: {
-            language: 'thai',
-            text: cleanScript,
-            delivery: deliveryText
-        },
-        restrictions: 'IMPORTANT: No CTA (call-to-action) text, no popup text, no floating text, no overlay text, no subtitles in the video'
-    };
+    // ===== Build flat natural language prompt (VideoFX compatible) =====
+    const lines: string[] = [];
 
-    // For scenes 2+: full continuity lock (voice + visuals)
+    // Style & Framing
+    lines.push(`User-generated content (UGC), natural smartphone footage, authentic 4K real-person feel, casual handheld framing. Aspect ratio: ${aspectRatio}.`);
+
+    // Model & Expression
+    lines.push(`Model: Person from the reference image. Identical face, hair, outfit, and accessories as seen in reference. Expression: ${expressionText}.`);
+
+    // Camera
+    lines.push(`Camera: ${cameraText}.`);
+
+    // Scene & Background
+    lines.push(`Scene: ${sceneText}. Background from reference image, maintain identical depth of field.`);
+
+    // Product & Action
+    lines.push(`Product: ${pName}. Action: ${actionText}.`);
+
+    // Audio Engineering (all fields preserved as flat text)
+    lines.push(`Voice: Bright, ${payload.voiceTone || 'energetic'} ${ageText} Thai ${voiceGender.toLowerCase()} voice, natural conversational rhythm. Locked loudness level, normalized to -1.0 dB True Peak. Zero volume fluctuations, constant gain throughout the entire clip, high-fidelity recording. Modern indoor room acoustics, clean audio with no echo, consistent microphone distance.`);
+
+    // Voiceover
+    lines.push(`Voiceover (Thai): "${cleanScript}" — Delivery: ${deliveryText}.`);
+
+    // Restrictions
+    lines.push(`IMPORTANT: No CTA (call-to-action) text, no popup text, no floating text, no overlay text, no subtitles in the video.`);
+
+    // Continuity for scenes 2+
     if (sceneNum > 1) {
-        promptObj.continuity = {
-            voice: `Maintain identical pitch, tone, resonance, speed, and energy from the previous segment. Strictly continuous recording style. Same ${voiceGender.toLowerCase()} Thai voice, same microphone distance, same room acoustics.`,
-            visuals: `Consistent lighting, color grading, and subject positioning. Keep the same ${sceneText}, same camera style, same background. Do not change any visual or audio parameters.`
-        };
+        lines.push(`CONTINUITY: Maintain identical pitch, tone, resonance, speed, and energy from the previous segment. Strictly continuous recording style. Same ${voiceGender.toLowerCase()} Thai voice, same microphone distance, same room acoustics. Consistent lighting, color grading, and subject positioning. Keep the same ${sceneText}, same camera style, same background. Do not change any visual or audio parameters.`);
     }
 
-    return JSON.stringify(promptObj);
+    return lines.join('\n');
 };
 
 // Global Error Handler to catch "Node cannot be found"
