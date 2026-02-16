@@ -3003,29 +3003,46 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Capture last frame → Upload as reference → Same prompt, new script =====
-        // NO scene builder, NO Jump to, NO Extend
-        // Stay in "Ingredients to Video" mode — each scene generates independently
-        console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s) via last frame reference...`);
+        // ===== MULTI-SCENE: Add to Scene → Save Frame → Upload last frame as ref → Same prompt, new script → Generate =====
+        // NO Jump to / Extend — stays in Ingredients to Video mode
+        console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s)...`);
         console.log("📋 Scene Scripts Array:", sceneScripts);
+
+        // STEP A: Hover video and click "เพิ่มลงในฉาก" (Add to Scene Builder)
+        report("Adding to Scene Builder...", 11, totalSteps);
+        const addedToScene = await hoverVideoAndAddToScene(selectors);
+        if (!addedToScene) {
+            console.warn("⚠️ Could not add to scene, trying to continue...");
+        }
+        await delay(5000);
 
         let actualScenesGenerated = 1; // Scene 1 already done
 
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
             const sceneNum = sceneIndex + 1;
-            const stepBase = 11 + (sceneIndex - 1) * 3;
+            const stepBase = 12 + (sceneIndex - 1) * 4;
 
             console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
 
-            // ===== STEP 1: Capture last frame from previous video =====
-            report(`Capturing Last Frame...`, stepBase, totalSteps);
-            console.log(`🎯 STEP 1: Capture last frame from Scene ${sceneNum - 1} video...`);
+            // ===== STEP 1: Save frame as asset =====
+            report(`Saving Frame...`, stepBase, totalSteps);
+            console.log(`🎯 STEP 1: Save frame as asset for Scene ${sceneNum}...`);
+
+            const frameSaved = await clickSaveFrameAsAsset();
+            if (frameSaved) {
+                console.log(`✅ Frame saved as asset!`);
+            } else {
+                console.warn(`⚠️ Could not save frame as asset, continuing...`);
+            }
+            await delay(2000);
+
+            // ===== STEP 2: Capture last frame from video + Upload as reference =====
+            report(`Uploading Reference...`, stepBase + 1, totalSteps);
+            console.log(`🎯 STEP 2: Capture last frame and upload as reference...`);
 
             const lastFrame = await captureVideoLastFrame();
             if (lastFrame) {
-                console.log(`✅ Last frame captured! Uploading as new reference...`);
-
-                // Upload last frame as reference image (replaces character slot)
+                console.log(`✅ Last frame captured! Uploading as reference...`);
                 await uploadSingleImage(lastFrame, 1, selectors);
                 await delay(3000);
                 console.log(`✅ Last frame uploaded as reference for Scene ${sceneNum}!`);
@@ -3033,9 +3050,9 @@ export const runMultiScenePipeline = async (
                 console.warn(`⚠️ Could not capture last frame — existing references will be used`);
             }
 
-            // ===== STEP 2: Fill prompt with new script and generate =====
-            report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
-            console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
+            // ===== STEP 3: Fill prompt with new script and generate =====
+            report(`Generating Scene ${sceneNum}...`, stepBase + 2, totalSteps);
+            console.log(`🎯 STEP 3: Fill prompt for Scene ${sceneNum} and generate...`);
 
             const scenePrompt = sceneScripts[sceneIndex];
             if (!scenePrompt || scenePrompt.trim() === '') {
@@ -3045,20 +3062,15 @@ export const runMultiScenePipeline = async (
 
             console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
 
-            // Use fillPromptAndGenerate — this handles:
-            // - Finding prompt input
-            // - Typing new prompt (clears old)
-            // - Clicking Generate
-            // - Auto Veo switch banner + re-generate if needed
             const generated = await fillPromptAndGenerate(scenePrompt);
             if (!generated) {
                 console.warn(`⚠️ Could not generate Scene ${sceneNum}`);
                 continue;
             }
 
-            // ===== STEP 3: Wait for video to complete =====
-            report(`Waiting for Video ${sceneNum}...`, stepBase + 2, totalSteps);
-            console.log(`🎯 STEP 3: Waiting for Scene ${sceneNum} video...`);
+            // ===== STEP 4: Wait for video to complete =====
+            report(`Waiting for Video ${sceneNum}...`, stepBase + 3, totalSteps);
+            console.log(`🎯 STEP 4: Waiting for Scene ${sceneNum} video...`);
 
             const videoSrc = await waitForVideoComplete(300000);
             if (videoSrc) {
@@ -3069,7 +3081,6 @@ export const runMultiScenePipeline = async (
                 console.warn(`⚠️ Scene ${sceneNum} video timed out`);
             }
 
-            // Small delay before next scene
             if (sceneIndex < sceneCount - 1) {
                 await delay(3000);
             }
