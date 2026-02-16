@@ -2629,19 +2629,19 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Add more clips =====
-        console.log(`🎬 Multi-scene mode: Adding ${sceneCount - 1} more scene(s)...`);
+        // ===== MULTI-SCENE: Generate each clip INDEPENDENTLY (not Extend) =====
+        // This gives consistent voice across scenes (same prompt → same voice interpretation)
+        console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more clip(s) independently...`);
 
-        // Hover video and click "เพิ่มลงในฉาก"
-        report("Adding to Scene Builder...", 11, totalSteps);
+        // Add Scene 1 video to scene builder first
+        report("Adding Scene 1 to Scene Builder...", 11, totalSteps);
         const addedToScene = await hoverVideoAndAddToScene(selectors);
         if (!addedToScene) {
-            console.warn("⚠️ Could not add to scene, trying to continue...");
+            console.warn("⚠️ Could not add Scene 1 to scene builder, trying to continue...");
         }
 
         await delay(5000); // Wait for scene builder to load
 
-        // Generate additional scenes
         console.log("📋 Scene Scripts Array:", sceneScripts);
         console.log("📋 Scene Scripts Length:", sceneScripts.length);
 
@@ -2651,99 +2651,58 @@ export const runMultiScenePipeline = async (
             const sceneNum = sceneIndex + 1;
             const stepBase = 12 + (sceneIndex - 1) * 4;
 
-            console.log(`🎬 ========== Generating Scene ${sceneNum} ==========`);
+            console.log(`🎬 ========== Generating Scene ${sceneNum} (INDEPENDENT) ==========`);
             console.log(`📝 sceneScripts[${sceneIndex}] = "${sceneScripts[sceneIndex]?.substring(0, 100) || 'UNDEFINED'}..."`);
 
-            // ===== STEP 1: Click + button to add new clip =====
-            report(`Adding Clip ${sceneNum}...`, stepBase, totalSteps);
-            console.log(`\n🎯 STEP 1: Click + and Extend for Scene ${sceneNum}...`);
-
-            const clipAdded = await clickAddClipButton();
-            if (!clipAdded) {
-                console.warn(`⚠️ Could not add clip ${sceneNum} - clickAddClipButton failed`);
-                continue;
-            }
-
-            // ===== รอให้ expand view โหลดเสร็จสมบูรณ์ (5 วินาที) =====
-            console.log(`⏳ Waiting 5 seconds for expand view to fully load...`);
-            await delay(5000);
-
-            // ===== STEP 1.5: Upload reference image for consistency =====
-            if (scene1GeneratedImage) {
-                console.log(`\n📷 Uploading Scene 1 reference image for Scene ${sceneNum} consistency...`);
-                report(`Uploading Reference Image...`, stepBase, totalSteps);
-                const refUploaded = await uploadReferenceImageToExpandedClip(scene1GeneratedImage, selectors);
-                if (refUploaded) {
-                    console.log(`✅ Reference image uploaded for Scene ${sceneNum}!`);
-                } else {
-                    console.warn(`⚠️ Could not upload reference image for Scene ${sceneNum}, using prompt-only consistency`);
-                }
-                await delay(3000);
-            } else {
-                console.log(`⚠️ No reference image available for Scene ${sceneNum}`);
-            }
-
-            // ===== STEP 2: Fill prompt for this scene =====
-            console.log(`\n🎯 STEP 2: Filling prompt for Scene ${sceneNum}...`);
-            report(`Filling Scene ${sceneNum} Prompt...`, stepBase + 1, totalSteps);
-            await delay(2000); // รอ 2 วินาทีก่อนใส่ prompt
-
-            // Get the script for this scene (index 1 = scene 2, index 2 = scene 3)
-            const basePrompt = sceneScripts[sceneIndex];
-
-            if (!basePrompt || basePrompt.trim() === '') {
+            // Get the script for this scene
+            const scenePrompt = sceneScripts[sceneIndex];
+            if (!scenePrompt || scenePrompt.trim() === '') {
                 console.error(`❌ ERROR: No script found for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
                 continue;
             }
 
-            console.log(`📝 Base Prompt for Scene ${sceneNum}: "${basePrompt.substring(0, 80)}..."`);
+            // ===== STEP 1: Fill MAIN prompt input with scene prompt =====
+            report(`Generating Scene ${sceneNum}...`, stepBase, totalSteps);
+            console.log(`\n🎯 STEP 1: Filling MAIN prompt input for Scene ${sceneNum}...`);
+            console.log(`📝 Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
 
-            const totalScenes = sceneCount;
-
-            // If prompt already follows unified JSON format from content.tsx, use it directly.
-            const hasUnifiedTemplate = (basePrompt.trimStart().startsWith('{') && basePrompt.includes('"voiceover"'))
-                || basePrompt.includes('Restrictions: IMPORTANT: No CTA');
-
-            let scenePrompt = basePrompt;
-
-            // Fallback for legacy/raw scripts: append concise continuity guidance.
-            if (!hasUnifiedTemplate) {
-                const sceneRole = sceneNum === 2 ? 'DEMO (show product usage)' : 'CLOSING (summary and CTA-free ending)';
-                scenePrompt = `${basePrompt}
-
-[Continue seamlessly from previous scene]
-- Same voice: identical pitch, tone, speed, accent as the previous scene
-- Same person: same face, outfit, hair, accessories
-- Same background and lighting
-- Thai language only, natural speaking rhythm
-- This is scene ${sceneNum}/${totalScenes} (${sceneRole})
-- Smooth natural transition, as if filmed in one continuous shot`;
-            }
-
-            console.log(`📝 Full Scene ${sceneNum} Prompt (first 150 chars): "${scenePrompt.substring(0, 150)}..."`);
-
-            // ===== STEP 3: Fill prompt and generate =====
-            console.log(`\n🎯 STEP 3: Fill prompt and click Generate for Scene ${sceneNum}...`);
-            const promptFilled = await fillNextScenePromptAndGenerate(scenePrompt, selectors);
+            const promptFilled = await fillPromptAndGenerate(scenePrompt);
             if (!promptFilled) {
-                console.warn(`⚠️ Could not fill prompt for scene ${sceneNum}`);
+                console.warn(`⚠️ Could not fill prompt for Scene ${sceneNum}`);
                 continue;
             }
 
-            // รอ 3 วินาทีหลังกด generate
-            console.log(`⏳ Waiting 3 seconds after clicking generate...`);
+            // ===== STEP 2: Wait for video to complete =====
+            report(`Waiting for Scene ${sceneNum} Video...`, stepBase + 1, totalSteps);
+            console.log(`\n🎯 STEP 2: Waiting for Scene ${sceneNum} video to generate...`);
+            const videoSrc = await waitForVideoComplete(300000);
+            if (!videoSrc) {
+                console.warn(`⚠️ Scene ${sceneNum} video generation timed out`);
+                continue;
+            }
+            videoUrls.push(videoSrc);
+            console.log(`✅ Scene ${sceneNum} video complete: ${videoSrc.substring(0, 50)}...`);
+
+            // ===== STEP 3: Add to scene builder =====
+            report(`Adding Scene ${sceneNum} to Scene Builder...`, stepBase + 2, totalSteps);
+            console.log(`\n🎯 STEP 3: Adding Scene ${sceneNum} to scene builder...`);
             await delay(3000);
 
-            // ===== SKIP WAITING - Just queue and move to next scene =====
-            // VideoFX จะ gen ฉากนี้อยู่เบื้องหลัง เราไปเพิ่มฉากถัดไปเลย
-            actualScenesGenerated++;
-            console.log(`✅ Scene ${sceneNum} queued for generation! (${actualScenesGenerated} scenes total) Moving to next scene...`);
-            report(`Scene ${sceneNum} Queued`, stepBase + 2, totalSteps);
+            const addedClip = await hoverVideoAndAddToScene(selectors);
+            if (!addedClip) {
+                console.warn(`⚠️ Could not add Scene ${sceneNum} to scene builder`);
+            } else {
+                console.log(`✅ Scene ${sceneNum} added to scene builder!`);
+            }
 
-            // รอ 3 วินาทีก่อนเพิ่มฉากถัดไป (ให้ UI พร้อม)
+            actualScenesGenerated++;
+            report(`Scene ${sceneNum} Complete!`, stepBase + 3, totalSteps);
+            console.log(`✅ Scene ${sceneNum} done! (${actualScenesGenerated}/${sceneCount} scenes)`);
+
+            // Wait before next scene
             if (sceneIndex < sceneCount - 1) {
-                console.log(`\n⏳ Waiting 3 seconds before adding next scene...`);
-                await delay(3000);
+                console.log(`\n⏳ Waiting 5 seconds before generating next scene...`);
+                await delay(5000);
             }
         }
 
