@@ -104,53 +104,25 @@ const buildUnifiedScenePrompt = (
     // ===== Camera (from UI: cameraAngles) =====
     const cameraValue = Array.isArray(payload.cameraAngles) ? payload.cameraAngles[0] : (payload.cameraAngles || 'front');
     const cameraTextMap: Record<string, string> = {
-        'front': 'Static camera, eye-level medium shot',
+        'front': 'Static camera, steady shot',
         'side': 'Static camera, 3/4 side angle',
         'close-up': 'Static camera, close-up framing',
         'full-body': 'Static camera, full-body framing',
-        'dynamic': 'Smooth handheld-style movement, no sudden jumps'
+        'dynamic': 'Dynamic camera, smooth handheld movement'
     };
     const cameraText = cameraTextMap[cameraValue] || 'Static camera, steady shot';
 
-    // ===== Model (from UI: gender, ageRange, personality, expression, clothingStyles) =====
-    const gender = payload.gender || 'female';
-    const genderText = gender === 'male' ? 'Thai man' : 'Thai woman';
-    const ageMap: Record<string, string> = {
-        'teen': '16-20 years old', 'young-adult': '25-30 years old',
-        'adult': '35-40 years old', 'middle-age': '50-55 years old', 'senior': '65-70 years old'
+    // ===== Scene (from UI: background) =====
+    const sceneMap: Record<string, string> = {
+        'studio': 'modern setting',
+        'outdoor': 'outdoor setting',
+        'home': 'living_room',
+        'office': 'office setting',
+        'abstract': 'modern setting'
     };
-    const personalityMap: Record<string, string> = {
-        'cheerful': 'energetic enthusiastic presenter, bright smile',
-        'calm': 'calm composed demeanor, gentle smile',
-        'professional': 'professional trustworthy, confident posture',
-        'playful': 'playful fun personality, animated expressions',
-        'mysterious': 'cool mysterious vibe, subtle smile'
-    };
-    const clothingMap: Record<string, string> = {
-        'casual': gender === 'female' ? 'white V-neck t-shirt, light blue jeans' : 'navy polo shirt, khaki pants',
-        'formal': gender === 'female' ? 'cream silk blouse, black skirt' : 'white dress shirt, blue suit',
-        'fashion': gender === 'female' ? 'trendy cropped top, high-waisted pants' : 'designer t-shirt, fitted blazer',
-        'sporty': gender === 'female' ? 'athletic tank top, yoga pants' : 'sports jersey, athletic shorts'
-    };
-    const expressionMap: Record<string, string> = {
-        'neutral': 'natural pleasant expression', 'happy': 'bright genuine smile',
-        'excited': 'enthusiastic excited expression', 'serious': 'serious confident look'
-    };
-    const mainClothing = (payload.clothingStyles || ['casual'])[0] || 'casual';
-    const modelDescription = payload.modelDescription || payload.model?.description
-        || `${genderText}, ${ageMap[payload.ageRange] || '25-30 years old'}, ${personalityMap[payload.personality] || 'energetic enthusiastic presenter'}, ${expressionMap[payload.expression] || 'natural pleasant expression'}`;
+    const sceneText = sceneMap[payload.background || 'studio'] || 'modern setting';
 
-    // ===== Background (from UI: background) =====
-    const bgMap: Record<string, string> = {
-        'studio': 'clean white studio backdrop, soft lighting',
-        'outdoor': 'bright outdoor setting, natural sunlight',
-        'home': 'cozy modern living room, warm ambient light',
-        'office': 'professional office, neutral colors',
-        'abstract': 'abstract gradient background'
-    };
-    const sceneText = payload.background || 'studio';
-
-    // ===== Action (from UI: movement) =====
+    // ===== Action (from UI: movement + product) =====
     const movementMap: Record<string, string> = {
         'static': `holds ${productName || 'the product'} steadily, looking at the camera`,
         'minimal': `presents ${productName || 'the product'} with gentle hand gestures, smiling warmly`,
@@ -160,18 +132,15 @@ const buildUnifiedScenePrompt = (
         || movementMap[payload.movement || 'minimal']
         || `presents ${productName || 'the product'} naturally to the camera`;
 
-    // ===== Voice (simple — same format as competitor for consistency) =====
-    const voiceGender = gender === 'male' ? 'Male' : 'Female';
+    // ===== Voice (from UI: gender) =====
+    const voiceGender = (payload.gender || 'female') === 'male' ? 'Male' : 'Female';
     const cleanScript = (script || '').trim();
 
-    // ===== Full JSON prompt =====
-    const promptObj: Record<string, any> = {
+    // ===== Exact competitor JSON format — proven to give consistent voice =====
+    return JSON.stringify({
         style: 'User-generated content style, natural smartphone footage, authentic real-person feel, casual framing',
         aspect_ratio: payload.aspectRatio || '9:16',
-        model: {
-            description: modelDescription,
-            appearance: clothingMap[mainClothing] || clothingMap['casual'],
-        },
+        model: { description: 'Person from the reference image' },
         camera: cameraText,
         scene: sceneText,
         background: 'Background from reference image',
@@ -183,20 +152,7 @@ const buildUnifiedScenePrompt = (
             text: cleanScript
         },
         restrictions: 'IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video'
-    };
-
-    // ===== Continuity (for smooth transitions — our advantage over competitor) =====
-    if (totalScenes > 1) {
-        promptObj.continuity = {
-            scene_number: `${sceneNum}/${totalScenes}`,
-            identity: 'Same person in every scene, matching the reference face image exactly',
-            voice_lock: 'Use exactly the same voice, same pitch, same tone, same speaking speed as scene 1',
-            transition: 'Continue seamlessly from previous scene, as if filmed in one continuous shot',
-            visual: 'Same outfit, same hair, same background lighting, same color grading'
-        };
-    }
-
-    return JSON.stringify(promptObj);
+    });
 };
 
 // Global Error Handler to catch "Node cannot be found"

@@ -1905,6 +1905,15 @@ const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null =>
 
     // Method 1: Search by role="menuitem" text
     const menuItems = findAllElementsDeep('[role="menuitem"], [role="menuitemradio"], [role="option"]');
+    // DEBUG: Log ALL visible menu items so we can see what options exist (Extend? Jump to? etc.)
+    console.log(`🔍 [DEBUG] All visible menu items (${menuItems.length} total):`);
+    for (const el of menuItems) {
+        const text = (el.textContent || '').trim();
+        const rect = (el as HTMLElement).getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        console.log(`  📋 [MENU] "${text}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}] role=${el.getAttribute('role')}`);
+    }
+
     for (const el of menuItems) {
         const text = (el.textContent || '').trim();
         const rect = (el as HTMLElement).getBoundingClientRect();
