@@ -1161,13 +1161,6 @@ const trimPromptToLimit = (prompt: string, maxChars: number): string => {
 };
 
 const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): string => {
-    // If prompt is JSON format, don't mangle it with text appending — just trim to limit
-    const trimmedRaw = (rawPrompt || '').trim();
-    if (trimmedRaw.startsWith('{') && trimmedRaw.endsWith('}')) {
-        console.log(`📝 JSON prompt detected — skipping text finalization (${trimmedRaw.length} chars)`);
-        return trimPromptToLimit(trimmedRaw, VIDEO_PROMPT_MAX_CHARS);
-    }
-
     const targetRatio = normalizeAspectRatioValue(requestedAspectRatio);
     const aspectDirective = buildAspectRatioPromptDirective(targetRatio);
 

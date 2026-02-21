@@ -879,57 +879,53 @@ const buildVideoPrompt = (
     };
     const toneText = toneDescriptions[config.voiceTone] || toneDescriptions["friendly"];
 
-    // Build full voiceover script with all scenes
-    const fullVoiceoverScript = sceneTexts
+    // Build full voiceover script block with all scenes
+    const voiceoverBlock = sceneTexts
         .map((text, i) => `\u0e09\u0e32\u0e01 ${i + 1}: "${text}"`)
         .join('\n');
 
-    // Build clean JSON prompt (Scene 1)
-    const promptObj = {
-        style: `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`,
-        aspect_ratio: aspectRatio,
-        model: {
-            description: "Person from the reference image",
-            gender: genderText,
-            expression: expressionText
-        },
-        camera: "Smooth cinematic movement, professional lighting",
-        scene: templateConfig.thaiName,
-        background: "Background from reference image",
-        product: config.productName,
-        action: `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}`,
-        voice: `${genderVoice} Thai voice speaking`,
-        voiceover: {
-            language: "thai",
-            current_scene: 1,
-            current_script: sceneTexts[0] || "",
-            full_script: fullVoiceoverScript
-        },
-        restrictions: "IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image."
-    };
+    // Build clean natural language prompt (Scene 1)
+    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`;
+    const actionDesc = `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}`;
+
+    const promptLines = [
+        `${durationConfig.pacing} ${templateConfig.thaiName} video.`,
+        `${genderText}, ${expressionText} expression, presenting ${config.productName}.`,
+        `${styleDesc}.`,
+        `Smooth cinematic movement, professional lighting.`,
+        `${actionDesc}.`,
+        ``,
+        `${genderVoice} Thai voice speaking.`,
+        ``,
+        `THAI VOICEOVER SCRIPT:`,
+        voiceoverBlock,
+        ``,
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image.`
+    ];
+
+    const prompt = promptLines.join('\n');
 
     // Meta for building Scene 2+ prompts
     const meta: VideoPromptMeta = {
-        style: promptObj.style,
+        style: styleDesc,
         aspectRatio,
         gender: genderText,
         genderVoice: `${genderVoice} Thai voice speaking`,
         expression: expressionText,
-        camera: promptObj.camera,
+        camera: 'Smooth cinematic movement, professional lighting',
         product: config.productName,
         template: templateConfig.thaiName,
-        restrictions: promptObj.restrictions
+        restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.'
     };
 
-    const prompt = JSON.stringify(promptObj, null, 2);
-    console.log("📝 Video prompt (JSON):", prompt.substring(0, 200) + "...");
+    console.log("\ud83d\udcdd Video prompt:", prompt.substring(0, 200) + "...");
 
     return { prompt, sceneScripts: sceneTexts, meta };
 };
 
 /**
- * Build a JSON video prompt for Scene 2+ using meta from Scene 1.
- * Includes ALL scene scripts for voice continuity context.
+ * Build a natural language video prompt for Scene 2+ using meta from Scene 1.
+ * Includes ALL scene voiceover scripts for voice continuity context.
  */
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
@@ -937,40 +933,28 @@ export const buildSceneVideoPromptJSON = (
     sceneNumber: number,
     allSceneScripts?: string[]
 ): string => {
-    // Build full voiceover script with all scenes for context
-    const fullVoiceoverScript = allSceneScripts
+    // Build voiceover block with all scenes
+    const voiceoverBlock = allSceneScripts
         ? allSceneScripts.map((text, i) => `\u0e09\u0e32\u0e01 ${i + 1}: "${text}"`).join('\n')
         : `\u0e09\u0e32\u0e01 ${sceneNumber}: "${sceneScript}"`;
 
-    const promptObj = {
-        style: meta.style,
-        aspect_ratio: meta.aspectRatio,
-        model: {
-            description: "Same person from previous scene, exact same face, outfit, and identity",
-            gender: meta.gender,
-            expression: meta.expression
-        },
-        camera: meta.camera,
-        scene: meta.template,
-        background: "Consistent with previous scene",
-        product: meta.product,
-        action: `Continue presenting ${meta.product} naturally. Smooth transition from previous scene. Same person, same setting.`,
-        voice: `${meta.genderVoice}, same pitch and tone as previous scene`,
-        voiceover: {
-            language: "thai",
-            current_scene: sceneNumber,
-            current_script: sceneScript,
-            full_script: fullVoiceoverScript
-        },
-        continuity: {
-            identity: "Must be the exact same person from Scene 1 reference image",
-            voice: "Same voice, same pitch, same tone throughout all scenes",
-            visual: "Same outfit, same lighting, same background"
-        },
-        restrictions: meta.restrictions + " Same person identity, outfit, and voice from previous scene."
-    };
+    const promptLines = [
+        `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
+        `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
+        `${meta.style}.`,
+        `${meta.camera}. Smooth transition from previous scene.`,
+        `Continue presenting ${meta.product} naturally. Same person, same setting.`,
+        ``,
+        `${meta.genderVoice}, same pitch and tone as previous scene.`,
+        ``,
+        `THAI VOICEOVER SCRIPT (Currently Scene ${sceneNumber}):`,
+        voiceoverBlock,
+        ``,
+        `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
+        `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
+    ];
 
-    return JSON.stringify(promptObj, null, 2);
+    return promptLines.join('\n');
 };
 
 /**
