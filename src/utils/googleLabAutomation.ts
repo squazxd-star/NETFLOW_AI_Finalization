@@ -5745,15 +5745,33 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // Build Scene 2+ prompt
+            // Build Scene 2+ prompt (must be SHORT for Extend Video API)
             let scenePrompt: string;
             if (config.videoPromptMeta) {
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
-                console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
+                console.log(`📝 Scene ${sceneNum} Prompt (meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
             } else {
-                scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
-                console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..."`);
+                // Compact Extend prompt — Extend API has shorter char limit than regular Generate
+                // Extract just the voiceover script portion if present
+                let voiceoverScript = '';
+                const voiceoverMatch = sceneScriptText.match(/VOICEOVER\s*SCRIPT[:\s]*[""]([^""]+)[""]/i) ||
+                    sceneScriptText.match(/[""]([^""]{10,})[""]/);
+                if (voiceoverMatch) {
+                    voiceoverScript = voiceoverMatch[1].substring(0, 120);
+                } else {
+                    // Use first 120 chars of the script text as voiceover
+                    voiceoverScript = sceneScriptText.replace(/IMPORTANT:.*/si, '').trim().substring(0, 120);
+                }
+
+                const voiceGender = getVoiceGender() || 'Female';
+                scenePrompt = [
+                    `Scene ${sceneNum}. Same person, face, outfit. Continue presenting naturally.`,
+                    `${voiceGender} Thai voice.`,
+                    `VOICEOVER: "${voiceoverScript}"`,
+                    `No text overlays. Same identity throughout.`
+                ].join('\n');
+                console.log(`📝 Scene ${sceneNum} Prompt (compact): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
             }
 
             const generated = await fillPromptAndGenerate(scenePrompt);
