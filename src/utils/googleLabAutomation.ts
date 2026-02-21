@@ -715,7 +715,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
     return null;
 };
 
-const VIDEO_PROMPT_MAX_CHARS = 700;
+const VIDEO_PROMPT_MAX_CHARS = 1800;
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
@@ -5488,31 +5488,16 @@ export const runMultiScenePipeline = async (
         await delay(400);
 
         report("Generating Scene 1...", 9, totalSteps);
-        // Scene 1 uses full videoPrompt but ONLY with Scene 1 script (remove Scene 2, 3 scripts)
-        const firstSceneScript = sceneScripts[0];
-        const scene1ScriptText = typeof firstSceneScript === 'string' ? firstSceneScript : firstSceneScript?.script || '';
-        let scene1Prompt = config.videoPrompt || scene1ScriptText || config.imagePrompt;
-
-        // If videoPrompt contains multiple scenes, keep only Scene 1 script
-        if (scene1Prompt.includes('🎬 ฉาก 2:') || scene1Prompt.includes('🎬 ฉาก 3:')) {
-            // Remove Scene 2 and Scene 3 scripts from the prompt
-            scene1Prompt = scene1Prompt
-                .replace(/🎬 ฉาก 2:[^\n]*(\n|$)/g, '')
-                .replace(/🎬 ฉาก 3:[^\n]*(\n|$)/g, '')
-                .replace(/\n{3,}/g, '\n\n')  // Clean up extra newlines
-                .trim();
-            console.log("📝 Scene 1 prompt cleaned - removed Scene 2, 3 scripts");
-        }
-
-        const scene1PromptFinal = finalizeVideoPrompt(scene1Prompt, config.aspectRatio);
-
-        await switchToVideoModeAndGenerate(scene1PromptFinal, selectors, config.aspectRatio);
+        // Scene 1 uses full videoPrompt (includes all scene scripts for voice continuity)
+        const scene1Prompt = config.videoPrompt || config.imagePrompt;
+        // switchToVideoModeAndGenerate already calls finalizeVideoPrompt internally
+        await switchToVideoModeAndGenerate(scene1Prompt, selectors, config.aspectRatio);
 
         report("Waiting for Video 1...", 10, totalSteps);
         let video1Src = await waitForVideoComplete(300000);
         if (!video1Src) {
             console.warn("⚠️ Scene 1 video did not complete. Retrying once with cleaned references...");
-            const retryGenerated = await fillPromptAndGenerate(scene1PromptFinal);
+            const retryGenerated = await fillPromptAndGenerate(finalizeVideoPrompt(scene1Prompt, config.aspectRatio));
             if (retryGenerated) {
                 video1Src = await waitForVideoComplete(180000);
             }
@@ -5645,10 +5630,10 @@ export const runMultiScenePipeline = async (
                 // Pass all scene scripts so the prompt includes full voiceover context
                 const allScripts = sceneScripts.map(s => typeof s === 'string' ? s : s?.script || '');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum, allScripts);
-                console.log(`📝 Scene ${sceneNum} Prompt (JSON): "${scenePrompt.substring(0, 150)}..."`);
+                console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
             } else {
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
-                console.log(`📝 Scene ${sceneNum} Prompt (legacy): "${scenePrompt.substring(0, 150)}..."`);
+                console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..."`);
             }
 
             const generated = await fillPromptAndGenerate(scenePrompt);
