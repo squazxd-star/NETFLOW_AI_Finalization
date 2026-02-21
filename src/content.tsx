@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import VideoResultOverlay from './components/overlay/VideoResultOverlay';
 import AutomationOverlay from './components/overlay/AutomationOverlay';
 import './index.css'; // Reuse main styles or import specific overlay styles
 import { getFormattedPrompt } from './utils/videoPromptTemplates';
@@ -167,7 +166,6 @@ loadStyles();
 const renderRoot = ReactDOM.createRoot(shadowRoot);
 
 const ContentScriptApp = () => {
-    const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
     const [isAutomationRunning, setIsAutomationRunning] = React.useState(false);
     const [currentStep, setCurrentStep] = React.useState("Initializing...");
     const [stepNumber, setStepNumber] = React.useState(0);
@@ -234,8 +232,7 @@ const ContentScriptApp = () => {
             }
 
             if (message.type === 'SHOW_VIDEO_RESULT' && message.videoUrl) {
-                console.log('Received video URL:', message.videoUrl);
-                setVideoUrl(message.videoUrl);
+                console.log('Received video URL (download via Chrome bar):', message.videoUrl);
             }
 
             if (message.type === 'INJECT_AUTOMATION_DATA') {
@@ -289,6 +286,7 @@ const ContentScriptApp = () => {
                 let imagePrompt: string;
                 let videoPrompt: string = "";
                 let sceneScripts: string[] = [];
+                let videoPromptMeta: any = null;
 
                 // Priority 1: Use explicit prompts if provided (from Workflow Control step 3)
                 if (explicitVideoPrompt && explicitImagePrompt) {
@@ -349,33 +347,20 @@ const ContentScriptApp = () => {
                             const prompts = await generatePrompts(promptConfig);
                             imagePrompt = prompts.imagePrompt;
                             videoPrompt = prompts.videoPrompt;
+                            videoPromptMeta = prompts.videoPromptMeta || null;
                             
-                            // Parse individual scene scripts for Scene 2+
-                            let sceneMatches: string[] | null = null;
-                            
-                            // Pattern 1: Curly double quotes ""
-                            sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*""([^""]+)""/g);
-                            
-                            // Pattern 2: Regular double quotes ""
-                            if (!sceneMatches || sceneMatches.length === 0) {
-                                sceneMatches = prompts.videoPrompt.match(/🎬 ฉาก \d+:\s*"([^"]+)"/g);
-                            }
-                            
-                            if (sceneMatches && sceneMatches.length > 0) {
-                                sceneScripts = sceneMatches.map((m, idx) => {
-                                    const extracted = m.replace(/🎬 ฉาก \d+:\s*["""''']/, '').replace(/["""''']$/, '').trim();
-                                    return extracted;
-                                });
-                            }
-                            
-                            if (sceneScripts.length === 0) {
+                            // Use sceneScripts directly from generatePrompts (no regex needed)
+                            if (prompts.sceneScripts && prompts.sceneScripts.length > 0) {
+                                sceneScripts = prompts.sceneScripts;
+                            } else {
                                 sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
                             }
                         } catch (e) {
                             const prompts = generateQuickPrompts(promptConfig);
                             imagePrompt = prompts.imagePrompt;
                             videoPrompt = prompts.videoPrompt;
-                            sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
+                            videoPromptMeta = prompts.videoPromptMeta || null;
+                            sceneScripts = prompts.sceneScripts || Array(sceneCount).fill(prompts.videoPrompt);
                         }
                     } else if (aiPrompt) {
                         // Parse user-provided scripts (split by double newline for each scene)
@@ -396,7 +381,8 @@ const ContentScriptApp = () => {
                         const prompts = generateQuickPrompts(promptConfig);
                         imagePrompt = prompts.imagePrompt;
                         videoPrompt = prompts.videoPrompt;
-                        sceneScripts = Array(sceneCount).fill(prompts.videoPrompt);
+                        videoPromptMeta = prompts.videoPromptMeta || null;
+                        sceneScripts = prompts.sceneScripts || Array(sceneCount).fill(prompts.videoPrompt);
                     }
                 }
 
@@ -408,7 +394,8 @@ const ContentScriptApp = () => {
                         videoPrompt,
                         sceneCount,
                         sceneScripts,
-                        aspectRatio
+                        aspectRatio,
+                        videoPromptMeta
                     }, (step, current, total) => {
                         // Update Overlay State
                         setIsAutomationRunning(true);
@@ -421,9 +408,9 @@ const ContentScriptApp = () => {
 
                     // Show video result if successful
                     if (result.success) {
-                        if (result.videoUrl) {
-                            setVideoUrl(result.videoUrl);
-                        }
+                        // Download is handled by handleVideoDownload() — Chrome's download bar
+                        // will show the file. No custom popup overlay needed.
+                        console.log('✅ Pipeline complete. Video available via Chrome downloads.');
 
                         // Notify the extension popup
                         chrome.runtime.sendMessage({
@@ -515,12 +502,7 @@ const ContentScriptApp = () => {
                 totalSteps={totalSteps}
                 onStop={handleStopAutomation}
             />
-            {videoUrl && (
-                <VideoResultOverlay
-                    videoUrl={videoUrl}
-                    onClose={() => setVideoUrl(null)}
-                />
-            )}
+            {/* Video result is now shown via Chrome's native download bar instead of custom overlay */}
         </>
     );
 };

@@ -1151,6 +1151,13 @@ const trimPromptToLimit = (prompt: string, maxChars: number): string => {
 };
 
 const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): string => {
+    // If prompt is JSON format, don't mangle it with text appending — just trim to limit
+    const trimmedRaw = (rawPrompt || '').trim();
+    if (trimmedRaw.startsWith('{') && trimmedRaw.endsWith('}')) {
+        console.log(`📝 JSON prompt detected — skipping text finalization (${trimmedRaw.length} chars)`);
+        return trimPromptToLimit(trimmedRaw, VIDEO_PROMPT_MAX_CHARS);
+    }
+
     const targetRatio = normalizeAspectRatioValue(requestedAspectRatio);
     const aspectDirective = buildAspectRatioPromptDirective(targetRatio);
 
@@ -4290,17 +4297,85 @@ const selectLatestAssetAsReference = async (): Promise<boolean> => {
         return false;
     };
 
+    // ===== STRATEGY 0 (PRIMARY): Click the prompt-bar "+" add-reference button =====
+    // This is the small "+" button near the prompt input at the bottom of Scenebuilder.
+    // Element: <button class="sc-d02e9a37-1"><i class="google-symbols">add</i></button>
+    const clickPromptBarAddReferenceButton = async (): Promise<boolean> => {
+        console.log("  🎯 Strategy 0: Looking for prompt-bar add-reference button (google-symbols 'add')...");
+
+        // Find all buttons with a google-symbols icon containing "add"
+        const allButtons = findAllElementsDeep('button') as HTMLElement[];
+        const addButtons: { btn: HTMLElement; score: number }[] = [];
+
+        for (const btn of allButtons) {
+            if (btn.offsetParent === null) continue;
+            const r = btn.getBoundingClientRect();
+            if (r.width < 16 || r.height < 16 || r.width > 80 || r.height > 80) continue;
+
+            // Must contain a google-symbols icon with text "add"
+            const icon = btn.querySelector('i.google-symbols, i[class*="google-symbols"]');
+            if (!icon) continue;
+            const iconText = (icon.textContent || '').trim().toLowerCase();
+            if (iconText !== 'add') continue;
+
+            // Exclude buttons in the top 40% of the screen (header/toolbar area)
+            if (r.top < bounds.vh * 0.55) continue;
+
+            // Exclude generate button (arrow_forward) — should already be excluded by iconText check
+            // Exclude known control icons
+            if (['arrow_forward', 'send', 'tune', 'settings', 'volume', 'download', 'fullscreen'].includes(iconText)) continue;
+
+            // Score: prefer buttons lower on screen and to the left (near prompt area)
+            let score = (bounds.vh - r.top); // Lower = better
+            // Check if button has data-type="button-overlay" child (exact match for the user's element)
+            const hasOverlay = btn.querySelector('[data-type="button-overlay"]');
+            if (hasOverlay) score += 500; // Strong bonus
+            // Check for sc-d02e9a37 class
+            if (btn.className.includes('sc-d02e9a37')) score += 300;
+
+            addButtons.push({ btn, score });
+            console.log(`    ✅ Found prompt-bar add btn at (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} score=${score.toFixed(0)} class="${btn.className.substring(0, 60)}"`);
+        }
+
+        addButtons.sort((a, b) => b.score - a.score);
+
+        for (const { btn } of addButtons.slice(0, 3)) {
+            const r = btn.getBoundingClientRect();
+            console.log(`  🖱️ Clicking prompt-bar add button at (${r.left.toFixed(0)}, ${r.top.toFixed(0)})`);
+            await robustElementClick(btn);
+            await delay(1500);
+
+            if (isAssetPickerOpen()) {
+                console.log("  ✅ Asset picker opened via prompt-bar add button!");
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    // Try Strategy 0 FIRST (prompt-bar button)
+    let slotClicked = false;
+    const promptBarOpened = await clickPromptBarAddReferenceButton();
+    if (promptBarOpened) {
+        slotClicked = true;
+    }
+
+    // Fallback to legacy strategies only if Strategy 0 failed
+    if (!slotClicked) {
+        console.log("  ⚠️ Strategy 0 failed, falling back to rail-based scanning...");
+    }
+
     let orderedSlotCandidates = collectSlotCandidates();
-    if (orderedSlotCandidates.length === 0) {
+    if (!slotClicked && orderedSlotCandidates.length === 0) {
         await hoverRailNearReference();
         orderedSlotCandidates = collectSlotCandidates();
     }
     console.log(`  📊 Add-slot candidates detected: ${orderedSlotCandidates.length}`);
 
     // Click up to 4 candidates until asset picker actually opens.
-    let slotClicked = false;
     const triedCenters = new Set<string>();
-    for (let i = 0; i < Math.min(6, orderedSlotCandidates.length); i++) {
+    for (let i = 0; !slotClicked && i < Math.min(6, orderedSlotCandidates.length); i++) {
         const candidate = orderedSlotCandidates[i].el;
         const r = candidate.getBoundingClientRect();
         const centerKey = `${Math.round((r.left + r.width / 2) / 4)}:${Math.round((r.top + r.height / 2) / 4)}`;
@@ -4420,70 +4495,158 @@ const selectLatestAssetAsReference = async (): Promise<boolean> => {
 
     const findSavedAssetCandidate = (): HTMLElement | null => {
         const pickerCtx = resolveAssetPickerContext();
-        if (!pickerCtx) return null;
+        if (!pickerCtx) {
+            console.log("  ⚠️ findSavedAssetCandidate: picker context not found");
+            return null;
+        }
 
         const uploadTile = pickerCtx.uploadTile;
         const pickerRoot = pickerCtx.pickerRoot;
         const ur = uploadTile.getBoundingClientRect();
 
-        const searchPool = pickerRoot
-            ? (Array.from(pickerRoot.querySelectorAll('button, [role="button"], a, div')) as HTMLElement[])
-            : (findAllElementsDeep('button, [role="button"], a, div') as HTMLElement[]);
+        console.log(`  📐 Upload tile: (${ur.left.toFixed(0)},${ur.top.toFixed(0)}) ${ur.width.toFixed(0)}x${ur.height.toFixed(0)}`);
+        console.log(`  📐 Picker root: ${pickerRoot ? 'found' : 'null'}`);
 
-        const candidates = searchPool
-            .filter((el) => {
-                if (el.offsetParent === null) return false;
-                if (el === uploadTile || uploadTile.contains(el) || el.contains(uploadTile)) return false;
-                if (pickerRoot && !pickerRoot.contains(el)) return false;
+        // Strategy A: Search container elements (button, div, a) that contain images
+        const containerPool = pickerRoot
+            ? (Array.from(pickerRoot.querySelectorAll('button, [role="button"], a, div, li, figure')) as HTMLElement[])
+            : (findAllElementsDeep('button, [role="button"], a, div, li, figure') as HTMLElement[]);
 
-                const r = el.getBoundingClientRect();
-                if (r.width < 60 || r.height < 60 || r.width > 320 || r.height > 320) return false;
-                if (r.top < bounds.vh * 0.10 || r.bottom > bounds.vh * 0.96) return false;
+        // Strategy B: Also search direct <img> elements (some pickers use bare img)
+        const imgPool = pickerRoot
+            ? (Array.from(pickerRoot.querySelectorAll('img')) as HTMLElement[])
+            : (findAllElementsDeep('img') as HTMLElement[]);
 
-                const text = (el.textContent || '').toLowerCase();
-                if (text.includes('upload') || text.includes('อัปโหลด') || text.includes('อัพโหลด') || text.includes('.png') || text.includes('.jpg')) return false;
-                if (text.includes('create image') || text.includes('frames to video')) return false;
+        const isInsideUploadTile = (el: HTMLElement): boolean => {
+            return el === uploadTile || uploadTile.contains(el) || el.contains(uploadTile);
+        };
 
-                if (!elementHasUsableImage(el)) return false;
+        const isInsideRailRef = (el: HTMLElement, cx: number, cy: number): boolean => {
+            // If the element is inside the picker root, it's a picker image, NOT a rail reference
+            if (pickerRoot && pickerRoot.contains(el)) return false;
+            return cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop + 180;
+        };
 
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
+        // Combine both strategies into scored candidates
+        const allCandidates: { el: HTMLElement; score: number; source: string }[] = [];
 
-                // Exclude right-side rail refs; we need picker cards in main area.
-                if (cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop + 180) return false;
+        // --- Strategy A: Container elements with images inside ---
+        for (const el of containerPool) {
+            if (el.offsetParent === null) continue;
+            if (isInsideUploadTile(el)) continue;
+            if (pickerRoot && !pickerRoot.contains(el)) continue;
 
-                // Saved image card is usually to the right of upload tile on the same row.
-                if (cy < ur.top - 110 || cy > ur.bottom + 140) return false;
-                if (cx < ur.left + ur.width * 0.55 || cx > ur.left + ur.width + 560) return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 50 || r.height < 50 || r.width > 360 || r.height > 360) continue;
+            if (r.top < bounds.vh * 0.05 || r.bottom > bounds.vh * 0.98) continue;
 
-                return true;
-            })
-            .sort((a, b) => {
-                const ar = a.getBoundingClientRect();
-                const br = b.getBoundingClientRect();
+            const text = (el.textContent || '').toLowerCase();
+            if (text.includes('upload') || text.includes('อัปโหลด') || text.includes('อัพโหลด')) continue;
+            if (text.includes('create image') || text.includes('frames to video')) continue;
 
-                const as = Math.abs(ar.left - (ur.left + ur.width + 100)) + Math.abs(ar.top - ur.top);
-                const bs = Math.abs(br.left - (ur.left + ur.width + 100)) + Math.abs(br.top - ur.top);
-                return as - bs;
-            });
+            if (!elementHasUsableImage(el)) continue;
 
-        return candidates[0] || null;
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            if (isInsideRailRef(el, cx, cy)) continue;
+
+            // Score: prefer items near Upload tile (same row or below), closer = better
+            let score = Math.abs(cy - ur.top) + Math.abs(cx - (ur.right + 80));
+            // Bonus for being on same row as upload tile
+            if (Math.abs(cy - (ur.top + ur.height / 2)) < ur.height * 0.8) score -= 200;
+            // Bonus for being to the right of upload
+            if (cx > ur.right) score -= 100;
+            // Bonus for being below upload (second row)
+            if (cy > ur.bottom && cy < ur.bottom + 200) score -= 50;
+
+            allCandidates.push({ el, score, source: 'container' });
+        }
+
+        // --- Strategy B: Direct <img> elements ---
+        for (const img of imgPool) {
+            if (img.offsetParent === null) continue;
+            if (!hasUsableImageSrc(img)) continue;
+            if (isInsideUploadTile(img)) continue;
+
+            const r = img.getBoundingClientRect();
+            if (r.width < 40 || r.height < 40 || r.width > 360 || r.height > 360) continue;
+            if (r.top < bounds.vh * 0.05 || r.bottom > bounds.vh * 0.98) continue;
+
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            if (isInsideRailRef(img, cx, cy)) continue;
+
+            // Check it's not already an attached reference (the small one at bottom-left of picker)
+            if (r.width < 80 && r.height < 80 && cx < ur.left + 20) continue;
+
+            // Score like above
+            let score = Math.abs(cy - ur.top) + Math.abs(cx - (ur.right + 80));
+            if (Math.abs(cy - (ur.top + ur.height / 2)) < ur.height * 0.8) score -= 200;
+            if (cx > ur.right) score -= 100;
+            if (cy > ur.bottom && cy < ur.bottom + 200) score -= 50;
+
+            // For img, prefer clicking the parent button/div if available
+            const clickable = (img.closest('button, [role="button"], a') as HTMLElement | null) || img;
+            allCandidates.push({ el: clickable, score: score + 5, source: 'img' });
+        }
+
+        // Deduplicate by center coordinates
+        const uniqueCandidates: typeof allCandidates = [];
+        const seenKeys = new Set<string>();
+        for (const c of allCandidates.sort((a, b) => a.score - b.score)) {
+            const r = c.el.getBoundingClientRect();
+            const key = `${Math.round((r.left + r.width / 2) / 12)}:${Math.round((r.top + r.height / 2) / 12)}`;
+            if (seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            uniqueCandidates.push(c);
+        }
+
+        console.log(`  🔍 Asset candidates: ${uniqueCandidates.length} (containers: ${allCandidates.filter(c => c.source === 'container').length}, imgs: ${allCandidates.filter(c => c.source === 'img').length})`);
+        for (const c of uniqueCandidates.slice(0, 5)) {
+            const r = c.el.getBoundingClientRect();
+            console.log(`    📍 ${c.source} score=${c.score.toFixed(0)} at (${r.left.toFixed(0)},${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} tag=${c.el.tagName}`);
+        }
+
+        return uniqueCandidates[0]?.el || null;
     };
 
     let selectedAsset = false;
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 6; attempt++) {
         const candidate = findSavedAssetCandidate();
         if (candidate) {
             const r = candidate.getBoundingClientRect();
             console.log(`  🖱️ Selecting saved asset (attempt ${attempt}) at (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) size=${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
             await robustElementClick(candidate);
-            await delay(1800);
+            await delay(2000);
+
+            // Verify: check if picker closed or reference changed (indicates success)
+            const pickerStillVisible = resolveAssetPickerContext() !== null;
+            const refsNow = getRailReferenceImages();
+            if (!pickerStillVisible || refsNow.length > railRefs.length) {
+                console.log(`  ✅ Asset selection confirmed (picker closed or new ref appeared)`);
+                selectedAsset = true;
+                break;
+            }
+
+            // Picker still open — maybe selection needs a double-click or the item wasn't the right one
+            console.log(`  ⚠️ Picker still open after click, trying double-click...`);
+            await robustElementClick(candidate);
+            await delay(1500);
+
+            const pickerStillVisible2 = resolveAssetPickerContext() !== null;
+            if (!pickerStillVisible2) {
+                console.log(`  ✅ Asset selected after double-click`);
+                selectedAsset = true;
+                break;
+            }
+
+            // Still open but we did click something — mark as selected and let confirm button handle it
             selectedAsset = true;
             break;
         }
 
-        console.log(`  ⏳ Saved asset not visible yet (attempt ${attempt}/5), waiting...`);
-        await delay(1200);
+        console.log(`  ⏳ Saved asset not visible yet (attempt ${attempt}/6), waiting...`);
+        await delay(1500 + attempt * 300);
     }
 
     if (!selectedAsset) {
@@ -5165,10 +5328,11 @@ export interface MultiScenePipelineConfig {
     characterImage: string;
     productImage: string;
     imagePrompt: string;
-    videoPrompt: string;          // Full video prompt for Scene 1 (from Video Prompt Motion)
+    videoPrompt: string;          // Full video prompt for Scene 1 (JSON format)
     sceneCount: number;           // Total number of scenes (1, 2, or 3)
     sceneScripts: (SceneScript | string)[];  // Array of scripts for each scene (Scene 2+ only uses script part)
     aspectRatio?: string;
+    videoPromptMeta?: any;        // Metadata for building Scene 2+ JSON prompts (VideoPromptMeta)
 }
 
 /**
@@ -5430,6 +5594,38 @@ export const runMultiScenePipeline = async (
             }
             await delay(1500);
 
+            // === CRITICAL: Remove ALL existing references BEFORE attaching new one ===
+            // This prevents the 2-reference problem. The saved frame should be the ONLY reference.
+            console.log(`🧹 STEP 1.4: Removing ALL existing references before attaching saved frame...`);
+            
+            // Remove prompt-area reference chips (keepCount=0 = remove ALL)
+            const promptInputs = (findAllElementsDeep('textarea, input[type="text"], [contenteditable="true"]') as HTMLElement[])
+                .filter(el => {
+                    if (el.offsetParent === null) return false;
+                    const r = el.getBoundingClientRect();
+                    return r.width >= 200 && r.height >= 30;
+                })
+                .sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+            
+            if (promptInputs[0]) {
+                console.log(`  🧹 Clearing prompt reference chips (keepCount=0)...`);
+                await normalizeVideoReferenceChips(promptInputs[0], 0, true);
+                await delay(600);
+            }
+            
+            // Also try rail cleanup to 0
+            const railRefsBefore = (findAllElementsDeep('img') as HTMLElement[]).filter((img) => {
+                const r = img.getBoundingClientRect();
+                if (r.width < 24 || r.height < 24 || r.width > 130 || r.height > 130) return false;
+                if (img.offsetParent === null) return false;
+                if (!hasUsableImageSrc(img)) return false;
+                const bounds = getSceneBuilderReferenceRailBounds();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                return cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop;
+            });
+            console.log(`  📊 Rail references before cleanup: ${railRefsBefore.length}`);
+            
             // Re-attach latest saved frame into prompt references to avoid stale duplicate refs causing 403.
             // HARD GATE: must attach successfully before prompt+generate.
             console.log(`🎯 STEP 1.5: Attaching latest saved frame asset for Scene ${sceneNum}...`);
@@ -5484,9 +5680,19 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            const scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
-
-            console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
+            // Build Scene 2+ prompt: use JSON format if meta available, else fallback
+            let scenePrompt: string;
+            if (config.videoPromptMeta) {
+                // Dynamic import to avoid circular dependency
+                const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
+                // Pass all scene scripts so the prompt includes full voiceover context
+                const allScripts = sceneScripts.map(s => typeof s === 'string' ? s : s?.script || '');
+                scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum, allScripts);
+                console.log(`📝 Scene ${sceneNum} Prompt (JSON): "${scenePrompt.substring(0, 150)}..."`);
+            } else {
+                scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
+                console.log(`📝 Scene ${sceneNum} Prompt (legacy): "${scenePrompt.substring(0, 150)}..."`);
+            }
 
             const generated = await fillPromptAndGenerate(scenePrompt);
             if (!generated) {

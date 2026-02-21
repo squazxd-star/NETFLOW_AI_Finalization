@@ -616,6 +616,20 @@ export interface GeneratedPrompts {
     imagePrompt: string;
     videoPrompt: string;
     productAnalysis?: string;
+    sceneScripts?: string[];   // Individual scene scripts for multi-scene automation
+    videoPromptMeta?: VideoPromptMeta; // Metadata for building Scene 2+ JSON prompts
+}
+
+export interface VideoPromptMeta {
+    style: string;
+    aspectRatio: string;
+    gender: string;
+    genderVoice: string;
+    expression: string;
+    camera: string;
+    product: string;
+    template: string;
+    restrictions: string;
 }
 
 /**
@@ -752,13 +766,15 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
     // Step 3: Build Image Prompt (for Google Labs ImageFX)
     const imagePrompt = buildImagePrompt(config, templateConfig, productAnalysis);
     
-    // Step 4: Build Video Prompt (for Google Labs VideoFX)
-    const videoPrompt = buildVideoPrompt(config, templateConfig, durationConfig, productAnalysis);
+    // Step 4: Build Video Prompt (for Google Labs VideoFX) — JSON format
+    const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, productAnalysis);
 
     return {
         imagePrompt,
-        videoPrompt,
-        productAnalysis
+        videoPrompt: videoResult.prompt,
+        productAnalysis,
+        sceneScripts: videoResult.sceneScripts,
+        videoPromptMeta: videoResult.meta
     };
 };
 
@@ -775,6 +791,7 @@ const buildImagePrompt = (
     const category = detectProductCategory(config.productName, productAnalysis, config.template);
     
     const aspectRatio = config.aspectRatio || '9:16';
+    const hasProductImage = !!config.productImage && config.productImage !== config.characterImage;
 
     let prompt = `Professional photograph for ${templateConfig.thaiName} video thumbnail.
 
@@ -785,8 +802,9 @@ Focus: ${templateConfig.focus}
 Category: ${category}
 
 Reference Images:
-- Image 1: Presenter face reference (must preserve exact face identity and gender)
-- Image 2: Product reference (must preserve packaging and product type)
+- Image 1: Presenter face reference (must preserve exact face identity and gender)${hasProductImage ? `
+- Image 2: Product reference (must preserve packaging and product type)` : ''}
+- If text conflicts with images, images win.
 
 ${productAnalysis ? `Product Details: ${productAnalysis}` : ''}
 
@@ -807,33 +825,23 @@ const buildVideoPrompt = (
     templateConfig: typeof TEMPLATE_CONFIGS[TemplateOption],
     durationConfig: typeof DURATION_CONFIGS[number],
     productAnalysis: string
-): string => {
+): { prompt: string; sceneScripts: string[]; meta: VideoPromptMeta } => {
     const genderText = config.gender === 'male' ? 'Thai man' : 'Thai woman';
-    const genderThaiText = config.gender === 'male' ? 'ผู้ชายไทย' : 'ผู้หญิงไทย';
+    const genderVoice = config.gender === 'male' ? 'Male' : 'Female';
     const expressionText = config.expression || 'happy and confident';
     const movementText = config.movement || 'natural, fluid movements';
     const category = detectProductCategory(config.productName, productAnalysis, config.template);
     
-    // Get Thai voice configs
     const voiceTone = VOICE_TONE_THAI[config.voiceTone] || VOICE_TONE_THAI["friendly"];
     const saleStyle = SALE_STYLE_THAI[config.saleStyle] || SALE_STYLE_THAI["storytelling"];
-    const languageAccent = (config.accent && ACCENT_THAI[config.accent])
-        ? ACCENT_THAI[config.accent]
-        : (LANGUAGE_ACCENT_THAI[config.language] || LANGUAGE_ACCENT_THAI["th-central"]);
     
-    // Use user-provided script if available, otherwise generate automatically
-    let fullThaiScript: string;
-    let sceneScriptsFormatted: string; // Format for content.tsx parsing
+    // Parse scene scripts
+    let sceneTexts: string[] = [];
     
     if (config.userScript && config.userScript.trim()) {
-        // Parse user script from scene cards (joined by \n\n)
-        const scenes = config.userScript.split(/\n{2,}/).filter(s => s.trim());
-        const sceneCount = Math.min(scenes.length, 3);
-        sceneScriptsFormatted = scenes.map((script, i) => `🎬 ฉาก ${i + 1}: "${script.trim()}"`).join('\n');
-        fullThaiScript = sceneScriptsFormatted;
-        console.log("📝 Using user-provided script:", fullThaiScript);
+        sceneTexts = config.userScript.split(/\n{2,}/).filter(s => s.trim()).map(s => s.trim());
+        console.log("📝 Using user-provided scripts:", sceneTexts);
     } else {
-        // Generate script parts
         const rawScript = generateThaiScript(
             config.productName,
             config.template,
@@ -844,101 +852,125 @@ const buildVideoPrompt = (
             config.clipDuration,
             category
         );
-        fullThaiScript = rawScript;
         
-        // Convert to scene format for content.tsx parsing
-        // Split based on clipDuration: 8s=1 scene, 16s=2 scenes, 24s=3 scenes
         const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
         const scriptLines = rawScript.split('\n').filter(l => l.trim());
-        
-        // Group script lines into scenes
         const linesPerScene = Math.ceil(scriptLines.length / sceneCount);
-        const sceneGroups: string[] = [];
         
         for (let i = 0; i < sceneCount; i++) {
             const start = i * linesPerScene;
             const end = Math.min(start + linesPerScene, scriptLines.length);
             const sceneLines = scriptLines.slice(start, end);
-            // Extract just the quoted text from each line
             const sceneText = sceneLines.map(line => {
                 const match = line.match(/"([^"]+)"/);
                 return match ? match[1] : line.replace(/^[🎬💬✨😍🔥💡🎯]\s*\S+:\s*/, '').replace(/"/g, '');
             }).join(' ');
-            sceneGroups.push(sceneText);
+            sceneTexts.push(sceneText);
         }
-        
-        sceneScriptsFormatted = sceneGroups.map((text, i) => `🎬 ฉาก ${i + 1}: "${text}"`).join('\n');
-        console.log("📝 Auto-generated scene scripts:", sceneScriptsFormatted);
+        console.log("📝 Auto-generated scene scripts:", sceneTexts);
     }
-    
-    const storyboard = buildStoryboardSection(config, category);
 
-    // Build Thai voice script section with full script
-    let thaiVoiceScript = `
-THAI VOICEOVER SCRIPT (เสียงพากย์ไทย):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 สินค้า: ${config.productName}
-🗣️ ภาษา: ${languageAccent.dialect} (${languageAccent.characteristic})
-🎭 น้ำเสียง: ${voiceTone.tone} - ${voiceTone.style}
-💼 แนวทางขาย: ${saleStyle.approach}
-⏱️ ความยาว: ${config.clipDuration} วินาที
-
-📜 SCRIPT (บทพูด):
-${fullThaiScript}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-    // Tone mapping for English description
+    const aspectRatio = config.aspectRatio || '9:16';
     const toneDescriptions: Record<string, string> = {
-        "energetic": "High energy, excited, enthusiastic movements",
-        "calm": "Relaxed, smooth, gentle movements",
+        "energetic": "High energy, excited, enthusiastic",
+        "calm": "Relaxed, smooth, gentle",
         "friendly": "Warm, approachable, natural gestures",
-        "professional": "Confident, polished, authoritative presence"
+        "professional": "Confident, polished, authoritative"
     };
     const toneText = toneDescriptions[config.voiceTone] || toneDescriptions["friendly"];
 
-    const aspectRatio = config.aspectRatio || '9:16';
+    // Build full voiceover script with all scenes
+    const fullVoiceoverScript = sceneTexts
+        .map((text, i) => `\u0e09\u0e32\u0e01 ${i + 1}: "${text}"`)
+        .join('\n');
 
-    let prompt = `${durationConfig.description} video for ${templateConfig.thaiName} content.
+    // Build clean JSON prompt (Scene 1)
+    const promptObj = {
+        style: `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`,
+        aspect_ratio: aspectRatio,
+        model: {
+            description: "Person from the reference image",
+            gender: genderText,
+            expression: expressionText
+        },
+        camera: "Smooth cinematic movement, professional lighting",
+        scene: templateConfig.thaiName,
+        background: "Background from reference image",
+        product: config.productName,
+        action: `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}`,
+        voice: `${genderVoice} Thai voice speaking`,
+        voiceover: {
+            language: "thai",
+            current_scene: 1,
+            current_script: sceneTexts[0] || "",
+            full_script: fullVoiceoverScript
+        },
+        restrictions: "IMPORTANT: No CTA (call-to-action), no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image."
+    };
 
-📹 SCENE:
-- Subject: ${genderText} (${genderThaiText}) with ${expressionText} expression
-- Product: ${config.productName}
-- Action: ${templateConfig.focus}
-- Movement: ${movementText}
+    // Meta for building Scene 2+ prompts
+    const meta: VideoPromptMeta = {
+        style: promptObj.style,
+        aspectRatio,
+        gender: genderText,
+        genderVoice: `${genderVoice} Thai voice speaking`,
+        expression: expressionText,
+        camera: promptObj.camera,
+        product: config.productName,
+        template: templateConfig.thaiName,
+        restrictions: promptObj.restrictions
+    };
 
-🧩 REFERENCE IMAGES (CRITICAL):
-- Image 1 = Presenter face reference. Keep the exact same person, face identity, and gender. Do NOT generate a random female.
-- Image 2 = Product reference. Keep product packaging, shape, and type exactly.
-- If text conflicts with images, images win.
+    const prompt = JSON.stringify(promptObj, null, 2);
+    console.log("📝 Video prompt (JSON):", prompt.substring(0, 200) + "...");
 
-🎨 STYLE:
-- Template: ${templateConfig.style}
-- Pacing: ${durationConfig.pacing}
-- Tone: ${toneText}
-- Camera: Smooth cinematic movement, professional lighting
+    return { prompt, sceneScripts: sceneTexts, meta };
+};
 
-${thaiVoiceScript}
+/**
+ * Build a JSON video prompt for Scene 2+ using meta from Scene 1.
+ * Includes ALL scene scripts for voice continuity context.
+ */
+export const buildSceneVideoPromptJSON = (
+    meta: VideoPromptMeta,
+    sceneScript: string,
+    sceneNumber: number,
+    allSceneScripts?: string[]
+): string => {
+    // Build full voiceover script with all scenes for context
+    const fullVoiceoverScript = allSceneScripts
+        ? allSceneScripts.map((text, i) => `\u0e09\u0e32\u0e01 ${i + 1}: "${text}"`).join('\n')
+        : `\u0e09\u0e32\u0e01 ${sceneNumber}: "${sceneScript}"`;
 
-${storyboard}
+    const promptObj = {
+        style: meta.style,
+        aspect_ratio: meta.aspectRatio,
+        model: {
+            description: "Same person from previous scene, exact same face, outfit, and identity",
+            gender: meta.gender,
+            expression: meta.expression
+        },
+        camera: meta.camera,
+        scene: meta.template,
+        background: "Consistent with previous scene",
+        product: meta.product,
+        action: `Continue presenting ${meta.product} naturally. Smooth transition from previous scene. Same person, same setting.`,
+        voice: `${meta.genderVoice}, same pitch and tone as previous scene`,
+        voiceover: {
+            language: "thai",
+            current_scene: sceneNumber,
+            current_script: sceneScript,
+            full_script: fullVoiceoverScript
+        },
+        continuity: {
+            identity: "Must be the exact same person from Scene 1 reference image",
+            voice: "Same voice, same pitch, same tone throughout all scenes",
+            visual: "Same outfit, same lighting, same background"
+        },
+        restrictions: meta.restrictions + " Same person identity, outfit, and voice from previous scene."
+    };
 
-🎬 SCENE SCRIPTS (สำหรับ automation):
-${sceneScriptsFormatted}
-
-${productAnalysis ? `📸 PRODUCT REFERENCE: ${productAnalysis}` : ''}
-
-🧠 PRODUCT CATEGORY (AUTO): ${category}
-
-⚙️ TECHNICAL:
-- Duration: ${config.clipDuration} seconds
-- Aspect Ratio: ${aspectRatio}
-- Quality: 4K, professional grade
-- NO text overlays
-- Maintain face/identity consistency from reference image
-
-${config.mustUseKeywords ? `✅ Keywords to emphasize: ${config.mustUseKeywords}` : ''}
-${config.avoidKeywords ? `❌ Avoid showing: ${config.avoidKeywords}` : ''}`;
-
-    return prompt.trim();
+    return JSON.stringify(promptObj, null, 2);
 };
 
 /**
@@ -947,9 +979,12 @@ ${config.avoidKeywords ? `❌ Avoid showing: ${config.avoidKeywords}` : ''}`;
 export const generateQuickPrompts = (config: PromptGenerationConfig): GeneratedPrompts => {
     const templateConfig = TEMPLATE_CONFIGS[config.template] || TEMPLATE_CONFIGS["product-review"];
     const durationConfig = DURATION_CONFIGS[config.clipDuration] || DURATION_CONFIGS[16];
+    const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, "");
 
     return {
         imagePrompt: buildImagePrompt(config, templateConfig, ""),
-        videoPrompt: buildVideoPrompt(config, templateConfig, durationConfig, "")
+        videoPrompt: videoResult.prompt,
+        sceneScripts: videoResult.sceneScripts,
+        videoPromptMeta: videoResult.meta
     };
 };

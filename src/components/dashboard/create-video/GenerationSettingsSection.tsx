@@ -6,6 +6,7 @@ import SectionHeader from "./SectionHeader";
 import { GenerationSettingsSectionProps } from "./types";
 import { languageOptions } from "@/types/netflow";
 import { getApiKey } from "@/services/storageService";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const parseSceneScripts = (prompt: string, count: number) => {
     const parts = prompt
@@ -50,9 +51,11 @@ const GenerationSettingsSection = ({
     };
 
     const generateScriptsWithAI = async () => {
-        const apiKey = await getApiKey("openai");
+        const provider = (localStorage.getItem("netflow_ai_provider") as 'openai' | 'gemini') || 'openai';
+        const apiKey = await getApiKey(provider);
+
         if (!apiKey) {
-            alert("กรุณาใส่ OpenAI API Key ในหน้าตั้งค่าก่อน");
+            alert(`กรุณาใส่ ${provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key ในหน้าตั้งค่าก่อน`);
             return;
         }
 
@@ -80,7 +83,8 @@ const GenerationSettingsSection = ({
 ฉาก 3 (CTA): สรุปและกระตุ้นซื้อ เรียกร้องให้ทำอะไร`;
             }
 
-            const prompt = `สร้างสคริปต์โฆษณาสินค้าสำหรับวิดีโอสั้น TikTok/Reels ที่ต่อเนื่องกันเหมือนคลิปเดียว!
+            const systemPrompt = "คุณเป็นนักเขียนสคริปต์โฆษณาวิดีโอสั้นมืออาชีพ เขียนสคริปต์ที่กระชับ น่าสนใจ และเหมาะกับ TikTok/Reels";
+            const userPrompt = `สร้างสคริปต์โฆษณาสินค้าสำหรับวิดีโอสั้น TikTok/Reels ที่ต่อเนื่องกันเหมือนคลิปเดียว!
 
 📦 ข้อมูลสินค้า:
 - ชื่อสินค้า: ${productName || "สินค้าจากรูป"}
@@ -108,30 +112,41 @@ ${sceneStructure}
 ${sceneCount >= 2 ? "ฉาก 2: [สคริปต์]" : ""}
 ${sceneCount === 3 ? "ฉาก 3: [สคริปต์]" : ""}`;
 
-            const response = await fetch("https://api.openai.com/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-4o-mini",
-                    messages: [
-                        { role: "system", content: "คุณเป็นนักเขียนสคริปต์โฆษณาวิดีโอสั้นมืออาชีพ เขียนสคริปต์ที่กระชับ น่าสนใจ และเหมาะกับ TikTok/Reels" },
-                        { role: "user", content: prompt }
-                    ],
-                    max_tokens: 500,
-                    temperature: 0.7
-                })
-            });
+            let content = "";
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || "API Error");
+            if (provider === 'gemini') {
+                // === Gemini path ===
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+                content = result.response.text();
+            } else {
+                // === OpenAI path ===
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: userPrompt }
+                        ],
+                        max_tokens: 500,
+                        temperature: 0.7
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || "API Error");
+                }
+
+                const data = await response.json();
+                content = data.choices[0]?.message?.content || "";
             }
-
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content || "";
 
             const scenes = content
                 .split(/ฉาก\s*\d+\s*[:\-]?\s*/i)
