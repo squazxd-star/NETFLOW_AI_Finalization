@@ -835,7 +835,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
     return null;
 };
 
-const VIDEO_PROMPT_MAX_CHARS = 500;
+const VIDEO_PROMPT_MAX_CHARS = 450;
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
@@ -1619,6 +1619,10 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
         return false;
     }
     console.log(`📝 Attempting to fill prompt (${prompt.length} chars)...`);
+    console.log(`📝 Prompt preview: "${prompt.substring(0, 100)}..."`);
+    if (prompt.length > VIDEO_PROMPT_MAX_CHARS) {
+        console.warn(`⚠️ Prompt length ${prompt.length} exceeds limit ${VIDEO_PROMPT_MAX_CHARS}!`);
+    }
 
     let inputEl: HTMLElement | null = null;
 
