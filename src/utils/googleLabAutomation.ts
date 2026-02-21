@@ -5561,6 +5561,15 @@ export const runMultiScenePipeline = async (
     sceneCount?: number;   // Actual scene count for overlay display
     error?: string;
 }> => {
+    console.log('🐛 DEBUG: runMultiScenePipeline config =', {
+        hasVideoPrompt: !!config.videoPrompt,
+        hasVideoPromptMeta: !!config.videoPromptMeta,
+        sceneScriptsLength: config.sceneScripts?.length || 0,
+        sceneScripts: config.sceneScripts,
+        aspectRatio: config.aspectRatio,
+        sceneCount: config.sceneCount
+    });
+
     const { sceneCount, sceneScripts } = config;
     const totalSteps = sceneCount === 1 ? 12 : 12 + (sceneCount - 1) * 3;
 
