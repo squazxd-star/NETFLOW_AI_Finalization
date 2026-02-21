@@ -721,7 +721,65 @@ const isInWorkspace = (selectors: AutomationSelectors): boolean => {
 // --- Switch to Image Tab ---
 export const switchToImageTab = async (selectors: AutomationSelectors): Promise<boolean> => {
     console.log("🖼️ Switching to Image Tab...");
-    return await clickByText(selectors.workspace.imageTabTriggers, 'button');
+
+    const triggers = selectors.workspace.imageTabTriggers;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`  🔍 Attempt ${attempt}/3 to find Image tab...`);
+
+        // Strategy 1: Search tabs (role="tab"), buttons, links, spans, divs — broad search
+        const allEls = findAllElementsDeep('button, [role="tab"], a, div, span, label') as HTMLElement[];
+        for (const el of allEls) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            // Only top area (tabs are usually in header/nav, y < 200)
+            if (rect.top > 250) continue;
+
+            const text = (el.textContent || '').trim();
+            const ariaLabel = (el.getAttribute('aria-label') || '').trim();
+            const matchText = triggers.some(t => text.includes(t) || ariaLabel.includes(t));
+
+            if (matchText) {
+                console.log(`  ✅ Found Image tab: "${text}" (${el.tagName}) at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+                await robustElementClick(el);
+                await delay(800);
+                return true;
+            }
+        }
+
+        // Strategy 2: Look for navigation links with image-related href
+        const navLinks = findAllElementsDeep('a[href*="image"], a[href*="ImageFX"]') as HTMLElement[];
+        for (const link of navLinks) {
+            const rect = link.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            console.log(`  ✅ Found Image nav link: "${link.textContent?.trim()}" at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+            await robustElementClick(link);
+            await delay(800);
+            return true;
+        }
+
+        // Strategy 3: Look for google-symbols icon "image" or "photo"
+        const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i.material-icons') as HTMLElement[];
+        for (const icon of icons) {
+            const iconText = (icon.textContent || '').trim().toLowerCase();
+            if (iconText === 'image' || iconText === 'photo' || iconText === 'photo_library') {
+                const btn = icon.closest('button, a, [role="tab"]') as HTMLElement || icon.parentElement as HTMLElement;
+                if (btn) {
+                    const rect = btn.getBoundingClientRect();
+                    if (rect.top > 250) continue;
+                    console.log(`  ✅ Found Image icon "${iconText}" → clicking parent at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+                    await robustElementClick(btn);
+                    await delay(800);
+                    return true;
+                }
+            }
+        }
+
+        await delay(1500);
+    }
+
+    console.warn("  ⚠️ Could not find Image tab after 3 attempts");
+    return false;
 };
 
 type AspectRatioValue = '9:16' | '16:9';
