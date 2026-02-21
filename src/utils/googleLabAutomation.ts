@@ -4511,14 +4511,23 @@ const selectLatestAssetAsReference = async (): Promise<boolean> => {
         console.log(`  📐 Picker root: ${pickerRoot ? 'found' : 'null'}`);
 
         // Strategy A: Search container elements (button, div, a) that contain images
-        const containerPool = pickerRoot
+        let containerPool = pickerRoot
             ? (Array.from(pickerRoot.querySelectorAll('button, [role="button"], a, div, li, figure')) as HTMLElement[])
             : (findAllElementsDeep('button, [role="button"], a, div, li, figure') as HTMLElement[]);
 
         // Strategy B: Also search direct <img> elements (some pickers use bare img)
-        const imgPool = pickerRoot
+        let imgPool = pickerRoot
             ? (Array.from(pickerRoot.querySelectorAll('img')) as HTMLElement[])
             : (findAllElementsDeep('img') as HTMLElement[]);
+
+        // Fallback: if pickerRoot yielded 0 images, broaden to full page
+        let broadenedSearch = false;
+        if (pickerRoot && imgPool.length === 0) {
+            console.log("  ⚠️ pickerRoot has 0 images — broadening search to full page");
+            containerPool = findAllElementsDeep('button, [role="button"], a, div, li, figure') as HTMLElement[];
+            imgPool = findAllElementsDeep('img') as HTMLElement[];
+            broadenedSearch = true;
+        }
 
         const isInsideUploadTile = (el: HTMLElement): boolean => {
             return el === uploadTile || uploadTile.contains(el) || el.contains(uploadTile);
@@ -4537,7 +4546,12 @@ const selectLatestAssetAsReference = async (): Promise<boolean> => {
         for (const el of containerPool) {
             if (el.offsetParent === null) continue;
             if (isInsideUploadTile(el)) continue;
-            if (pickerRoot && !pickerRoot.contains(el)) continue;
+            if (pickerRoot && !broadenedSearch && !pickerRoot.contains(el)) continue;
+            // When broadened, only consider images near the upload tile area (within 600px)
+            if (broadenedSearch) {
+                const r2 = el.getBoundingClientRect();
+                if (Math.abs(r2.top - ur.top) > 600 || Math.abs(r2.left - ur.left) > 800) continue;
+            }
 
             const r = el.getBoundingClientRect();
             if (r.width < 50 || r.height < 50 || r.width > 360 || r.height > 360) continue;
