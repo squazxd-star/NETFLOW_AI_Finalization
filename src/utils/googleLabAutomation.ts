@@ -392,6 +392,57 @@ const PROVEN_SELECTORS = {
     confirmButtonFallback: '[role="dialog"] button'
 };
 
+/**
+ * Wait for "Crop and Save" dialog and click the button.
+ * Returns true if crop dialog was found and button clicked.
+ */
+const waitAndClickCropSave = async (selectors: AutomationSelectors): Promise<boolean> => {
+    console.log("🔍 Checking for Crop and Save dialog...");
+
+    // Wait up to 5 seconds for crop dialog to appear
+    for (let i = 0; i < 10; i++) {
+        // Search ALL visible buttons for crop/save text
+        const allBtns = findAllElementsDeep('button') as HTMLElement[];
+        for (const btn of allBtns) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            const text = (btn.textContent || '').toLowerCase();
+            if (text.includes('crop and save') || text.includes('ครอบตัดและบันทึก')) {
+                console.log(`✅ Found "Crop and Save" button: "${text.trim().substring(0, 30)}"`);
+                await robustElementClick(btn);
+                return true;
+            }
+        }
+
+        // Also check for any dialog with crop-related heading
+        const headings = findAllElementsDeep('h1, h2, h3, h4, h5, h6, p, span, div');
+        let hasCropDialog = false;
+        for (const h of headings) {
+            const text = (h.textContent || '').toLowerCase();
+            if (text.includes('crop your ingredient') || text.includes('ครอบตัด')) {
+                hasCropDialog = true;
+                break;
+            }
+        }
+
+        if (!hasCropDialog && i >= 2) {
+            // No crop dialog after 1 second, probably not coming
+            return false;
+        }
+
+        await delay(500);
+    }
+
+    // Last resort: try cropSaveTriggers from config
+    const clicked = await clickByText(selectors.upload.cropSaveTriggers);
+    if (clicked) {
+        console.log("✅ Clicked crop/save via config triggers");
+        return true;
+    }
+
+    return false;
+};
+
 export const uploadSingleImage = async (base64Image: string, imageIndex: number, selectors: AutomationSelectors): Promise<boolean> => {
     console.log(`📷 Uploading image ${imageIndex} (Using proven selectors)...`);
 
@@ -435,7 +486,15 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                     console.log(`✅ Strategy 0: File injected directly into existing input!`);
                     await delay(2000);
 
-                    // Check if image appeared
+                    // Handle "Crop and Save" dialog if it appeared
+                    const cropClicked = await waitAndClickCropSave(selectors);
+                    if (cropClicked) {
+                        console.log(`✅ Strategy 0: Crop and Save clicked!`);
+                        await delay(1500);
+                        return true;
+                    }
+
+                    // Check if image appeared (no crop dialog case)
                     const imgs = findAllElementsDeep('img') as HTMLElement[];
                     const newImg = imgs.find(img => {
                         const r = img.getBoundingClientRect();
@@ -629,33 +688,44 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
 
                         console.log(`✅ File injected successfully!`);
 
-                        await delay(1500);
+                        await delay(2000);
 
-                        // ========== STRATEGY 5: Click confirm button ==========
-                        console.log("🔍 Looking for confirm button...");
+                        // ========== STRATEGY 5: Handle "Crop and Save" dialog ==========
+                        console.log("🔍 Looking for Crop and Save / confirm button...");
 
-                        let confirmBtn: HTMLElement | null = document.querySelector(PROVEN_SELECTORS.confirmButton);
+                        // Primary: use dedicated crop dialog handler
+                        const cropHandled = await waitAndClickCropSave(selectors);
+                        if (cropHandled) {
+                            console.log("✅ Crop and Save handled!");
+                        } else {
+                            // Fallback: try proven selector
+                            let confirmBtn: HTMLElement | null = document.querySelector(PROVEN_SELECTORS.confirmButton);
 
-                        // Fallback: look for button with confirm-like text
-                        if (!confirmBtn) {
-                            const dialogButtons = document.querySelectorAll('[id^="radix-"] button, [role="dialog"] button');
-                            for (const btn of dialogButtons) {
-                                const text = btn.textContent?.toLowerCase() || '';
-                                if (text.includes('use') || text.includes('apply') ||
-                                    text.includes('confirm') || text.includes('select') ||
-                                    text.includes('ok') || text.includes('done')) {
-                                    confirmBtn = btn as HTMLElement;
-                                    break;
+                            // Fallback: broad button search
+                            if (!confirmBtn) {
+                                const dialogButtons = findAllElementsDeep('button');
+                                for (const btn of dialogButtons) {
+                                    const rect = (btn as HTMLElement).getBoundingClientRect();
+                                    if (rect.width === 0 || rect.height === 0) continue;
+                                    const text = (btn.textContent || '').toLowerCase();
+                                    if (text.includes('crop and save') || text.includes('crop') ||
+                                        text.includes('save') || text.includes('use') || text.includes('apply') ||
+                                        text.includes('confirm') || text.includes('select') ||
+                                        text.includes('ok') || text.includes('done') ||
+                                        text.includes('ครอบตัด') || text.includes('บันทึก')) {
+                                        confirmBtn = btn as HTMLElement;
+                                        console.log(`✅ Found confirm/crop button: "${text.substring(0, 30)}"`);
+                                        break;
+                                    }
                                 }
                             }
-                        }
 
-                        // Fallback: try text triggers from config
-                        if (!confirmBtn) {
-                            await clickByText(selectors.upload.cropSaveTriggers);
-                        } else {
-                            confirmBtn.click();
-                            console.log("✅ Clicked confirm button");
+                            if (confirmBtn) {
+                                await robustElementClick(confirmBtn);
+                                console.log("✅ Clicked confirm/crop button");
+                            } else {
+                                await clickByText(selectors.upload.cropSaveTriggers);
+                            }
                         }
 
                         await delay(1000);
