@@ -420,6 +420,36 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
             await delay(1000);
             console.log(`🔄 Attempt ${attempt + 1}/5`);
 
+            // ========== STRATEGY 0: Direct file input injection (no button click needed) ==========
+            // Some UI states already have a file input visible — inject directly
+            const existingInputs = findAllElementsDeep('input[type="file"]') as HTMLInputElement[];
+            if (existingInputs.length > 0 && attempt === 0) {
+                console.log(`🔍 Strategy 0: Found ${existingInputs.length} existing file input(s), trying direct injection...`);
+                const targetInput = existingInputs[existingInputs.length - 1];
+                try {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    targetInput.files = dt.files;
+                    targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    console.log(`✅ Strategy 0: File injected directly into existing input!`);
+                    await delay(2000);
+
+                    // Check if image appeared
+                    const imgs = findAllElementsDeep('img') as HTMLElement[];
+                    const newImg = imgs.find(img => {
+                        const r = img.getBoundingClientRect();
+                        return r.width > 50 && r.height > 50 && hasUsableImageSrc(img);
+                    });
+                    if (newImg) {
+                        console.log(`✅ Strategy 0: Image appeared after direct injection!`);
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn(`⚠️ Strategy 0: Direct injection failed:`, e);
+                }
+            }
+
             // ========== STRATEGY 1: Find upload slots (buttons with "add" icon) ==========
             console.log("🔍 Looking for image upload slots...");
 
@@ -3233,8 +3263,20 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
         console.warn("  ⚠️ Playhead slider not found, proceeding anyway...");
     }
 
-    // Helper: check if save-frame button appeared after hover
+    // Helper: check if save-frame button/menuitem appeared (including radix dropdown menuitems)
     const findSaveFrameButton = (): HTMLElement | null => {
+        // Priority 1: Search radix menuitems first (exact match from UI)
+        const menuItems = findAllElementsDeep('[role="menuitem"], [data-radix-collection-item]') as HTMLElement[];
+        for (const el of menuItems) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            const text = (el.textContent || '').trim().toLowerCase();
+            if (text.includes('save frame') || text.includes('บันทึกเฟรม') || text.includes('frame as asset')) {
+                console.log(`  🎯 Found save-frame menuitem: "${text}" at (${rect.left.toFixed(0)},${rect.top.toFixed(0)})`);
+                return el;
+            }
+        }
+        // Priority 2: Search buttons and other elements
         const candidates = findAllElementsDeep('button, [role="button"], span, div, a');
         for (const el of candidates) {
             const htmlEl = el as HTMLElement;
@@ -3247,14 +3289,24 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
             const combined = `${text} ${title} ${ariaLabel}`;
 
             if (combined.includes('save frame') || combined.includes('บันทึกเฟรม') || combined.includes('frame as asset')) {
-                return (htmlEl.closest('button') || htmlEl) as HTMLElement;
+                return (htmlEl.closest('[role="menuitem"]') || htmlEl.closest('button') || htmlEl) as HTMLElement;
             }
         }
         return null;
     };
 
+    // Strategy -1: Check if "Save frame as asset" menuitem is ALREADY visible (e.g. dropdown already open)
+    console.log("  🔍 Strategy -1: Checking if save-frame menuitem is already visible...");
+    const alreadyVisible = findSaveFrameButton();
+    if (alreadyVisible) {
+        console.log("  ✅ Save frame menuitem already visible! Clicking...");
+        await robustElementClick(alreadyVisible);
+        await delay(3000);
+        return true;
+    }
+
     // Strategy 0: The white "+" on the clip IS the "Save frame as asset" button.
-    // Hover on each small "+" to reveal tooltip, confirm it says "Save frame", then click.
+    // Hover on each small "+" to reveal tooltip/dropdown, confirm it says "Save frame", then click.
     console.log("  🔍 Strategy 0: Finding '+' buttons on clip to hover → check tooltip → click...");
     const allSmallButtons = findAllElementsDeep('button, [role="button"]').filter(btn => {
         const el = btn as HTMLElement;
@@ -3286,42 +3338,63 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
             (target as HTMLElement).dispatchEvent(new MouseEvent('mouseover', hoverOpts));
             (target as HTMLElement).dispatchEvent(new MouseEvent('mousemove', hoverOpts));
         }
+        await delay(600);
 
-        await delay(1000);
-
-        // Check tooltip: look for floating element with "Save frame" or "บันทึกเฟรม"
-        const tooltipEl = findSaveFrameButton();
+        // Check tooltip first (before clicking)
+        let tooltipEl = findSaveFrameButton();
         const title = (plusBtn.getAttribute('title') || '').toLowerCase();
         const ariaLabel = (plusBtn.getAttribute('aria-label') || '').toLowerCase();
         const hasTooltipAttr = title.includes('save frame') || title.includes('บันทึกเฟรม')
             || ariaLabel.includes('save frame') || ariaLabel.includes('บันทึกเฟรม');
 
-        if (tooltipEl || hasTooltipAttr) {
-            console.log(`  ✅ Confirmed '+' is 'Save frame as asset' (tooltip=${hasTooltipAttr}, floating=${!!tooltipEl})`);
-
-            // Try clicking the floating element first (it may be the actual clickable action)
-            if (tooltipEl) {
-                console.log(`  🖱️ Clicking floating 'Save frame' element...`);
-                await robustElementClick(tooltipEl);
-                await delay(500);
-            }
-
-            // Also click the '+' button itself with robust click
-            console.log(`  🖱️ Clicking '+' button with robust click...`);
-            await robustElementClick(plusBtn);
-            console.log("  ✅ Clicked 'Save frame as asset'!");
+        if (tooltipEl) {
+            console.log(`  ✅ Found save-frame via tooltip/hover! Clicking menuitem...`);
+            await robustElementClick(tooltipEl);
             await delay(3000);
             return true;
         }
 
-        // Even without tooltip, if this small "+" is on a clip (near a video/img), click it directly
-        const nearby = plusBtn.closest('div')?.querySelector('video, img');
-        if (nearby) {
-            console.log(`  🎯 Small '+' near video/img — likely save-frame button, clicking directly...`);
+        if (hasTooltipAttr) {
+            console.log(`  ✅ '+' has save-frame tooltip attr, clicking directly...`);
             await robustElementClick(plusBtn);
-            console.log("  ✅ Clicked '+' on clip (assumed save-frame)!");
             await delay(3000);
             return true;
+        }
+
+        // CLICK the '+' to open radix dropdown menu, then search for save-frame menuitem
+        console.log(`  🖱️ Clicking '+' to open dropdown menu...`);
+        await robustElementClick(plusBtn);
+        await delay(800);
+
+        // Check if dropdown opened with save-frame menuitem
+        tooltipEl = findSaveFrameButton();
+        if (tooltipEl) {
+            console.log(`  ✅ Found save-frame menuitem in dropdown! Clicking...`);
+            await robustElementClick(tooltipEl);
+            await delay(3000);
+            return true;
+        }
+
+        // Close any unrelated menu that opened
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+        await delay(300);
+
+        // Even without tooltip/menu, if this small "+" is on a clip (near a video/img), try it
+        const nearby = plusBtn.closest('div')?.querySelector('video, img');
+        if (nearby) {
+            console.log(`  🎯 Small '+' near video/img — trying as save-frame...`);
+            await robustElementClick(plusBtn);
+            await delay(800);
+            // Check again after click
+            const menuItem = findSaveFrameButton();
+            if (menuItem) {
+                console.log(`  ✅ Found save-frame after clicking near-video '+'!`);
+                await robustElementClick(menuItem);
+                await delay(3000);
+                return true;
+            }
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+            await delay(300);
         }
     }
 
