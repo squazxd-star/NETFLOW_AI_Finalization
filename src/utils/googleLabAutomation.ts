@@ -432,6 +432,7 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
             const emptySlots: HTMLElement[] = [];
             const filledSlots: HTMLElement[] = [];
 
+            const vh = window.innerHeight;
             for (const button of allButtons) {
                 const rect = button.getBoundingClientRect();
                 // Skip invisible or tiny buttons
@@ -442,9 +443,18 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                 const hasAddIcon = iconText === 'add' || iconText === 'add_circle' || iconText === 'add_photo_alternate';
                 const hasImage = button.querySelector('img') !== null;
 
+                // Skip prompt-bar add buttons (bottom area, small size, has button-overlay)
+                // Upload slots are larger (60x60+) and in the main content area
+                const isPromptBarBtn = rect.top > vh * 0.80 && rect.width < 60 && rect.height < 60;
+                const hasOverlay = button.querySelector('[data-type="button-overlay"]') !== null;
+                if (hasAddIcon && (isPromptBarBtn || hasOverlay)) {
+                    console.log(`   ⏭️ Skipping prompt-bar add button at y=${rect.top.toFixed(0)} size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                    continue;
+                }
+
                 // Log potential upload buttons
                 if (hasAddIcon || (rect.width > 60 && rect.width < 200)) {
-                    console.log(`   Button: icon="${iconText}", hasImage=${hasImage}, size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                    console.log(`   Button: icon="${iconText}", hasImage=${hasImage}, size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}, y=${rect.top.toFixed(0)}`);
                 }
 
                 if (hasAddIcon && !hasImage) {
