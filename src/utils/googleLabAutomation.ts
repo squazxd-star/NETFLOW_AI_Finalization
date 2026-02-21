@@ -1325,6 +1325,43 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
     return finalPrompt;
 };
 
+const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
+    const cleaned = (sceneScriptText || '')
+        .replace(/^🎬\s*ฉาก\s*\d+\s*:\s*/i, '')
+        .replace(/^scene\s*\d+\s*:\s*/i, '')
+        .trim();
+
+    if (!cleaned) return '';
+
+    const quoteMatch = cleaned.match(/"([\s\S]*?)"/);
+    if (quoteMatch?.[1]) return quoteMatch[1].trim();
+
+    return cleaned.replace(/\s+/g, ' ').trim();
+};
+
+const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string): string => {
+    let prompt = basePrompt || '';
+    const voiceoverText = sanitizeSceneScriptForVoiceover(sceneScriptText);
+    if (!voiceoverText) {
+        return finalizeVideoPrompt(prompt, requestedAspectRatio);
+    }
+
+    const quotedVoice = `"${voiceoverText}"`;
+
+    // Prefer replacing THAI VOICEOVER SCRIPT block while keeping everything else unchanged.
+    if (/THAI\s+VOICEOVER\s+SCRIPT\s*:/i.test(prompt)) {
+        prompt = prompt.replace(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1${quotedVoice}`);
+    } else if (/VOICEOVER\s*:/i.test(prompt)) {
+        prompt = prompt.replace(/(VOICEOVER\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1${quotedVoice}`);
+    } else {
+        prompt = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: ${quotedVoice}`;
+    }
+
+    const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
+    console.log(`📝 Extend prompt (scene script replaced): ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
+    return finalPrompt;
+};
+
 const findSettingsTuneButton = (): HTMLElement | null => {
     const buttons = findAllElementsDeep('button, [role="button"]') as HTMLElement[];
     const candidates: Array<{ btn: HTMLElement; score: number }> = [];
@@ -5745,33 +5782,19 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // Build Scene 2+ prompt (must be SHORT for Extend Video API)
+            // Build Scene 2+ prompt
             let scenePrompt: string;
-            if (config.videoPromptMeta) {
+            if (config.videoPrompt) {
+                // User-required behavior: keep Scene 1 prompt structure, change only script
+                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio);
+                console.log(`📝 Scene ${sceneNum} Prompt (scene1-template): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
+            } else if (config.videoPromptMeta) {
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
                 console.log(`📝 Scene ${sceneNum} Prompt (meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
             } else {
-                // Compact Extend prompt — Extend API has shorter char limit than regular Generate
-                // Extract just the voiceover script portion if present
-                let voiceoverScript = '';
-                const voiceoverMatch = sceneScriptText.match(/VOICEOVER\s*SCRIPT[:\s]*[""]([^""]+)[""]/i) ||
-                    sceneScriptText.match(/[""]([^""]{10,})[""]/);
-                if (voiceoverMatch) {
-                    voiceoverScript = voiceoverMatch[1].substring(0, 120);
-                } else {
-                    // Use first 120 chars of the script text as voiceover
-                    voiceoverScript = sceneScriptText.replace(/IMPORTANT:.*/si, '').trim().substring(0, 120);
-                }
-
-                const voiceGender = getVoiceGender() || 'Female';
-                scenePrompt = [
-                    `Scene ${sceneNum}. Same person, face, outfit. Continue presenting naturally.`,
-                    `${voiceGender} Thai voice.`,
-                    `VOICEOVER: "${voiceoverScript}"`,
-                    `No text overlays. Same identity throughout.`
-                ].join('\n');
-                console.log(`📝 Scene ${sceneNum} Prompt (compact): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
+                scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
+                console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
             }
 
             const generated = await fillPromptAndGenerate(scenePrompt);
