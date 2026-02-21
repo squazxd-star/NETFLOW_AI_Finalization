@@ -631,6 +631,8 @@ export interface VideoPromptMeta {
     product: string;
     template: string;
     restrictions: string;
+    pacing: string;
+    action: string;
 }
 
 /**
@@ -901,7 +903,7 @@ const buildVideoPrompt = (
 
     const prompt = promptLines.join('\n');
 
-    // Meta for building Scene 2+ prompts
+    // Meta for building Scene 2+ prompts (same format as Scene 1)
     const meta: VideoPromptMeta = {
         style: styleDesc,
         aspectRatio,
@@ -911,7 +913,9 @@ const buildVideoPrompt = (
         camera: 'Smooth cinematic movement, professional lighting',
         product: config.productName,
         template: templateConfig.thaiName,
-        restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.'
+        restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.',
+        pacing: durationConfig.pacing,
+        action: actionDesc
     };
 
     console.log("\ud83d\udcdd Video prompt:", prompt.substring(0, 200) + "...");
@@ -928,21 +932,23 @@ export const buildSceneVideoPromptJSON = (
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    // Only this scene's script in voiceover
+    // Build Scene 2+ prompt in EXACT SAME format as Scene 1
     const promptLines = [
-        `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
-        `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
+        `${meta.pacing} ${meta.template} video.`,
+        `${meta.gender}, ${meta.expression} expression, presenting ${meta.product}.`,
         `${meta.style}.`,
-        `${meta.camera}. Smooth transition from previous scene.`,
-        `Continue presenting ${meta.product} naturally. Same person, same setting.`,
+        `${meta.camera}.`,
+        `${meta.action}.`,
         ``,
-        `${meta.genderVoice}, same pitch and tone as previous scene.`,
+        `${meta.genderVoice}.`,
         ``,
         `THAI VOICEOVER SCRIPT:`,
         `"${sceneScript}"`,
         ``,
-        `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
-        `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
+        `IMPORTANT: ${meta.restrictions}`,
+        `Aspect ratio: ${meta.aspectRatio === '16:9' ? '16:9 landscape' : '9:16 vertical portrait'} framing.`,
+        `No text overlays or subtitles.`,
+        `Same person identity, outfit, and voice from previous scene.`
     ];
 
     return promptLines.join('\n');
