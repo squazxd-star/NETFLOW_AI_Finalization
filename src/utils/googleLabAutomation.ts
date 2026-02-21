@@ -1326,25 +1326,25 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
 };
 
 const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
-    console.log(`🐛 DEBUG: sceneScriptText input = "${sceneScriptText}"`);
+    // Extract THAI VOICEOVER SCRIPT specifically
+    const thaiScriptMatch = sceneScriptText.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*""([\s\S]*?)""/i);
+    if (thaiScriptMatch?.[1]) {
+        return thaiScriptMatch[1].trim();
+    }
+
+    // Fallback: extract any quoted text
+    const quoteMatch = sceneScriptText.match(/"([\s\S]*?)"/);
+    if (quoteMatch?.[1]) {
+        return quoteMatch[1].trim();
+    }
+
+    // Remove prefixes and return cleaned text
     const cleaned = (sceneScriptText || '')
         .replace(/^🎬\s*ฉาก\s*\d+\s*:\s*/i, '')
         .replace(/^scene\s*\d+\s*:\s*/i, '')
         .trim();
 
-    console.log(`🐛 DEBUG: after prefix removal = "${cleaned}"`);
-
-    if (!cleaned) return '';
-
-    const quoteMatch = cleaned.match(/"([\s\S]*?)"/);
-    if (quoteMatch?.[1]) {
-        console.log(`🐛 DEBUG: extracted quote = "${quoteMatch[1]}"`);
-        return quoteMatch[1].trim();
-    }
-
-    const fallback = cleaned.replace(/\s+/g, ' ').trim();
-    console.log(`🐛 DEBUG: fallback result = "${fallback}"`);
-    return fallback;
+    return cleaned.replace(/\s+/g, ' ').trim();
 };
 
 const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string): string => {
