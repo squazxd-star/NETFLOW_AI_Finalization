@@ -4372,16 +4372,16 @@ const selectLatestAssetAsReference = async (): Promise<boolean> => {
     }
 
     // Fallback to legacy strategies only if Strategy 0 failed
+    let orderedSlotCandidates: { el: HTMLElement; score: number }[] = [];
     if (!slotClicked) {
         console.log("  ⚠️ Strategy 0 failed, falling back to rail-based scanning...");
-    }
-
-    let orderedSlotCandidates = collectSlotCandidates();
-    if (!slotClicked && orderedSlotCandidates.length === 0) {
-        await hoverRailNearReference();
         orderedSlotCandidates = collectSlotCandidates();
+        if (orderedSlotCandidates.length === 0) {
+            await hoverRailNearReference();
+            orderedSlotCandidates = collectSlotCandidates();
+        }
+        console.log(`  📊 Add-slot candidates detected: ${orderedSlotCandidates.length}`);
     }
-    console.log(`  📊 Add-slot candidates detected: ${orderedSlotCandidates.length}`);
 
     // Click up to 4 candidates until asset picker actually opens.
     const triedCenters = new Set<string>();
@@ -5559,12 +5559,6 @@ export const runMultiScenePipeline = async (
         }
         await delay(5000);
 
-        // STEP B: Remove extra references — keep only 1 (original character)
-        // Multiple references cause AI to generate inconsistent clips between scenes.
-        console.log("🧹 STEP B: Cleaning up extra references before multi-scene generation...");
-        await ensureSingleSceneBuilderReference();
-        await delay(1000);
-
         let actualScenesGenerated = 1; // Scene 1 already done
 
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
@@ -5572,11 +5566,6 @@ export const runMultiScenePipeline = async (
             const stepBase = 12 + (sceneIndex - 1) * 3;
 
             console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
-
-            // ===== STEP 0: Ensure only 1 reference image =====
-            console.log(`🎯 STEP 0: Ensuring single reference for Scene ${sceneNum}...`);
-            await ensureSingleSceneBuilderReference();
-            await delay(500);
 
             // ===== STEP 1: Save frame as asset =====
             report(`Saving Frame...`, stepBase, totalSteps);
@@ -5604,41 +5593,10 @@ export const runMultiScenePipeline = async (
             }
             await delay(1500);
 
-            // === CRITICAL: Remove ALL existing references BEFORE attaching new one ===
-            // This prevents the 2-reference problem. The saved frame should be the ONLY reference.
-            console.log(`🧹 STEP 1.4: Removing ALL existing references before attaching saved frame...`);
-            
-            // Remove prompt-area reference chips (keepCount=0 = remove ALL)
-            const promptInputs = (findAllElementsDeep('textarea, input[type="text"], [contenteditable="true"]') as HTMLElement[])
-                .filter(el => {
-                    if (el.offsetParent === null) return false;
-                    const r = el.getBoundingClientRect();
-                    return r.width >= 200 && r.height >= 30;
-                })
-                .sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
-            
-            if (promptInputs[0]) {
-                console.log(`  🧹 Clearing prompt reference chips (keepCount=0)...`);
-                await normalizeVideoReferenceChips(promptInputs[0], 0, true);
-                await delay(600);
-            }
-            
-            // Also try rail cleanup to 0
-            const railRefsBefore = (findAllElementsDeep('img') as HTMLElement[]).filter((img) => {
-                const r = img.getBoundingClientRect();
-                if (r.width < 24 || r.height < 24 || r.width > 130 || r.height > 130) return false;
-                if (img.offsetParent === null) return false;
-                if (!hasUsableImageSrc(img)) return false;
-                const bounds = getSceneBuilderReferenceRailBounds();
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
-                return cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop;
-            });
-            console.log(`  📊 Rail references before cleanup: ${railRefsBefore.length}`);
-            
-            // Re-attach latest saved frame into prompt references to avoid stale duplicate refs causing 403.
-            // HARD GATE: must attach successfully before prompt+generate.
-            console.log(`🎯 STEP 1.5: Attaching latest saved frame asset for Scene ${sceneNum}...`);
+            // === Remove existing references, then attach saved frame as the ONLY reference ===
+            console.log(`🧹 STEP 1.5: Cleanup refs + attach saved frame for Scene ${sceneNum}...`);
+            await ensureSingleSceneBuilderReference();
+            await delay(500);
             let latestAssetAttached = false;
             for (let attachAttempt = 1; attachAttempt <= 2; attachAttempt++) {
                 console.log(`  🔁 Attach latest asset attempt ${attachAttempt}/2...`);
@@ -5664,12 +5622,8 @@ export const runMultiScenePipeline = async (
                 console.error(`❌ ${attachError}`);
                 throw new Error(attachError);
             }
-            await delay(1200);
-            console.log(`✅ Sequence gate passed for Scene ${sceneNum}: save frame → attach latest asset → fill prompt → generate`);
-
-            // Ensure we still have only 1 reference after adding saved frame
-            await ensureSingleSceneBuilderReference();
-            await delay(500);
+            await delay(1000);
+            console.log(`✅ Scene ${sceneNum}: save frame → attach → ready for prompt`);
 
             // ===== STEP 2: Fill prompt with new script and generate immediately =====
             report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
