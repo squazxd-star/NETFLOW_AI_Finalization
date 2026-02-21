@@ -879,12 +879,7 @@ const buildVideoPrompt = (
     };
     const toneText = toneDescriptions[config.voiceTone] || toneDescriptions["friendly"];
 
-    // Build full voiceover script block with all scenes
-    const voiceoverBlock = sceneTexts
-        .map((text, i) => `\u0e09\u0e32\u0e01 ${i + 1}: "${text}"`)
-        .join('\n');
-
-    // Build clean natural language prompt (Scene 1)
+    // Build clean natural language prompt (Scene 1) — only Scene 1 script
     const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`;
     const actionDesc = `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}`;
 
@@ -898,7 +893,7 @@ const buildVideoPrompt = (
         `${genderVoice} Thai voice speaking.`,
         ``,
         `THAI VOICEOVER SCRIPT:`,
-        voiceoverBlock,
+        `"${sceneTexts[0] || ''}"`,
         ``,
         `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image.`
     ];
@@ -933,11 +928,7 @@ export const buildSceneVideoPromptJSON = (
     sceneNumber: number,
     allSceneScripts?: string[]
 ): string => {
-    // Build voiceover block with all scenes
-    const voiceoverBlock = allSceneScripts
-        ? allSceneScripts.map((text, i) => `\u0e09\u0e32\u0e01 ${i + 1}: "${text}"`).join('\n')
-        : `\u0e09\u0e32\u0e01 ${sceneNumber}: "${sceneScript}"`;
-
+    // Only this scene's script in voiceover
     const promptLines = [
         `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
         `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
@@ -947,8 +938,8 @@ export const buildSceneVideoPromptJSON = (
         ``,
         `${meta.genderVoice}, same pitch and tone as previous scene.`,
         ``,
-        `THAI VOICEOVER SCRIPT (Currently Scene ${sceneNumber}):`,
-        voiceoverBlock,
+        `THAI VOICEOVER SCRIPT:`,
+        `"${sceneScript}"`,
         ``,
         `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
         `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
