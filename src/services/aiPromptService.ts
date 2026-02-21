@@ -525,46 +525,47 @@ const generateThaiScript = (
     scriptParts.push(`🎬 เปิด: "${openingHook}"`);
     
     // Middle content based on duration
+    // PACING: Each line ~8-12 Thai words max for slow, clear 8-second delivery per scene
     if (clipDuration >= 8) {
         if (category === "food") {
-            scriptParts.push(`💬 แนะนำ: "วันนี้ขอลองชิม ${productName} แบบตรงๆ ${powerWord}!"`);
+            scriptParts.push(`💬 แนะนำ: "ลองชิม ${productName} กัน"`);
         } else if (category === "fashion") {
-            scriptParts.push(`💬 แนะนำ: "วันนี้ลองใส่ ${productName} ให้ดูแบบชัดๆ ${powerWord}!"`);
+            scriptParts.push(`💬 แนะนำ: "ลองใส่ ${productName} ให้ดูกัน"`);
         } else if (category === "gadget") {
-            scriptParts.push(`💬 แนะนำ: "วันนี้ลองใช้ ${productName} ให้ดูจริงๆ ${powerWord}!"`);
+            scriptParts.push(`💬 แนะนำ: "ลองใช้ ${productName} ให้ดูกัน"`);
         } else {
-            scriptParts.push(`💬 แนะนำ: "วันนี้จะมาพูดถึง ${productName} ${powerWord}!"`);
+            scriptParts.push(`💬 แนะนำ: "มาดู ${productName} กัน"`);
         }
     }
     
     if (clipDuration >= 16) {
         if (category === "food") {
-            scriptParts.push(`✨ จุดเด่น: "รสชาติ/กลิ่น/เนื้อสัมผัสของ ${productName} คือ ${powerWord}"`);
-            scriptParts.push(`😍 รีวิว: "คำแรกคือ ${powerWord} เลย"`);
+            scriptParts.push(`✨ จุดเด่น: "รสชาติของ ${productName} ${powerWord}"`);
+            scriptParts.push(`😍 รีวิว: "อร่อย ${powerWord} เลย"`);
         } else if (category === "fashion") {
-            scriptParts.push(`✨ จุดเด่น: "ทรง/เนื้อผ้า/ฟิตติ้งของ ${productName} คือ ${powerWord}"`);
-            scriptParts.push(`😍 รีวิว: "ใส่แล้วลุคดูดีขึ้นแบบรู้สึกได้"`);
+            scriptParts.push(`✨ จุดเด่น: "เนื้อผ้า ${productName} ดีมาก"`);
+            scriptParts.push(`😍 รีวิว: "ใส่แล้ว ลุคดูดีขึ้นเลย"`);
         } else if (category === "gadget") {
-            scriptParts.push(`✨ จุดเด่น: "ฟีเจอร์หลักของ ${productName} คือ ${benefit}"`);
-            scriptParts.push(`😍 รีวิว: "ใช้งานจริงแล้ว ${powerWord} มาก"`);
+            scriptParts.push(`✨ จุดเด่น: "${productName} มี${benefit}"`);
+            scriptParts.push(`😍 รีวิว: "ใช้แล้ว ${powerWord} มาก"`);
         } else {
-            scriptParts.push(`✨ จุดเด่น: "${productName} นี่ ${benefit}"`);
-            scriptParts.push(`😍 รีวิว: "ลองใช้แล้ว ${powerWord} มากๆ"`);
+            scriptParts.push(`✨ จุดเด่น: "${productName} ${benefit}"`);
+            scriptParts.push(`😍 รีวิว: "ลองแล้ว ${powerWord} มาก"`);
         }
     }
     
     if (clipDuration >= 24) {
         if (category === "food") {
-            scriptParts.push(`🔥 เน้น: "${productName} ตัวนี้หอมมาก แล้วมันนัวจริง"`);
-            scriptParts.push(`💡 สรุป: "ถ้าชอบแนวนี้ ต้องลอง"`);
+            scriptParts.push(`🔥 เน้น: "${productName} หอม อร่อยจริง"`);
+            scriptParts.push(`💡 สรุป: "ชอบแนวนี้ ต้องลอง"`);
         } else if (category === "fashion") {
-            scriptParts.push(`🔥 เน้น: "${productName} ใส่แล้วดูแพงขึ้นจริง"`);
-            scriptParts.push(`💡 สรุป: "แมตช์ง่าย ใส่ได้หลายโอกาส"`);
+            scriptParts.push(`🔥 เน้น: "${productName} ใส่แล้วดูดี"`);
+            scriptParts.push(`💡 สรุป: "แมตช์ง่าย ใส่ได้ทุกวัน"`);
         } else if (category === "gadget") {
-            scriptParts.push(`🔥 เน้น: "${productName} ช่วยประหยัดเวลา/แก้ปัญหาได้จริง"`);
-            scriptParts.push(`💡 สรุป: "คุ้มถ้าใช้ทุกวัน"`);
+            scriptParts.push(`🔥 เน้น: "${productName} ช่วยได้จริง"`);
+            scriptParts.push(`💡 สรุป: "คุ้มค่า ใช้ทุกวัน"`);
         } else {
-            scriptParts.push(`🔥 เน้น: "บอกเลยว่า ${productName} ตัวนี้ปังมาก!"`);
+            scriptParts.push(`🔥 เน้น: "${productName} ตัวนี้ ปังมาก"`);
             scriptParts.push(`💡 สรุป: "${benefit} จริงๆ"`);
         }
     }
@@ -927,21 +928,17 @@ export const buildSceneVideoPromptJSON = (
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    // Only this scene's script in voiceover
+    // Extend mode prompt — simpler since Extend auto-continues from previous clip
+    // Focus on: what happens next + voiceover script
     const promptLines = [
-        `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
-        `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
-        `${meta.style}.`,
-        `${meta.camera}. Smooth transition from previous scene.`,
-        `Continue presenting ${meta.product} naturally. Same person, same setting.`,
+        `Continue the video naturally. Same person presenting ${meta.product}.`,
+        `${meta.gender}, ${meta.expression} expression. ${meta.style}.`,
+        `Smooth continuation, same setting and lighting.`,
         ``,
-        `${meta.genderVoice}, same pitch and tone as previous scene.`,
-        ``,
-        `THAI VOICEOVER SCRIPT:`,
+        `${meta.genderVoice} Thai voiceover (slow, clear pace):`,
         `"${sceneScript}"`,
         ``,
-        `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
-        `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
+        `No text overlay, no popup. Keep same identity and voice.`
     ];
 
     return promptLines.join('\n');

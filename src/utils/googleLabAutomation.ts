@@ -1503,7 +1503,8 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                 const placeholder = (el.getAttribute('data-placeholder') || '').toLowerCase();
                 const knownPlaceholders = [
                     'สร้างวิดีโอที่มีข้อความ', 'type a prompt', 'describe', 'create video',
-                    'พิมพ์ในช่องพร้อมต์เพื่อเริ่มต้น', 'describe your video', 'สร้างรูปภาพจากข้อความและองค์ประกอบ'
+                    'พิมพ์ในช่องพร้อมต์เพื่อเริ่มต้น', 'describe your video', 'สร้างรูปภาพจากข้อความและองค์ประกอบ',
+                    'what happens next', 'what should happen next', 'what should happen'
                 ];
                 return knownPlaceholders.some(p => txt.includes(p) || placeholder.includes(p));
             };
@@ -3524,6 +3525,106 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
     }
 
     console.warn("  ⚠️ Could not find 'Save frame as asset' button");
+    return false;
+};
+
+/**
+ * Click "+" (PINHOLE_ADD_CLIP_CARD_ID) → click "Extend" from dropdown.
+ * This opens the "What should happen next?" prompt area for the next scene.
+ * 
+ * Flow: Click "+" → dropdown with "Jump to" & "Extend" → click "Extend"
+ * → UI shows Extend mode with prompt "What happens next?"
+ */
+const clickExtendClip = async (): Promise<boolean> => {
+    console.log("🎬 Clicking '+' (Add clip) → Extend for next scene...");
+    await delay(1000);
+
+    // Step 1: Find and click PINHOLE_ADD_CLIP_CARD_ID
+    let addClipBtn: HTMLElement | null = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID') as HTMLElement | null;
+
+    // Fallback: deep search for the button
+    if (!addClipBtn) {
+        const allBtns = findAllElementsDeep('#PINHOLE_ADD_CLIP_CARD_ID') as HTMLElement[];
+        if (allBtns.length > 0) addClipBtn = allBtns[0];
+    }
+
+    // Fallback: search by aria text
+    if (!addClipBtn) {
+        const candidates = findAllElementsDeep('button[aria-haspopup="menu"]') as HTMLElement[];
+        for (const btn of candidates) {
+            const text = (btn.textContent || '').toLowerCase();
+            if (text.includes('add clip') || text.includes('เพิ่มคลิป')) {
+                addClipBtn = btn;
+                break;
+            }
+        }
+    }
+
+    if (!addClipBtn) {
+        console.error("❌ Could not find PINHOLE_ADD_CLIP_CARD_ID button");
+        return false;
+    }
+
+    const btnRect = addClipBtn.getBoundingClientRect();
+    console.log(`  📍 Found '+' button at (${btnRect.left.toFixed(0)}, ${btnRect.top.toFixed(0)}) size=${btnRect.width.toFixed(0)}x${btnRect.height.toFixed(0)}`);
+
+    // Click the "+" button to open dropdown
+    await robustElementClick(addClipBtn);
+    await delay(1000);
+
+    // Step 2: Find and click "Extend" from the dropdown menu
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`  🔍 Looking for 'Extend' menuitem (attempt ${attempt}/3)...`);
+
+        // Search for menuitem/radix elements with "Extend" text
+        const menuItems = findAllElementsDeep('[role="menuitem"], [data-radix-collection-item], button, div, span') as HTMLElement[];
+        
+        let extendItem: HTMLElement | null = null;
+        for (const item of menuItems) {
+            const rect = item.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+            
+            const text = (item.textContent || '').trim().toLowerCase();
+            // Match "Extend" or "Extend..." but NOT "Extended"
+            if (text === 'extend' || text === 'extend...' || text === 'extend…' || text.startsWith('extend') && !text.includes('extended')) {
+                // Prefer menuitem role
+                const menuParent = item.closest('[role="menuitem"]') as HTMLElement;
+                extendItem = menuParent || item;
+                console.log(`  🎯 Found 'Extend' item: "${text}" at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+                break;
+            }
+        }
+
+        if (extendItem) {
+            await robustElementClick(extendItem);
+            console.log("  ✅ Clicked 'Extend'!");
+            await delay(2000);
+
+            // Verify: check if "Extend" tag/chip appeared or "What happens next?" prompt is visible
+            const extendChips = findAllElementsDeep('span, div, button') as HTMLElement[];
+            const hasExtendMode = extendChips.some(el => {
+                const text = (el.textContent || '').trim().toLowerCase();
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && (text === 'extend' || text.includes('what happens next') || text.includes('what should happen'));
+            });
+
+            if (hasExtendMode) {
+                console.log("  ✅ Extend mode confirmed! Ready for prompt.");
+            } else {
+                console.log("  ℹ️ Extend clicked, proceeding (mode not explicitly verified).");
+            }
+            return true;
+        }
+
+        // If dropdown didn't open, try clicking again
+        if (attempt < 3) {
+            console.log("  ⚠️ 'Extend' not found, retrying click...");
+            await robustElementClick(addClipBtn);
+            await delay(1200);
+        }
+    }
+
+    console.error("❌ Could not find 'Extend' option in dropdown menu");
     return false;
 };
 
@@ -5611,8 +5712,8 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Add to Scene → Save Frame as Asset (+) → re-attach latest frame ref → Fill prompt → Generate =====
-        // NO Jump to / Extend — stays in Frames to Video mode
+        // ===== MULTI-SCENE: Add to Scene → Extend (+) → Fill prompt → Generate =====
+        // New flow: Click "+" (PINHOLE_ADD_CLIP_CARD_ID) → "Extend" → fill next scene prompt → generate
         console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s)...`);
         console.log("📋 Scene Scripts Array:", sceneScripts);
 
@@ -5632,74 +5733,35 @@ export const runMultiScenePipeline = async (
 
             console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
 
-            // ===== STEP 1: Save frame as asset =====
-            report(`Saving Frame...`, stepBase, totalSteps);
-            console.log(`🎯 STEP 1: Save frame as asset for Scene ${sceneNum}...`);
+            // ===== STEP 1: Click "+" → "Extend" to open next scene prompt =====
+            report(`Extending clip...`, stepBase, totalSteps);
+            console.log(`🎯 STEP 1: Click Extend for Scene ${sceneNum}...`);
 
-            let frameSaved = false;
-            for (let saveAttempt = 1; saveAttempt <= 2; saveAttempt++) {
-                console.log(`  🔁 Save frame attempt ${saveAttempt}/2...`);
-                frameSaved = await clickSaveFrameAsAsset();
-                if (frameSaved) {
-                    console.log(`✅ Frame saved as asset (attempt ${saveAttempt})!`);
+            let extendSuccess = false;
+            for (let extAttempt = 1; extAttempt <= 2; extAttempt++) {
+                console.log(`  🔁 Extend attempt ${extAttempt}/2...`);
+                extendSuccess = await clickExtendClip();
+                if (extendSuccess) {
+                    console.log(`✅ Extend mode activated (attempt ${extAttempt})!`);
                     break;
                 }
-
-                if (saveAttempt < 2) {
-                    console.warn(`  ⚠️ Save frame failed on attempt ${saveAttempt}. Retrying...`);
-                    await delay(1200);
+                if (extAttempt < 2) {
+                    console.warn(`  ⚠️ Extend failed on attempt ${extAttempt}. Retrying...`);
+                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+                    await delay(1500);
                 }
             }
 
-            if (!frameSaved) {
-                const saveError = `Could not click 'Save frame as asset' for Scene ${sceneNum} after 2 attempts. Stop before attach.`;
-                console.error(`❌ ${saveError}`);
-                throw new Error(saveError);
+            if (!extendSuccess) {
+                const extError = `Could not click Extend for Scene ${sceneNum} after 2 attempts. Stop.`;
+                console.error(`❌ ${extError}`);
+                throw new Error(extError);
             }
             await delay(1500);
 
-            // === Remove existing references, then attach saved frame as the ONLY reference ===
-            console.log(`🧹 STEP 1.5: Cleanup refs + attach saved frame for Scene ${sceneNum}...`);
-            await ensureSingleSceneBuilderReference();
-            await delay(500);
-            let latestAssetAttached = false;
-            for (let attachAttempt = 1; attachAttempt <= 2; attachAttempt++) {
-                console.log(`  🔁 Attach latest asset attempt ${attachAttempt}/2...`);
-                latestAssetAttached = await selectLatestAssetAsReference();
-                if (latestAssetAttached) {
-                    console.log(`✅ Latest frame asset attached as reference for Scene ${sceneNum} (attempt ${attachAttempt})`);
-                    break;
-                }
-
-                if (attachAttempt < 2) {
-                    console.warn(`  ⚠️ Attach latest asset failed on attempt ${attachAttempt}. Retrying...`);
-                    // Close any stray picker/popup before retrying.
-                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-                    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', bubbles: true }));
-                    await delay(350);
-                    await ensureSingleSceneBuilderReference();
-                    await delay(900);
-                }
-            }
-
-            if (!latestAssetAttached) {
-                const attachError = `Could not attach latest saved frame asset for Scene ${sceneNum} after 2 attempts. Stop before generate.`;
-                console.error(`❌ ${attachError}`);
-                throw new Error(attachError);
-            }
-            await delay(1000);
-            console.log(`✅ Scene ${sceneNum}: save frame → attach → ready for prompt`);
-
-            // ===== STEP 2: Fill prompt with new script and generate immediately =====
+            // ===== STEP 2: Fill prompt and generate =====
             report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
             console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
-
-            // User-required guard: verify Aspect Ratio before every scene video generation.
-            const ratioOkBeforeSceneVideo = await ensureAspectRatioMatchesInput(config.aspectRatio);
-            if (!ratioOkBeforeSceneVideo) {
-                throw new Error(`Aspect Ratio mismatch before Scene ${sceneNum} generation. Stop before generate.`);
-            }
-            await delay(350);
 
             const sceneScriptData = sceneScripts[sceneIndex];
             const sceneScriptText = typeof sceneScriptData === 'string' ? sceneScriptData : sceneScriptData?.script || '';
@@ -5709,10 +5771,9 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // Build Scene 2+ prompt: use JSON format if meta available, else fallback
+            // Build Scene 2+ prompt for Extend mode
             let scenePrompt: string;
             if (config.videoPromptMeta) {
-                // Dynamic import to avoid circular dependency
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
                 console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
@@ -5733,16 +5794,10 @@ export const runMultiScenePipeline = async (
 
             let videoSrc = await waitForVideoComplete(300000);
             if (!videoSrc) {
-                console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying once with refreshed frame reference...`);
-                const retryAssetAttached = await selectLatestAssetAsReference();
-                if (!retryAssetAttached) {
-                    console.warn(`⚠️ Retry skipped for Scene ${sceneNum}: failed to re-attach latest frame asset.`);
-                } else {
-                    await delay(1000);
-                    const retryGenerated = await fillPromptAndGenerate(scenePrompt);
-                    if (retryGenerated) {
-                        videoSrc = await waitForVideoComplete(180000);
-                    }
+                console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying once...`);
+                const retryGenerated = await fillPromptAndGenerate(scenePrompt);
+                if (retryGenerated) {
+                    videoSrc = await waitForVideoComplete(180000);
                 }
             }
 
