@@ -1349,8 +1349,11 @@ const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
 
 const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string): string => {
     let prompt = basePrompt || '';
+    console.log(`🐛 DEBUG: replaceVoiceoverInPrompt called with sceneScriptText = "${sceneScriptText}"`);
     const voiceoverText = sanitizeSceneScriptForVoiceover(sceneScriptText);
+    console.log(`🐛 DEBUG: extracted voiceoverText = "${voiceoverText}"`);
     if (!voiceoverText) {
+        console.warn(`⚠️ No voiceover text extracted from sceneScriptText, falling back to finalizeVideoPrompt`);
         return finalizeVideoPrompt(prompt, requestedAspectRatio);
     }
 
