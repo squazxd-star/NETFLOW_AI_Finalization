@@ -28,6 +28,7 @@ export interface ProductDataSectionProps extends SectionProps {
     onToggle: () => void;
     productImages: (string | null)[];
     onProductImageUpload: (index: number) => void;
+    onSyncedProductImageSelect?: (imageUrl: string | null) => void;
 }
 
 export interface ProductionPreviewSectionProps extends SectionProps {
@@ -35,6 +36,8 @@ export interface ProductionPreviewSectionProps extends SectionProps {
     onToggle: () => void;
     hasVideo: boolean;
     onDownloadVideo: () => void;
+    isTikTokReady: boolean;
+    onTikTokNotReady?: () => void;
 }
 
 export interface GenerationSettingsSectionProps extends SectionProps {

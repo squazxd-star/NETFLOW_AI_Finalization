@@ -4,6 +4,8 @@ import { generateNanoImage } from "../services/imageGenService";
 import { stitchVideos } from "../services/videoProcessingService";
 import { VideoGenerationResponse, AdvancedVideoRequest } from "../types/netflow";
 import { useToast } from "./use-toast";
+import { getActiveProduct } from "../services/tiktokProductService";
+import { uploadToTikTok, isTikTokAutoPostEnabled } from "../services/tiktokUploadService";
 
 // Check if running as Chrome Extension
 const isExtension = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage;
@@ -14,6 +16,61 @@ export const useVideoGeneration = () => {
     const [result, setResult] = useState<VideoGenerationResponse | null>(null);
     const [rpaStatus, setRpaStatus] = useState<string>("idle");
     const { toast } = useToast();
+
+    // Handle TikTok auto-post after video generation
+    const handleTikTokAutoPost = async (videoUrl: string) => {
+        try {
+            // Check if auto-post is enabled
+            const autoPostEnabled = await isTikTokAutoPostEnabled();
+            if (!autoPostEnabled) {
+                console.log("[useVideoGeneration] TikTok auto-post disabled");
+                return;
+            }
+
+            // Get active product
+            const product = await getActiveProduct();
+            if (!product) {
+                console.log("[useVideoGeneration] No active product for TikTok post");
+                toast({
+                    title: "ℹ️ ไม่มีสินค้าที่เลือก",
+                    description: "กรุณาเลือกสินค้าในหน้าตั้งค่า TikTok ก่อนโพสต์",
+                });
+                return;
+            }
+
+            toast({
+                title: "📤 กำลังโพสต์ไป TikTok...",
+                description: "กรุณารอสักครู่ ระบบกำลังอัปโหลดวิดีโอ",
+            });
+
+            // Upload to TikTok
+            const result = await uploadToTikTok({
+                videoUrl,
+                product
+            });
+
+            if (result.success) {
+                toast({
+                    title: "✅ โพสต์สำเร็จ!",
+                    description: `วิดีโอถูกโพสต์ไปยัง TikTok พร้อมลิงก์สินค้า "${product.name}"`,
+                    className: "bg-green-600 text-white"
+                });
+            } else {
+                toast({
+                    title: "❌ โพสต์ไม่สำเร็จ",
+                    description: result.error || "เกิดข้อผิดพลาดในการโพสต์ไป TikTok",
+                    variant: "destructive"
+                });
+            }
+        } catch (error) {
+            console.error("[useVideoGeneration] TikTok auto-post error:", error);
+            toast({
+                title: "❌ โพสต์ไม่สำเร็จ",
+                description: "เกิดข้อผิดพลาดที่ไม่คาดคิด",
+                variant: "destructive"
+            });
+        }
+    };
 
     // Listen for messages from Service Worker (RPA completion)
     useEffect(() => {
@@ -38,6 +95,9 @@ export const useVideoGeneration = () => {
                     description: "VideoFX RPA ทำงานเสร็จสิ้น",
                     className: "bg-green-600 text-white"
                 });
+
+                // Trigger TikTok auto-post if enabled
+                handleTikTokAutoPost(message.videoUrl);
             }
 
             if (message.type === "VIDEO_GENERATION_ERROR") {

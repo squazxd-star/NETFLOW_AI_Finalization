@@ -9,7 +9,6 @@ import {
     voiceToneOptions,
     saleStyleOptions,
     languageOptions,
-    accentOptions,
 } from "@/types/netflow";
 
 const AiScriptSection = ({
@@ -213,19 +212,7 @@ const AiScriptSection = ({
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs mb-1.5 block flex items-center gap-1 text-muted-foreground">
-                                สำเนียง/ภาษาถิ่น
-                            </label>
-                            <select
-                                {...register("accent")}
-                                className="w-full neon-select"
-                            >
-                                {accentOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                            {/* Accent field removed - language selection covers dialect */}
                         </div>
                     </div>
 

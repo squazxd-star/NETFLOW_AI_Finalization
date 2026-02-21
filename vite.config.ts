@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => ({
       input: {
         main: path.resolve(__dirname, "index.html"),
         content: path.resolve(__dirname, "src/content.tsx"),
+        "content-tiktok": path.resolve(__dirname, "src/content-tiktok.ts"),
+        "content-tiktok-upload": path.resolve(__dirname, "src/content-tiktok-upload.ts"),
       },
       output: {
         entryFileNames: "src/[name].js",

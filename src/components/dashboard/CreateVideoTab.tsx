@@ -109,7 +109,6 @@ const CreateVideoTab = () => {
                     
                     // Language
                     language: data.language,
-                    accent: data.accent,
                     
                     // Script Elements
                     hookText: data.hookEnabled ? data.hookText : "",
@@ -219,6 +218,7 @@ const CreateVideoTab = () => {
                 onToggle={() => setProductionOpen(!productionOpen)}
                 hasVideo={hasVideo}
                 onDownloadVideo={downloadVideo}
+                isTikTokReady={false}
             />
 
             {/* 5. Generation Settings - การตั้งค่าการสร้าง */}
@@ -261,7 +261,6 @@ const CreateVideoTab = () => {
                                     voiceTone: data.voiceTone || "friendly",
                                     saleStyle: data.saleStyle || "storytelling",
                                     language: data.language || "th-central",
-                                    accent: data.accent || "central",
                                     hookText: data.hookEnabled ? data.hookText : "",
                                     ctaText: data.ctaEnabled ? data.ctaText : "",
                                     mustUseKeywords: data.mustUseKeywords || "",
@@ -376,7 +375,6 @@ const CreateVideoTab = () => {
                                 voiceTone: data.voiceTone,
                                 saleStyle: data.saleStyle,
                                 language: data.language,
-                                accent: data.accent,
                                 hookText: data.hookEnabled ? data.hookText : "",
                                 ctaText: data.ctaEnabled ? data.ctaText : "",
                                 mustUseKeywords: data.mustUseKeywords,

@@ -107,11 +107,9 @@ const autoHandleVeoSwitchBanner = async (): Promise<boolean> => {
 
 const detectGenerationMode = (): 'video' | 'image' | 'unknown' => {
     const videoTriggers = [
-        'ingredients to video',
-        'ส่วนผสมในวิดีโอ',
-        'ผสมวิดีโอ',
-        'jump to',
         'frames to video',
+        'เฟรมเป็นวิดีโอ',
+        'jump to',
         'extend'
     ];
     const imageTriggers = [
@@ -142,6 +140,65 @@ const detectGenerationMode = (): 'video' | 'image' | 'unknown' => {
     return 'unknown';
 };
 
+const hasUsableImageSrc = (el: HTMLElement): boolean => {
+    const src = (el.getAttribute('src') || '').trim();
+    if (!src || src === '#' || src === 'about:blank') return false;
+    if (src.startsWith('data:') && src.length < 200) return false;
+
+    if (el.tagName === 'IMG') {
+        const img = el as HTMLImageElement;
+        if (typeof img.naturalWidth === 'number' && img.naturalWidth <= 1) return false;
+        if (typeof img.naturalHeight === 'number' && img.naturalHeight <= 1) return false;
+    }
+    return true;
+};
+
+const findPrimaryPreviewRect = (): DOMRect | null => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const media = findAllElementsDeep('video, img, canvas') as HTMLElement[];
+
+    let bestRect: DOMRect | null = null;
+    let bestArea = 0;
+
+    for (const el of media) {
+        if (el.offsetParent === null) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 280 || rect.height < 150) continue;
+        if (rect.top > vh * 0.85 || rect.left > vw * 0.92) continue;
+
+        const area = rect.width * rect.height;
+        if (area > bestArea) {
+            bestArea = area;
+            bestRect = rect;
+        }
+    }
+
+    return bestRect;
+};
+
+const getSceneBuilderReferenceRailBounds = () => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const previewRect = findPrimaryPreviewRect();
+
+    const minTop = previewRect
+        ? Math.max(120, previewRect.top + Math.min(180, previewRect.height * 0.28))
+        : Math.max(120, vh * 0.28);
+    const maxTop = previewRect
+        ? Math.min(vh * 0.90, previewRect.bottom - 8)
+        : vh * 0.86;
+
+    const minLeft = previewRect
+        ? Math.max(vw * 0.58, previewRect.right - 72)
+        : vw * 0.62;
+    const maxLeft = previewRect
+        ? Math.min(vw - 8, previewRect.right + 220)
+        : vw - 8;
+
+    return { vw, vh, previewRect, minTop, maxTop, minLeft, maxLeft };
+};
+
 const robustElementClick = async (el: HTMLElement): Promise<void> => {
     const rect = el.getBoundingClientRect();
     const clickOpts = {
@@ -152,18 +209,18 @@ const robustElementClick = async (el: HTMLElement): Promise<void> => {
         clientY: rect.top + rect.height / 2
     };
 
-    el.dispatchEvent(new PointerEvent('pointerdown', { ...clickOpts, pointerType: 'mouse' }));
+    // Use mouse events for generic UI clicks.
+    // Synthetic PointerEvents can trigger setPointerCapture errors in Google Labs.
     el.dispatchEvent(new MouseEvent('mousedown', clickOpts));
     await delay(40);
-    el.dispatchEvent(new PointerEvent('pointerup', { ...clickOpts, pointerType: 'mouse' }));
     el.dispatchEvent(new MouseEvent('mouseup', clickOpts));
     el.dispatchEvent(new MouseEvent('click', clickOpts));
     el.click();
 };
 
-const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount: number = 1): Promise<void> => {
+const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount: number = 1, force: boolean = false): Promise<void> => {
     const mode = detectGenerationMode();
-    if (mode !== 'video') return;
+    if (mode !== 'video' && !force) return;
 
     const promptRect = promptInput.getBoundingClientRect();
     const isNearPrompt = (rect: DOMRect) => {
@@ -172,85 +229,127 @@ const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount:
         return nearY && nearX;
     };
 
-    const chipImages = findAllElementsDeep('img').filter((img) => {
-        const el = img as HTMLElement;
-        const rect = el.getBoundingClientRect();
-        if (rect.width < 18 || rect.width > 120 || rect.height < 18 || rect.height > 120) return false;
-        if (el.offsetParent === null) return false;
-        return isNearPrompt(rect);
-    }) as HTMLElement[];
+    const getChipImages = (): HTMLElement[] => {
+        return findAllElementsDeep('img').filter((img) => {
+            const el = img as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            if (rect.width < 18 || rect.width > 120 || rect.height < 18 || rect.height > 120) return false;
+            if (el.offsetParent === null) return false;
+            return isNearPrompt(rect);
+        }) as HTMLElement[];
+    };
 
-    if (chipImages.length <= keepCount) return;
+    for (let pass = 1; pass <= 3; pass++) {
+        const chipImages = getChipImages();
+        if (chipImages.length <= keepCount) {
+            if (pass === 1) return;
+            console.log(`✅ Reference chip cleanup complete on pass ${pass - 1}. Remaining=${chipImages.length}`);
+            return;
+        }
 
-    console.log(`🧹 Found ${chipImages.length} reference chips near prompt, keeping ${keepCount}...`);
+        console.log(`🧹 [Pass ${pass}] Found ${chipImages.length} reference chips near prompt, keeping ${keepCount}...`);
 
-    // Hover chips to reveal close buttons if hidden until hover.
-    for (const chip of chipImages) {
-        const rect = chip.getBoundingClientRect();
-        const hoverOpts = {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-            clientX: rect.left + rect.width / 2,
-            clientY: rect.top + rect.height / 2
-        };
-        chip.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
-        chip.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
-    }
-    await delay(250);
+        // Hover chips to reveal close buttons if hidden until hover.
+        for (const chip of chipImages) {
+            const rect = chip.getBoundingClientRect();
+            const hoverOpts = {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: rect.left + rect.width / 2,
+                clientY: rect.top + rect.height / 2
+            };
+            chip.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+            chip.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+        }
+        await delay(250);
 
-    const closeButtons = findAllElementsDeep('button, [role="button"]').filter((btn) => {
-        const el = btn as HTMLElement;
-        const rect = el.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return false;
-        if (rect.width > 56 || rect.height > 56) return false;
-        if (!isNearPrompt(rect)) return false;
+        const sortedImages = [...chipImages].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+        const toRemove = sortedImages.slice(0, Math.max(0, sortedImages.length - keepCount)); // Keep right-most/latest chips
 
-        const iconText = (el.querySelector('i, .material-icons, .google-symbols')?.textContent || '').trim().toLowerCase();
-        const text = (el.textContent || '').trim().toLowerCase();
-        return iconText === 'close' || text === 'close' || text === 'remove';
-    }) as HTMLElement[];
+        const closeButtons = findAllElementsDeep('button, [role="button"]').filter((btn) => {
+            const el = btn as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return false;
+            if (rect.width > 56 || rect.height > 56) return false;
+            if (!isNearPrompt(rect)) return false;
 
-    if (closeButtons.length === 0) {
-        console.warn('⚠️ Duplicate reference chips found but no close buttons detected near prompt');
-        return;
-    }
+            const iconText = (el.querySelector('i, .material-icons, .google-symbols')?.textContent || '').trim().toLowerCase();
+            const text = (el.textContent || '').trim().toLowerCase();
+            const ariaLabel = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+            const title = (el.getAttribute('title') || '').trim().toLowerCase();
+            const combined = `${text} ${ariaLabel} ${title}`.trim();
 
-    const sortedImages = [...chipImages].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-    const toRemove = sortedImages.slice(0, Math.max(0, sortedImages.length - keepCount)); // Keep right-most/latest chips
+            const isAddControl = iconText === 'add' || combined === '+' || combined === 'add';
+            const isCloseIcon = iconText === 'close' || iconText === 'cancel' || iconText === 'clear';
+            const isCloseText =
+                combined === 'x' ||
+                combined === '×' ||
+                combined.includes('close') ||
+                combined.includes('remove') ||
+                combined.includes('delete') ||
+                combined.includes('cancel') ||
+                combined.includes('ลบ') ||
+                combined.includes('ปิด');
 
-    let removed = 0;
-    const remainingCloseBtns = [...closeButtons];
+            return !isAddControl && (isCloseIcon || isCloseText);
+        }) as HTMLElement[];
 
-    for (const chip of toRemove) {
-        const chipRect = chip.getBoundingClientRect();
-        const chipCx = chipRect.left + chipRect.width / 2;
-        const chipCy = chipRect.top + chipRect.height / 2;
+        let removed = 0;
+        const remainingCloseBtns = [...closeButtons];
 
-        let bestBtn: HTMLElement | null = null;
-        let bestDist = Infinity;
+        if (closeButtons.length === 0) {
+            console.warn('⚠️ Duplicate chips found but no close buttons detected; using chip-select + Backspace fallback');
+        }
 
-        for (const btn of remainingCloseBtns) {
-            const r = btn.getBoundingClientRect();
-            const cx = r.left + r.width / 2;
-            const cy = r.top + r.height / 2;
-            const dist = Math.hypot(cx - chipCx, cy - chipCy);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestBtn = btn;
+        for (const chip of toRemove) {
+            const chipRect = chip.getBoundingClientRect();
+            const chipCx = chipRect.left + chipRect.width / 2;
+            const chipCy = chipRect.top + chipRect.height / 2;
+
+            let bestBtn: HTMLElement | null = null;
+            let bestDist = Infinity;
+
+            for (const btn of remainingCloseBtns) {
+                const r = btn.getBoundingClientRect();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                const dist = Math.hypot(cx - chipCx, cy - chipCy);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestBtn = btn;
+                }
+            }
+
+            if (bestBtn && bestDist < 160) {
+                await robustElementClick(bestBtn);
+                removed++;
+                await delay(300);
+                const idx = remainingCloseBtns.indexOf(bestBtn);
+                if (idx >= 0) remainingCloseBtns.splice(idx, 1);
+            } else {
+                // Fallback: select chip then Backspace/Delete (some UIs hide close controls)
+                await robustElementClick(chip);
+                await delay(120);
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Backspace', code: 'Backspace', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', code: 'Delete', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Delete', code: 'Delete', bubbles: true }));
+                await delay(260);
             }
         }
 
-        if (bestBtn && bestDist < 140) {
-            await robustElementClick(bestBtn);
-            removed++;
-            await delay(300);
-            const idx = remainingCloseBtns.indexOf(bestBtn);
-            if (idx >= 0) remainingCloseBtns.splice(idx, 1);
+        const remaining = getChipImages().length;
+        console.log(`✅ [Pass ${pass}] Reference chip cleanup done. Removed ${removed}/${toRemove.length}. Remaining=${remaining}`);
+        if (remaining <= keepCount) {
+            return;
         }
     }
 
-    console.log(`✅ Reference chip cleanup complete. Removed ${removed}/${toRemove.length}`);
+    const unresolved = getChipImages().length;
+    if (unresolved > keepCount) {
+        console.warn(`⚠️ Reference chip cleanup incomplete. Remaining=${unresolved}, expected<=${keepCount}`);
+    }
 };
 
 // Helper: Click element by text (supports array of triggers)
@@ -583,6 +682,681 @@ const isInWorkspace = (selectors: AutomationSelectors): boolean => {
 export const switchToImageTab = async (selectors: AutomationSelectors): Promise<boolean> => {
     console.log("🖼️ Switching to Image Tab...");
     return await clickByText(selectors.workspace.imageTabTriggers, 'button');
+};
+
+type AspectRatioValue = '9:16' | '16:9';
+
+const normalizeAspectRatioValue = (value?: string): AspectRatioValue => {
+    const normalized = (value || '').trim().toLowerCase();
+    if (normalized.includes('16:9') || normalized.includes('landscape') || normalized.includes('แนวนอน')) {
+        return '16:9';
+    }
+    return '9:16';
+};
+
+const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
+    const normalized = (text || '').toLowerCase();
+    if (normalized.includes('16:9') || normalized.includes('landscape') || normalized.includes('แนวนอน')) {
+        return '16:9';
+    }
+    if (normalized.includes('9:16') || normalized.includes('portrait') || normalized.includes('protrait') || normalized.includes('แนวตั้ง')) {
+        return '9:16';
+    }
+    return null;
+};
+
+const VIDEO_PROMPT_MAX_CHARS = 700;
+
+// Voice seed management for consistent voice across scenes
+let voiceSeed: string | null = null;
+let voiceGender: string | null = null;
+let capturedVoiceData: any = null;
+let speakerEmbedding: string | null = null;
+let voiceProfile: any = null;
+let actorId: string | null = null;
+let generationParams: any = null;
+
+// Store first generation payload for comparison
+let firstGenerationPayload: any = null;
+let generationPayloads: any[] = [];
+let comparisonResults: any = null;
+
+// Intercept VideoFX network requests to capture real voice seeds
+const interceptVideoFXRequests = (): void => {
+    // Store original fetch
+    const originalFetch = window.fetch;
+    
+    window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        
+        // Clone response to avoid consuming it
+        const clonedResponse = response.clone();
+        
+        try {
+            const url = args[0] as string;
+            
+            // Look for video generation requests
+            if (url && typeof url === 'string' && 
+                (url.includes('generate') || url.includes('video') || url.includes('veo'))) {
+                
+                const responseData = await clonedResponse.json();
+                
+                // Store payload for comparison
+                generationPayloads.push({
+                    data: responseData,
+                    timestamp: Date.now(),
+                    url: url
+                });
+                
+                if (!firstGenerationPayload) {
+                    firstGenerationPayload = responseData;
+                    console.log('📊 Stored first generation payload for comparison');
+                } else {
+                    // Compare with first payload to find static parameters
+                    performPayloadComparison();
+                }
+                
+                // Enhanced search for voice-related data based on Gemini's insights
+                const searchForVoiceData = (obj: any, path: string = ''): any => {
+                    if (!obj || typeof obj !== 'object') return null;
+                    
+                    // Check current level for voice seed patterns
+                    for (const [key, value] of Object.entries(obj)) {
+                        const currentPath = path ? `${path}.${key}` : key;
+                        const keyLower = key.toLowerCase();
+                        
+                        // Priority 1: Speaker Embedding / Voice Token (Gemini's insight)
+                        if (keyLower.includes('speaker') && keyLower.includes('embedding')) {
+                            if (typeof value === 'string' && value.length > 16) {
+                                speakerEmbedding = value;
+                                console.log(`🎯 FOUND SPEAKER EMBEDDING: ${currentPath} = ${value.substring(0, 20)}...`);
+                            }
+                        }
+                        
+                        // Priority 2: Voice Profile Metadata
+                        if (keyLower.includes('voice') && keyLower.includes('profile')) {
+                            if (typeof value === 'object' && value !== null) {
+                                voiceProfile = value;
+                                console.log(`🗣️ FOUND VOICE PROFILE: ${currentPath}`);
+                            }
+                        }
+                        
+                        // Priority 3: Actor ID (Veo specific)
+                        if (keyLower.includes('actor') && keyLower.includes('id')) {
+                            if (typeof value === 'string' && value.length > 4) {
+                                actorId = value;
+                                console.log(`🎭 FOUND ACTOR ID: ${currentPath} = ${value}`);
+                            }
+                        }
+                        
+                        // Priority 4: Audio Generation Params
+                        if (keyLower.includes('audio') && keyLower.includes('generation') && keyLower.includes('param')) {
+                            if (typeof value === 'object' && value !== null) {
+                                generationParams = value;
+                                console.log(`⚙️ FOUND AUDIO GENERATION PARAMS: ${currentPath}`);
+                            }
+                        }
+                        
+                        // Priority 5: Standard voice IDs
+                        if ((keyLower.includes('speaker') || keyLower.includes('voice')) && 
+                            (keyLower.includes('id') || key === 'id')) {
+                            if (typeof value === 'string' && value.length > 8 && value.length < 200) {
+                                if (!capturedVoiceData) {
+                                    capturedVoiceData = {
+                                        seed: value,
+                                        path: currentPath,
+                                        timestamp: Date.now(),
+                                        type: 'speaker_id'
+                                    };
+                                    console.log(`✅ CAPTURED SPEAKER ID: ${value} from ${currentPath}`);
+                                }
+                            }
+                        }
+                        
+                        // Priority 6: Reference ID / Embedding Hash
+                        if (keyLower.includes('reference') && keyLower.includes('id')) {
+                            if (typeof value === 'string' && value.length > 8) {
+                                console.log(`🔗 FOUND REFERENCE ID: ${currentPath} = ${value}`);
+                            }
+                        }
+                        
+                        // Priority 7: Internal Seed (Multi-modal)
+                        if (keyLower.includes('internal') && keyLower.includes('seed')) {
+                            if (typeof value === 'string' && value.length > 4) {
+                                console.log(`🌱 FOUND INTERNAL SEED: ${currentPath} = ${value}`);
+                            }
+                        }
+                        
+                        // Log all voice-related findings for debugging
+                        if (typeof value === 'string' && 
+                            (keyLower.includes('voice') || keyLower.includes('audio') || keyLower.includes('speaker')) &&
+                            value.length > 4 && value.length < 300) {
+                            console.log(`🔍 VOICE DATA: ${currentPath} = ${value}`);
+                        }
+                    }
+                    
+                    // Recursively search nested objects
+                    for (const [key, value] of Object.entries(obj)) {
+                        if (typeof value === 'object' && value !== null) {
+                            searchForVoiceData(value, path ? `${path}.${key}` : key);
+                        }
+                    }
+                };
+                
+                searchForVoiceData(responseData);
+                
+                // Log comprehensive voice data summary
+                console.log('📊 VOICE DATA SUMMARY:', {
+                    speakerEmbedding: speakerEmbedding ? `${speakerEmbedding.substring(0, 20)}...` : null,
+                    voiceProfile: voiceProfile ? Object.keys(voiceProfile) : null,
+                    actorId: actorId,
+                    generationParams: generationParams ? Object.keys(generationParams) : null,
+                    capturedVoiceData: capturedVoiceData ? capturedVoiceData.type : null,
+                    payloadsStored: generationPayloads.length,
+                    comparisonDone: comparisonResults ? true : false
+                });
+            }
+        } catch (e) {
+            // Silent fail - don't break the app
+        }
+        
+        return response;
+    };
+};
+
+// Compare payloads to find static voice parameters (Gemini's method)
+const performPayloadComparison = (): void => {
+    if (generationPayloads.length < 2 || !firstGenerationPayload) {
+        return;
+    }
+    
+    const latestPayload = generationPayloads[generationPayloads.length - 1].data;
+    const staticParams: any = {};
+    const changedParams: any = {};
+    
+    console.log(`🔍 COMPARING PAYLOAD #${generationPayloads.length} with first payload...`);
+    
+    // Deep comparison function
+    const compareObjects = (obj1: any, obj2: any, path: string = ''): void => {
+        if (!obj1 || !obj2 || typeof obj1 !== 'object' || typeof obj2 !== 'object') {
+            return;
+        }
+        
+        // Get all keys from both objects
+        const allKeys = new Set([...Object.keys(obj1), ...Object.keys(obj2)]);
+        
+        for (const key of allKeys) {
+            const currentPath = path ? `${path}.${key}` : key;
+            const val1 = obj1[key];
+            const val2 = obj2[key];
+            
+            // Skip null/undefined values
+            if (val1 === null || val1 === undefined || val2 === null || val2 === undefined) {
+                continue;
+            }
+            
+            // Compare based on type
+            if (typeof val1 === 'string' && typeof val2 === 'string') {
+                if (val1 === val2) {
+                    // Static parameter - check if it's voice-related
+                    if (currentPath.toLowerCase().includes('voice') || 
+                        currentPath.toLowerCase().includes('audio') ||
+                        currentPath.toLowerCase().includes('speaker') ||
+                        currentPath.toLowerCase().includes('actor')) {
+                        staticParams[currentPath] = val1;
+                    }
+                } else {
+                    // Changed parameter
+                    if (currentPath.toLowerCase().includes('voice') || 
+                        currentPath.toLowerCase().includes('audio') ||
+                        currentPath.toLowerCase().includes('speaker') ||
+                        currentPath.toLowerCase().includes('actor')) {
+                        changedParams[currentPath] = { from: val1 as string, to: val2 as string };
+                    }
+                }
+            } else if (typeof val1 === 'object' && typeof val2 === 'object') {
+                // Recursively compare nested objects
+                compareObjects(val1, val2, currentPath);
+            }
+        }
+    };
+    
+    // Perform comparison
+    compareObjects(firstGenerationPayload, latestPayload);
+    
+    // Store results
+    comparisonResults = {
+        staticParams,
+        changedParams,
+        totalPayloads: generationPayloads.length,
+        timestamp: Date.now()
+    };
+    
+    // Log findings
+    console.log('📊 PAYLOAD COMPARISON RESULTS:');
+    console.log('🔒 STATIC VOICE PARAMETERS (These are the keys to consistency!):');
+    
+    if (Object.keys(staticParams).length === 0) {
+        console.log('  ❌ No static voice parameters found');
+    } else {
+        for (const [path, value] of Object.entries(staticParams)) {
+            console.log(`  ✅ ${path}: ${value}`);
+        }
+    }
+    
+    console.log('🔄 CHANGED VOICE PARAMETERS:');
+    if (Object.keys(changedParams).length === 0) {
+        console.log('  ✅ No voice parameters changed (Good for consistency!)');
+    } else {
+        for (const [path, change] of Object.entries(changedParams)) {
+            const changeObj = change as { from: string; to: string };
+            console.log(`  🔄 ${path}: "${changeObj.from}" → "${changeObj.to}"`);
+        }
+    }
+    
+    // Highlight the most important static parameters
+    const importantStatic = Object.entries(staticParams).filter(([path]) => 
+        path.includes('speaker') || path.includes('voice') || path.includes('actor')
+    );
+    
+    if (importantStatic.length > 0) {
+        console.log('🎯 CRITICAL STATIC PARAMETERS FOR VOICE CONSISTENCY:');
+        importantStatic.forEach(([path, value]) => {
+            console.log(`  🗝️ ${path}: ${value}`);
+        });
+    }
+};
+
+// Extract comprehensive voice data for consistency
+const extractVoiceConsistencyData = (): any => {
+    const voiceData: any = {};
+    
+    // Priority 1: Speaker Embedding (most reliable)
+    if (speakerEmbedding) {
+        voiceData.speakerEmbedding = speakerEmbedding;
+        voiceData.primaryMethod = 'speaker_embedding';
+        console.log('🎯 Using Speaker Embedding for voice consistency');
+    }
+    
+    // Priority 2: Voice Profile
+    if (voiceProfile) {
+        voiceData.voiceProfile = voiceProfile;
+        if (!voiceData.primaryMethod) voiceData.primaryMethod = 'voice_profile';
+        console.log('🗣️ Using Voice Profile for voice consistency');
+    }
+    
+    // Priority 3: Actor ID
+    if (actorId) {
+        voiceData.actorId = actorId;
+        if (!voiceData.primaryMethod) voiceData.primaryMethod = 'actor_id';
+        console.log('🎭 Using Actor ID for voice consistency');
+    }
+    
+    // Priority 4: Standard Speaker ID
+    if (capturedVoiceData && capturedVoiceData.seed) {
+        voiceData.speakerId = capturedVoiceData.seed;
+        voiceData.speakerIdPath = capturedVoiceData.path;
+        if (!voiceData.primaryMethod) voiceData.primaryMethod = 'speaker_id';
+        console.log('🎵 Using Speaker ID for voice consistency');
+    }
+    
+    // Priority 5: Generation Parameters
+    if (generationParams) {
+        voiceData.generationParams = generationParams;
+        console.log('⚙️ Including Generation Parameters for voice consistency');
+    }
+    
+    // Priority 6: Static Parameters from Comparison (Gemini's method)
+    if (comparisonResults && Object.keys(comparisonResults.staticParams).length > 0) {
+        voiceData.staticParams = comparisonResults.staticParams;
+        if (!voiceData.primaryMethod) voiceData.primaryMethod = 'static_comparison';
+        console.log('📊 Using static parameters from payload comparison for voice consistency');
+    }
+    
+    return voiceData;
+};
+
+// Extract voice seed from captured data or DOM elements (fallback)
+const extractRealVoiceSeed = (): string | null => {
+    const voiceData = extractVoiceConsistencyData();
+    
+    // Return the most reliable identifier
+    if (voiceData.speakerEmbedding) return voiceData.speakerEmbedding;
+    if (voiceData.speakerId) return voiceData.speakerId;
+    if (voiceData.actorId) return voiceData.actorId;
+    
+    // Try to find voice data in page state/window objects (safe access, no eval)
+    const win = window as any;
+    const globalObjects: [string, any][] = [
+        ['__STATE__', win.__STATE__],
+        ['__INITIAL_DATA__', win.__INITIAL_DATA__],
+        ['__VIDEO_STATE__', win.__VIDEO_STATE__],
+        ['__VEO_STATE__', win.__VEO_STATE__]
+    ];
+    
+    for (const [name, obj] of globalObjects) {
+        try {
+            if (obj && typeof obj === 'object') {
+                const searchResult = searchObjectForVoiceSeed(obj);
+                if (searchResult) {
+                    console.log(`🎵 Found voice seed in window.${name}: ${searchResult}`);
+                    return searchResult;
+                }
+            }
+        } catch (e) {
+            // Continue
+        }
+    }
+    
+    return null;
+};
+
+const searchObjectForVoiceSeed = (obj: any): string | null => {
+    if (!obj || typeof obj !== 'object') return null;
+    
+    for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string' && 
+            (key.toLowerCase().includes('voice') || 
+             key.toLowerCase().includes('audio') ||
+             key.toLowerCase().includes('seed')) &&
+            value.length > 8 && value.length < 100) {
+            return value;
+        }
+        
+        if (typeof value === 'object' && value !== null) {
+            const result = searchObjectForVoiceSeed(value);
+            if (result) return result;
+        }
+    }
+    
+    return null;
+};
+
+const getVoiceSeed = (): string => {
+    if (!voiceSeed) {
+        // Try to get real VideoFX voice data first
+        const voiceData = extractVoiceConsistencyData();
+        const realSeed = extractRealVoiceSeed();
+        
+        if (realSeed && voiceData.primaryMethod) {
+            voiceSeed = realSeed;
+            console.log(`🎵 Using real VideoFX voice data (${voiceData.primaryMethod}): ${voiceSeed.substring(0, 30)}...`);
+        } else {
+            // Fallback to generated seed
+            voiceSeed = generateVoiceSeed();
+            console.log(`🎵 Using fallback voice seed: ${voiceSeed}`);
+        }
+    }
+    return voiceSeed;
+};
+
+// Get comprehensive voice data for prompt enhancement
+const getVoiceDataForPrompt = (): any => {
+    return extractVoiceConsistencyData();
+};
+
+const generateVoiceSeed = (): string => {
+    // Generate consistent seed based on timestamp and random factor
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    return `VOICE_${timestamp}_${random}`;
+};
+
+const resetVoiceSeed = (): void => {
+    voiceSeed = null;
+    voiceGender = null;
+    capturedVoiceData = null;
+    speakerEmbedding = null;
+    voiceProfile = null;
+    actorId = null;
+    generationParams = null;
+    firstGenerationPayload = null;
+    generationPayloads = [];
+    comparisonResults = null;
+    console.log('🔄 Voice seed and all voice data reset for new pipeline');
+};
+
+const setVoiceGender = (gender: string): void => {
+    voiceGender = gender;
+    console.log(`🗣️ Voice gender set to: ${gender}`);
+};
+
+const getVoiceGender = (): string | null => {
+    return voiceGender;
+};
+
+// Initialize network interception
+if (typeof window !== 'undefined') {
+    interceptVideoFXRequests();
+}
+
+const compactPromptText = (text: string): string => {
+    return (text || '').replace(/\r?\n+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+};
+
+const buildAspectRatioPromptDirective = (ratio: AspectRatioValue): string => {
+    return ratio === '9:16'
+        ? 'Aspect ratio: 9:16 vertical portrait framing.'
+        : 'Aspect ratio: 16:9 horizontal landscape framing.';
+};
+
+const trimPromptToLimit = (prompt: string, maxChars: number): string => {
+    const cleaned = compactPromptText(prompt);
+    if (cleaned.length <= maxChars) return cleaned;
+
+    const hardSlice = cleaned.slice(0, maxChars).trim();
+    const softCut = hardSlice.lastIndexOf(' ');
+    const clipped = softCut > Math.floor(maxChars * 0.65) ? hardSlice.slice(0, softCut).trim() : hardSlice;
+    return /[.!?…]$/.test(clipped) ? clipped : `${clipped}.`;
+};
+
+const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): string => {
+    const targetRatio = normalizeAspectRatioValue(requestedAspectRatio);
+    const aspectDirective = buildAspectRatioPromptDirective(targetRatio);
+
+    let prompt = compactPromptText(rawPrompt);
+    if (!prompt) {
+        prompt = 'Thai presenter introduces the product naturally with clear speaking and cinematic motion.';
+    }
+
+    let normalized = prompt.toLowerCase();
+    const hasAspectInstruction =
+        normalized.includes('aspect ratio') ||
+        normalized.includes('9:16') ||
+        normalized.includes('16:9') ||
+        normalized.includes('แนวตั้ง') ||
+        normalized.includes('แนวนอน');
+    if (!hasAspectInstruction) {
+        prompt = `${prompt} ${aspectDirective}`;
+        normalized = prompt.toLowerCase();
+    }
+
+    if (!normalized.includes('no text') && !normalized.includes('no subtitle') && !normalized.includes('ไม่มีข้อความ')) {
+        prompt = `${prompt} No text overlays or subtitles.`;
+        normalized = prompt.toLowerCase();
+    }
+
+    if (!normalized.includes('same person') && !normalized.includes('same face') && !normalized.includes('same outfit')) {
+        prompt = `${prompt} Same person identity, outfit, and voice from previous scene.`;
+    }
+
+    // Voice continuity: log captured data but keep prompt concise
+    const voiceData = getVoiceDataForPrompt();
+    const currentVoiceGender = getVoiceGender();
+    if (voiceData.primaryMethod) {
+        console.log(`🎵 Voice data captured (${voiceData.primaryMethod}) — continuity handled via reference frame`);
+    }
+    if (currentVoiceGender && !normalized.includes('voice')) {
+        prompt = `${prompt} ${currentVoiceGender} Thai voice, same pitch and tone throughout.`;
+    }
+
+    const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
+    console.log(`📝 Video prompt finalized: ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
+    return finalPrompt;
+};
+
+const findSettingsTuneButton = (): HTMLElement | null => {
+    const buttons = findAllElementsDeep('button, [role="button"]') as HTMLElement[];
+    const candidates: Array<{ btn: HTMLElement; score: number }> = [];
+
+    for (const btn of buttons) {
+        const rect = btn.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0 || btn.offsetParent === null) continue;
+
+        const iconText = (btn.querySelector('i, .material-icons, .google-symbols')?.textContent || '').trim().toLowerCase();
+        const text = (btn.textContent || '').trim().toLowerCase();
+        const ariaLabel = (btn.getAttribute('aria-label') || '').trim().toLowerCase();
+        const title = (btn.getAttribute('title') || '').trim().toLowerCase();
+        const combined = `${text} ${ariaLabel} ${title}`;
+
+        let score = 0;
+        if (iconText === 'tune') score += 8;
+        if (combined.includes('settings') || combined.includes('setting') || combined.includes('ตั้งค่า')) score += 5;
+        if (btn.getAttribute('aria-haspopup') === 'dialog') score += 2;
+
+        if (score > 0) {
+            candidates.push({ btn, score });
+        }
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0]?.btn || null;
+};
+
+const findAspectRatioCombobox = (): HTMLElement | null => {
+    const combos = findAllElementsDeep('button[role="combobox"], [role="combobox"]') as HTMLElement[];
+    const candidates: Array<{ el: HTMLElement; score: number }> = [];
+
+    for (const combo of combos) {
+        const rect = combo.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0 || combo.offsetParent === null) continue;
+
+        const text = (combo.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text) continue;
+
+        let score = 0;
+        if (text.includes('aspect ratio') || text.includes('สัดส่วน')) score += 6;
+        if (text.includes('16:9') || text.includes('9:16')) score += 4;
+        if (text.includes('landscape') || text.includes('portrait') || text.includes('protrait') || text.includes('แนวตั้ง') || text.includes('แนวนอน')) score += 2;
+
+        if (score > 0) {
+            candidates.push({ el: combo, score });
+        }
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0]?.el || null;
+};
+
+const findAspectRatioOption = (targetRatio: AspectRatioValue, avoidEl?: HTMLElement | null): HTMLElement | null => {
+    const targetKeywords = targetRatio === '16:9'
+        ? ['16:9', 'landscape', 'แนวนอน']
+        : ['9:16', 'portrait', 'protrait', 'แนวตั้ง'];
+
+    const strictPool = findAllElementsDeep('[role="option"], [role="menuitem"], [data-radix-collection-item]') as HTMLElement[];
+    const broadPool = strictPool.length > 0
+        ? strictPool
+        : (findAllElementsDeep('button, div, span, li') as HTMLElement[]);
+
+    const candidates: Array<{ el: HTMLElement; score: number }> = [];
+
+    for (const el of broadPool) {
+        if (avoidEl && (el === avoidEl || avoidEl.contains(el) || el.contains(avoidEl))) continue;
+
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0 || el.offsetParent === null) continue;
+
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text || text.length > 120) continue;
+        if (text.includes('aspect ratio') || text.includes('สัดส่วน')) continue;
+        if (!targetKeywords.some((k) => text.includes(k))) continue;
+
+        let score = 0;
+        if (text.includes(targetRatio)) score += 6;
+        if (targetRatio === '16:9' && text.includes('landscape')) score += 3;
+        if (targetRatio === '9:16' && (text.includes('portrait') || text.includes('protrait'))) score += 3;
+        if (el.getAttribute('role') === 'option' || el.getAttribute('role') === 'menuitem') score += 2;
+        if (rect.width > 40 && rect.height > 20) score += 1;
+
+        candidates.push({ el, score });
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0]?.el || null;
+};
+
+const closeSettingsPanelIfOpen = async (): Promise<void> => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const settingsBtn = findSettingsTuneButton();
+        if (!settingsBtn) return;
+
+        const isOpen = settingsBtn.getAttribute('data-state') === 'open' || settingsBtn.getAttribute('aria-expanded') === 'true';
+        if (!isOpen) return;
+
+        await robustElementClick(settingsBtn);
+        await delay(300);
+    }
+
+    // Escape fallback
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', bubbles: true }));
+    await delay(220);
+};
+
+const ensureAspectRatioMatchesInput = async (requestedAspectRatio?: string): Promise<boolean> => {
+    const targetRatio = normalizeAspectRatioValue(requestedAspectRatio);
+    console.log(`🎛️ Pre-step: Ensuring Aspect Ratio matches app input (${targetRatio})...`);
+
+    const settingsBtn = findSettingsTuneButton();
+    if (!settingsBtn) {
+        console.warn('⚠️ Could not find Settings (tune) button for aspect ratio check');
+        return false;
+    }
+
+    const initiallyOpen = settingsBtn.getAttribute('data-state') === 'open' || settingsBtn.getAttribute('aria-expanded') === 'true';
+    if (!initiallyOpen) {
+        await robustElementClick(settingsBtn);
+        await delay(500);
+    }
+
+    const aspectCombobox = findAspectRatioCombobox();
+    if (!aspectCombobox) {
+        console.warn('⚠️ Could not find Aspect Ratio combobox in settings panel');
+        await closeSettingsPanelIfOpen();
+        return false;
+    }
+
+    const currentRatio = extractAspectRatioValue(aspectCombobox.textContent || '');
+    console.log(`  Current Aspect Ratio in UI: ${currentRatio || 'unknown'}`);
+
+    if (currentRatio !== targetRatio) {
+        console.log(`  🔄 Aspect Ratio mismatch (${currentRatio || 'unknown'} → ${targetRatio}), selecting target...`);
+        await robustElementClick(aspectCombobox);
+        await delay(420);
+
+        const optionEl = findAspectRatioOption(targetRatio, aspectCombobox);
+        if (optionEl) {
+            await robustElementClick(optionEl);
+            await delay(550);
+            console.log(`  ✅ Selected Aspect Ratio option: ${targetRatio}`);
+        } else {
+            console.warn(`  ⚠️ Could not find dropdown option for Aspect Ratio ${targetRatio}`);
+        }
+    } else {
+        console.log(`  ✅ Aspect Ratio already correct (${targetRatio})`);
+    }
+
+    const verifyCombo = findAspectRatioCombobox() || aspectCombobox;
+    const verifiedRatio = extractAspectRatioValue(verifyCombo.textContent || '');
+    const matched = verifiedRatio === targetRatio;
+    if (!matched) {
+        console.warn(`⚠️ Aspect Ratio verification failed. Expected=${targetRatio}, Found=${verifiedRatio || 'unknown'}`);
+    } else {
+        console.log(`✅ Aspect Ratio verified: ${verifiedRatio}`);
+    }
+
+    await closeSettingsPanelIfOpen();
+    return matched;
 };
 
 // --- Fill Prompt ---
@@ -1388,64 +2162,50 @@ const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<bo
     return false;
 };
 
-const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: AutomationSelectors): Promise<boolean> => {
+const switchToVideoModeAndGenerate = async (
+    videoPrompt: string,
+    selectors: AutomationSelectors,
+    requestedAspectRatio?: string
+): Promise<boolean> => {
     console.log("🎬 Switching to Video Mode...");
     await delay(2000);
 
     // Video mode triggers (Thai + English)
-    const videoModeTriggers = ['Ingredients to Video', 'Ingredients to video', 'ส่วนผสมในวิดีโอ', 'ผสมวิดีโอ', ...selectors.generation.videoTabTriggers];
+    const videoModeTriggers = ['Frames to Video', 'Frames to video', 'Frames To Video', 'เฟรมเป็นวิดีโอ', ...selectors.generation.videoTabTriggers];
     // Dropdown button triggers (Thai + English) - for fallback
     const dropdownTriggers = ['สร้างรูปภาพ', 'Create Image', 'Create image', 'สร้างภาพ'];
 
-    // Step 1: First check if "Ingredients to Video" button is already visible (after Add to Prompt)
-    console.log("🔍 Step 1: Looking for 'Ingredients to Video' button (combobox)...");
-    let videoModeClicked = false;
+    // ===== CHECK: Are we already in "Frames to Video" mode? =====
+    // After clicking "Add to prompt", the UI often auto-switches to Frames to Video.
+    // If already correct, skip all clicking and go straight to fill prompt.
+    let alreadyInVideoMode = false;
 
-    for (let attempt = 1; attempt <= 3 && !videoModeClicked; attempt++) {
-        console.log(`🔄 Attempt ${attempt} to find 'Ingredients to Video' button...`);
+    const checkButtons = findAllElementsDeep('button[role="combobox"], button');
+    for (const btn of checkButtons) {
+        const text = (btn.textContent || '').trim();
+        const rect = btn.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
 
-        // Find button with role="combobox" that already shows "Ingredients to Video"
-        const buttons = findAllElementsDeep('button[role="combobox"], button');
-        for (const btn of buttons) {
-            const text = (btn.textContent || '').trim();
-            const rect = btn.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
+        const hasDropdownIcon = btn.querySelector('i.material-icons')?.textContent?.includes('arrow_drop_down');
+        const isVideoMode = videoModeTriggers.some(trigger =>
+            text.toLowerCase().includes(trigger.toLowerCase())
+        );
 
-            // Check for arrow_drop_down icon inside
-            const hasDropdownIcon = btn.querySelector('i.material-icons')?.textContent?.includes('arrow_drop_down');
-
-            // Check if button already shows "Ingredients to Video"
-            const isVideoModeButton = videoModeTriggers.some(trigger =>
-                text.toLowerCase().includes(trigger.toLowerCase())
-            );
-
-            if (isVideoModeButton && hasDropdownIcon) {
-                console.log(`✅ Found 'Ingredients to Video' button: "${text.substring(0, 40)}"`);
-
-                // Click to confirm/proceed
-                const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-                (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
-                await delay(50);
-                (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
-                (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
-                (btn as HTMLElement).click();
-
-                videoModeClicked = true;
-                console.log("✅ Clicked 'Ingredients to Video' button!");
-                break;
-            }
-        }
-
-        if (!videoModeClicked) {
-            await delay(1000);
+        if (isVideoMode && hasDropdownIcon) {
+            console.log(`✅ Already in 'Frames to Video' mode! Button shows: "${text.substring(0, 40)}" — skipping dropdown clicks.`);
+            alreadyInVideoMode = true;
+            break;
         }
     }
 
-    // Fallback: If no "Ingredients to Video" button, try "Create Image" dropdown
-    if (!videoModeClicked) {
-        console.log("🔍 Fallback: Looking for 'Create Image' dropdown...");
+    // Only do dropdown interaction if NOT already in video mode
+    if (!alreadyInVideoMode) {
+        console.log("🔍 Not in Frames to Video mode yet. Switching...");
 
-        for (let attempt = 1; attempt <= 3 && !videoModeClicked; attempt++) {
+        // Look for "Create Image" or similar dropdown and click to open it
+        let dropdownOpened = false;
+
+        for (let attempt = 1; attempt <= 3 && !dropdownOpened; attempt++) {
             const buttons = findAllElementsDeep('button[role="combobox"], button');
             for (const btn of buttons) {
                 const text = (btn.textContent || '').trim();
@@ -1456,7 +2216,7 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
                 const matchesTrigger = dropdownTriggers.some(trigger => text.includes(trigger));
 
                 if (matchesTrigger || (hasDropdownIcon && text.length < 30)) {
-                    console.log(`✅ Found 'Create Image' dropdown: "${text.substring(0, 30)}"`);
+                    console.log(`✅ Found dropdown to switch: "${text.substring(0, 30)}"`);
 
                     const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
@@ -1465,107 +2225,101 @@ const switchToVideoModeAndGenerate = async (videoPrompt: string, selectors: Auto
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
                     (btn as HTMLElement).click();
 
-                    videoModeClicked = true;
+                    dropdownOpened = true;
                     break;
                 }
             }
 
-            if (!videoModeClicked) {
+            if (!dropdownOpened) {
                 await delay(1000);
             }
         }
-    }
 
-    if (!videoModeClicked) {
-        console.warn("⚠️ Could not find any dropdown button");
-    }
-
-    // Wait for dropdown menu to appear
-    await delay(2000);
-
-    // Step 2: ALWAYS look for "Ingredients to Video" menu item and click it
-    // (Both "Ingredients to Video" button and "Create Image" button will open a dropdown menu)
-    console.log("🔍 Step 2: Looking for 'Ingredients to Video' menu item in dropdown...");
-    let menuItemClicked = false;
-
-    for (let attempt = 1; attempt <= 5 && !menuItemClicked; attempt++) {
-        console.log(`🔄 Attempt ${attempt} to find menu item...`);
-
-        // Find all possible menu items
-        const menuItems = findAllElementsDeep('div[role="menuitem"], div[role="option"], button, div, span');
-        console.log(`   Found ${menuItems.length} elements`);
-
-        // Collect candidates with EXACT text match and small size
-        let bestCandidate: Element | null = null;
-        let bestSize = Infinity;
-
-        for (const item of menuItems) {
-            const text = (item.textContent || '').trim();
-            const rect = item.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
-
-            // Log relevant items (both Thai and English)
-            if (text.includes('ส่วนผสม') || text.toLowerCase().includes('ingredients')) {
-                console.log(`   Candidate: "${text.substring(0, 40)}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
-            }
-
-            // Check if text matches any video mode trigger from config
-            // Size should be small (menu item ~100-250px wide, ~24-50px tall)
-            const isSmallSize = rect.width < 300 && rect.height < 60;
-            const matchesTrigger = videoModeTriggers.some(trigger => {
-                const lowerText = text.toLowerCase();
-                const lowerTrigger = trigger.toLowerCase();
-                return text === trigger ||
-                    text.endsWith(trigger) ||
-                    lowerText === lowerTrigger ||
-                    lowerText.endsWith(lowerTrigger) ||
-                    text.includes('photo_merge_auto' + trigger);
-            });
-
-            if (matchesTrigger && isSmallSize) {
-                const size = rect.width * rect.height;
-                if (size < bestSize) {
-                    bestSize = size;
-                    bestCandidate = item;
-                    console.log(`   ✨ Best candidate so far: "${text.substring(0, 40)}"`);
-                }
-            }
+        if (!dropdownOpened) {
+            console.warn("⚠️ Could not find any dropdown button to switch mode");
         }
 
-        if (bestCandidate) {
-            const text = (bestCandidate.textContent || '').trim();
-            const rect = bestCandidate.getBoundingClientRect();
-            console.log(`✅ Clicking menu item: "${text}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
+        // Wait for dropdown menu to appear
+        await delay(2000);
 
-            const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-            (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
-            await delay(50);
-            (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
-            (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
-            (bestCandidate as HTMLElement).click();
+        // Select "Frames to Video" menu item from dropdown
+        console.log("🔍 Looking for 'Frames to Video' menu item in dropdown...");
+        let menuItemClicked = false;
 
-            menuItemClicked = true;
+        for (let attempt = 1; attempt <= 5 && !menuItemClicked; attempt++) {
+            console.log(`🔄 Attempt ${attempt} to find menu item...`);
+
+            const menuItems = findAllElementsDeep('div[role="menuitem"], div[role="option"], button, div, span');
+
+            let bestCandidate: Element | null = null;
+            let bestSize = Infinity;
+
+            for (const item of menuItems) {
+                const text = (item.textContent || '').trim();
+                const rect = item.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) continue;
+
+                if (text.includes('เฟรม') || text.toLowerCase().includes('frames')) {
+                    console.log(`   Candidate: "${text.substring(0, 40)}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
+                }
+
+                const isSmallSize = rect.width < 300 && rect.height < 60;
+                const matchesTrigger = videoModeTriggers.some(trigger => {
+                    const lowerText = text.toLowerCase();
+                    const lowerTrigger = trigger.toLowerCase();
+                    return text === trigger ||
+                        text.endsWith(trigger) ||
+                        lowerText === lowerTrigger ||
+                        lowerText.endsWith(lowerTrigger) ||
+                        text.includes('photo_merge_auto' + trigger);
+                });
+
+                if (matchesTrigger && isSmallSize) {
+                    const size = rect.width * rect.height;
+                    if (size < bestSize) {
+                        bestSize = size;
+                        bestCandidate = item;
+                        console.log(`   ✨ Best candidate so far: "${text.substring(0, 40)}"`);
+                    }
+                }
+            }
+
+            if (bestCandidate) {
+                const text = (bestCandidate.textContent || '').trim();
+                const rect = bestCandidate.getBoundingClientRect();
+                console.log(`✅ Clicking menu item: "${text}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
+
+                const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+                (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
+                await delay(50);
+                (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
+                (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
+                (bestCandidate as HTMLElement).click();
+
+                menuItemClicked = true;
+            }
+
+            if (!menuItemClicked) {
+                await delay(1000);
+            }
         }
 
         if (!menuItemClicked) {
-            await delay(1000);
+            console.warn("⚠️ Could not find 'Frames to Video' menu item");
         }
     }
 
-    if (!menuItemClicked) {
-        console.warn("⚠️ Could not find 'Ingredients to Video' menu item");
-    }
-
-    // Step 3: Handle "Switch to Veo 3.1" banner (Ingredients to Video needs Fast)
+    // Handle "Switch to Veo 3.1" banner (Frames to Video needs Fast)
     await autoHandleVeoSwitchBanner();
 
-    // Step 4: Wait for video mode to fully load
+    // Wait for video mode to fully load
     console.log("⏳ Waiting 3 seconds for video mode to load...");
     await delay(3000);
 
-    // Step 5: Fill video prompt and generate
+    // Fill video prompt and generate
     console.log("🎬 Filling Video Prompt...");
-    return await fillPromptAndGenerate(videoPrompt);
+    const normalizedPrompt = finalizeVideoPrompt(videoPrompt, requestedAspectRatio);
+    return await fillPromptAndGenerate(normalizedPrompt);
 };
 
 // รอให้ทุก clip gen เสร็จ 100% ก่อน download
@@ -1877,6 +2631,7 @@ export interface PipelineConfig {
     productImage: string;
     imagePrompt: string;
     videoPrompt: string;
+    aspectRatio?: string;
 }
 
 export const runTwoStagePipeline = async (
@@ -1998,6 +2753,14 @@ export const runTwoStagePipeline = async (
             console.warn("⚠️ Could not confirm workspace entry. Proceeding anyway...");
         }
 
+        // Required checkpoint #1: right after opening project/workspace, sync ratio to app input.
+        console.log("🎛️ Aspect ratio check #1 (after project open)");
+        const ratioOkAtStart = await ensureAspectRatioMatchesInput(config.aspectRatio);
+        if (!ratioOkAtStart) {
+            throw new Error("Aspect Ratio mismatch after project open. Stop before generation.");
+        }
+        await delay(600);
+
         // --- STEP 1: UPLOAD & GENERATE IMAGE ---
         console.log("🔹 STEP 1/3: Image Generation Phase");
 
@@ -2061,9 +2824,17 @@ export const runTwoStagePipeline = async (
         console.log("⏳ Waiting 10 seconds for image to transfer to video mode...");
         await delay(10000);
 
+        // Required checkpoint #2: after image handoff, before first video generate.
+        console.log("🎛️ Aspect ratio check #2 (before Scene 1 video generation)");
+        const ratioOkBeforeVideo = await ensureAspectRatioMatchesInput(config.aspectRatio);
+        if (!ratioOkBeforeVideo) {
+            throw new Error("Aspect Ratio mismatch before Scene 1 video generation. Stop before generate.");
+        }
+        await delay(400);
+
         report("Injecting Video Prompt...", 9, 12);
         console.log("🎬 Injecting Video Prompt...");
-        await switchToVideoModeAndGenerate(config.videoPrompt, selectors);
+        await switchToVideoModeAndGenerate(config.videoPrompt, selectors, config.aspectRatio);
 
         report("Generating Video (This takes time)...", 10, 12);
         console.log("⏳ Waiting for Video Generation (This may take 2-3 mins)...");
@@ -2203,12 +2974,346 @@ const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<
 };
 
 /**
+ * Remove extra reference images in the scene builder so only ONE remains.
+ * The scene builder shows reference thumbnails on the right side of the video preview.
+ * Having multiple references causes the AI to generate inconsistent clips between scenes.
+ * The correct behavior (observed in working flows) is: 1 reference → seamless continuous clips.
+ */
+const ensureSingleSceneBuilderReference = async (): Promise<void> => {
+    console.log("🧹 Ensuring single reference in scene builder...");
+    await delay(600);
+
+    const bounds = getSceneBuilderReferenceRailBounds();
+    console.log(
+        `  📐 Ref rail bounds x=${bounds.minLeft.toFixed(0)}..${bounds.maxLeft.toFixed(0)} y=${bounds.minTop.toFixed(0)}..${bounds.maxTop.toFixed(0)}`
+    );
+
+    const isCloseControl = (btn: HTMLElement): boolean => {
+        const iconText = (btn.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+        const text = (btn.textContent || '').trim().toLowerCase();
+        const aria = (btn.getAttribute('aria-label') || '').trim().toLowerCase();
+        const title = (btn.getAttribute('title') || '').trim().toLowerCase();
+        const combined = `${text} ${aria} ${title}`;
+
+        return iconText === 'close' || iconText === 'cancel' || iconText === 'clear' ||
+            combined === 'x' || combined === '×' ||
+            combined.includes('close') || combined.includes('remove') || combined.includes('delete') ||
+            combined.includes('cancel') || combined.includes('ลบ') || combined.includes('ปิด');
+    };
+
+    const getRailReferenceImages = (): HTMLElement[] => {
+        return (findAllElementsDeep('img') as HTMLElement[]).filter((img) => {
+            const r = img.getBoundingClientRect();
+            if (r.width < 24 || r.height < 24 || r.width > 130 || r.height > 130) return false;
+            if (img.offsetParent === null) return false;
+            if (!hasUsableImageSrc(img)) return false;
+
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            if (cx < bounds.minLeft || cx > bounds.maxLeft) return false;
+            if (cy < bounds.minTop || cy > bounds.maxTop) return false;
+
+            return true;
+        });
+    };
+
+    const findNearbyCloseButton = (img: HTMLElement): HTMLElement | null => {
+        const r = img.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+
+        const candidates = (findAllElementsDeep('button, [role="button"]') as HTMLElement[])
+            .filter((btn) => {
+                const br = btn.getBoundingClientRect();
+                if (br.width === 0 || br.height === 0 || br.width > 40 || br.height > 40) return false;
+                if (!isCloseControl(btn)) return false;
+                const bcx = br.left + br.width / 2;
+                const bcy = br.top + br.height / 2;
+                const dist = Math.hypot(bcx - cx, bcy - cy);
+                return dist <= 92;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                const ad = Math.hypot(ar.left + ar.width / 2 - cx, ar.top + ar.height / 2 - cy);
+                const bd = Math.hypot(br.left + br.width / 2 - cx, br.top + br.height / 2 - cy);
+                return ad - bd;
+            });
+
+        return candidates[0] || null;
+    };
+
+    for (let pass = 1; pass <= 3; pass++) {
+        const refs = getRailReferenceImages();
+
+        // Hover all refs first; many UIs only show close control on hover.
+        for (const ref of refs) {
+            const rr = ref.getBoundingClientRect();
+            const hoverOpts = {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: rr.left + rr.width / 2,
+                clientY: rr.top + rr.height / 2
+            };
+            const targets = [ref, ref.closest('button, [role="button"]') as HTMLElement | null, ref.parentElement]
+                .filter(Boolean) as HTMLElement[];
+            for (const target of targets) {
+                target.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+                target.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+                target.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
+            }
+        }
+        await delay(260);
+
+        const closableRefs = refs
+            .map((ref) => ({ ref, closeBtn: findNearbyCloseButton(ref) }))
+            .filter((x) => x.closeBtn !== null) as { ref: HTMLElement; closeBtn: HTMLElement }[];
+
+        console.log(`  [Pass ${pass}] railImages=${refs.length}, closableRefs=${closableRefs.length}`);
+
+        // If close controls are hidden, fallback to selecting extra refs then Delete/Backspace.
+        if (closableRefs.length <= 1) {
+            if (refs.length <= 1) {
+                console.log("  ✅ Single closable reference — ready for next scene");
+                return;
+            }
+
+            console.log(`  ℹ️ Close controls hidden. Trying keyboard-delete fallback for ${refs.length - 1} extra ref(s)...`);
+            const toRemoveByKey = [...refs]
+                .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+                .slice(0, Math.max(0, refs.length - 1));
+
+            for (const ref of toRemoveByKey) {
+                const rr = ref.getBoundingClientRect();
+                const target = (ref.closest('button, [role="button"]') as HTMLElement | null) || ref;
+                console.log(`  🗑️ Fallback delete ref at (${rr.left.toFixed(0)}, ${rr.top.toFixed(0)})`);
+                await robustElementClick(target);
+                await delay(140);
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', code: 'Delete', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Delete', code: 'Delete', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Backspace', code: 'Backspace', bubbles: true }));
+                await delay(320);
+            }
+
+            const remainingAfterFallback = getRailReferenceImages().length;
+            console.log(`  ✅ [Pass ${pass}] Fallback done. Remaining rail images=${remainingAfterFallback}`);
+            if (remainingAfterFallback <= 1) {
+                console.log(`  ✅ Reference cleanup complete. Count: ${remainingAfterFallback}`);
+                return;
+            }
+
+            // Continue next pass if still > 1
+            continue;
+        }
+
+        // Keep latest (bottom-most) reference and remove older ones.
+        closableRefs.sort((a, b) => a.ref.getBoundingClientRect().top - b.ref.getBoundingClientRect().top);
+        const toRemove = closableRefs.slice(0, Math.max(0, closableRefs.length - 1));
+
+        let removed = 0;
+        for (const item of toRemove) {
+            const rect = item.ref.getBoundingClientRect();
+            console.log(`  🗑️ Removing extra reference at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
+            await robustElementClick(item.closeBtn);
+            removed++;
+            await delay(420);
+        }
+
+        const remaining = getRailReferenceImages().length;
+        console.log(`  ✅ [Pass ${pass}] Removed ${removed}/${toRemove.length}. Remaining rail images=${remaining}`);
+        if (remaining <= 1) {
+            console.log(`  ✅ Reference cleanup complete. Count: ${remaining}`);
+            return;
+        }
+    }
+
+    const finalCount = getRailReferenceImages().length;
+    if (finalCount > 1) {
+        console.warn(`  ⚠️ Could not reduce to 1 reference (still ${finalCount})`);
+    } else {
+        console.log(`  ✅ Reference cleanup complete. Count: ${finalCount}`);
+    }
+};
+
+/**
  * Click "Save frame as asset" button — the white "+" on the clip/video in the scene builder.
  * This saves the last frame of the current clip as a reusable asset in the asset library.
  */
 const clickSaveFrameAsAsset = async (): Promise<boolean> => {
     console.log("📸 Looking for 'Save frame as asset' button (white + on clip)...");
     await delay(2000);
+
+    // ===== PRE-STEP: Move playhead slider to the END of the clip =====
+    // The playhead must be at 100% (last frame) before saving frame as asset.
+    console.log("  ⏩ Moving playhead to end of clip...");
+    const sliders = findAllElementsDeep('[role="slider"]') as HTMLElement[];
+    let playheadSlider: HTMLElement | null = null;
+
+    for (const slider of sliders) {
+        const rect = slider.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        // Check if this slider is the playhead (has playhead.svg or is horizontal with aria-valuemax=100)
+        const hasPlayheadImg = slider.querySelector('img[src*="playhead"]') !== null;
+        const isHorizontal = slider.getAttribute('data-orientation') === 'horizontal'
+            || slider.getAttribute('aria-orientation') === 'horizontal';
+        const hasValueRange = slider.getAttribute('aria-valuemin') === '0'
+            && slider.getAttribute('aria-valuemax') === '100';
+
+        if (hasPlayheadImg || (isHorizontal && hasValueRange)) {
+            playheadSlider = slider;
+            console.log(`  📍 Found playhead slider at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}) valuenow=${slider.getAttribute('aria-valuenow')}`);
+            break;
+        }
+    }
+
+    if (playheadSlider) {
+        // Method 1: Keyboard — focus slider and press End key (jumps to max)
+        playheadSlider.focus();
+        await delay(100);
+        playheadSlider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', code: 'End', bubbles: true }));
+        playheadSlider.dispatchEvent(new KeyboardEvent('keyup', { key: 'End', code: 'End', bubbles: true }));
+        await delay(300);
+
+        // Also press Right arrow multiple times as fallback
+        for (let i = 0; i < 30; i++) {
+            playheadSlider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', bubbles: true }));
+        }
+        playheadSlider.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', bubbles: true }));
+        await delay(300);
+
+        // Method 2: Drag simulation — drag from center to right edge of track
+        const sliderParent = playheadSlider.closest('[data-orientation="horizontal"]')?.parentElement
+            || playheadSlider.parentElement?.parentElement || playheadSlider.parentElement;
+        if (sliderParent) {
+            const trackRect = (sliderParent as HTMLElement).getBoundingClientRect();
+            const startX = playheadSlider.getBoundingClientRect().left + playheadSlider.getBoundingClientRect().width / 2;
+            const startY = playheadSlider.getBoundingClientRect().top + playheadSlider.getBoundingClientRect().height / 2;
+            const endX = trackRect.right - 4; // Near right edge
+            const endY = startY;
+
+            const dragOpts = (x: number, y: number) => ({
+                bubbles: true, cancelable: true, view: window,
+                clientX: x, clientY: y, button: 0, pointerType: 'mouse' as const, isPrimary: true
+            });
+
+            playheadSlider.dispatchEvent(new PointerEvent('pointerdown', { ...dragOpts(startX, startY), pointerId: 1 }));
+            playheadSlider.dispatchEvent(new MouseEvent('mousedown', dragOpts(startX, startY)));
+            await delay(50);
+
+            // Drag in steps to the right edge
+            const steps = 5;
+            for (let i = 1; i <= steps; i++) {
+                const x = startX + (endX - startX) * (i / steps);
+                playheadSlider.dispatchEvent(new PointerEvent('pointermove', { ...dragOpts(x, endY), pointerId: 1 }));
+                playheadSlider.dispatchEvent(new MouseEvent('mousemove', dragOpts(x, endY)));
+                await delay(30);
+            }
+
+            playheadSlider.dispatchEvent(new PointerEvent('pointerup', { ...dragOpts(endX, endY), pointerId: 1 }));
+            playheadSlider.dispatchEvent(new MouseEvent('mouseup', dragOpts(endX, endY)));
+            await delay(200);
+        }
+
+        const newValue = playheadSlider.getAttribute('aria-valuenow');
+        console.log(`  ✅ Playhead moved — aria-valuenow=${newValue}`);
+        await delay(1000);
+    } else {
+        console.warn("  ⚠️ Playhead slider not found, proceeding anyway...");
+    }
+
+    // Helper: check if save-frame button appeared after hover
+    const findSaveFrameButton = (): HTMLElement | null => {
+        const candidates = findAllElementsDeep('button, [role="button"], span, div, a');
+        for (const el of candidates) {
+            const htmlEl = el as HTMLElement;
+            const rect = htmlEl.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            const text = (htmlEl.textContent || '').trim().toLowerCase();
+            const title = (htmlEl.getAttribute('title') || '').toLowerCase();
+            const ariaLabel = (htmlEl.getAttribute('aria-label') || '').toLowerCase();
+            const combined = `${text} ${title} ${ariaLabel}`;
+
+            if (combined.includes('save frame') || combined.includes('บันทึกเฟรม') || combined.includes('frame as asset')) {
+                return (htmlEl.closest('button') || htmlEl) as HTMLElement;
+            }
+        }
+        return null;
+    };
+
+    // Strategy 0: The white "+" on the clip IS the "Save frame as asset" button.
+    // Hover on each small "+" to reveal tooltip, confirm it says "Save frame", then click.
+    console.log("  🔍 Strategy 0: Finding '+' buttons on clip to hover → check tooltip → click...");
+    const allSmallButtons = findAllElementsDeep('button, [role="button"]').filter(btn => {
+        const el = btn as HTMLElement;
+        if (el.id === 'PINHOLE_ADD_CLIP_CARD_ID') return false;
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 14 || rect.height < 14 || rect.width > 50 || rect.height > 50) return false;
+        if (rect.top < window.innerHeight * 0.25) return false;
+        const iconEl = el.querySelector('i, .material-icons, .google-symbols, span[class*="icon"]');
+        const iconText = (iconEl?.textContent || '').trim().toLowerCase();
+        const text = (el.textContent || '').trim().toLowerCase();
+        return iconText === 'add' || text === '+' || text === 'add';
+    }) as HTMLElement[];
+
+    console.log(`  Found ${allSmallButtons.length} small '+' buttons on clips`);
+
+    for (const plusBtn of allSmallButtons) {
+        const rect = plusBtn.getBoundingClientRect();
+        console.log(`  🖱️ Hovering '+' at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}) size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+
+        const hoverOpts = {
+            bubbles: true, cancelable: true, view: window,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2
+        };
+
+        // Hover on the button and its parents to trigger tooltip
+        for (const target of [plusBtn, plusBtn.parentElement, plusBtn.parentElement?.parentElement].filter(Boolean)) {
+            (target as HTMLElement).dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+            (target as HTMLElement).dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+            (target as HTMLElement).dispatchEvent(new MouseEvent('mousemove', hoverOpts));
+        }
+
+        await delay(1000);
+
+        // Check tooltip: look for floating element with "Save frame" or "บันทึกเฟรม"
+        const tooltipEl = findSaveFrameButton();
+        const title = (plusBtn.getAttribute('title') || '').toLowerCase();
+        const ariaLabel = (plusBtn.getAttribute('aria-label') || '').toLowerCase();
+        const hasTooltipAttr = title.includes('save frame') || title.includes('บันทึกเฟรม')
+            || ariaLabel.includes('save frame') || ariaLabel.includes('บันทึกเฟรม');
+
+        if (tooltipEl || hasTooltipAttr) {
+            console.log(`  ✅ Confirmed '+' is 'Save frame as asset' (tooltip=${hasTooltipAttr}, floating=${!!tooltipEl})`);
+
+            // Try clicking the floating element first (it may be the actual clickable action)
+            if (tooltipEl) {
+                console.log(`  🖱️ Clicking floating 'Save frame' element...`);
+                await robustElementClick(tooltipEl);
+                await delay(500);
+            }
+
+            // Also click the '+' button itself with robust click
+            console.log(`  🖱️ Clicking '+' button with robust click...`);
+            await robustElementClick(plusBtn);
+            console.log("  ✅ Clicked 'Save frame as asset'!");
+            await delay(3000);
+            return true;
+        }
+
+        // Even without tooltip, if this small "+" is on a clip (near a video/img), click it directly
+        const nearby = plusBtn.closest('div')?.querySelector('video, img');
+        if (nearby) {
+            console.log(`  🎯 Small '+' near video/img — likely save-frame button, clicking directly...`);
+            await robustElementClick(plusBtn);
+            console.log("  ✅ Clicked '+' on clip (assumed save-frame)!");
+            await delay(3000);
+            return true;
+        }
+    }
 
     // Strategy 1: Search by tooltip/aria-label/title containing "save frame" or "บันทึกเฟรม"
     const allButtons = findAllElementsDeep('button, [role="button"]');
@@ -2340,146 +3445,1128 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
 };
 
 /**
- * In the expand view (after Jump to), select the most recently saved asset as a reference image.
- * This triggers "Frames to Video" mode for the new clip.
+ * Select the most recently saved frame asset as a reference image.
+ * 
+ * CORRECT FLOW (from working UI observations):
+ * 1. Find the empty add-reference SLOT on the right side of the scene builder
+ *    (black square below existing reference thumbnail — NOT a '+' button near prompt)
+ * 2. Click the empty slot → opens the asset picker (Upload + saved images)
+ * 3. In the asset picker, click the saved frame image (not the Upload area)
+ * 4. Mode changes to "Frames to Video" → ready for prompt + generate
  */
 const selectLatestAssetAsReference = async (): Promise<boolean> => {
-    console.log("🖼️ Selecting latest saved asset as reference in expand view...");
-    await delay(2000);
+    console.log("🖼️ Selecting latest saved asset as reference...");
+    await delay(1300);
 
-    // Step 1: Find the "+" button in the reference/ingredient area of the expand view
-    // This is the small "+" button near the prompt input for adding reference images
-    const allButtons = findAllElementsDeep('button, [role="button"]');
-    let addRefBtn: HTMLElement | null = null;
+    const bounds = getSceneBuilderReferenceRailBounds();
+    console.log(
+        `  📐 Ref rail bounds x=${bounds.minLeft.toFixed(0)}..${bounds.maxLeft.toFixed(0)} y=${bounds.minTop.toFixed(0)}..${bounds.maxTop.toFixed(0)}`
+    );
 
-    // Look for add buttons in the lower part of the expand view (near prompt area)
-    for (const btn of allButtons) {
-        const el = btn as HTMLElement;
-        const rect = el.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) continue;
+    const getRailReferenceImages = (): HTMLElement[] => {
+        return (findAllElementsDeep('img') as HTMLElement[]).filter((img) => {
+            const r = img.getBoundingClientRect();
+            if (r.width < 24 || r.height < 24 || r.width > 130 || r.height > 130) return false;
+            if (img.offsetParent === null) return false;
+            if (!hasUsableImageSrc(img)) return false;
 
-        const icon = el.querySelector('i, .material-icons, .google-symbols, span[class*="icon"]');
-        const iconText = (icon?.textContent || '').trim();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            return cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop;
+        });
+    };
 
-        // The add reference button has "add" icon and is in the prompt area (bottom half of screen)
-        if (iconText === 'add' && rect.width <= 60 && rect.height <= 60 && rect.top > window.innerHeight * 0.5) {
-            console.log(`  📋 Found add reference button: icon="${iconText}" at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)}) size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
-            addRefBtn = el;
-            break;
-        }
-    }
+    const elementHasUsableImage = (el: HTMLElement): boolean => {
+        const imgs = Array.from(el.querySelectorAll('img')) as HTMLElement[];
+        return imgs.some((img) => hasUsableImageSrc(img));
+    };
 
-    if (!addRefBtn) {
-        // Fallback: look for any "+" button near the prompt textarea
-        const textareas = findAllElementsDeep('textarea');
-        for (const ta of textareas) {
-            const taRect = (ta as HTMLElement).getBoundingClientRect();
-            if (taRect.width < 100) continue;
+    const resolveAssetPickerContext = (): { uploadTile: HTMLElement; pickerRoot: HTMLElement | null } | null => {
+        const inPickerViewport = (r: DOMRect): boolean => {
+            return r.top > bounds.vh * 0.08 && r.bottom < bounds.vh * 0.98;
+        };
 
-            for (const btn of allButtons) {
-                const btnRect = (btn as HTMLElement).getBoundingClientRect();
-                const icon = (btn as HTMLElement).querySelector('i, .google-symbols');
-                const iconText = (icon?.textContent || '').trim();
+        const textBasedTiles = (findAllElementsDeep('button, [role="button"], div') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 70 || r.height < 60 || r.width > 420 || r.height > 360) return false;
+                if (!inPickerViewport(r)) return false;
 
-                // Button near the textarea with add icon
-                if (iconText === 'add' && btnRect.width <= 60 &&
-                    Math.abs(btnRect.top - taRect.top) < 100 &&
-                    Math.abs(btnRect.left - taRect.left) < taRect.width) {
-                    console.log(`  📋 Found add button near textarea: icon="${iconText}" at (${btnRect.left.toFixed(0)}, ${btnRect.top.toFixed(0)})`);
-                    addRefBtn = btn as HTMLElement;
+                const text = (el.textContent || '').toLowerCase();
+                return (
+                    text.includes('upload') ||
+                    text.includes('อัปโหลด') ||
+                    text.includes('อัพโหลด') ||
+                    text.includes('add media') ||
+                    text.includes('เพิ่มสื่อ')
+                );
+            });
+
+        const fileInputBasedTiles: HTMLElement[] = [];
+        const fileInputs = findAllElementsDeep('input[type="file"]') as HTMLElement[];
+        for (const input of fileInputs) {
+            let current: HTMLElement | null = input;
+            while (current && current !== document.body) {
+                const r = current.getBoundingClientRect();
+                if (current.offsetParent !== null && r.width >= 70 && r.height >= 60 && r.width <= 420 && r.height <= 360 && inPickerViewport(r)) {
+                    fileInputBasedTiles.push(current);
                     break;
                 }
+                current = current.parentElement;
             }
-            if (addRefBtn) break;
+        }
+
+        const iconBasedTiles = (findAllElementsDeep('button, [role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 70 || r.height < 60 || r.width > 420 || r.height > 360) return false;
+                if (!inPickerViewport(r)) return false;
+                if (elementHasUsableImage(el)) return false;
+
+                const iconText = (el.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${iconText} ${text} ${aria} ${title}`;
+
+                const positive =
+                    combined.includes('upload') ||
+                    combined.includes('file_upload') ||
+                    combined.includes('add_photo_alternate') ||
+                    combined.includes('add media') ||
+                    combined.includes('เพิ่มสื่อ') ||
+                    combined.includes('อัปโหลด') ||
+                    combined.includes('อัพโหลด');
+
+                const negative =
+                    combined.includes('save frame') ||
+                    combined.includes('generate') ||
+                    combined.includes('create image') ||
+                    combined.includes('frames to video');
+
+                return positive && !negative;
+            });
+
+        const merged = [...textBasedTiles, ...fileInputBasedTiles, ...iconBasedTiles];
+        const uniqueTiles: HTMLElement[] = [];
+        const seen = new Set<string>();
+        for (const tile of merged) {
+            const r = tile.getBoundingClientRect();
+            const key = `${Math.round((r.left + r.width / 2) / 8)}:${Math.round((r.top + r.height / 2) / 8)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            uniqueTiles.push(tile);
+        }
+
+        uniqueTiles.sort((a, b) => {
+            const ar = a.getBoundingClientRect();
+            const br = b.getBoundingClientRect();
+            return ar.top - br.top || ar.left - br.left;
+        });
+
+        const uploadTile = uniqueTiles[0] || null;
+        if (!uploadTile) return null;
+
+        const ur = uploadTile.getBoundingClientRect();
+        let pickerRoot: HTMLElement | null = null;
+        let bestArea = Number.POSITIVE_INFINITY;
+        let current: HTMLElement | null = uploadTile;
+
+        while (current && current !== document.body) {
+            const r = current.getBoundingClientRect();
+            const containsUpload = r.left <= ur.left + 2 && r.top <= ur.top + 2 && r.right >= ur.right - 2 && r.bottom >= ur.bottom - 2;
+            const largeEnough = r.width >= Math.max(280, ur.width * 1.6) && r.height >= Math.max(180, ur.height * 1.6);
+            const inViewport = r.width <= bounds.vw * 0.98 && r.height <= bounds.vh * 0.98;
+
+            if (containsUpload && largeEnough && inViewport) {
+                const area = r.width * r.height;
+                if (area < bestArea) {
+                    bestArea = area;
+                    pickerRoot = current;
+                }
+            }
+
+            current = current.parentElement;
+        }
+
+        return { uploadTile, pickerRoot };
+    };
+
+    const isAssetPickerOpen = (): boolean => {
+        const pickerCtx = resolveAssetPickerContext();
+        if (pickerCtx) return true;
+
+        const visibleFileInputs = (findAllElementsDeep('input[type="file"]') as HTMLElement[])
+            .filter((el) => {
+                let current: HTMLElement | null = el;
+                while (current && current !== document.body) {
+                    const r = current.getBoundingClientRect();
+                    if (current.offsetParent !== null && r.width >= 70 && r.height >= 60 && r.top > bounds.vh * 0.08 && r.top < bounds.vh * 0.96) {
+                        return true;
+                    }
+                    current = current.parentElement;
+                }
+                return false;
+            });
+        if (visibleFileInputs.length > 0) return true;
+
+        const dialogLike = (findAllElementsDeep('[role="dialog"], [aria-modal="true"], [class*="dialog"], [class*="modal"]') as HTMLElement[])
+            .find((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 280 || r.height < 180) return false;
+                if (r.top < bounds.vh * 0.04 || r.bottom > bounds.vh * 0.99) return false;
+
+                const imgs = Array.from(el.querySelectorAll('img')) as HTMLElement[];
+                const usableImgs = imgs.filter((img) => hasUsableImageSrc(img));
+                return usableImgs.length >= 2;
+            });
+
+        return !!dialogLike;
+    };
+
+    // ===== STEP 1: Find the correct add-reference slot in the right rail =====
+    console.log("  🔍 Step 1: Locating add-reference slot near the right-side reference rail...");
+
+    const railRefs = getRailReferenceImages().sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    const lastRefRect = railRefs.length > 0 ? railRefs[railRefs.length - 1].getBoundingClientRect() : null;
+    const refCx = lastRefRect ? lastRefRect.left + lastRefRect.width / 2 : (bounds.minLeft + bounds.maxLeft) / 2;
+    const targetY = lastRefRect ? lastRefRect.bottom + 56 : (bounds.minTop + bounds.maxTop) / 2;
+    const initialBottomRefSrc = (() => {
+        const sorted = [...railRefs].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+        const bottom = sorted[sorted.length - 1] as HTMLImageElement | undefined;
+        return bottom?.src || null;
+    })();
+
+    const controlHints = [
+        'tune', 'settings', 'setting', 'crop', 'ratio', 'aspect', 'arrange',
+        'flex_no_wrap', 'volume', 'mute', 'restart', 'download', 'pen_spark'
+    ];
+
+    const hasControlIntent = (iconText: string, combined: string): boolean => {
+        return controlHints.some((hint) => iconText.includes(hint) || combined.includes(hint));
+    };
+
+    const hasAddIntent = (iconText: string, text: string, aria: string, title: string, combined: string): boolean => {
+        return (
+            iconText === 'add' ||
+            iconText === 'add_circle' ||
+            iconText === 'add_photo_alternate' ||
+            text === '+' ||
+            text === 'add' ||
+            aria.includes('add') ||
+            title.includes('add') ||
+            combined.includes('reference') ||
+            combined.includes('asset') ||
+            combined.includes('เพิ่ม') ||
+            combined.includes('อ้างอิง')
+        );
+    };
+
+    const fullscreenHints = ['fullscreen', 'full screen', 'open_in_full', 'fullscreen_exit', 'fit_screen', 'maximize', 'ขยายเต็มจอ'];
+
+    const hasFullscreenIntent = (el: HTMLElement, iconText: string, combined: string): boolean => {
+        if (fullscreenHints.some((hint) => iconText.includes(hint) || combined.includes(hint))) return true;
+
+        // Exclude player controls near preview bottom edge.
+        const r = el.getBoundingClientRect();
+        if (r.width <= 56 && r.height <= 56 && r.top >= bounds.maxTop - 24) {
+            const looksLikeControl =
+                combined.includes('play') ||
+                combined.includes('pause') ||
+                combined.includes('volume') ||
+                combined.includes('mute') ||
+                combined.includes('เสียง') ||
+                combined.includes('เล่น');
+            if (looksLikeControl) return true;
+        }
+
+        return false;
+    };
+
+    const collectSlotCandidates = (): { el: HTMLElement; score: number }[] => {
+        const candidates: { el: HTMLElement; score: number }[] = [];
+        const nodes = findAllElementsDeep('button, [role="button"], div, span, img') as HTMLElement[];
+
+        console.log(`  🔍 DEBUG: Scanning ${nodes.length} total nodes for add-slot candidates...`);
+        console.log(`  📐 DEBUG: Bounds - x=${bounds.minLeft}-${bounds.maxLeft}, y=${bounds.minTop}-${bounds.maxTop+180}`);
+        if (lastRefRect) {
+            console.log(`  🖼️ DEBUG: LastRef - x=${lastRefRect.left.toFixed(0)}-${lastRefRect.right.toFixed(0)}, y=${lastRefRect.top.toFixed(0)}-${lastRefRect.bottom.toFixed(0)}`);
+            console.log(`  🎯 DEBUG: Target - refCx=${refCx.toFixed(0)}, targetY=${targetY.toFixed(0)}`);
+        }
+
+        let filteredCount = { size: 0, visibility: 0, bounds: 0, reference: 0, image: 0, control: 0, shape: 0, intent: 0 };
+
+        for (const el of nodes) {
+            const r = el.getBoundingClientRect();
+            if (r.width < 22 || r.height < 22 || r.width > 130 || r.height > 130) {
+                filteredCount.size++;
+                continue;
+            }
+            if (el.offsetParent === null) {
+                filteredCount.visibility++;
+                continue;
+            }
+
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            if (cx < bounds.minLeft || cx > bounds.maxLeft) {
+                filteredCount.bounds++;
+                continue;
+            }
+            if (cy < bounds.minTop || cy > bounds.maxTop + 180) {
+                filteredCount.bounds++;
+                continue;
+            }
+            if (el.id === 'PINHOLE_ADD_CLIP_CARD_ID') {
+                filteredCount.reference++;
+                continue;
+            }
+
+            if (lastRefRect) {
+                if (cy < lastRefRect.bottom - 20) {
+                    filteredCount.reference++;
+                    continue;
+                }
+                if (cy > lastRefRect.bottom + 250) {
+                    filteredCount.reference++;
+                    continue;
+                }
+                if (Math.abs(cx - refCx) > 118) {
+                    filteredCount.reference++;
+                    continue;
+                }
+            }
+
+            if (el.tagName === 'IMG' && hasUsableImageSrc(el)) {
+                filteredCount.image++;
+                continue;
+            }
+
+            const iconText = (el.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+            const text = (el.textContent || '').trim().toLowerCase();
+            const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+            const title = (el.getAttribute('title') || '').trim().toLowerCase();
+            const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+
+            if (hasFullscreenIntent(el, iconText, combined)) {
+                filteredCount.control++;
+                continue;
+            }
+            if (hasControlIntent(iconText, combined)) {
+                filteredCount.control++;
+                continue;
+            }
+
+            const hasImageInside = elementHasUsableImage(el);
+            if (hasImageInside) {
+                filteredCount.image++;
+                continue;
+            }
+
+            const isSquareish = Math.abs(r.width - r.height) <= 22;
+            const isCompact = r.width <= 92 && r.height <= 92;
+            if (!isSquareish || !isCompact) {
+                filteredCount.shape++;
+                continue;
+            }
+
+            const hasExplicitAdd = hasAddIntent(iconText, text, aria, title, combined);
+            const hiddenSlotFallback = !hasExplicitAdd && Math.abs(cy - targetY) <= 165;
+            if (!hasExplicitAdd && !hiddenSlotFallback) {
+                filteredCount.intent++;
+                continue;
+            }
+
+            console.log(`  ✅ DEBUG: Candidate found at (${cx.toFixed(0)}, ${cy.toFixed(0)}) size=${r.width.toFixed(0)}x${r.height.toFixed(0)} tag=${el.tagName} hasAdd=${hasExplicitAdd} text="${text}" aria="${aria}"`);
+
+            let score = Math.abs(cx - refCx) * 2 + Math.abs(cy - targetY);
+            score -= hasExplicitAdd ? 260 : 90;
+            if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') score -= 55;
+            if (Math.abs(cy - targetY) <= 92) score -= 55;
+
+            candidates.push({ el, score });
+        }
+
+        console.log(`  📊 DEBUG: Filtered out - size:${filteredCount.size}, visibility:${filteredCount.visibility}, bounds:${filteredCount.bounds}, reference:${filteredCount.reference}, image:${filteredCount.image}, control:${filteredCount.control}, shape:${filteredCount.shape}, intent:${filteredCount.intent}`);
+        console.log(`  🎯 DEBUG: Final candidates: ${candidates.length}`);
+
+        candidates.sort((a, b) => a.score - b.score);
+        return candidates;
+    };
+
+    const hoverRailNearReference = async (): Promise<void> => {
+        if (!lastRefRect) return;
+
+        const hoverables = (findAllElementsDeep('button, [role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 20 || r.height < 20 || r.width > 220 || r.height > 220) return false;
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                if (cx < bounds.minLeft || cx > bounds.maxLeft) return false;
+                if (cy < lastRefRect.bottom - 26 || cy > Math.min(bounds.maxTop + 64, lastRefRect.bottom + 170)) return false;
+                if (Math.abs(cx - refCx) > 130) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                const aScore = Math.abs((ar.left + ar.width / 2) - refCx) + Math.abs((ar.top + ar.height / 2) - targetY);
+                const bScore = Math.abs((br.left + br.width / 2) - refCx) + Math.abs((br.top + br.height / 2) - targetY);
+                return aScore - bScore;
+            });
+
+        for (const el of hoverables.slice(0, 6)) {
+            const r = el.getBoundingClientRect();
+            const hoverOpts = {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: r.left + r.width / 2,
+                clientY: r.top + r.height / 2
+            };
+            el.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+            el.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+            el.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
+            await delay(90);
+        }
+    };
+
+    const probeSlotByCoordinates = (): HTMLElement | null => {
+        if (!lastRefRect) return null;
+
+        const probeXs = [refCx, refCx - 18, refCx + 18];
+        const probeYs = [
+            lastRefRect.bottom + 34,
+            lastRefRect.bottom + 54,
+            lastRefRect.bottom + 76,
+            lastRefRect.bottom + 100,
+            lastRefRect.bottom + 128,
+            lastRefRect.bottom + 156,
+            lastRefRect.bottom + 188
+        ];
+
+        for (const y of probeYs) {
+            if (y < bounds.minTop || y > bounds.maxTop + 180) continue;
+            for (const x of probeXs) {
+                if (x < bounds.minLeft || x > bounds.maxLeft) continue;
+
+                const stack = document.elementsFromPoint(x, y) as HTMLElement[];
+                for (const raw of stack) {
+                    const target = (raw.closest('button, [role="button"]') as HTMLElement | null) || raw;
+                    if (!target || target.offsetParent === null) continue;
+
+                    const r = target.getBoundingClientRect();
+                    if (r.width < 18 || r.height < 18 || r.width > 120 || r.height > 120) continue;
+                    const cx = r.left + r.width / 2;
+                    const cy = r.top + r.height / 2;
+                    if (cx < bounds.minLeft || cx > bounds.maxLeft) continue;
+                    if (cy < bounds.minTop || cy > bounds.maxTop + 180) continue;
+                    if (Math.abs(cx - refCx) > 126) continue;
+
+                    const iconText = (target.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+                    const text = (target.textContent || '').trim().toLowerCase();
+                    const aria = (target.getAttribute('aria-label') || '').trim().toLowerCase();
+                    const title = (target.getAttribute('title') || '').trim().toLowerCase();
+                    const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+
+                    if (hasFullscreenIntent(target, iconText, combined)) continue;
+                    if (hasControlIntent(iconText, combined)) continue;
+
+                    const hasImageInside = elementHasUsableImage(target);
+                    const isSquareish = Math.abs(r.width - r.height) <= 24;
+                    const likelyHiddenSlot = !hasImageInside && isSquareish && Math.abs(cy - targetY) <= 220;
+                    const hasAdd = hasAddIntent(iconText, text, aria, title, combined);
+
+                    if (hasAdd || likelyHiddenSlot) return target;
+                }
+            }
+        }
+
+        return null;
+    };
+
+    const clickOverlayAddNearRailReference = async (): Promise<boolean> => {
+        if (!lastRefRect) return false;
+
+        const candidates = (findAllElementsDeep('button, [role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 18 || r.height < 18 || r.width > 96 || r.height > 96) return false;
+
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                if (cx < bounds.minLeft || cx > bounds.maxLeft) return false;
+                if (cy < lastRefRect.bottom - 20 || cy > lastRefRect.bottom + 260) return false;
+                if (Math.abs(cx - refCx) > 136) return false;
+
+                const iconText = (el.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+
+                if (hasFullscreenIntent(el, iconText, combined)) return false;
+                if (hasControlIntent(iconText, combined)) return false;
+
+                const hasImageInside = elementHasUsableImage(el);
+                const isSquareish = Math.abs(r.width - r.height) <= 26;
+                const hasAdd = hasAddIntent(iconText, text, aria, title, combined);
+
+                return isSquareish && (hasAdd || (!hasImageInside && Math.abs(cy - targetY) <= 220));
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                const aScore = Math.abs((ar.left + ar.width / 2) - refCx) + Math.abs((ar.top + ar.height / 2) - targetY);
+                const bScore = Math.abs((br.left + br.width / 2) - refCx) + Math.abs((br.top + br.height / 2) - targetY);
+                return aScore - bScore;
+            });
+
+        for (const candidate of candidates.slice(0, 5)) {
+            await robustElementClick(candidate);
+            await delay(1050);
+            if (isAssetPickerOpen()) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    const clickPromptReferenceAddButton = async (): Promise<boolean> => {
+        const promptInputs = (findAllElementsDeep('textarea, input[type="text"], [contenteditable="true"]') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                return r.width >= 260 && r.height >= 36;
+            })
+            .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
+
+        const promptInput = promptInputs[0] || null;
+        if (!promptInput) return false;
+
+        const pr = promptInput.getBoundingClientRect();
+        const chips = (findAllElementsDeep('img') as HTMLElement[])
+            .filter((img) => {
+                if (img.offsetParent === null || !hasUsableImageSrc(img)) return false;
+                const r = img.getBoundingClientRect();
+                if (r.width < 18 || r.width > 100 || r.height < 18 || r.height > 100) return false;
+                const cy = r.top + r.height / 2;
+                return cy >= pr.top - 86 && cy <= pr.bottom + 86 && r.left <= pr.left + 240;
+            })
+            .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+        const mainChip = chips[0] || null;
+        const chipRect = mainChip?.getBoundingClientRect() || null;
+
+        const plusCandidates = (findAllElementsDeep('button, [role="button"], div[role="button"], span[role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 18 || r.height < 18 || r.width > 82 || r.height > 82) return false;
+                if (Math.abs(r.width - r.height) > 28) return false;
+
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                if (cy < pr.top - 90 || cy > pr.bottom + 96) return false;
+                if (cx < pr.left - 140 || cx > pr.left + Math.min(320, pr.width * 0.52)) return false;
+
+                const iconText = (el.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+
+                const blockHints = ['arrow_forward', 'send', 'generate', 'tune', 'settings', 'volume', 'crop'];
+                if (blockHints.some((hint) => iconText.includes(hint) || combined.includes(hint))) return false;
+                if (!hasAddIntent(iconText, text, aria, title, combined)) return false;
+
+                if (chipRect) {
+                    const chipCy = chipRect.top + chipRect.height / 2;
+                    if (cy < chipCy - 56 || cy > chipCy + 56) return false;
+                    if (cx < chipRect.right - 12 || cx > chipRect.right + 180) return false;
+                }
+
+                return true;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                const ax = ar.left + ar.width / 2;
+                const ay = ar.top + ar.height / 2;
+                const bx = br.left + br.width / 2;
+                const by = br.top + br.height / 2;
+                const targetX = chipRect ? chipRect.right + 36 : pr.left + 84;
+                const targetY2 = chipRect ? chipRect.top + chipRect.height / 2 : pr.top + pr.height / 2;
+                const aScore = Math.abs(ax - targetX) + Math.abs(ay - targetY2);
+                const bScore = Math.abs(bx - targetX) + Math.abs(by - targetY2);
+                return aScore - bScore;
+            });
+
+        const target = plusCandidates[0] || null;
+        if (!target) return false;
+
+        await robustElementClick(target);
+        await delay(1200);
+        return isAssetPickerOpen();
+    };
+
+    const clickSceneStripPlusButton = async (): Promise<boolean> => {
+        const stripThumbs = (findAllElementsDeep('img') as HTMLElement[])
+            .filter((img) => {
+                if (img.offsetParent === null || !hasUsableImageSrc(img)) return false;
+                const r = img.getBoundingClientRect();
+                if (r.width < 70 || r.height < 45 || r.width > 340 || r.height > 220) return false;
+                if (r.top < bounds.maxTop - 180 || r.bottom > bounds.vh - 30) return false;
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                if (cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop + 180) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                return br.top - ar.top || br.width * br.height - ar.width * ar.height;
+            });
+
+        const stripThumb = stripThumbs[0] || null;
+        if (!stripThumb) return false;
+
+        const tr = stripThumb.getBoundingClientRect();
+        const plusCandidates = (findAllElementsDeep('button, [role="button"], div[role="button"], span[role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 18 || r.height < 18 || r.width > 110 || r.height > 110) return false;
+
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                if (cy < tr.top - 44 || cy > tr.bottom + 44) return false;
+                if (cx < tr.right - 20 || cx > tr.right + 260) return false;
+
+                const iconText = (el.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+
+                if (!hasAddIntent(iconText, text, aria, title, combined)) return false;
+                if (hasControlIntent(iconText, combined)) return false;
+                if (hasFullscreenIntent(el, iconText, combined)) return false;
+                if (combined.includes('save frame')) return false;
+                if (combined.includes('generate') || combined.includes('arrow_forward')) return false;
+
+                return true;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                const ax = ar.left + ar.width / 2;
+                const ay = ar.top + ar.height / 2;
+                const bx = br.left + br.width / 2;
+                const by = br.top + br.height / 2;
+                const targetX = tr.right + 56;
+                const targetY2 = tr.top + tr.height / 2;
+                const aScore = Math.abs(ax - targetX) + Math.abs(ay - targetY2);
+                const bScore = Math.abs(bx - targetX) + Math.abs(by - targetY2);
+                return aScore - bScore;
+            });
+
+        for (const candidate of plusCandidates.slice(0, 4)) {
+            const r = candidate.getBoundingClientRect();
+            console.log(`  🖱️ Scene-strip plus fallback click at (${r.left.toFixed(0)}, ${r.top.toFixed(0)})`);
+            await robustElementClick(candidate);
+            await delay(1150);
+            if (isAssetPickerOpen()) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    // AGGRESSIVE FALLBACK: Click at calculated coordinates where add-reference slot should be
+    const clickAtCalculatedReferenceSlotPosition = async (): Promise<boolean> => {
+        console.log("  🎯 FALLBACK: Clicking at calculated reference slot coordinates...");
+        
+        // The add-reference slot is typically on the right side, below existing references
+        // Try multiple coordinate strategies
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        
+        // Strategy A: Below last reference image
+        const probePositions: Array<{x: number; y: number; label: string}> = [];
+        
+        if (lastRefRect) {
+            // Below the last reference, centered horizontally
+            for (let dy = 40; dy <= 220; dy += 30) {
+                probePositions.push({ x: refCx, y: lastRefRect.bottom + dy, label: `below-ref+${dy}` });
+            }
+            // Slightly left/right of center
+            for (let dy = 40; dy <= 180; dy += 40) {
+                probePositions.push({ x: refCx - 25, y: lastRefRect.bottom + dy, label: `left-ref+${dy}` });
+                probePositions.push({ x: refCx + 25, y: lastRefRect.bottom + dy, label: `right-ref+${dy}` });
+            }
+        }
+        
+        // Strategy B: Right side of screen where reference rail typically is
+        const rightSideX = vw * 0.78;  // ~78% from left
+        for (let y = vh * 0.35; y <= vh * 0.75; y += 30) {
+            probePositions.push({ x: rightSideX, y, label: `right-side-${y.toFixed(0)}` });
+        }
+        
+        // Strategy C: Near the right edge, common position for reference slots
+        for (let x = vw * 0.72; x <= vw * 0.92; x += 40) {
+            for (let y = vh * 0.4; y <= vh * 0.7; y += 40) {
+                probePositions.push({ x, y, label: `grid-${x.toFixed(0)}-${y.toFixed(0)}` });
+            }
+        }
+        
+        for (const pos of probePositions) {
+            const el = document.elementFromPoint(pos.x, pos.y) as HTMLElement | null;
+            if (!el) continue;
+            
+            const target = (el.closest('button, [role="button"]') as HTMLElement | null) || el;
+            const r = target.getBoundingClientRect();
+            if (r.width < 18 || r.height < 18 || r.width > 150 || r.height > 150) continue;
+            if (target.offsetParent === null) continue;
+            
+            // Skip if it has an image inside (it's an existing reference, not an empty slot)
+            if (elementHasUsableImage(target)) continue;
+            
+            // Skip control buttons
+            const iconText = (target.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+            const text = (target.textContent || '').trim().toLowerCase();
+            const combined = `${iconText} ${text}`;
+            if (hasControlIntent(iconText, combined)) continue;
+            if (hasFullscreenIntent(target, iconText, combined)) continue;
+            if (combined.includes('generate') || combined.includes('send')) continue;
+            
+            // Check if this is an add-like or empty slot element
+            const isSquarish = Math.abs(r.width - r.height) <= 30;
+            const hasAdd = hasAddIntent(iconText, text, 
+                (target.getAttribute('aria-label') || '').toLowerCase(),
+                (target.getAttribute('title') || '').toLowerCase(),
+                combined);
+            const looksEmpty = isSquarish && r.width >= 22 && r.width <= 100 && !text;
+            
+            if (hasAdd || looksEmpty) {
+                console.log(`  🖱️ Coordinate click at (${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}) [${pos.label}] tag=${target.tagName} size=${r.width.toFixed(0)}x${r.height.toFixed(0)} text="${text}"`);
+                await robustElementClick(target);
+                await delay(1500);
+                
+                if (isAssetPickerOpen()) {
+                    console.log(`  ✅ Asset picker opened via coordinate click [${pos.label}]`);
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    };
+
+    const clickDirectSaveFrameAsAssetButton = async (): Promise<boolean> => {
+        console.log("  🚨 EMERGENCY: Searching for direct 'Save frame as asset' button...");
+        
+        const saveFrameButtons = (findAllElementsDeep('button, [role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 20 || r.height < 20 || r.width > 400 || r.height > 200) return false;
+                
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+                
+                const hassaveFrame = 
+                    combined.includes('save frame') ||
+                    combined.includes('frame as asset') ||
+                    combined.includes('save as asset') ||
+                    combined.includes('บันทึกเฟรม');
+                
+                return hassaveFrame;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                return br.top - ar.top || ar.left - br.left;
+            });
+
+        console.log(`  🔍 Found ${saveFrameButtons.length} 'Save frame as asset' button candidates`);
+        
+        for (const btn of saveFrameButtons.slice(0, 3)) {
+            const r = btn.getBoundingClientRect();
+            const text = (btn.textContent || '').trim();
+            console.log(`  🖱️ Emergency click 'Save frame as asset' at (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) text="${text}"`);
+            
+            await robustElementClick(btn);
+            await delay(2000);
+            
+            // Check if this opened the asset picker
+            if (isAssetPickerOpen()) {
+                console.log("  ✅ Emergency 'Save frame as asset' opened asset picker!");
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    const clickEmergencyAddButton = async (): Promise<boolean> => {
+        console.log("  🚨 EMERGENCY: Broad search for any add/plus button that could open asset picker...");
+        
+        const emergencyButtons = (findAllElementsDeep('button, [role="button"], div[role="button"], span[role="button"], div, span') as HTMLElement[])
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 16 || r.height < 16 || r.width > 200 || r.height > 200) return false;
+                if (r.top < bounds.vh * 0.1 || r.top > bounds.vh * 0.9) return false;
+                
+                const iconText = (el.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim().toLowerCase();
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${iconText} ${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+                
+                // Block obvious wrong buttons
+                const blocked = 
+                    combined.includes('generate') ||
+                    combined.includes('arrow_forward') ||
+                    combined.includes('send') ||
+                    combined.includes('tune') ||
+                    combined.includes('settings') ||
+                    combined.includes('volume') ||
+                    combined.includes('fullscreen') ||
+                    combined.includes('crop');
+                    
+                if (blocked) return false;
+                
+                // Look for add-like content
+                const hasAddLike = 
+                    iconText === 'add' ||
+                    iconText === 'add_circle' ||
+                    iconText === 'add_photo_alternate' ||
+                    iconText === 'file_upload' ||
+                    text === '+' ||
+                    text === 'add' ||
+                    combined.includes('add') ||
+                    combined.includes('plus') ||
+                    combined.includes('upload') ||
+                    combined.includes('reference') ||
+                    combined.includes('asset') ||
+                    combined.includes('เพิ่ม');
+                
+                return hasAddLike;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                return ar.top - br.top || ar.left - br.left;
+            });
+
+        console.log(`  🔍 Found ${emergencyButtons.length} emergency add button candidates`);
+        
+        for (const btn of emergencyButtons.slice(0, 10)) {
+            const r = btn.getBoundingClientRect();
+            const text = (btn.textContent || '').trim();
+            const iconText = (btn.querySelector('i, .google-symbols, .material-icons')?.textContent || '').trim();
+            console.log(`  🖱️ Emergency click add button at (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) icon="${iconText}" text="${text}"`);
+            
+            await robustElementClick(btn);
+            await delay(1200);
+            
+            if (isAssetPickerOpen()) {
+                console.log("  ✅ Emergency add button opened asset picker!");
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    let orderedSlotCandidates = collectSlotCandidates();
+    if (orderedSlotCandidates.length === 0) {
+        await hoverRailNearReference();
+        orderedSlotCandidates = collectSlotCandidates();
+    }
+    console.log(`  📊 Add-slot candidates detected: ${orderedSlotCandidates.length}`);
+
+    // Click up to 4 candidates until asset picker actually opens.
+    let slotClicked = false;
+    const triedCenters = new Set<string>();
+    for (let i = 0; i < Math.min(6, orderedSlotCandidates.length); i++) {
+        const candidate = orderedSlotCandidates[i].el;
+        const r = candidate.getBoundingClientRect();
+        const centerKey = `${Math.round((r.left + r.width / 2) / 4)}:${Math.round((r.top + r.height / 2) / 4)}`;
+        if (triedCenters.has(centerKey)) continue;
+        triedCenters.add(centerKey);
+
+        const nestedBtn = candidate.querySelector('button, [role="button"]') as HTMLElement | null;
+        const clickTarget = nestedBtn && nestedBtn.offsetParent !== null ? nestedBtn : candidate;
+
+        console.log(`  🖱️ Trying add-slot candidate ${i + 1}: (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} tag=${candidate.tagName}`);
+        await robustElementClick(clickTarget);
+        await delay(1200);
+
+        if (isAssetPickerOpen()) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened");
+            break;
+        }
+
+        // Retry by clicking raw candidate if nested clickable didn't open picker.
+        if (clickTarget !== candidate) {
+            await robustElementClick(candidate);
+            await delay(800);
+            if (isAssetPickerOpen()) {
+                slotClicked = true;
+                console.log("  ✅ Asset picker opened");
+                break;
+            }
         }
     }
 
-    if (!addRefBtn) {
-        console.warn("  ⚠️ Could not find add reference button in expand view");
+    if (!slotClicked) {
+        await hoverRailNearReference();
+        const probeTarget = probeSlotByCoordinates();
+        if (probeTarget) {
+            const r = probeTarget.getBoundingClientRect();
+            console.log(`  🎯 Probe fallback: clicking slot near ref at (${r.left.toFixed(0)}, ${r.top.toFixed(0)})`);
+            await robustElementClick(probeTarget);
+            await delay(1200);
+            if (isAssetPickerOpen()) {
+                slotClicked = true;
+                console.log("  ✅ Asset picker opened (probe fallback)");
+            }
+        }
+    }
+
+    let openedViaOverlay = false;
+    if (!slotClicked) {
+        openedViaOverlay = await clickOverlayAddNearRailReference();
+        if (openedViaOverlay) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened (rail overlay add fallback)");
+        }
+    }
+
+    let openedViaStripPlus = false;
+    if (!slotClicked) {
+        openedViaStripPlus = await clickSceneStripPlusButton();
+        if (openedViaStripPlus) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened (scene strip + fallback)");
+        }
+    }
+
+    let openedViaPromptAdd = false;
+    if (!slotClicked) {
+        openedViaPromptAdd = await clickPromptReferenceAddButton();
+        if (openedViaPromptAdd) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened (prompt + fallback)");
+        }
+    }
+
+    let openedViaCoordinate = false;
+    if (!slotClicked) {
+        openedViaCoordinate = await clickAtCalculatedReferenceSlotPosition();
+        if (openedViaCoordinate) {
+            slotClicked = true;
+        }
+    }
+
+    let openedViaSaveFrame = false;
+    if (!slotClicked) {
+        openedViaSaveFrame = await clickDirectSaveFrameAsAssetButton();
+        if (openedViaSaveFrame) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened (direct save frame fallback)");
+        }
+    }
+
+    let openedViaEmergency = false;
+    if (!slotClicked) {
+        openedViaEmergency = await clickEmergencyAddButton();
+        if (openedViaEmergency) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened (emergency add fallback)");
+        }
+    }
+
+    if (!slotClicked) {
+        const pickerCtx = resolveAssetPickerContext();
+        if (pickerCtx) {
+            slotClicked = true;
+            console.log("  ✅ Asset picker opened (verified by Upload tile)");
+        }
+    }
+
+    if (!slotClicked) {
+        console.warn(
+            `  ⚠️ Could not open asset picker from add slot (railCandidates=${orderedSlotCandidates.length}, overlay=${openedViaOverlay}, strip=${openedViaStripPlus}, prompt=${openedViaPromptAdd}, coordinate=${openedViaCoordinate}, saveFrame=${openedViaSaveFrame}, emergency=${openedViaEmergency})`
+        );
         return false;
     }
 
-    // Step 2: Click the add button to open asset picker
-    console.log("  🖱️ Clicking add reference button...");
-    addRefBtn.click();
-    addRefBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await delay(3000);
+    // ===== STEP 2: In asset picker, click saved frame image (NOT upload tile) =====
+    console.log("  🔍 Step 2: Selecting saved frame image in asset picker...");
 
-    // Step 3: Find the asset picker/gallery and select the most recent asset
-    // The asset gallery shows saved frames as clickable items (Image 5)
-    console.log("  🔍 Looking for asset picker/gallery...");
+    const findSavedAssetCandidate = (): HTMLElement | null => {
+        const pickerCtx = resolveAssetPickerContext();
+        if (!pickerCtx) return null;
 
-    // Look for the asset gallery — it usually contains multiple image items
-    const assetImages = findAllElementsDeep('img, [class*="asset"], [class*="thumbnail"]');
-    let latestAsset: HTMLElement | null = null;
-    let latestAssetRect: DOMRect | null = null;
+        const uploadTile = pickerCtx.uploadTile;
+        const pickerRoot = pickerCtx.pickerRoot;
+        const ur = uploadTile.getBoundingClientRect();
 
-    for (const img of assetImages) {
-        const el = img as HTMLElement;
-        const rect = el.getBoundingClientRect();
-        if (rect.width < 40 || rect.height < 40) continue;
-        if (rect.width > 300 || rect.height > 300) continue; // Too large = main preview, not thumbnail
+        const searchPool = pickerRoot
+            ? (Array.from(pickerRoot.querySelectorAll('button, [role="button"], a, div')) as HTMLElement[])
+            : (findAllElementsDeep('button, [role="button"], a, div') as HTMLElement[]);
 
-        // Look for asset thumbnails that appeared after clicking "+"
-        const parent = el.closest('button, [role="button"], a, div[class*="card"], div[class*="asset"]');
-        if (parent) {
-            const pRect = (parent as HTMLElement).getBoundingClientRect();
-            // The asset picker is likely a horizontal gallery
-            if (!latestAsset || pRect.left > (latestAssetRect?.left || 0)) {
-                // Prefer leftmost after Upload button (most recent assets appear first)
-                latestAsset = parent as HTMLElement;
-                latestAssetRect = pRect;
-            }
+        const candidates = searchPool
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                if (el === uploadTile || uploadTile.contains(el) || el.contains(uploadTile)) return false;
+                if (pickerRoot && !pickerRoot.contains(el)) return false;
+
+                const r = el.getBoundingClientRect();
+                if (r.width < 60 || r.height < 60 || r.width > 320 || r.height > 320) return false;
+                if (r.top < bounds.vh * 0.10 || r.bottom > bounds.vh * 0.96) return false;
+
+                const text = (el.textContent || '').toLowerCase();
+                if (text.includes('upload') || text.includes('อัปโหลด') || text.includes('อัพโหลด') || text.includes('.png') || text.includes('.jpg')) return false;
+                if (text.includes('create image') || text.includes('frames to video')) return false;
+
+                if (!elementHasUsableImage(el)) return false;
+
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+
+                // Exclude right-side rail refs; we need picker cards in main area.
+                if (cx >= bounds.minLeft && cx <= bounds.maxLeft && cy >= bounds.minTop && cy <= bounds.maxTop + 180) return false;
+
+                // Saved image card is usually to the right of upload tile on the same row.
+                if (cy < ur.top - 110 || cy > ur.bottom + 140) return false;
+                if (cx < ur.left + ur.width * 0.55 || cx > ur.left + ur.width + 560) return false;
+
+                return true;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+
+                const as = Math.abs(ar.left - (ur.left + ur.width + 100)) + Math.abs(ar.top - ur.top);
+                const bs = Math.abs(br.left - (ur.left + ur.width + 100)) + Math.abs(br.top - ur.top);
+                return as - bs;
+            });
+
+        return candidates[0] || null;
+    };
+
+    let selectedAsset = false;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        const candidate = findSavedAssetCandidate();
+        if (candidate) {
+            const r = candidate.getBoundingClientRect();
+            console.log(`  🖱️ Selecting saved asset (attempt ${attempt}) at (${r.left.toFixed(0)}, ${r.top.toFixed(0)}) size=${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+            await robustElementClick(candidate);
+            await delay(1800);
+            selectedAsset = true;
+            break;
         }
+
+        console.log(`  ⏳ Saved asset not visible yet (attempt ${attempt}/5), waiting...`);
+        await delay(1200);
     }
 
-    // Alternative: find clickable items in the asset picker
-    if (!latestAsset) {
-        console.log("  🔍 Looking for clickable asset items...");
-        const allItems = findAllElementsDeep('[class*="asset-item"], [class*="media-item"], [class*="gallery-item"], [class*="thumbnail"]');
-        for (const item of allItems) {
-            const rect = (item as HTMLElement).getBoundingClientRect();
-            if (rect.width >= 50 && rect.height >= 50 && rect.width <= 200) {
-                latestAsset = item as HTMLElement;
-                console.log(`  📋 Found asset item: size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
-                break;
-            }
-        }
+    if (!selectedAsset) {
+        console.warn("  ⚠️ Could not find saved asset in picker");
+        return false;
     }
 
-    if (!latestAsset) {
-        // Last resort: find the first non-upload button in the asset area
-        console.log("  🔍 Last resort: looking for first selectable asset...");
-        const buttons = findAllElementsDeep('button');
-        for (const btn of buttons) {
-            const el = btn as HTMLElement;
-            const rect = el.getBoundingClientRect();
-            if (rect.width < 50 || rect.width > 200) continue;
-            if (rect.height < 50 || rect.height > 200) continue;
+    const clickPickerConfirmButton = async (): Promise<boolean> => {
+        const pickerCtx = resolveAssetPickerContext();
+        if (!pickerCtx) return false;
 
-            const hasImg = el.querySelector('img') !== null;
-            const text = (el.textContent || '').trim().toLowerCase();
-            const isUpload = text.includes('upload') || text.includes('อัปโหลด');
+        const uploadTile = pickerCtx.uploadTile;
+        const pickerRoot = pickerCtx.pickerRoot;
+        const searchPool = pickerRoot
+            ? (Array.from(pickerRoot.querySelectorAll('button, [role="button"], div[role="button"], span[role="button"]')) as HTMLElement[])
+            : (findAllElementsDeep('button, [role="button"], div[role="button"], span[role="button"]') as HTMLElement[]);
 
-            if (hasImg && !isUpload) {
-                latestAsset = el;
-                console.log(`  📋 Found image button: "${text.substring(0, 30)}" size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
-                break;
-            }
-        }
-    }
+        const confirmHints = ['add', 'insert', 'select', 'choose', 'use', 'done', 'เพิ่ม', 'แทรก', 'เลือก', 'ยืนยัน', 'ตกลง', 'เสร็จ'];
+        const rejectHints = ['upload', 'close', 'cancel', 'ยกเลิก', 'ปิด'];
 
-    if (latestAsset) {
-        console.log("  🖱️ Clicking on latest saved asset...");
-        latestAsset.click();
-        latestAsset.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-        await delay(3000);
-        console.log("  ✅ Asset selected as reference! Mode should switch to 'Frames to Video'");
+        const candidates = searchPool
+            .filter((el) => {
+                if (el.offsetParent === null) return false;
+                if (uploadTile.contains(el) || el.contains(uploadTile)) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width < 56 || r.height < 26 || r.width > 280 || r.height > 90) return false;
+
+                const text = (el.textContent || '').trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                const title = (el.getAttribute('title') || '').trim().toLowerCase();
+                const combined = `${text} ${aria} ${title}`.replace(/\s+/g, ' ').trim();
+                if (!combined) return false;
+                if (rejectHints.some((hint) => combined.includes(hint))) return false;
+                if (!confirmHints.some((hint) => combined.includes(hint))) return false;
+                if (elementHasUsableImage(el)) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                return br.top - ar.top || br.left - ar.left;
+            });
+
+        const confirmBtn = candidates[0] || null;
+        if (!confirmBtn) return false;
+
+        console.log("  🖱️ Clicking picker confirm button after asset selection...");
+        await robustElementClick(confirmBtn);
+        await delay(1100);
         return true;
+    };
+
+    await clickPickerConfirmButton();
+
+    const modeLabels = findAllElementsDeep('button, span, div') as HTMLElement[];
+    const framesMode = modeLabels.some((el) => {
+        const text = (el.textContent || '').toLowerCase();
+        return text.includes('frames to video') || text.includes('เฟรมเป็นวิดีโอ');
+    });
+
+    const pickerStillOpen = resolveAssetPickerContext() !== null;
+    const afterRailRefs = getRailReferenceImages().sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    const afterBottomRefSrc = (afterRailRefs[afterRailRefs.length - 1] as HTMLImageElement | undefined)?.src || null;
+    const bottomRefChanged = !!afterBottomRefSrc && afterBottomRefSrc !== initialBottomRefSrc;
+    const railReady = afterRailRefs.length >= 1;
+
+    if (framesMode) {
+        console.log("  ✅ Mode switched to 'Frames to Video' — reference attached!");
+    } else {
+        console.log("  ✅ Asset selected as reference (mode label not detected, proceeding)");
     }
 
-    console.warn("  ⚠️ Could not find any asset to select in the picker");
-    return false;
+    if (!framesMode && pickerStillOpen && !bottomRefChanged) {
+        console.warn("  ⚠️ Asset picker is still open and right-rail reference did not change — treating attach as failed");
+        return false;
+    }
+
+    if (!framesMode && !bottomRefChanged && !railReady) {
+        console.warn("  ⚠️ Could not verify reference attachment in scene builder");
+        return false;
+    }
+
+    return true;
 };
 
 /**
@@ -3069,13 +5156,19 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
 };
 
 // ========== MULTI-SCENE PIPELINE INTERFACE ==========
+export interface SceneScript {
+    script: string;
+    voiceGender?: 'male' | 'female';
+}
+
 export interface MultiScenePipelineConfig {
     characterImage: string;
     productImage: string;
     imagePrompt: string;
     videoPrompt: string;          // Full video prompt for Scene 1 (from Video Prompt Motion)
     sceneCount: number;           // Total number of scenes (1, 2, or 3)
-    sceneScripts: string[];       // Array of scripts for each scene (Scene 2+ only uses script part)
+    sceneScripts: (SceneScript | string)[];  // Array of scripts for each scene (Scene 2+ only uses script part)
+    aspectRatio?: string;
 }
 
 /**
@@ -3099,14 +5192,27 @@ export const runMultiScenePipeline = async (
     console.log(`🚀 Starting Multi-Scene Pipeline - ${sceneCount} scene(s)`);
     console.log(`📝 Scene Scripts:`, sceneScripts);
 
-    // Reset upload state
+    // Reset upload state and voice seed for fresh pipeline
     resetUploadState();
+    resetVoiceSeed();
 
     // Array to collect all video URLs for multi-scene
     const videoUrls: string[] = [];
 
     // Store generated base image for Scene 2/3 reference (consistency)
     let scene1GeneratedImage: string | null = null;
+
+    // Extract voice gender from first scene script for consistency
+    if (sceneScripts.length > 0 && sceneScripts[0]) {
+        const firstScript = sceneScripts[0];
+        let voiceGender: 'male' | 'female' = 'female'; // default to female
+        
+        if (typeof firstScript === 'object' && firstScript.voiceGender) {
+            voiceGender = firstScript.voiceGender;
+        }
+        
+        setVoiceGender(voiceGender);
+    }
 
     const report = (step: string, current: number, total: number) => {
         if (onProgress) onProgress(step, current, total);
@@ -3153,6 +5259,14 @@ export const runMultiScenePipeline = async (
             }
         }
 
+        // Required checkpoint #1: right after opening project/workspace, sync ratio to app input.
+        console.log("🎛️ Aspect ratio check #1 (after project open)");
+        const ratioOkAtStart = await ensureAspectRatioMatchesInput(config.aspectRatio);
+        if (!ratioOkAtStart) {
+            throw new Error("Aspect Ratio mismatch after project open. Stop before Scene 1 generation.");
+        }
+        await delay(600);
+
         // ===== SCENE 1: Generate First Video =====
         report("Switching to Image Mode...", 3, totalSteps);
         await switchToImageTab(selectors);
@@ -3198,9 +5312,19 @@ export const runMultiScenePipeline = async (
 
         await delay(10000);
 
+        // Required checkpoint #2: after image handoff, before first video generate.
+        console.log("🎛️ Aspect ratio check #2 (before Scene 1 video generation)");
+        const ratioOkBeforeScene1Video = await ensureAspectRatioMatchesInput(config.aspectRatio);
+        if (!ratioOkBeforeScene1Video) {
+            throw new Error("Aspect Ratio mismatch before Scene 1 video generation. Stop before generate.");
+        }
+        await delay(400);
+
         report("Generating Scene 1...", 9, totalSteps);
         // Scene 1 uses full videoPrompt but ONLY with Scene 1 script (remove Scene 2, 3 scripts)
-        let scene1Prompt = config.videoPrompt || sceneScripts[0] || config.imagePrompt;
+        const firstSceneScript = sceneScripts[0];
+        const scene1ScriptText = typeof firstSceneScript === 'string' ? firstSceneScript : firstSceneScript?.script || '';
+        let scene1Prompt = config.videoPrompt || scene1ScriptText || config.imagePrompt;
 
         // If videoPrompt contains multiple scenes, keep only Scene 1 script
         if (scene1Prompt.includes('🎬 ฉาก 2:') || scene1Prompt.includes('🎬 ฉาก 3:')) {
@@ -3213,10 +5337,19 @@ export const runMultiScenePipeline = async (
             console.log("📝 Scene 1 prompt cleaned - removed Scene 2, 3 scripts");
         }
 
-        await switchToVideoModeAndGenerate(scene1Prompt, selectors);
+        const scene1PromptFinal = finalizeVideoPrompt(scene1Prompt, config.aspectRatio);
+
+        await switchToVideoModeAndGenerate(scene1PromptFinal, selectors, config.aspectRatio);
 
         report("Waiting for Video 1...", 10, totalSteps);
-        const video1Src = await waitForVideoComplete(300000);
+        let video1Src = await waitForVideoComplete(300000);
+        if (!video1Src) {
+            console.warn("⚠️ Scene 1 video did not complete. Retrying once with cleaned references...");
+            const retryGenerated = await fillPromptAndGenerate(scene1PromptFinal);
+            if (retryGenerated) {
+                video1Src = await waitForVideoComplete(180000);
+            }
+        }
         if (!video1Src) throw new Error("Video 1 Generation Timeout");
 
         // เก็บ URL ของ scene 1
@@ -3239,8 +5372,8 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Add to Scene → Save Frame as Asset (+) → Fill prompt → Generate =====
-        // NO Jump to / Extend — stays in Ingredients to Video mode
+        // ===== MULTI-SCENE: Add to Scene → Save Frame as Asset (+) → re-attach latest frame ref → Fill prompt → Generate =====
+        // NO Jump to / Extend — stays in Frames to Video mode
         console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s)...`);
         console.log("📋 Scene Scripts Array:", sceneScripts);
 
@@ -3252,6 +5385,12 @@ export const runMultiScenePipeline = async (
         }
         await delay(5000);
 
+        // STEP B: Remove extra references — keep only 1 (original character)
+        // Multiple references cause AI to generate inconsistent clips between scenes.
+        console.log("🧹 STEP B: Cleaning up extra references before multi-scene generation...");
+        await ensureSingleSceneBuilderReference();
+        await delay(1000);
+
         let actualScenesGenerated = 1; // Scene 1 already done
 
         for (let sceneIndex = 1; sceneIndex < sceneCount; sceneIndex++) {
@@ -3260,27 +5399,92 @@ export const runMultiScenePipeline = async (
 
             console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
 
+            // ===== STEP 0: Ensure only 1 reference image =====
+            console.log(`🎯 STEP 0: Ensuring single reference for Scene ${sceneNum}...`);
+            await ensureSingleSceneBuilderReference();
+            await delay(500);
+
             // ===== STEP 1: Save frame as asset =====
             report(`Saving Frame...`, stepBase, totalSteps);
             console.log(`🎯 STEP 1: Save frame as asset for Scene ${sceneNum}...`);
 
-            const frameSaved = await clickSaveFrameAsAsset();
-            if (frameSaved) {
-                console.log(`✅ Frame saved as asset!`);
-            } else {
-                console.warn(`⚠️ Could not save frame as asset, continuing...`);
+            let frameSaved = false;
+            for (let saveAttempt = 1; saveAttempt <= 2; saveAttempt++) {
+                console.log(`  🔁 Save frame attempt ${saveAttempt}/2...`);
+                frameSaved = await clickSaveFrameAsAsset();
+                if (frameSaved) {
+                    console.log(`✅ Frame saved as asset (attempt ${saveAttempt})!`);
+                    break;
+                }
+
+                if (saveAttempt < 2) {
+                    console.warn(`  ⚠️ Save frame failed on attempt ${saveAttempt}. Retrying...`);
+                    await delay(1200);
+                }
+            }
+
+            if (!frameSaved) {
+                const saveError = `Could not click 'Save frame as asset' for Scene ${sceneNum} after 2 attempts. Stop before attach.`;
+                console.error(`❌ ${saveError}`);
+                throw new Error(saveError);
             }
             await delay(1500);
+
+            // Re-attach latest saved frame into prompt references to avoid stale duplicate refs causing 403.
+            // HARD GATE: must attach successfully before prompt+generate.
+            console.log(`🎯 STEP 1.5: Attaching latest saved frame asset for Scene ${sceneNum}...`);
+            let latestAssetAttached = false;
+            for (let attachAttempt = 1; attachAttempt <= 2; attachAttempt++) {
+                console.log(`  🔁 Attach latest asset attempt ${attachAttempt}/2...`);
+                latestAssetAttached = await selectLatestAssetAsReference();
+                if (latestAssetAttached) {
+                    console.log(`✅ Latest frame asset attached as reference for Scene ${sceneNum} (attempt ${attachAttempt})`);
+                    break;
+                }
+
+                if (attachAttempt < 2) {
+                    console.warn(`  ⚠️ Attach latest asset failed on attempt ${attachAttempt}. Retrying...`);
+                    // Close any stray picker/popup before retrying.
+                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+                    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', bubbles: true }));
+                    await delay(350);
+                    await ensureSingleSceneBuilderReference();
+                    await delay(900);
+                }
+            }
+
+            if (!latestAssetAttached) {
+                const attachError = `Could not attach latest saved frame asset for Scene ${sceneNum} after 2 attempts. Stop before generate.`;
+                console.error(`❌ ${attachError}`);
+                throw new Error(attachError);
+            }
+            await delay(1200);
+            console.log(`✅ Sequence gate passed for Scene ${sceneNum}: save frame → attach latest asset → fill prompt → generate`);
+
+            // Ensure we still have only 1 reference after adding saved frame
+            await ensureSingleSceneBuilderReference();
+            await delay(500);
 
             // ===== STEP 2: Fill prompt with new script and generate immediately =====
             report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
             console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
 
-            const scenePrompt = sceneScripts[sceneIndex];
-            if (!scenePrompt || scenePrompt.trim() === '') {
+            // User-required guard: verify Aspect Ratio before every scene video generation.
+            const ratioOkBeforeSceneVideo = await ensureAspectRatioMatchesInput(config.aspectRatio);
+            if (!ratioOkBeforeSceneVideo) {
+                throw new Error(`Aspect Ratio mismatch before Scene ${sceneNum} generation. Stop before generate.`);
+            }
+            await delay(350);
+
+            const sceneScriptData = sceneScripts[sceneIndex];
+            const sceneScriptText = typeof sceneScriptData === 'string' ? sceneScriptData : sceneScriptData?.script || '';
+            
+            if (!sceneScriptText || sceneScriptText.trim() === '') {
                 console.error(`❌ No script for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
                 continue;
             }
+
+            const scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
 
             console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
 
@@ -3294,13 +5498,27 @@ export const runMultiScenePipeline = async (
             report(`Waiting for Video ${sceneNum}...`, stepBase + 2, totalSteps);
             console.log(`🎯 STEP 3: Waiting for Scene ${sceneNum} video...`);
 
-            const videoSrc = await waitForVideoComplete(300000);
+            let videoSrc = await waitForVideoComplete(300000);
+            if (!videoSrc) {
+                console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying once with refreshed frame reference...`);
+                const retryAssetAttached = await selectLatestAssetAsReference();
+                if (!retryAssetAttached) {
+                    console.warn(`⚠️ Retry skipped for Scene ${sceneNum}: failed to re-attach latest frame asset.`);
+                } else {
+                    await delay(1000);
+                    const retryGenerated = await fillPromptAndGenerate(scenePrompt);
+                    if (retryGenerated) {
+                        videoSrc = await waitForVideoComplete(180000);
+                    }
+                }
+            }
+
             if (videoSrc) {
                 videoUrls.push(videoSrc);
                 actualScenesGenerated++;
                 console.log(`✅ Scene ${sceneNum} Complete! URL: ${videoSrc.substring(0, 50)}...`);
             } else {
-                console.warn(`⚠️ Scene ${sceneNum} video timed out`);
+                console.warn(`⚠️ Scene ${sceneNum} video timed out after retry`);
             }
 
             if (sceneIndex < sceneCount - 1) {

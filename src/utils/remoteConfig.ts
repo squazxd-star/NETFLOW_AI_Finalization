@@ -47,7 +47,7 @@ export const DEFAULT_CONFIG: AutomationSelectors = {
     },
     generation: {
         addToPromptTriggers: ['เพิ่มไปยังพรอมต์', 'Add to prompt', 'Add To Prompt', 'เพิ่มไปยัง', 'Add to', 'เสร็จสิ้น'],
-        videoTabTriggers: ['ส่วนผสมในวิดีโอ', 'Ingredients to Video', 'Ingredients to video', 'ผสมวิดีโอ']
+        videoTabTriggers: ['เฟรมเป็นวิดีโอ', 'Frames to Video', 'Frames to video', 'Frames To Video']
     },
     download: {
         downloadButtonTriggers: ['ดาวน์โหลด', 'Download', 'บันทึกวิดีโอ', 'Save video', 'Export', 'ส่งออก'],

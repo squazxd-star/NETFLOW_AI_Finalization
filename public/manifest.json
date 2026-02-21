@@ -45,10 +45,25 @@
         },
         {
             "matches": [
-                "*://*.tiktok.com/tiktokstudio/*"
+                "*://www.tiktok.com/tiktokstudio/*",
+                "*://tiktok.com/tiktokstudio/*",
+                "*://seller-th.tiktok.com/*",
+                "*://seller.tiktok.com/*"
             ],
             "js": [
-                "content/tiktok-uploader.js"
+                "src/content-tiktok.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "*://www.tiktok.com/tiktokstudio/upload*",
+                "*://tiktok.com/tiktokstudio/upload*",
+                "*://seller-th.tiktok.com/tiktokstudio/*",
+                "*://seller.tiktok.com/tiktokstudio/*"
+            ],
+            "js": [
+                "src/content-tiktok-upload.js"
             ],
             "run_at": "document_idle"
         }
