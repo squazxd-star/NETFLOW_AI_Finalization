@@ -722,63 +722,25 @@ const isInWorkspace = (selectors: AutomationSelectors): boolean => {
 export const switchToImageTab = async (selectors: AutomationSelectors): Promise<boolean> => {
     console.log("🖼️ Switching to Image Tab...");
 
+    // Strategy 1: Search broad set of elements (tabs, buttons, links, divs)
     const triggers = selectors.workspace.imageTabTriggers;
-
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        console.log(`  🔍 Attempt ${attempt}/3 to find Image tab...`);
-
-        // Strategy 1: Search tabs (role="tab"), buttons, links, spans, divs — broad search
-        const allEls = findAllElementsDeep('button, [role="tab"], a, div, span, label') as HTMLElement[];
-        for (const el of allEls) {
-            const rect = el.getBoundingClientRect();
+    const allElements = findAllElementsDeep('button, [role="tab"], a, div[role="tab"], span, nav a, nav button');
+    for (const el of allElements) {
+        const text = (el.textContent || '').trim();
+        if (triggers.some(t => text.includes(t))) {
+            const rect = (el as HTMLElement).getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) continue;
-            // Only top area (tabs are usually in header/nav, y < 200)
-            if (rect.top > 250) continue;
-
-            const text = (el.textContent || '').trim();
-            const ariaLabel = (el.getAttribute('aria-label') || '').trim();
-            const matchText = triggers.some(t => text.includes(t) || ariaLabel.includes(t));
-
-            if (matchText) {
-                console.log(`  ✅ Found Image tab: "${text}" (${el.tagName}) at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
-                await robustElementClick(el);
-                await delay(800);
-                return true;
-            }
-        }
-
-        // Strategy 2: Look for navigation links with image-related href
-        const navLinks = findAllElementsDeep('a[href*="image"], a[href*="ImageFX"]') as HTMLElement[];
-        for (const link of navLinks) {
-            const rect = link.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
-            console.log(`  ✅ Found Image nav link: "${link.textContent?.trim()}" at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
-            await robustElementClick(link);
-            await delay(800);
+            console.log(`✅ Found Image tab: "${text}" at (${rect.left.toFixed(0)},${rect.top.toFixed(0)})`);
+            await robustElementClick(el as HTMLElement);
             return true;
         }
-
-        // Strategy 3: Look for google-symbols icon "image" or "photo"
-        const icons = findAllElementsDeep('i.google-symbols, i[class*="google-symbols"], i.material-icons') as HTMLElement[];
-        for (const icon of icons) {
-            const iconText = (icon.textContent || '').trim().toLowerCase();
-            if (iconText === 'image' || iconText === 'photo' || iconText === 'photo_library') {
-                const btn = icon.closest('button, a, [role="tab"]') as HTMLElement || icon.parentElement as HTMLElement;
-                if (btn) {
-                    const rect = btn.getBoundingClientRect();
-                    if (rect.top > 250) continue;
-                    console.log(`  ✅ Found Image icon "${iconText}" → clicking parent at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
-                    await robustElementClick(btn);
-                    await delay(800);
-                    return true;
-                }
-            }
-        }
-
-        await delay(1500);
     }
 
-    console.warn("  ⚠️ Could not find Image tab after 3 attempts");
+    // Strategy 2: Fallback to clickByText with broader search
+    const clicked = await clickByText(triggers);
+    if (clicked) return true;
+
+    console.warn("⚠️ Could not find Image tab with any strategy");
     return false;
 };
 
@@ -1561,8 +1523,7 @@ export const fillPromptAndGenerate = async (prompt: string): Promise<boolean> =>
                 const placeholder = (el.getAttribute('data-placeholder') || '').toLowerCase();
                 const knownPlaceholders = [
                     'สร้างวิดีโอที่มีข้อความ', 'type a prompt', 'describe', 'create video',
-                    'พิมพ์ในช่องพร้อมต์เพื่อเริ่มต้น', 'describe your video', 'สร้างรูปภาพจากข้อความและองค์ประกอบ',
-                    'what happens next', 'what should happen next', 'what should happen'
+                    'พิมพ์ในช่องพร้อมต์เพื่อเริ่มต้น', 'describe your video', 'สร้างรูปภาพจากข้อความและองค์ประกอบ'
                 ];
                 return knownPlaceholders.some(p => txt.includes(p) || placeholder.includes(p));
             };
@@ -3587,106 +3548,6 @@ const clickSaveFrameAsAsset = async (): Promise<boolean> => {
 };
 
 /**
- * Click "+" (PINHOLE_ADD_CLIP_CARD_ID) → click "Extend" from dropdown.
- * This opens the "What should happen next?" prompt area for the next scene.
- * 
- * Flow: Click "+" → dropdown with "Jump to" & "Extend" → click "Extend"
- * → UI shows Extend mode with prompt "What happens next?"
- */
-const clickExtendClip = async (): Promise<boolean> => {
-    console.log("🎬 Clicking '+' (Add clip) → Extend for next scene...");
-    await delay(1000);
-
-    // Step 1: Find and click PINHOLE_ADD_CLIP_CARD_ID
-    let addClipBtn: HTMLElement | null = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID') as HTMLElement | null;
-
-    // Fallback: deep search for the button
-    if (!addClipBtn) {
-        const allBtns = findAllElementsDeep('#PINHOLE_ADD_CLIP_CARD_ID') as HTMLElement[];
-        if (allBtns.length > 0) addClipBtn = allBtns[0];
-    }
-
-    // Fallback: search by aria text
-    if (!addClipBtn) {
-        const candidates = findAllElementsDeep('button[aria-haspopup="menu"]') as HTMLElement[];
-        for (const btn of candidates) {
-            const text = (btn.textContent || '').toLowerCase();
-            if (text.includes('add clip') || text.includes('เพิ่มคลิป')) {
-                addClipBtn = btn;
-                break;
-            }
-        }
-    }
-
-    if (!addClipBtn) {
-        console.error("❌ Could not find PINHOLE_ADD_CLIP_CARD_ID button");
-        return false;
-    }
-
-    const btnRect = addClipBtn.getBoundingClientRect();
-    console.log(`  📍 Found '+' button at (${btnRect.left.toFixed(0)}, ${btnRect.top.toFixed(0)}) size=${btnRect.width.toFixed(0)}x${btnRect.height.toFixed(0)}`);
-
-    // Click the "+" button to open dropdown
-    await robustElementClick(addClipBtn);
-    await delay(1000);
-
-    // Step 2: Find and click "Extend" from the dropdown menu
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        console.log(`  🔍 Looking for 'Extend' menuitem (attempt ${attempt}/3)...`);
-
-        // Search for menuitem/radix elements with "Extend" text
-        const menuItems = findAllElementsDeep('[role="menuitem"], [data-radix-collection-item], button, div, span') as HTMLElement[];
-        
-        let extendItem: HTMLElement | null = null;
-        for (const item of menuItems) {
-            const rect = item.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) continue;
-            
-            const text = (item.textContent || '').trim().toLowerCase();
-            // Match "Extend" or "Extend..." but NOT "Extended"
-            if (text === 'extend' || text === 'extend...' || text === 'extend…' || text.startsWith('extend') && !text.includes('extended')) {
-                // Prefer menuitem role
-                const menuParent = item.closest('[role="menuitem"]') as HTMLElement;
-                extendItem = menuParent || item;
-                console.log(`  🎯 Found 'Extend' item: "${text}" at (${rect.left.toFixed(0)}, ${rect.top.toFixed(0)})`);
-                break;
-            }
-        }
-
-        if (extendItem) {
-            await robustElementClick(extendItem);
-            console.log("  ✅ Clicked 'Extend'!");
-            await delay(2000);
-
-            // Verify: check if "Extend" tag/chip appeared or "What happens next?" prompt is visible
-            const extendChips = findAllElementsDeep('span, div, button') as HTMLElement[];
-            const hasExtendMode = extendChips.some(el => {
-                const text = (el.textContent || '').trim().toLowerCase();
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && (text === 'extend' || text.includes('what happens next') || text.includes('what should happen'));
-            });
-
-            if (hasExtendMode) {
-                console.log("  ✅ Extend mode confirmed! Ready for prompt.");
-            } else {
-                console.log("  ℹ️ Extend clicked, proceeding (mode not explicitly verified).");
-            }
-            return true;
-        }
-
-        // If dropdown didn't open, try clicking again
-        if (attempt < 3) {
-            console.log("  ⚠️ 'Extend' not found, retrying click...");
-            await robustElementClick(addClipBtn);
-            await delay(1200);
-        }
-    }
-
-    console.error("❌ Could not find 'Extend' option in dropdown menu");
-    return false;
-};
-
-/**
  * Select the most recently saved frame asset as a reference image.
  * 
  * CORRECT FLOW (from working UI observations):
@@ -4987,7 +4848,7 @@ const selectLatestAssetAsReference = async (): Promise<boolean> => {
  * Returns the element to click, or null if not found.
  */
 const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null => {
-    // priority: 0 = Jump to (preferred), 1 = Extend (fallback)
+    // priority: 0 = Extend (preferred), 1 = Jump to (fallback)
     const candidates: { element: Element; dist: number; priority: number }[] = [];
 
     // Method 1: Search by role="menuitem" text
@@ -5006,14 +4867,13 @@ const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null =>
         const rect = (el as HTMLElement).getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) continue;
 
-        // Prefer "Jump to" (priority 0) over "Extend" (priority 1)
-        // Jump to = independent clip = consistent voice across scenes
+        // Prefer "Extend" (priority 0) over "Jump to" (priority 1)
         const isJumpTo = text.includes('ข้ามไปยัง') || text.toLowerCase().includes('jump to');
         const isExtend = text.includes('ขยาย') || text.toLowerCase().includes('extend');
         if (isJumpTo || isExtend) {
             const cx = rect.left + rect.width / 2;
             const cy = rect.top + rect.height / 2;
-            const priority = isJumpTo ? 0 : 1;
+            const priority = isExtend ? 0 : 1;
             candidates.push({ element: el, dist: Math.hypot(cx - anchorX, cy - anchorY), priority });
             console.log(`  📋 Found menu item: "${text}" priority=${priority} (${isJumpTo ? 'JUMP TO' : 'EXTEND'}) dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
         }
@@ -5036,7 +4896,7 @@ const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null =>
                 if (rect.width === 0 || rect.height === 0) continue;
                 const cx = rect.left + rect.width / 2;
                 const cy = rect.top + rect.height / 2;
-                const priority = isJumpIcon ? 0 : 1;
+                const priority = isExtendIcon ? 0 : 1;
                 candidates.push({ element: parent, dist: Math.hypot(cx - anchorX, cy - anchorY), priority });
                 console.log(`  📋 Found via icon "${iconText}" priority=${priority} dist=${Math.hypot(cx - anchorX, cy - anchorY).toFixed(0)}`);
             }
@@ -5049,7 +4909,7 @@ const findExtendMenuItem = (anchorX: number, anchorY: number): Element | null =>
     candidates.sort((a, b) => a.priority - b.priority || a.dist - b.dist);
     const chosen = candidates[0];
     const chosenText = (chosen.element.textContent || '').trim();
-    console.log(`  ✅ CHOSEN: "${chosenText}" priority=${chosen.priority} (${chosen.priority === 0 ? 'JUMP TO' : 'EXTEND'})`);
+    console.log(`  ✅ CHOSEN: "${chosenText}" priority=${chosen.priority} (${chosen.priority === 0 ? 'EXTEND' : 'JUMP TO'})`);
     return chosen.element;
 };
 
@@ -5770,8 +5630,7 @@ export const runMultiScenePipeline = async (
             };
         }
 
-        // ===== MULTI-SCENE: Add to Scene → Extend (+) → Fill prompt → Generate =====
-        // New flow: Click "+" (PINHOLE_ADD_CLIP_CARD_ID) → "Extend" → fill next scene prompt → generate
+        // ===== MULTI-SCENE: Click + → Extend → Fill prompt → Generate =====
         console.log(`🎬 Multi-scene mode: Generating ${sceneCount - 1} more scene(s)...`);
         console.log("📋 Scene Scripts Array:", sceneScripts);
 
@@ -5791,22 +5650,21 @@ export const runMultiScenePipeline = async (
 
             console.log(`\n🎬 ========== Generating Scene ${sceneNum} ==========`);
 
-            // ===== STEP 1: Click "+" → "Extend" to open next scene prompt =====
+            // ===== STEP 1: Click + (PINHOLE_ADD_CLIP_CARD_ID) → Extend =====
             report(`Extending clip...`, stepBase, totalSteps);
-            console.log(`🎯 STEP 1: Click Extend for Scene ${sceneNum}...`);
+            console.log(`🎯 STEP 1: Click + → Extend for Scene ${sceneNum}...`);
 
             let extendSuccess = false;
             for (let extAttempt = 1; extAttempt <= 2; extAttempt++) {
                 console.log(`  🔁 Extend attempt ${extAttempt}/2...`);
-                extendSuccess = await clickExtendClip();
+                extendSuccess = await clickAddClipButton();
                 if (extendSuccess) {
-                    console.log(`✅ Extend mode activated (attempt ${extAttempt})!`);
+                    console.log(`✅ Extend clicked for Scene ${sceneNum} (attempt ${extAttempt})!`);
                     break;
                 }
                 if (extAttempt < 2) {
                     console.warn(`  ⚠️ Extend failed on attempt ${extAttempt}. Retrying...`);
-                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-                    await delay(1500);
+                    await delay(2000);
                 }
             }
 
@@ -5815,9 +5673,10 @@ export const runMultiScenePipeline = async (
                 console.error(`❌ ${extError}`);
                 throw new Error(extError);
             }
-            await delay(1500);
+            await delay(2000);
+            console.log(`✅ Scene ${sceneNum}: Extend mode active → ready for prompt`);
 
-            // ===== STEP 2: Fill prompt and generate =====
+            // ===== STEP 2: Fill prompt with new script and generate =====
             report(`Generating Scene ${sceneNum}...`, stepBase + 1, totalSteps);
             console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
 
@@ -5829,7 +5688,7 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // Build Scene 2+ prompt for Extend mode
+            // Build Scene 2+ prompt
             let scenePrompt: string;
             if (config.videoPromptMeta) {
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
@@ -5852,7 +5711,7 @@ export const runMultiScenePipeline = async (
 
             let videoSrc = await waitForVideoComplete(300000);
             if (!videoSrc) {
-                console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying once...`);
+                console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying generate once...`);
                 const retryGenerated = await fillPromptAndGenerate(scenePrompt);
                 if (retryGenerated) {
                     videoSrc = await waitForVideoComplete(180000);

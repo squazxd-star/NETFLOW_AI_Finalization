@@ -516,64 +516,52 @@ const generateThaiScript = (
     const benefit = pickRandom(SALES_BENEFITS);
     const urgency = pickRandom(URGENCY_PHRASES);
     
-    // Script parts based on duration
+    // Generate exactly 1 short script per scene (~8 seconds each, slow comfortable pace)
+    // Each line should be 1-2 short sentences only — NOT crammed with text
+    const sceneCount = Math.max(1, Math.floor(clipDuration / 8));
     let scriptParts: string[] = [];
     
-    // Opening hook with product name
     const rawOpeningHook = hookText || pickRandom(HOOK_VARIATIONS[template] || HOOK_VARIATIONS["product-review"]);
     const openingHook = ensureMentionsProductName(rawOpeningHook, productName);
-    scriptParts.push(`🎬 เปิด: "${openingHook}"`);
-    
-    // Middle content based on duration
-    // PACING: Each line ~8-12 Thai words max for slow, clear 8-second delivery per scene
-    if (clipDuration >= 8) {
-        if (category === "food") {
-            scriptParts.push(`💬 แนะนำ: "ลองชิม ${productName} กัน"`);
-        } else if (category === "fashion") {
-            scriptParts.push(`💬 แนะนำ: "ลองใส่ ${productName} ให้ดูกัน"`);
-        } else if (category === "gadget") {
-            scriptParts.push(`💬 แนะนำ: "ลองใช้ ${productName} ให้ดูกัน"`);
-        } else {
-            scriptParts.push(`💬 แนะนำ: "มาดู ${productName} กัน"`);
-        }
-    }
-    
-    if (clipDuration >= 16) {
-        if (category === "food") {
-            scriptParts.push(`✨ จุดเด่น: "รสชาติของ ${productName} ${powerWord}"`);
-            scriptParts.push(`😍 รีวิว: "อร่อย ${powerWord} เลย"`);
-        } else if (category === "fashion") {
-            scriptParts.push(`✨ จุดเด่น: "เนื้อผ้า ${productName} ดีมาก"`);
-            scriptParts.push(`😍 รีวิว: "ใส่แล้ว ลุคดูดีขึ้นเลย"`);
-        } else if (category === "gadget") {
-            scriptParts.push(`✨ จุดเด่น: "${productName} มี${benefit}"`);
-            scriptParts.push(`😍 รีวิว: "ใช้แล้ว ${powerWord} มาก"`);
-        } else {
-            scriptParts.push(`✨ จุดเด่น: "${productName} ${benefit}"`);
-            scriptParts.push(`😍 รีวิว: "ลองแล้ว ${powerWord} มาก"`);
-        }
-    }
-    
-    if (clipDuration >= 24) {
-        if (category === "food") {
-            scriptParts.push(`🔥 เน้น: "${productName} หอม อร่อยจริง"`);
-            scriptParts.push(`💡 สรุป: "ชอบแนวนี้ ต้องลอง"`);
-        } else if (category === "fashion") {
-            scriptParts.push(`🔥 เน้น: "${productName} ใส่แล้วดูดี"`);
-            scriptParts.push(`💡 สรุป: "แมตช์ง่าย ใส่ได้ทุกวัน"`);
-        } else if (category === "gadget") {
-            scriptParts.push(`🔥 เน้น: "${productName} ช่วยได้จริง"`);
-            scriptParts.push(`💡 สรุป: "คุ้มค่า ใช้ทุกวัน"`);
-        } else {
-            scriptParts.push(`🔥 เน้น: "${productName} ตัวนี้ ปังมาก"`);
-            scriptParts.push(`💡 สรุป: "${benefit} จริงๆ"`);
-        }
-    }
-    
-    // Closing CTA with urgency
     const rawClosingCTA = ctaText || pickRandom(CTA_VARIATIONS[saleStyle] || CTA_VARIATIONS["storytelling"]);
     const closingCTA = ensureMentionsProductName(rawClosingCTA, productName);
-    scriptParts.push(`🎯 ปิด: "${closingCTA} ${urgency}"`);
+
+    if (sceneCount === 1) {
+        // Single scene: hook + short benefit
+        scriptParts.push(`🎬 ฉาก1: "${openingHook} ${powerWord}!"`);
+    } else if (sceneCount === 2) {
+        // Scene 1: hook + introduce product
+        if (category === "food") {
+            scriptParts.push(`🎬 ฉาก1: "${openingHook} วันนี้ลองชิม ${productName} กัน!"`);
+            scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA} ${urgency}"`);
+        } else if (category === "fashion") {
+            scriptParts.push(`🎬 ฉาก1: "${openingHook} วันนี้ลองใส่ ${productName} ให้ดูกัน!"`);
+            scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA} ${urgency}"`);
+        } else if (category === "gadget") {
+            scriptParts.push(`🎬 ฉาก1: "${openingHook} วันนี้ลองใช้ ${productName} จริงๆ!"`);
+            scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA} ${urgency}"`);
+        } else {
+            scriptParts.push(`🎬 ฉาก1: "${openingHook} มาดู ${productName} กัน!"`);
+            scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA} ${urgency}"`);
+        }
+    } else {
+        // 3+ scenes: hook → benefit/review → closing CTA
+        scriptParts.push(`🎬 ฉาก1: "${openingHook} มาดู ${productName} กัน!"`);
+        if (category === "food") {
+            scriptParts.push(`🎬 ฉาก2: "ลองชิมแล้ว ${productName} ${powerWord} ${benefit}"`);
+        } else if (category === "fashion") {
+            scriptParts.push(`🎬 ฉาก2: "ใส่แล้ว ${productName} ${powerWord} ${benefit}"`);
+        } else if (category === "gadget") {
+            scriptParts.push(`🎬 ฉาก2: "ใช้จริงแล้ว ${productName} ${powerWord} ${benefit}"`);
+        } else {
+            scriptParts.push(`🎬 ฉาก2: "ลองใช้แล้ว ${productName} ${powerWord} ${benefit}"`);
+        }
+        scriptParts.push(`🎬 ฉาก3: "${closingCTA} ${urgency}"`);
+        // Fill remaining scenes if > 3
+        for (let i = 3; i < sceneCount; i++) {
+            scriptParts.push(`� ฉาก${i + 1}: "${productName} ${pickRandom(SALES_BENEFITS)} ${pickRandom(URGENCY_PHRASES)}"`);
+        }
+    }
     
     return scriptParts.join("\n");
 };
@@ -631,8 +619,6 @@ export interface VideoPromptMeta {
     product: string;
     template: string;
     restrictions: string;
-    pacing: string;
-    action: string;
 }
 
 /**
@@ -903,7 +889,7 @@ const buildVideoPrompt = (
 
     const prompt = promptLines.join('\n');
 
-    // Meta for building Scene 2+ prompts (same format as Scene 1)
+    // Meta for building Scene 2+ prompts
     const meta: VideoPromptMeta = {
         style: styleDesc,
         aspectRatio,
@@ -913,9 +899,7 @@ const buildVideoPrompt = (
         camera: 'Smooth cinematic movement, professional lighting',
         product: config.productName,
         template: templateConfig.thaiName,
-        restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.',
-        pacing: durationConfig.pacing,
-        action: actionDesc
+        restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.'
     };
 
     console.log("\ud83d\udcdd Video prompt:", prompt.substring(0, 200) + "...");
@@ -932,23 +916,21 @@ export const buildSceneVideoPromptJSON = (
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    // Build Scene 2+ prompt in EXACT SAME format as Scene 1
+    // Only this scene's script in voiceover
     const promptLines = [
-        `${meta.pacing} ${meta.template} video.`,
-        `${meta.gender}, ${meta.expression} expression, presenting ${meta.product}.`,
+        `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
+        `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
         `${meta.style}.`,
-        `${meta.camera}.`,
-        `${meta.action}.`,
+        `${meta.camera}. Smooth transition from previous scene.`,
+        `Continue presenting ${meta.product} naturally. Same person, same setting.`,
         ``,
-        `${meta.genderVoice}.`,
+        `${meta.genderVoice}, same pitch and tone as previous scene.`,
         ``,
         `THAI VOICEOVER SCRIPT:`,
         `"${sceneScript}"`,
         ``,
-        `IMPORTANT: ${meta.restrictions}`,
-        `Aspect ratio: ${meta.aspectRatio === '16:9' ? '16:9 landscape' : '9:16 vertical portrait'} framing.`,
-        `No text overlays or subtitles.`,
-        `Same person identity, outfit, and voice from previous scene.`
+        `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
+        `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
     ];
 
     return promptLines.join('\n');

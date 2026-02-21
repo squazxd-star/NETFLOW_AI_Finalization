@@ -386,16 +386,6 @@ const ContentScriptApp = () => {
                     }
                 }
 
-                // Safety: ensure sceneScripts.length matches sceneCount exactly
-                while (sceneScripts.length < sceneCount) {
-                    console.warn(`⚠️ Padding sceneScripts: had ${sceneScripts.length}, need ${sceneCount}`);
-                    sceneScripts.push(sceneScripts[sceneScripts.length - 1] || videoPrompt);
-                }
-                if (sceneScripts.length > sceneCount) {
-                    sceneScripts = sceneScripts.slice(0, sceneCount);
-                }
-                console.log(`📋 Final sceneScripts (${sceneScripts.length} for ${sceneCount} scenes):`, sceneScripts.map((s: string) => s.substring(0, 50)));
-
                 try {
                     const result = await runMultiScenePipeline({
                         characterImage,
