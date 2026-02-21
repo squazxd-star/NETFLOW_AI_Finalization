@@ -835,7 +835,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
     return null;
 };
 
-const VIDEO_PROMPT_MAX_CHARS = 600;
+const VIDEO_PROMPT_MAX_CHARS = 500;
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
