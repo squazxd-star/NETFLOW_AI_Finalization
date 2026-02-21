@@ -5696,9 +5696,24 @@ export const runMultiScenePipeline = async (
         await delay(400);
 
         report("Generating Scene 1...", 9, totalSteps);
-        // Scene 1 uses full videoPrompt (includes all scene scripts for voice continuity)
-        const scene1Prompt = config.videoPrompt || config.imagePrompt;
-        // switchToVideoModeAndGenerate already calls finalizeVideoPrompt internally
+        // Scene 1: build proper prompt with voice script
+        let scene1Prompt: string;
+        if (config.videoPrompt) {
+            // If we have a full prompt template, use Scene 1 script
+            const scene1Script = Array.isArray(config.sceneScripts) && config.sceneScripts.length > 0 
+                ? (typeof config.sceneScripts[0] === 'string' ? config.sceneScripts[0] : config.sceneScripts[0]?.script || '')
+                : '';
+            if (scene1Script) {
+                scene1Prompt = replaceVoiceoverInPrompt(config.videoPrompt, scene1Script, config.aspectRatio);
+            } else {
+                scene1Prompt = finalizeVideoPrompt(config.videoPrompt, config.aspectRatio);
+            }
+        } else {
+            // Fallback to image prompt
+            scene1Prompt = finalizeVideoPrompt(config.imagePrompt, config.aspectRatio);
+        }
+        
+        console.log(`📝 Scene 1 Prompt: "${scene1Prompt.substring(0, 150)}..." (${scene1Prompt.length} chars)`);
         await switchToVideoModeAndGenerate(scene1Prompt, selectors, config.aspectRatio);
 
         report("Waiting for Video 1...", 10, totalSteps);
