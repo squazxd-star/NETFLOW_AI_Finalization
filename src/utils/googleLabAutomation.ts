@@ -836,6 +836,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
 };
 
 const VIDEO_PROMPT_MAX_CHARS = 1800;
+const EXTEND_PROMPT_MAX_CHARS = 100;
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
@@ -1357,8 +1358,8 @@ const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, r
         prompt = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: ${quotedVoice}`;
     }
 
-    const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
-    console.log(`📝 Extend prompt (scene script replaced): ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
+    const finalPrompt = trimPromptToLimit(prompt, EXTEND_PROMPT_MAX_CHARS);
+    console.log(`📝 Extend prompt (scene script replaced): ${finalPrompt.length}/${EXTEND_PROMPT_MAX_CHARS} chars`);
     return finalPrompt;
 };
 
