@@ -5727,6 +5727,8 @@ export const runMultiScenePipeline = async (
         }
         
         console.log(`📝 Scene 1 Prompt: "${scene1Prompt.substring(0, 150)}..." (${scene1Prompt.length} chars)`);
+        console.log(`🎬 SCENE 1 FULL PROMPT:\n${scene1Prompt}`);
+        console.log(`✅ Scene 1 has voice script: ${scene1Prompt.includes('THAI VOICEOVER SCRIPT') || scene1Prompt.includes('VOICEOVER:')}`);
         await switchToVideoModeAndGenerate(scene1Prompt, selectors, config.aspectRatio);
 
         report("Waiting for Video 1...", 10, totalSteps);
@@ -5832,7 +5834,8 @@ export const runMultiScenePipeline = async (
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
                 console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
             }
-
+            console.log(`🎬 SCENE ${sceneNum} FULL PROMPT:\n${scenePrompt}`);
+            console.log(`✅ Scene ${sceneNum} has voice script: ${scenePrompt.includes('THAI VOICEOVER SCRIPT') || scenePrompt.includes('VOICEOVER:')}`);
             const generated = await fillPromptAndGenerate(scenePrompt);
             if (!generated) {
                 console.warn(`⚠️ Could not generate Scene ${sceneNum}`);
