@@ -365,10 +365,29 @@ const ContentScriptApp = () => {
                     } else if (aiPrompt) {
                         // Parse user-provided scripts (split by double newline for each scene)
                         const userScenes = aiPrompt.split(/\n{2,}/).filter((s: string) => s.trim());
-                        // Scene 1 uses full aiPrompt as videoPrompt
-                        videoPrompt = aiPrompt;
-                        imagePrompt = userScenes[0] || aiPrompt;
-                        // Scene 2+ uses individual scripts
+                        
+                        // Create a proper prompt template from the first scene script
+                        const firstSceneScript = userScenes[0] || aiPrompt;
+                        const { generateQuickPrompts } = await import('./services/aiPromptService');
+                        const templatePrompts = generateQuickPrompts({
+                            productName,
+                            template,
+                            voiceTone,
+                            saleStyle,
+                            hookText,
+                            ctaText,
+                            clipDuration,
+                            movement,
+                            userScript: firstSceneScript,
+                            language: 'th-central'
+                        });
+                        
+                        // Use the generated template as base prompt
+                        videoPrompt = templatePrompts.videoPrompt;
+                        videoPromptMeta = templatePrompts.videoPromptMeta || null;
+                        imagePrompt = templatePrompts.imagePrompt;
+                        
+                        // Scene scripts come from user input
                         if (userScenes.length >= sceneCount) {
                             sceneScripts = userScenes.slice(0, sceneCount);
                         } else {
