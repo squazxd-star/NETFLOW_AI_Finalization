@@ -928,17 +928,21 @@ export const buildSceneVideoPromptJSON = (
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    // Extend mode prompt — simpler since Extend auto-continues from previous clip
-    // Focus on: what happens next + voiceover script
+    // Only this scene's script in voiceover
     const promptLines = [
-        `Continue the video naturally. Same person presenting ${meta.product}.`,
-        `${meta.gender}, ${meta.expression} expression. ${meta.style}.`,
-        `Smooth continuation, same setting and lighting.`,
+        `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
+        `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
+        `${meta.style}.`,
+        `${meta.camera}. Smooth transition from previous scene.`,
+        `Continue presenting ${meta.product} naturally. Same person, same setting.`,
         ``,
-        `${meta.genderVoice} Thai voiceover (slow, clear pace):`,
+        `${meta.genderVoice}, same pitch and tone as previous scene.`,
+        ``,
+        `THAI VOICEOVER SCRIPT:`,
         `"${sceneScript}"`,
         ``,
-        `No text overlay, no popup. Keep same identity and voice.`
+        `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
+        `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
     ];
 
     return promptLines.join('\n');
