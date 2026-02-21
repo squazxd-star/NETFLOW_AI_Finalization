@@ -916,21 +916,12 @@ export const buildSceneVideoPromptJSON = (
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    // Only this scene's script in voiceover
+    // Compact prompt for Extend Video API (shorter char limit than Generate)
     const promptLines = [
-        `Scene ${sceneNumber} - ${meta.template} video. Same person from previous scene, exact same face, outfit, and identity.`,
-        `${meta.gender}, ${meta.expression} expression, continuing to present ${meta.product}.`,
-        `${meta.style}.`,
-        `${meta.camera}. Smooth transition from previous scene.`,
-        `Continue presenting ${meta.product} naturally. Same person, same setting.`,
-        ``,
-        `${meta.genderVoice}, same pitch and tone as previous scene.`,
-        ``,
-        `THAI VOICEOVER SCRIPT:`,
-        `"${sceneScript}"`,
-        ``,
-        `CONTINUITY: Same person identity, same voice, same outfit, same lighting, same background throughout all scenes.`,
-        `${meta.restrictions} Same person identity, outfit, and voice from previous scene.`
+        `Scene ${sceneNumber}. Same person, face, outfit. ${meta.gender}, ${meta.expression} expression, presenting ${meta.product}.`,
+        `${meta.camera}. ${meta.genderVoice}.`,
+        `VOICEOVER: "${sceneScript}"`,
+        `No text overlays. Same identity throughout.`
     ];
 
     return promptLines.join('\n');
