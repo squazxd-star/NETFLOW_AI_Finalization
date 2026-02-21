@@ -920,13 +920,12 @@ const buildVideoPrompt = (
 
 /**
  * Build a natural language video prompt for Scene 2+ using meta from Scene 1.
- * Includes ALL scene voiceover scripts for voice continuity context.
+ * Each scene only contains its own voiceover script.
  */
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
     sceneScript: string,
-    sceneNumber: number,
-    allSceneScripts?: string[]
+    sceneNumber: number
 ): string => {
     // Only this scene's script in voiceover
     const promptLines = [

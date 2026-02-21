@@ -5627,9 +5627,7 @@ export const runMultiScenePipeline = async (
             if (config.videoPromptMeta) {
                 // Dynamic import to avoid circular dependency
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
-                // Pass all scene scripts so the prompt includes full voiceover context
-                const allScripts = sceneScripts.map(s => typeof s === 'string' ? s : s?.script || '');
-                scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum, allScripts);
+                scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
                 console.log(`📝 Scene ${sceneNum} Prompt: "${scenePrompt.substring(0, 150)}..."`);
             } else {
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
