@@ -785,6 +785,7 @@ const buildImagePrompt = (
     let prompt = `Professional photograph for ${templateConfig.thaiName} video thumbnail.
 
 Subject: ${genderText}, ${expressionText} expression, holding/presenting ${config.productName}.
+IMPORTANT: Character and product must be clearly visible together in the same frame. Product should be positioned naturally in hands or near the character.
 Style: ${templateConfig.style}
 Focus: ${templateConfig.focus}
 
@@ -794,6 +795,7 @@ Reference Images:
 - Image 1: Presenter face reference (must preserve exact face identity and gender)${hasProductImage ? `
 - Image 2: Product reference (must preserve packaging and product type)` : ''}
 - If text conflicts with images, images win.
+- COMPOSITION: Ensure both character face and product are clearly visible and properly positioned together.
 
 ${productAnalysis ? `Product Details: ${productAnalysis}` : ''}
 
