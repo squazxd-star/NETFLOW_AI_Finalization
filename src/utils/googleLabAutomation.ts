@@ -2316,12 +2316,12 @@ const switchToVideoModeAndGenerate = async (
         const rect = btn.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) continue;
 
-        const hasDropdownIcon = btn.querySelector('i.material-icons')?.textContent?.includes('arrow_drop_down');
+        const hasDropdownIcon = !!(btn.querySelector('i')?.textContent?.includes('arrow_drop_down'));
         const isVideoMode = videoModeTriggers.some(trigger =>
             text.toLowerCase().includes(trigger.toLowerCase())
         );
 
-        if (isVideoMode && hasDropdownIcon) {
+        if (isVideoMode && (hasDropdownIcon || text.length < 40)) {
             console.log(`✅ Already in 'Frames to Video' mode! Button shows: "${text.substring(0, 40)}" — skipping dropdown clicks.`);
             alreadyInVideoMode = true;
             break;
@@ -2336,25 +2336,19 @@ const switchToVideoModeAndGenerate = async (
         let dropdownOpened = false;
 
         for (let attempt = 1; attempt <= 3 && !dropdownOpened; attempt++) {
+            console.log(`🔄 Dropdown open attempt ${attempt}/3...`);
             const buttons = findAllElementsDeep('button[role="combobox"], button');
             for (const btn of buttons) {
                 const text = (btn.textContent || '').trim();
                 const rect = btn.getBoundingClientRect();
                 if (rect.width === 0 || rect.height === 0) continue;
 
-                const hasDropdownIcon = btn.querySelector('i.material-icons')?.textContent?.includes('arrow_drop_down');
+                const hasDropdownIcon = !!(btn.querySelector('i')?.textContent?.includes('arrow_drop_down'));
                 const matchesTrigger = dropdownTriggers.some(trigger => text.includes(trigger));
 
-                if (matchesTrigger || (hasDropdownIcon && text.length < 30)) {
-                    console.log(`✅ Found dropdown to switch: "${text.substring(0, 30)}"`);
-
-                    const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-                    (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
-                    await delay(50);
-                    (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
-                    (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
-                    (btn as HTMLElement).click();
-
+                if (matchesTrigger || (hasDropdownIcon && text.length < 40)) {
+                    console.log(`✅ Found dropdown to switch: "${text.substring(0, 40)}" hasIcon=${hasDropdownIcon}`);
+                    await robustElementClick(btn as HTMLElement);
                     dropdownOpened = true;
                     break;
                 }
@@ -2418,14 +2412,7 @@ const switchToVideoModeAndGenerate = async (
                 const text = (bestCandidate.textContent || '').trim();
                 const rect = bestCandidate.getBoundingClientRect();
                 console.log(`✅ Clicking menu item: "${text}" [${rect.width.toFixed(0)}x${rect.height.toFixed(0)}]`);
-
-                const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-                (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
-                await delay(50);
-                (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
-                (bestCandidate as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
-                (bestCandidate as HTMLElement).click();
-
+                await robustElementClick(bestCandidate as HTMLElement);
                 menuItemClicked = true;
             }
 
