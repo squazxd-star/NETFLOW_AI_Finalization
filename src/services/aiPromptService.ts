@@ -908,26 +908,31 @@ const buildVideoPrompt = (
 };
 
 /**
- * Build a JSON-format video prompt for Scene 2+ using meta from Scene 1.
- * JSON format allows higher char budget and avoids plain-text safety filters.
+ * Build a plain-text video prompt for Scene 2+ using meta from Scene 1.
+ * Uses the same proven format as Scene 1 (works with Extend API, voice sync correct).
+ * Only the THAI VOICEOVER SCRIPT changes per scene.
  */
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    const payload = {
-        scene: sceneNumber,
-        pacing: meta.pacing,
-        character: `${meta.gender}, ${meta.expression}, holding ${meta.product} naturally`,
-        style: meta.style,
-        camera: meta.camera,
-        voice: meta.genderVoice,
-        aspect_ratio: meta.aspectRatio === '9:16' ? '9:16 vertical' : '16:9 landscape',
-        voiceover: sceneScript,
-        rules: `No text overlays. Same face, outfit, voice as scene 1. Natural hands. No floating objects.`
-    };
-    return JSON.stringify(payload);
+    const aspectDirective = meta.aspectRatio === '9:16'
+        ? 'Aspect ratio: 9:16 vertical portrait framing.'
+        : 'Aspect ratio: 16:9 horizontal landscape framing.';
+
+    const lines = [
+        `${meta.pacing} ${meta.template} video.`,
+        `${meta.gender}, ${meta.expression}, presenting ${meta.product}.`,
+        `${meta.style}.`,
+        `${meta.camera}.`,
+        `Movement: active. ${meta.pacing}.`,
+        `${meta.genderVoice}.`,
+        `THAI VOICEOVER SCRIPT: "${sceneScript}"`,
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene.`
+    ];
+
+    return lines.join(' ');
 };
 
 /**
