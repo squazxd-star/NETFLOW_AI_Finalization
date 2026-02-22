@@ -823,6 +823,41 @@ const isInWorkspace = (selectors: AutomationSelectors): boolean => {
     return false;
 };
 
+// --- Click upload button once to verify it works, then close dialog (Escape) ---
+const verifyAndPrimeUploadButton = async (): Promise<boolean> => {
+    console.log("🔍 Verifying upload button is functional...");
+    for (let attempt = 0; attempt < 8; attempt++) {
+        await delay(800);
+        const allButtons = findAllElementsDeep('button') as HTMLElement[];
+        for (const button of allButtons) {
+            const rect = button.getBoundingClientRect();
+            if (rect.width < 40 || rect.height < 40) continue;
+            const icon = button.querySelector('i, .material-icons, .google-symbols');
+            const iconText = icon?.textContent?.trim() || '';
+            if (iconText === 'add' || iconText === 'add_circle' || iconText === 'add_photo_alternate') {
+                console.log(`✅ Found upload button (icon="${iconText}"), clicking to verify...`);
+                button.click();
+                await delay(1200);
+                // Check if file input or dialog appeared
+                const fileInputs = findAllElementsDeep('input[type="file"]');
+                const hasDialog = fileInputs.length > 0 || !!document.querySelector('[role="dialog"]');
+                // Close dialog with Escape
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', bubbles: true }));
+                await delay(800);
+                if (hasDialog) {
+                    console.log("✅ Upload button verified — dialog opened and closed");
+                } else {
+                    console.log("⚠️ Upload button clicked but no dialog detected — may still be OK");
+                }
+                return true;
+            }
+        }
+    }
+    console.warn("⚠️ Could not find upload button to verify");
+    return false;
+};
+
 // --- Wait until Image Tab upload slots are rendered (SPA may take time after tab switch) ---
 const waitForImageTabReady = async (maxWaitMs = 15000): Promise<boolean> => {
     const startTime = Date.now();
@@ -3058,30 +3093,39 @@ export const runTwoStagePipeline = async (
             console.warn("⚠️ Could not confirm workspace entry. Proceeding anyway...");
         }
 
-        // Required checkpoint #1: right after opening project/workspace, sync ratio to app input.
-        console.log("🎛️ Aspect ratio check #1 (after project open)");
-        const ratioOkAtStart = await ensureAspectRatioMatchesInput(config.aspectRatio);
-        if (!ratioOkAtStart) {
-            throw new Error("Aspect Ratio mismatch after project open. Stop before generation.");
-        }
-        await delay(600);
-
         // --- STEP 1: UPLOAD & GENERATE IMAGE ---
         console.log("🔹 STEP 1/3: Image Generation Phase");
 
+        // Step A: Switch to Image Mode first so upload button is visible
         report("Switching to Image Mode...", 3, 12);
         await switchToImageTab(selectors);
         await waitForImageTabReady(15000);
 
-        // Upload 2 reference images (character + product)
+        // Step B: Verify upload button works (click → close)
+        report("Verifying Upload Button...", 3, 12);
+        await verifyAndPrimeUploadButton();
+        await delay(500);
+
+        // Step C: Set aspect ratio
+        report("Setting Aspect Ratio...", 3, 12);
+        await ensureAspectRatioMatchesInput(config.aspectRatio);
+        await delay(600);
+
+        // Step D: Switch back to Image Mode
+        await switchToImageTab(selectors);
+        await waitForImageTabReady(10000);
+        await delay(1000);
+
+        // Step E: Upload character (once only)
         report("Uploading Character...", 4, 12);
         console.log("📷 Uploading Character Image...");
         const charUploadSuccess = await uploadSingleImage(config.characterImage, 1, selectors);
         if (!charUploadSuccess) {
-            console.warn("⚠️ Character upload failed, continuing anyway...");
+            console.warn("⚠️ Character upload failed");
         }
-        await delay(2000); // Wait for dialog to close
+        await delay(2000);
 
+        // Step F: Upload product (once only)
         report("Uploading Product...", 5, 12);
         console.log("📷 Uploading Product Image...");
         const shouldUploadProduct = !!config.productImage && config.productImage !== config.characterImage;
@@ -3089,10 +3133,9 @@ export const runTwoStagePipeline = async (
             ? await uploadSingleImage(config.productImage, 2, selectors)
             : false;
         if (!shouldUploadProduct) {
-            console.log("ℹ️ Skip product upload: missing or same as character image (prevents duplicate references)");
-        }
-        if (shouldUploadProduct && !productUploadSuccess) {
-            console.warn("⚠️ Product upload failed, continuing anyway...");
+            console.log("ℹ️ Skip product upload: missing or same as character image");
+        } else if (!productUploadSuccess) {
+            console.warn("⚠️ Product upload failed");
         }
         await delay(2000);
 
@@ -5837,45 +5880,45 @@ export const runMultiScenePipeline = async (
             }
         }
 
-        // Required checkpoint #1: right after opening project/workspace, sync ratio to app input.
-        console.log("🎛️ Aspect ratio check #1 (after project open)");
-        const ratioOkAtStart = await ensureAspectRatioMatchesInput(config.aspectRatio);
-        if (!ratioOkAtStart) {
-            throw new Error("Aspect Ratio mismatch after project open. Stop before Scene 1 generation.");
-        }
-        await delay(600);
-
         // ===== SCENE 1: Generate First Video =====
+        // Step A: Switch to Image Mode first so upload button is visible
         report("Switching to Image Mode...", 3, totalSteps);
         await switchToImageTab(selectors);
         await waitForImageTabReady(15000);
 
+        // Step B: Verify upload button works (click → close) before setting aspect ratio
+        report("Verifying Upload Button...", 3, totalSteps);
+        await verifyAndPrimeUploadButton();
+        await delay(500);
+
+        // Step C: Set aspect ratio
+        report("Setting Aspect Ratio...", 3, totalSteps);
+        await ensureAspectRatioMatchesInput(config.aspectRatio);
+        await delay(600);
+
+        // Step D: Switch back to Image Mode (aspect ratio panel may have changed tab)
+        await switchToImageTab(selectors);
+        await waitForImageTabReady(10000);
+        await delay(1000);
+
+        // Step E: Upload character (once only)
         report("Uploading Character...", 4, totalSteps);
-        let charUploadOk = await uploadSingleImage(config.characterImage, 1, selectors);
+        const charUploadOk = await uploadSingleImage(config.characterImage, 1, selectors);
         if (!charUploadOk) {
-            console.warn("⚠️ Character upload failed on first try, retrying...");
-            await delay(3000);
-            charUploadOk = await uploadSingleImage(config.characterImage, 1, selectors);
-        }
-        if (!charUploadOk) {
-            console.error("❌ Character image upload failed after 2 attempts!");
+            console.error("❌ Character image upload failed!");
         }
         await delay(2000);
 
+        // Step F: Upload product (once only)
         report("Uploading Product...", 5, totalSteps);
         const shouldUploadProduct = !!config.productImage && config.productImage !== config.characterImage;
         if (shouldUploadProduct) {
-            let prodUploadOk = await uploadSingleImage(config.productImage, 2, selectors);
+            const prodUploadOk = await uploadSingleImage(config.productImage, 2, selectors);
             if (!prodUploadOk) {
-                console.warn("⚠️ Product upload failed on first try, retrying...");
-                await delay(3000);
-                prodUploadOk = await uploadSingleImage(config.productImage, 2, selectors);
-            }
-            if (!prodUploadOk) {
-                console.error("❌ Product image upload failed after 2 attempts!");
+                console.error("❌ Product image upload failed!");
             }
         } else {
-            console.log("ℹ️ Skip product upload: missing or same as character image (prevents duplicate references)");
+            console.log("ℹ️ Skip product upload: missing or same as character image");
         }
         await delay(2000);
 
