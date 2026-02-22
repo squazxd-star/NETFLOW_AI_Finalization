@@ -1684,58 +1684,71 @@ const closeSettingsPanelIfOpen = async (): Promise<void> => {
 
 const ensureAspectRatioMatchesInput = async (requestedAspectRatio?: string): Promise<boolean> => {
     const targetRatio = normalizeAspectRatioValue(requestedAspectRatio);
-    console.log(`🎛️ Pre-step: Ensuring Aspect Ratio matches app input (${targetRatio})...`);
+    console.log(`🎛️ Ensuring Aspect Ratio = ${targetRatio}...`);
 
-    const settingsBtn = findSettingsTuneButton();
-    if (!settingsBtn) {
-        console.warn('⚠️ Could not find Settings (tune) button for aspect ratio check');
-        return false;
-    }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const settingsBtn = findSettingsTuneButton();
+        if (!settingsBtn) {
+            console.warn(`⚠️ [AR attempt ${attempt}] Settings (tune) button not found`);
+            await delay(800);
+            continue;
+        }
 
-    const initiallyOpen = settingsBtn.getAttribute('data-state') === 'open' || settingsBtn.getAttribute('aria-expanded') === 'true';
-    if (!initiallyOpen) {
-        await robustElementClick(settingsBtn);
-        await delay(500);
-    }
+        const initiallyOpen = settingsBtn.getAttribute('data-state') === 'open' || settingsBtn.getAttribute('aria-expanded') === 'true';
+        if (!initiallyOpen) {
+            await robustElementClick(settingsBtn);
+            await delay(600);
+        }
 
-    const aspectCombobox = findAspectRatioCombobox();
-    if (!aspectCombobox) {
-        console.warn('⚠️ Could not find Aspect Ratio combobox in settings panel');
-        await closeSettingsPanelIfOpen();
-        return false;
-    }
+        const aspectCombobox = findAspectRatioCombobox();
+        if (!aspectCombobox) {
+            console.warn(`⚠️ [AR attempt ${attempt}] Aspect Ratio combobox not found in settings panel`);
+            await closeSettingsPanelIfOpen();
+            await delay(800);
+            continue;
+        }
 
-    const currentRatio = extractAspectRatioValue(aspectCombobox.textContent || '');
-    console.log(`  Current Aspect Ratio in UI: ${currentRatio || 'unknown'}`);
+        const currentRatio = extractAspectRatioValue(aspectCombobox.textContent || '');
+        console.log(`  [AR attempt ${attempt}] Current=${currentRatio || 'unknown'}, Target=${targetRatio}`);
 
-    if (currentRatio !== targetRatio) {
-        console.log(`  🔄 Aspect Ratio mismatch (${currentRatio || 'unknown'} → ${targetRatio}), selecting target...`);
+        if (currentRatio === targetRatio) {
+            console.log(`  ✅ Aspect Ratio already correct (${targetRatio})`);
+            await closeSettingsPanelIfOpen();
+            return true;
+        }
+
+        // Need to change ratio
+        console.log(`  🔄 Changing ${currentRatio || 'unknown'} → ${targetRatio}...`);
         await robustElementClick(aspectCombobox);
-        await delay(420);
+        await delay(500);
 
         const optionEl = findAspectRatioOption(targetRatio, aspectCombobox);
         if (optionEl) {
             await robustElementClick(optionEl);
-            await delay(550);
-            console.log(`  ✅ Selected Aspect Ratio option: ${targetRatio}`);
+            await delay(600);
+            console.log(`  ✅ Selected: ${targetRatio}`);
         } else {
-            console.warn(`  ⚠️ Could not find dropdown option for Aspect Ratio ${targetRatio}`);
+            console.warn(`  ⚠️ Option for ${targetRatio} not found in dropdown`);
+            // Close dropdown with Escape and retry
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+            await delay(400);
         }
-    } else {
-        console.log(`  ✅ Aspect Ratio already correct (${targetRatio})`);
+
+        // Verify
+        const verifyCombo = findAspectRatioCombobox() || aspectCombobox;
+        const verifiedRatio = extractAspectRatioValue(verifyCombo.textContent || '');
+        if (verifiedRatio === targetRatio) {
+            console.log(`✅ Aspect Ratio verified: ${verifiedRatio}`);
+            await closeSettingsPanelIfOpen();
+            return true;
+        }
+        console.warn(`⚠️ Verify failed (got ${verifiedRatio || 'unknown'}), retrying...`);
+        await closeSettingsPanelIfOpen();
+        await delay(600);
     }
 
-    const verifyCombo = findAspectRatioCombobox() || aspectCombobox;
-    const verifiedRatio = extractAspectRatioValue(verifyCombo.textContent || '');
-    const matched = verifiedRatio === targetRatio;
-    if (!matched) {
-        console.warn(`⚠️ Aspect Ratio verification failed. Expected=${targetRatio}, Found=${verifiedRatio || 'unknown'}`);
-    } else {
-        console.log(`✅ Aspect Ratio verified: ${verifiedRatio}`);
-    }
-
-    await closeSettingsPanelIfOpen();
-    return matched;
+    console.warn(`⚠️ Could not set Aspect Ratio to ${targetRatio} after 3 attempts — continuing anyway`);
+    return false;
 };
 
 // --- Fill Prompt ---
@@ -5966,7 +5979,7 @@ export const runMultiScenePipeline = async (
         console.log("🎛️ Aspect ratio check #2 (before Scene 1 video generation)");
         const ratioOkBeforeScene1Video = await ensureAspectRatioMatchesInput(config.aspectRatio);
         if (!ratioOkBeforeScene1Video) {
-            throw new Error("Aspect Ratio mismatch before Scene 1 video generation. Stop before generate.");
+            console.warn("⚠️ Aspect Ratio check #2 failed — continuing anyway (prompt contains ratio directive)");
         }
         await delay(400);
 
@@ -6081,15 +6094,18 @@ export const runMultiScenePipeline = async (
             console.log(`🎯 STEP 2: Fill prompt for Scene ${sceneNum} and generate...`);
 
             const sceneScriptData = sceneScripts[sceneIndex];
-            const sceneScriptText = typeof sceneScriptData === 'string' ? sceneScriptData : sceneScriptData?.script || '';
+            const rawSceneText = typeof sceneScriptData === 'string' ? sceneScriptData : sceneScriptData?.script || '';
             
-            if (!sceneScriptText || sceneScriptText.trim() === '') {
+            if (!rawSceneText || rawSceneText.trim() === '') {
                 console.error(`❌ No script for Scene ${sceneNum} (sceneScripts[${sceneIndex}] is empty)`);
                 continue;
             }
 
+            // Sanitize: extract just the voiceover text if rawSceneText is a full prompt
+            const sceneScriptText = sanitizeSceneScriptForVoiceover(rawSceneText) || rawSceneText.trim();
+
             // Build Scene 2+ prompt — Extend API has stricter char limit
-            console.log(`🐛 Scene ${sceneNum} sceneScriptText = "${sceneScriptText.substring(0, 100)}..." (${sceneScriptText.length} chars)`);
+            console.log(`🐛 Scene ${sceneNum} rawSceneText = "${rawSceneText.substring(0, 80)}..." → voiceover = "${sceneScriptText.substring(0, 80)}..."`);
             let scenePrompt: string;
             if (config.videoPromptMeta) {
                 // Prefer compact meta-based prompt for Extend API (shorter char limit)
