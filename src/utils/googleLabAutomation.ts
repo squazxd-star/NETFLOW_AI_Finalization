@@ -514,9 +514,9 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
 
             let addBtn: HTMLElement | null = null;
 
-            // Method A: Deep search for ALL clickable areas (buttons, divs, labels with role=button)
-            const allButtons = findAllElementsDeep('button, div[role="button"], label, [class*="upload"], [class*="slot"], [class*="ingredient"], [class*="reference"]');
-            console.log(`   Found ${allButtons.length} clickable elements total`);
+            // Method A: Deep search for buttons only (broader selectors click wrong elements like Google account)
+            const allButtons = findAllElementsDeep('button');
+            console.log(`   Found ${allButtons.length} buttons total`);
 
             const emptySlots: HTMLElement[] = [];
             const filledSlots: HTMLElement[] = [];
