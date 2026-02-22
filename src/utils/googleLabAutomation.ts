@@ -472,10 +472,10 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
             console.log(`🔄 Attempt ${attempt + 1}/5`);
 
             // ========== STRATEGY 0: Direct file input injection (no button click needed) ==========
-            // Some UI states already have a file input visible — inject directly
+            // Check for file inputs on every attempt (dialog may have opened from previous click)
             const existingInputs = findAllElementsDeep('input[type="file"]') as HTMLInputElement[];
-            if (existingInputs.length > 0 && attempt === 0) {
-                console.log(`🔍 Strategy 0: Found ${existingInputs.length} existing file input(s), trying direct injection...`);
+            if (existingInputs.length > 0) {
+                console.log(`🔍 Strategy 0: Found ${existingInputs.length} file input(s), trying direct injection...`);
                 const targetInput = existingInputs[existingInputs.length - 1];
                 try {
                     const dt = new DataTransfer();
@@ -509,14 +509,14 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                 }
             }
 
-            // ========== STRATEGY 1: Find upload slots (buttons with "add" icon) ==========
+            // ========== STRATEGY 1: Find upload slots (buttons/divs with "add" icon) ==========
             console.log("🔍 Looking for image upload slots...");
 
             let addBtn: HTMLElement | null = null;
 
-            // Method A: Deep search for ALL buttons/clickable areas with "add" icon
-            const allButtons = findAllElementsDeep('button');
-            console.log(`   Found ${allButtons.length} buttons total`);
+            // Method A: Deep search for ALL clickable areas (buttons, divs, labels with role=button)
+            const allButtons = findAllElementsDeep('button, div[role="button"], label, [class*="upload"], [class*="slot"], [class*="ingredient"], [class*="reference"]');
+            console.log(`   Found ${allButtons.length} clickable elements total`);
 
             const emptySlots: HTMLElement[] = [];
             const filledSlots: HTMLElement[] = [];
@@ -607,19 +607,55 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                 }
             }
 
-            // Method 2: Deep search for any icon with "add" text
+            // Method 2: Deep search for any icon with "add" text — but FILTER by position
             if (!addBtn) {
-                const allIcons = findAllElementsDeep('i, .material-icons, .google-symbols');
+                const allIcons = findAllElementsDeep('i, .material-icons, .google-symbols, svg');
                 console.log(`   Deep search: Found ${allIcons.length} icon elements`);
 
+                const midAreaIcons: {el: HTMLElement, rect: DOMRect}[] = [];
                 for (const icon of allIcons) {
                     const text = icon.textContent?.trim();
                     if (text === 'add' || text === 'add_circle' || text === 'add_photo_alternate' || text === 'upload') {
-                        addBtn = icon as HTMLElement;
-                        console.log(`   ✅ Found icon with text: "${text}"`);
-                        break;
+                        const rect = (icon as HTMLElement).getBoundingClientRect();
+                        // Only accept icons in the main content area (not nav/prompt bar)
+                        if (rect.top > 50 && rect.top < vh * 0.75 && rect.width > 10) {
+                            midAreaIcons.push({el: icon as HTMLElement, rect});
+                            console.log(`   ✅ Found "${text}" icon at y=${rect.top.toFixed(0)}, size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                        } else {
+                            console.log(`   ⏭️ Skipping "${text}" icon at y=${rect.top.toFixed(0)} (outside upload area)`);
+                        }
                     }
                 }
+                if (midAreaIcons.length > 0) {
+                    // Pick the icon closest to the expected upload area (upper-middle)
+                    addBtn = midAreaIcons[0].el;
+                }
+            }
+
+            // Method 2.5: If no empty slots but have filled slots, click the filled slot to replace
+            if (!addBtn && filledSlots.length > 0 && imageIndex <= filledSlots.length) {
+                console.log(`🔄 No empty slots — trying to click filled slot to replace image ${imageIndex}...`);
+                const targetSlot = filledSlots[imageIndex - 1] || filledSlots[0];
+                const rect = targetSlot.getBoundingClientRect();
+                console.log(`   Clicking filled slot at y=${rect.top.toFixed(0)}, size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                targetSlot.click();
+                await delay(1500);
+                // After clicking filled slot, check if file input appeared
+                const postClickInputs = findAllElementsDeep('input[type="file"]') as HTMLInputElement[];
+                if (postClickInputs.length > 0) {
+                    const fileInput = postClickInputs[postClickInputs.length - 1];
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    fileInput.files = dt.files;
+                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    console.log(`✅ File injected after clicking filled slot!`);
+                    await delay(2000);
+                    const cropHandled = await waitAndClickCropSave(selectors);
+                    if (cropHandled) console.log(`✅ Crop and Save handled!`);
+                    return true;
+                }
+                console.log(`   ⚠️ No file input after clicking filled slot`);
             }
 
             // Method 3: Look for clickable upload areas
