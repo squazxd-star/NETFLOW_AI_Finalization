@@ -875,12 +875,12 @@ const buildVideoPrompt = (
 
     // Build compact prompt — voice script must survive trimming
     const promptLines = [
-        `${templateConfig.thaiName} video. ${genderText}, ${expressionText}, presenting ${config.productName}.`,
+        `${templateConfig.thaiName} video. ${genderText}, ${expressionText}, holding ${config.productName} naturally in hands.`,
         `${templateConfig.style}, ${saleStyle.approach}, ${toneText}.`,
         `Cinematic movement, pro lighting. Movement: ${movementText}.`,
-        `${genderVoice} Thai voice speaking.`,
+        `${genderVoice} Thai voice speaking. Lip sync matches voiceover exactly.`,
         `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
-        `No CTA, no text overlays, no subtitles. Same face/identity from reference.`
+        `No CTA, no text overlays. Same face/identity from reference. Exactly two hands, five fingers each. No floating objects, no extra limbs.`
     ];
 
     const prompt = promptLines.join(' ');
@@ -914,10 +914,10 @@ export const buildSceneVideoPromptJSON = (
 ): string => {
     // Compact prompt for Extend Video API (shorter char limit than Generate)
     const promptLines = [
-        `Scene ${sceneNumber}. Same person, face, outfit. ${meta.gender}, ${meta.expression} expression, presenting ${meta.product}.`,
-        `${meta.camera}. ${meta.genderVoice}.`,
-        `VOICEOVER: "${sceneScript}"`,
-        `No text overlays. Same identity throughout.`
+        `Scene ${sceneNumber}. Same person, face, outfit. ${meta.gender}, ${meta.expression}, holding ${meta.product} naturally in hands.`,
+        `${meta.camera}. ${meta.genderVoice}. Lip sync matches voiceover.`,
+        `THAI VOICEOVER SCRIPT: "${sceneScript}"`,
+        `No text overlays. Same identity. Two hands, five fingers each. No floating objects.`
     ];
 
     return promptLines.join('\n');
