@@ -872,6 +872,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
 
 // StartAndEnd video endpoint is more sensitive to long prompts; keep Scene 1 concise but detailed.
 const VIDEO_PROMPT_MAX_CHARS = 680;
+const VIDEO_PROMPT_RETRY_MAX_CHARS = 520;
 const VIDEO_EXTEND_PROMPT_MAX_CHARS = 400; // Extend API has stricter char limit than Generate
 
 // Voice seed management for consistent voice across scenes
@@ -1465,6 +1466,17 @@ const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, r
     const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
     console.log(`📝 Extend prompt (scene script replaced): ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
     return finalPrompt;
+};
+
+const buildScene1RetryPrompt = (prompt: string, requestedAspectRatio?: string): string => {
+    // Build a stricter compact fallback for StartAndEnd when first attempt fails (often 403/policy).
+    const normalized = finalizeVideoPrompt(prompt, requestedAspectRatio);
+    const compacted = dedupePromptClauses(normalized)
+        .replace(/Exactly two hands, five fingers each\./gi, 'Natural hands only.')
+        .replace(/No floating objects, no extra limbs\./gi, 'No visual artifacts.');
+    const retried = trimPromptToLimit(compacted, VIDEO_PROMPT_RETRY_MAX_CHARS);
+    console.log(`🛟 Scene 1 retry prompt compacted: ${retried.length}/${VIDEO_PROMPT_RETRY_MAX_CHARS} chars`);
+    return retried;
 };
 
 const findSettingsTuneButton = (): HTMLElement | null => {
@@ -5850,7 +5862,8 @@ export const runMultiScenePipeline = async (
         let video1Src = await waitForVideoComplete(300000);
         if (!video1Src) {
             console.warn("⚠️ Scene 1 video did not complete. Retrying once with cleaned references...");
-            const retryGenerated = await fillPromptAndGenerate(finalizeVideoPrompt(scene1Prompt, config.aspectRatio));
+            const retryPrompt = buildScene1RetryPrompt(scene1Prompt, config.aspectRatio);
+            const retryGenerated = await fillPromptAndGenerate(retryPrompt);
             if (retryGenerated) {
                 video1Src = await waitForVideoComplete(180000);
             }
