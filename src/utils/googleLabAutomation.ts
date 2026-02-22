@@ -1423,9 +1423,26 @@ const buildBrandSafeRetryPrompt = (prompt: string): string => {
 
     const fullVoiceBlock = match[0];
     const placeholder = '__VOICE_BLOCK_KEEP_EXACT__';
-    let body = cleaned.replace(fullVoiceBlock, placeholder);
-    body = sanitizeBrandTermsForSafety(body);
-    return body.replace(placeholder, fullVoiceBlock).replace(/\s{2,}/g, ' ').trim();
+};
+
+// Reduce prompt length by percentage while preserving voiceover block
+const compactPromptByPercent = (prompt: string, percent = 20): string => {
+    const targetLen = Math.floor(prompt.length * (100 - percent) / 100);
+    if (prompt.length <= targetLen) return prompt;
+
+    const voiceBlockMatch = prompt.match(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"[\s\S]*?")/i)
+        || prompt.match(/(VOICEOVER\s*:\s*"[\s\S]*?")/i);
+    if (voiceBlockMatch?.[1]) {
+        const voiceBlock = voiceBlockMatch[1];
+        const body = prompt.replace(voiceBlock, '').trim();
+        const remainingChars = targetLen - voiceBlock.length;
+        if (remainingChars > 0) {
+            const trimmedBody = body.length > remainingChars ? body.substring(0, remainingChars - 3) + '...' : body;
+            return `${trimmedBody} ${voiceBlock}`.trim();
+        }
+        return voiceBlock;
+    }
+    return prompt.length > targetLen ? prompt.substring(0, targetLen - 3) + '...' : prompt;
 };
 
 const trimPromptToLimit = (prompt: string, maxChars: number): string => {
@@ -1437,53 +1454,31 @@ const trimPromptToLimit = (prompt: string, maxChars: number): string => {
         try {
             const obj = JSON.parse(prompt);
             if (obj.voiceover && typeof obj.voiceover === 'string' && obj.voiceover.length > 40) {
-                const overhead = prompt.length - obj.voiceover.length;
-                const budget = Math.max(20, maxChars - overhead - 5);
-                obj.voiceover = obj.voiceover.slice(0, budget).trim();
-                return JSON.stringify(obj);
+                obj.voiceover = obj.voiceover.substring(0, 37) + '...';
             }
-        } catch { }
-        return prompt.slice(0, maxChars);
-    }
-    const cleaned = compactPromptText(prompt);
-    if (cleaned.length <= maxChars) return cleaned;
-
-    // Extract VOICEOVER section so it doesn't get cut off
-    const voiceMatch = cleaned.match(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"[^"]*")/i) 
-        || cleaned.match(/(VOICEOVER\s*:\s*"[^"]*")/i);
-    const voiceSection = voiceMatch ? voiceMatch[1] : '';
-    
-    // If voiceover alone exceeds budget, keep a shortened voice line instead of dropping it.
-    if (voiceSection && voiceSection.length >= maxChars) {
-        const voicePrefix = voiceSection.toLowerCase().includes('thai voiceover script')
-            ? 'THAI VOICEOVER SCRIPT: "'
-            : 'VOICEOVER: "';
-        const voiceText = voiceSection.replace(/^[^:]*:\s*"?/i, '').replace(/"$/, '').trim();
-        const voiceTextBudget = Math.max(40, maxChars - voicePrefix.length - 1);
-        const shortenedVoice = voiceText.slice(0, voiceTextBudget).trim();
-        return `${voicePrefix}${shortenedVoice}"`;
+            return JSON.stringify(obj);
+        } catch {
+            // Fallback to plain truncation
+        }
     }
 
-    // Remove voiceover from prompt body, trim the rest, then re-append
-    let body = voiceSection ? cleaned.replace(voiceSection, '').replace(/\s{2,}/g, ' ').trim() : cleaned;
-    
-    // Budget: leave room for voiceover section
-    const voiceBudget = voiceSection ? voiceSection.length + 1 : 0;
-    const bodyBudget = maxChars - voiceBudget;
-    
-    if (body.length > bodyBudget && bodyBudget > 100) {
-        const hardSlice = body.slice(0, bodyBudget).trim();
-        const softCut = hardSlice.lastIndexOf(' ');
-        body = softCut > Math.floor(bodyBudget * 0.65) ? hardSlice.slice(0, softCut).trim() : hardSlice;
-        if (!/[.!?…]$/.test(body)) body = `${body}.`;
+    // Plain text: smart truncation preserving voiceover block
+    const voiceBlockMatch = prompt.match(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"[\s\S]*?")/i)
+        || prompt.match(/(VOICEOVER\s*:\s*"[\s\S]*?")/i);
+    if (voiceBlockMatch?.[1]) {
+        const voiceBlock = voiceBlockMatch[1];
+        const body = prompt.replace(voiceBlock, '').trim();
+        const remainingChars = maxChars - voiceBlock.length;
+        if (remainingChars > 0) {
+            const trimmedBody = body.length > remainingChars ? body.substring(0, remainingChars - 3) + '...' : body;
+            return `${trimmedBody} ${voiceBlock}`.trim();
+        }
+        // If voice block alone exceeds limit, truncate it
+        return voiceBlock.length > maxChars ? voiceBlock.substring(0, maxChars - 3) + '...' : voiceBlock;
     }
-    
-    // Re-append voiceover
-    const result = voiceSection ? `${body} ${voiceSection}` : body;
-    
-    // Final hard limit
-    if (result.length <= maxChars) return result;
-    return result.slice(0, maxChars).trim();
+
+    // No voice block: simple truncate
+    return prompt.length > maxChars ? prompt.substring(0, maxChars - 3) + '...' : prompt;
 };
 
 const dedupePromptClauses = (prompt: string): string => {
@@ -5527,14 +5522,18 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
         return false;
     }
 
-    // ===== REMOVE ALL REFERENCE CHIPS =====
-    // Extend mode uses last frame automatically — any extra chips (character/product from Scene 1)
-    // cause "Failed Generation" in Frames-to-Video mode. Remove ALL chips before filling prompt.
-    console.log("🧹 Removing all reference chips (Extend uses last frame automatically)...");
-    await normalizeVideoReferenceChips(promptInput, 0, true);
+    // ===== KEEP ONLY 1 REFERENCE CHIP (generated image) =====
+    // Extend mode should keep the generated reference image, remove extra character/product chips.
+    console.log("🧹 Keeping only 1 reference chip (generated image), removing others...");
+    await normalizeVideoReferenceChips(promptInput, 1, true);
     await delay(500);
 
     console.log("✅ Found prompt input, filling with multi-strategy approach...");
+
+    // ===== COMPACT PROMPT BY 20% =====
+    // Reduce prompt length slightly while preserving voiceover and output quality
+    const compactedPrompt = compactPromptByPercent(scenePrompt, 20);
+    console.log(`📝 Prompt compacted: ${scenePrompt.length} → ${compactedPrompt.length} chars (-20%)`);
 
     // ===== MULTI-STRATEGY PROMPT INJECTION =====
     // VideoFX's React textarea ignores native setter, need aggressive approach
@@ -5566,7 +5565,7 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
         await delay(100);
 
         // Insert new text via execCommand (triggers React's onChange!)
-        const inserted = document.execCommand('insertText', false, scenePrompt);
+        const inserted = document.execCommand('insertText', false, compactedPrompt);
         if (inserted) {
             console.log(`✅ Strategy 1: execCommand('insertText') succeeded`);
             filled = true;
@@ -5592,7 +5591,7 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
                 nativeSetter.call(inputEl, '');
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                 await delay(50);
-                nativeSetter.call(inputEl, scenePrompt);
+                nativeSetter.call(inputEl, compactedPrompt);
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                 console.log(`✅ Strategy 2: native setter applied`);
