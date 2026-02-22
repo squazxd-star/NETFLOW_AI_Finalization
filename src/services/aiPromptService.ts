@@ -880,7 +880,7 @@ const buildVideoPrompt = (
         `${templateConfig.style}, ${saleStyle.approach}, ${toneText}.`,
         `Smooth cinematic movement, professional lighting.`,
         `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}.`,
-        `${genderVoice} Thai voice speaking. Lip sync matches voiceover exactly.`,
+        `${genderVoice} Thai voice speaking.`,
         `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
         `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. Aspect ratio: ${aspectRatio === '9:16' ? '9:16 vertical portrait' : '16:9 horizontal landscape'} framing. No text overlays or subtitles. Same person identity, outfit, and voice from previous scene. Exactly two hands, five fingers each. No floating objects, no extra limbs.`
     ];
@@ -917,7 +917,7 @@ export const buildSceneVideoPromptJSON = (
     // Compact prompt for Extend Video API (shorter char limit than Generate)
     const promptLines = [
         `Scene ${sceneNumber}. Same person, face, outfit. ${meta.gender}, ${meta.expression}, holding ${meta.product} naturally in hands.`,
-        `${meta.camera}. ${meta.genderVoice}. Lip sync matches voiceover.`,
+        `${meta.camera}. ${meta.genderVoice}.`,
         `THAI VOICEOVER SCRIPT: "${sceneScript}"`,
         `No text overlays. Same identity. Two hands, five fingers each. No floating objects.`
     ];
