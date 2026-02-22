@@ -1465,40 +1465,42 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
 };
 
 const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
-    // Extract THAI VOICEOVER SCRIPT specifically
-    const thaiScriptMatch = sceneScriptText.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*""([\s\S]*?)""/i);
-    if (thaiScriptMatch?.[1]) {
-        return thaiScriptMatch[1].trim();
-    }
+    const raw = (sceneScriptText || '').trim();
 
-    // Fallback: extract any quoted text
-    const quoteMatch = sceneScriptText.match(/"([\s\S]*?)"/);
-    if (quoteMatch?.[1]) {
-        return quoteMatch[1].trim();
-    }
+    // Extract THAI VOICEOVER SCRIPT: "..." (single or double quotes)
+    const thaiScriptMatch = raw.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*["\u201c\u201d]([\s\S]*?)["\u201c\u201d]/i);
+    if (thaiScriptMatch?.[1]) return thaiScriptMatch[1].trim();
 
-    // Remove prefixes and return cleaned text
-    const cleaned = (sceneScriptText || '')
+    // Extract VOICEOVER: "..."
+    const voiceMatch = raw.match(/VOICEOVER\s*:\s*["\u201c\u201d]([\s\S]*?)["\u201c\u201d]/i);
+    if (voiceMatch?.[1]) return voiceMatch[1].trim();
+
+    // Extract any quoted text
+    const quoteMatch = raw.match(/["\u201c\u201d]([\s\S]*?)["\u201c\u201d]/);
+    if (quoteMatch?.[1]) return quoteMatch[1].trim();
+
+    // Plain text — strip scene prefix and return as-is
+    const cleaned = raw
         .replace(/^🎬\s*ฉาก\s*\d+\s*:\s*/i, '')
         .replace(/^scene\s*\d+\s*:\s*/i, '')
         .trim();
-
     return cleaned.replace(/\s+/g, ' ').trim();
 };
 
-const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string): string => {
+const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string, maxChars = VIDEO_PROMPT_MAX_CHARS): string => {
     let prompt = basePrompt || '';
-    console.log(`🐛 DEBUG: replaceVoiceoverInPrompt called with sceneScriptText = "${sceneScriptText}"`);
+    console.log(`🐛 DEBUG: replaceVoiceoverInPrompt called with sceneScriptText = "${sceneScriptText.substring(0, 80)}"`);
     const voiceoverText = sanitizeSceneScriptForVoiceover(sceneScriptText);
-    console.log(`🐛 DEBUG: extracted voiceoverText = "${voiceoverText}"`);
+    console.log(`🐛 DEBUG: extracted voiceoverText = "${voiceoverText.substring(0, 80)}"`);
     if (!voiceoverText) {
-        console.warn(`⚠️ No voiceover text extracted from sceneScriptText, falling back to finalizeVideoPrompt`);
-        return finalizeVideoPrompt(prompt, requestedAspectRatio);
+        console.warn(`⚠️ No voiceover text extracted — using sceneScriptText as-is`);
+        const fallback = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: "${sceneScriptText.trim()}"`;
+        return trimPromptToLimit(fallback, maxChars);
     }
 
     const quotedVoice = `"${voiceoverText}"`;
 
-    // Prefer replacing THAI VOICEOVER SCRIPT block while keeping everything else unchanged.
+    // Replace THAI VOICEOVER SCRIPT block while keeping everything else unchanged.
     if (/THAI\s+VOICEOVER\s+SCRIPT\s*:/i.test(prompt)) {
         prompt = prompt.replace(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1${quotedVoice}`);
     } else if (/VOICEOVER\s*:/i.test(prompt)) {
@@ -1507,10 +1509,9 @@ const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, r
         prompt = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: ${quotedVoice}`;
     }
 
-    // Scene 1 uses StartAndEnd endpoint; keep it compact to reduce 403 risk.
     prompt = dedupePromptClauses(prompt);
-    const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
-    console.log(`📝 Extend prompt (scene script replaced): ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
+    const finalPrompt = trimPromptToLimit(prompt, maxChars);
+    console.log(`📝 replaceVoiceoverInPrompt result: ${finalPrompt.length}/${maxChars} chars`);
     return finalPrompt;
 };
 
@@ -6024,8 +6025,7 @@ export const runMultiScenePipeline = async (
                 console.log(`📝 Scene ${sceneNum} Prompt (compact-meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             } else if (config.videoPrompt) {
                 // Fallback: use Scene 1 template with replaced script, trimmed for Extend
-                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio);
-                scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio, VIDEO_EXTEND_PROMPT_MAX_CHARS);
                 console.log(`📝 Scene ${sceneNum} Prompt (template-trimmed): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             } else {
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
