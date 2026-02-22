@@ -532,12 +532,11 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
                 const hasAddIcon = iconText === 'add' || iconText === 'add_circle' || iconText === 'add_photo_alternate';
                 const hasImage = button.querySelector('img') !== null;
 
-                // Skip prompt-bar add buttons (bottom area, small size, has button-overlay)
-                // Upload slots are larger (60x60+) and in the main content area
-                const isPromptBarBtn = rect.top > vh * 0.80 && rect.width < 60 && rect.height < 60;
-                const hasOverlay = button.querySelector('[data-type="button-overlay"]') !== null;
-                if (hasAddIcon && (isPromptBarBtn || hasOverlay)) {
-                    console.log(`   ⏭️ Skipping prompt-bar add button at y=${rect.top.toFixed(0)} size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
+                // Skip only very small add buttons at the bottom (actual submit/generate buttons)
+                // Upload reference slots are 60+ wide and should NOT be skipped
+                const isTinyBottomBtn = rect.top > vh * 0.85 && rect.width < 50 && rect.height < 50;
+                if (hasAddIcon && isTinyBottomBtn) {
+                    console.log(`   ⏭️ Skipping tiny bottom add button at y=${rect.top.toFixed(0)} size=${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`);
                     continue;
                 }
 
