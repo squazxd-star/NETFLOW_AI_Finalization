@@ -2203,82 +2203,111 @@ const waitForVideoComplete = async (timeout = 300000, ignoreUrls: string[] = [])
 };
 
 /**
- * Capture the most recent generated image as base64
- * Used to upload as reference for Scene 2/3 to maintain consistency
+ * Combined: find the generated image ONCE, capture as base64, then hover + click "Add to prompt".
+ * Replaces the old captureGeneratedImageBase64 + clickOnGeneratedImage two-pass approach.
+ * Returns { base64, clicked } so the caller gets both results in one DOM search.
  */
-const captureGeneratedImageBase64 = async (): Promise<string | null> => {
-    console.log("📸 Capturing generated image as base64...");
+const captureAndSelectGeneratedImage = async (
+    selectors: AutomationSelectors
+): Promise<{ base64: string | null; clicked: boolean }> => {
+    console.log("📸🖱️ [captureAndSelectGeneratedImage] Finding generated image (single pass)...");
+    await delay(2000);
 
+    // ── Find candidate images ──────────────────────────────────────────────
+    const images = findAllElementsDeep('img');
+    const candidateImages = images.filter(img => {
+        const i = img as HTMLImageElement;
+        const hasSize = (i.naturalWidth > 200 && i.naturalHeight > 200) || (i.width > 200 && i.height > 200);
+        const isVisible = i.offsetParent !== null;
+        const src = i.src || '';
+        const isGenerated = src.startsWith('blob:') || src.includes('data:') || src.includes('generated') || src.includes('output');
+        return hasSize && isVisible && (isGenerated || i.naturalWidth > 400);
+    });
+
+    console.log(`📷 Found ${candidateImages.length} candidate generated images`);
+
+    if (candidateImages.length === 0) {
+        console.warn("⚠️ No generated image found");
+        return { base64: null, clicked: false };
+    }
+
+    const targetImg = candidateImages[candidateImages.length - 1] as HTMLImageElement;
+    console.log(`📸 Target image: ${targetImg.src?.substring(0, 60)}...`);
+
+    // ── Capture base64 ────────────────────────────────────────────────────
+    let base64: string | null = null;
     try {
-        // Find all images
-        const images = findAllElementsDeep('img');
-        const candidateImages = images.filter(img => {
-            const i = img as HTMLImageElement;
-            const hasSize = (i.naturalWidth > 200 && i.naturalHeight > 200) || (i.width > 200 && i.height > 200);
-            const isVisible = i.offsetParent !== null;
-            // Skip UI icons, logos, etc.
-            const src = i.src || '';
-            const isGenerated = src.includes('blob:') || src.includes('data:') || src.includes('generated') || src.includes('output');
-            return hasSize && isVisible && (isGenerated || i.naturalWidth > 400);
-        });
-
-        console.log(`📷 Found ${candidateImages.length} candidate generated images`);
-
-        if (candidateImages.length === 0) {
-            console.warn("⚠️ No generated image found to capture");
-            return null;
-        }
-
-        // Get the last (most recent) image
-        const targetImg = candidateImages[candidateImages.length - 1] as HTMLImageElement;
-        console.log(`📸 Capturing image: ${targetImg.src?.substring(0, 60)}...`);
-
-        // Create canvas and draw image
         const canvas = document.createElement('canvas');
         canvas.width = targetImg.naturalWidth || targetImg.width;
         canvas.height = targetImg.naturalHeight || targetImg.height;
-
         const ctx = canvas.getContext('2d');
-        if (!ctx) {
-            console.warn("⚠️ Could not get canvas context");
-            return null;
-        }
-
-        // Handle CORS - try to draw directly first
-        try {
-            ctx.drawImage(targetImg, 0, 0, canvas.width, canvas.height);
-            const base64 = canvas.toDataURL('image/png');
-            console.log(`✅ Captured image: ${base64.substring(0, 50)}... (${base64.length} chars)`);
-            return base64;
-        } catch (corsError) {
-            console.log("⚠️ CORS error, trying fetch approach...");
-
-            // Try fetching the image
+        if (ctx) {
             try {
+                ctx.drawImage(targetImg, 0, 0, canvas.width, canvas.height);
+                base64 = canvas.toDataURL('image/png');
+                console.log(`✅ Captured base64 (${base64.length} chars)`);
+            } catch {
                 const response = await fetch(targetImg.src);
                 const blob = await response.blob();
-                return new Promise((resolve) => {
+                base64 = await new Promise<string | null>((resolve) => {
                     const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const base64 = reader.result as string;
-                        console.log(`✅ Captured via fetch: ${base64.substring(0, 50)}...`);
-                        resolve(base64);
-                    };
-                    reader.onerror = () => {
-                        console.warn("⚠️ FileReader error");
-                        resolve(null);
-                    };
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = () => resolve(null);
                     reader.readAsDataURL(blob);
                 });
-            } catch (fetchError) {
-                console.warn("⚠️ Fetch failed:", fetchError);
-                return null;
+                if (base64) console.log(`✅ Captured via fetch (${base64.length} chars)`);
             }
         }
-    } catch (error) {
-        console.error("❌ Error capturing image:", error);
-        return null;
+    } catch (e) {
+        console.warn("⚠️ base64 capture failed:", e);
     }
+
+    // ── Hover to reveal overlay buttons ───────────────────────────────────
+    const parent = targetImg.closest('button, a, [role="button"], div[class*="card"], div[class*="result"]') || targetImg;
+    const hoverTarget = parent as HTMLElement;
+    const rect = hoverTarget.getBoundingClientRect();
+    const hoverOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+    hoverTarget.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
+    hoverTarget.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
+    hoverTarget.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
+    console.log("⏳ Waiting for hover UI...");
+    await delay(2000);
+
+    // ── Click "Add to prompt" ─────────────────────────────────────────────
+    const addToPromptTriggers = [
+        ...selectors.generation.addToPromptTriggers,
+        'เพิ่มไปยังพรอมต์', 'Add to prompt', 'เพิ่มไปยัง', 'Add to',
+        'ใช้ภาพนี้', 'Use this image', 'เลือก', 'Select'
+    ];
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        const buttons = findAllElementsDeep('button, [role="button"], a');
+        for (const btn of buttons) {
+            const text = (btn.textContent || '').trim();
+            const btnRect = (btn as HTMLElement).getBoundingClientRect();
+            if (btnRect.width === 0 || btnRect.height === 0) continue;
+            if (addToPromptTriggers.some(t => text.includes(t))) {
+                console.log(`✅ Found "Add to prompt": "${text}"`);
+                const cx = btnRect.left + btnRect.width / 2;
+                const cy = btnRect.top + btnRect.height / 2;
+                const clickOpts = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy };
+                (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerdown', { ...clickOpts, pointerType: 'mouse' }));
+                (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', clickOpts));
+                await delay(50);
+                (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerup', { ...clickOpts, pointerType: 'mouse' }));
+                (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', clickOpts));
+                (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
+                (btn as HTMLElement).click();
+                console.log("✅ 'Add to prompt' clicked!");
+                await delay(2000);
+                return { base64, clicked: true };
+            }
+        }
+        await delay(1000);
+    }
+
+    console.warn("⚠️ Could not find 'Add to prompt' button");
+    return { base64, clicked: false };
 };
 
 /**
@@ -2427,110 +2456,6 @@ const uploadReferenceImageToExpandedClip = async (base64Image: string, selectors
         console.error("❌ Error uploading reference image:", error);
         return false;
     }
-};
-
-const clickOnGeneratedImage = async (selectors: AutomationSelectors): Promise<boolean> => {
-    console.log("🖱️ Searching for generated image to HOVER...");
-    await delay(2000);
-
-    // Find generated images
-    const images = findAllElementsDeep('img');
-    const candidateImages = images.filter(img => {
-        const i = img as HTMLImageElement;
-        const hasSize = (i.naturalWidth > 200 && i.naturalHeight > 200) || (i.width > 200 && i.height > 200);
-        const isVisible = i.offsetParent !== null;
-        return hasSize && isVisible;
-    });
-
-    console.log(`📷 Found ${candidateImages.length} candidate images`);
-
-    if (candidateImages.length > 0) {
-        // Get the last (most recent) image
-        const target = candidateImages[candidateImages.length - 1];
-        const parent = target.closest('button, a, [role="button"], div[class*="card"], div[class*="result"]') || target;
-        const hoverTarget = parent as HTMLElement;
-
-        console.log("✅ Found generated image, HOVERING to reveal buttons...");
-
-        // HOVER simulation (mouseenter, mouseover, mousemove)
-        const rect = hoverTarget.getBoundingClientRect();
-        const hoverOpts = {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-            clientX: rect.left + rect.width / 2,
-            clientY: rect.top + rect.height / 2
-        };
-
-        hoverTarget.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
-        hoverTarget.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
-        hoverTarget.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
-
-        // Wait for hover UI to appear
-        console.log("⏳ Waiting for hover UI to appear...");
-        await delay(2000);
-
-        // ========== STEP 2: Click "เพิ่มไปยังพรอมต์" / "Add to prompt" ==========
-        console.log("🔍 Looking for 'Add to prompt' button...");
-
-        const addToPromptTriggers = [
-            ...selectors.generation.addToPromptTriggers,
-            'เพิ่มไปยังพรอมต์',
-            'Add to prompt',
-            'เพิ่มไปยัง',
-            'Add to',
-            'ใช้ภาพนี้',
-            'Use this image',
-            'เลือก',
-            'Select'
-        ];
-
-        // Try to find and click the "Add to prompt" button
-        for (let attempt = 1; attempt <= 5; attempt++) {
-            console.log(`🔄 Looking for 'Add to prompt' (Attempt ${attempt})...`);
-
-            const buttons = findAllElementsDeep('button, [role="button"], a');
-            for (const btn of buttons) {
-                const text = (btn.textContent || '').trim();
-                const rect = btn.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) continue;
-
-                if (addToPromptTriggers.some(t => text.includes(t))) {
-                    console.log(`✅ Found "Add to prompt" button: "${text}"`);
-
-                    // Click it
-                    const btnRect = btn.getBoundingClientRect();
-                    const btnClickOpts = {
-                        bubbles: true,
-                        cancelable: true,
-                        view: window,
-                        clientX: btnRect.left + btnRect.width / 2,
-                        clientY: btnRect.top + btnRect.height / 2
-                    };
-
-                    (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerdown', { ...btnClickOpts, pointerType: 'mouse' }));
-                    (btn as HTMLElement).dispatchEvent(new MouseEvent('mousedown', btnClickOpts));
-                    await delay(50);
-                    (btn as HTMLElement).dispatchEvent(new PointerEvent('pointerup', { ...btnClickOpts, pointerType: 'mouse' }));
-                    (btn as HTMLElement).dispatchEvent(new MouseEvent('mouseup', btnClickOpts));
-                    (btn as HTMLElement).dispatchEvent(new MouseEvent('click', btnClickOpts));
-                    (btn as HTMLElement).click();
-
-                    console.log("✅ 'Add to prompt' clicked! Should transition to video mode...");
-                    await delay(2000); // Wait for transition
-                    return true;
-                }
-            }
-
-            await delay(1000);
-        }
-
-        console.warn("⚠️ Could not find 'Add to prompt' button, but image was clicked");
-        return true; // Still return true as image was clicked
-    }
-
-    console.warn("⚠️ No generated image found to click.");
-    return false;
 };
 
 const switchToVideoModeAndGenerate = async (
@@ -3176,8 +3101,7 @@ export const runTwoStagePipeline = async (
         console.log("🔹 STEP 2/3: Video Generation Phase");
 
         report("Selecting Generated Image...", 8, 12);
-        // Click the result to open detail view and then click "เพิ่มไปยังพรอมต์"
-        const imageClicked = await clickOnGeneratedImage(selectors);
+        const { clicked: imageClicked } = await captureAndSelectGeneratedImage(selectors);
         if (!imageClicked) throw new Error("Could not click generated image");
 
         // Wait 10 seconds for image to transfer to video prompt
@@ -5949,19 +5873,16 @@ export const runMultiScenePipeline = async (
         const imageGenSuccess = await waitForGenerationComplete(selectors);
         if (!imageGenSuccess) throw new Error("Image Gen Timeout");
 
-        // 📸 Capture generated image for reference in Scene 2/3
-        report("Capturing Reference Image...", 7, totalSteps);
-        scene1GeneratedImage = await captureGeneratedImageBase64();
+        // 📸 Capture + select generated image in one pass (single DOM search)
+        report("Capturing & Selecting Image...", 8, totalSteps);
+        await delay(15000);
+        const { base64: capturedBase64, clicked: imageClicked } = await captureAndSelectGeneratedImage(selectors);
+        scene1GeneratedImage = capturedBase64;
         if (scene1GeneratedImage) {
             console.log("✅ Scene 1 reference image captured for consistency!");
         } else {
             console.warn("⚠️ Could not capture reference image, Scene 2/3 may have different characters");
         }
-
-        await delay(15000);
-
-        report("Selecting Image...", 8, totalSteps);
-        const imageClicked = await clickOnGeneratedImage(selectors);
         if (!imageClicked) throw new Error("Could not select image");
 
         await delay(10000);
