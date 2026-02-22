@@ -265,13 +265,16 @@ const ContentScriptApp = () => {
                     movement,
                     clipDuration,
                     aspectRatio,
-                    aiPrompt,
+                    aiPrompt: rawAiPrompt,
+                    sceneDescription,  // alias used by Execution payload
                     useAiScript,
                     sceneCount: payloadSceneCount,  // Number of scenes (1, 2, or 3)
                     // Explicit prompts from Workflow Control
                     videoPrompt: explicitVideoPrompt,
                     imagePrompt: explicitImagePrompt
                 } = payload;
+                // Merge: aiPrompt takes priority, fall back to sceneDescription
+                const aiPrompt = rawAiPrompt || sceneDescription || "";
 
                 // Determine scene count (default 1 if not specified)
                 const sceneCount = payloadSceneCount || Math.max(1, Math.floor((clipDuration || 8) / 8));
@@ -316,7 +319,22 @@ const ContentScriptApp = () => {
                         });
                     }
                     
+                    // Parse scene scripts from aiPrompt (individual voiceover scripts joined by \n\n)
+                    if (sceneScripts.length === 0 && aiPrompt && aiPrompt.trim()) {
+                        const aiScenes = aiPrompt.split(/\n{2,}/).map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+                        console.log(`🐛 Parsed ${aiScenes.length} scene script(s) from aiPrompt`);
+                        if (aiScenes.length >= sceneCount) {
+                            sceneScripts = aiScenes.slice(0, sceneCount);
+                        } else if (aiScenes.length > 0) {
+                            sceneScripts = [...aiScenes];
+                            while (sceneScripts.length < sceneCount) {
+                                sceneScripts.push(aiScenes[aiScenes.length - 1]);
+                            }
+                        }
+                    }
+
                     if (sceneScripts.length === 0) {
+                        console.warn('⚠️ No individual scene scripts found — falling back to full videoPrompt for all scenes');
                         sceneScripts = Array(sceneCount).fill(explicitVideoPrompt);
                     }
                 } else {

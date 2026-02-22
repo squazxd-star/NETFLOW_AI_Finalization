@@ -874,19 +874,21 @@ const buildVideoPrompt = (
     // Style description for meta
     const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`;
 
-    // Build detailed prompt — trimPromptToLimit preserves VOICEOVER section
-    const promptLines = [
+    const aspectDirective = aspectRatio === '9:16'
+        ? 'Aspect ratio: 9:16 vertical portrait framing.'
+        : 'Aspect ratio: 16:9 horizontal landscape framing.';
+
+    // Plain-text format — user-confirmed working template
+    const prompt = [
         `${durationConfig.pacing} ${templateConfig.thaiName} video.`,
-        `${genderText}, ${expressionText} expression, holding ${config.productName} naturally in hands.`,
+        `${genderText}, ${expressionText} expression, presenting ${config.productName}.`,
         `${templateConfig.style}, ${saleStyle.approach}, ${toneText}.`,
         `Smooth cinematic movement, professional lighting.`,
         `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}.`,
         `${genderVoice} Thai voice speaking.`,
         `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
-        `No text/subtitles/overlays. Same face, outfit, voice. ${aspectRatio === '9:16' ? '9:16 vertical portrait' : '16:9 landscape'}. Natural hands. No floating objects.`
-    ];
-
-    const prompt = promptLines.join('\n');
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene`
+    ].join(' ');
 
     // Meta for building Scene 2+ prompts
     const meta: VideoPromptMeta = {
@@ -909,28 +911,20 @@ const buildVideoPrompt = (
 
 /**
  * Build a plain-text video prompt for Scene 2+ using meta from Scene 1.
- * Uses the same proven format as Scene 1 (works with Extend API, voice sync correct).
- * Only the THAI VOICEOVER SCRIPT changes per scene.
+ * Uses the same proven format as Scene 1. Only the THAI VOICEOVER SCRIPT changes per scene.
  */
-
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    // Strip any surrounding quotes that may have been added by sanitizeSceneScriptForVoiceover
     const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
-
     const aspectDirective = meta.aspectRatio === '9:16'
         ? 'Aspect ratio: 9:16 vertical portrait framing.'
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
+    const transitionNote = sceneNumber > 1 ? ' Continue seamlessly from previous clip with natural transition from last frame.' : '';
 
-    const transitionDirective = sceneNumber > 1
-        ? 'Continue seamlessly from previous clip with natural transition from last frame.'
-        : '';
-
-    // Keep Scene 1-like structure for stable voice sync and quality.
-    const lines = [
+    return [
         `${meta.pacing} ${meta.template} video.`,
         `${meta.gender}, ${meta.expression}, presenting ${meta.product}.`,
         `${meta.style}.`,
@@ -938,10 +932,8 @@ export const buildSceneVideoPromptJSON = (
         `Movement: active. ${meta.pacing}.`,
         `${meta.genderVoice}.`,
         `THAI VOICEOVER SCRIPT: "${cleanScript}"`,
-        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene. ${transitionDirective} Natural hands. No floating objects.`
-    ];
-
-    return lines.join(' ');
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene${transitionNote}`
+    ].join(' ');
 };
 
 /**

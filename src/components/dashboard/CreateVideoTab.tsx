@@ -417,6 +417,9 @@ const CreateVideoTab = () => {
                                 restInterval: data.restInterval,
                                 autoPostTikTok: data.autoPostTikTok,
                                 autoPostYoutube: data.autoPostYoutube,
+                                // Scene scripts (individual voiceover per scene, joined by \n\n)
+                                aiPrompt: data.aiPrompt || "",
+                                useAiScript: data.useAiScript,
                                 // Pass the edited prompts!
                                 videoPrompt: generatedVideoPrompt,
                                 imagePrompt: generatedImagePrompt

@@ -805,8 +805,25 @@ export const resetUploadState = () => {
     console.log("🔄 Upload state reset");
 };
 
+// --- Helper: Check if current page is VideoFX (not Scenebuilder/Flow) ---
+const isOnVideoFXPage = (): boolean => {
+    const url = window.location.href.toLowerCase();
+    // VideoFX URL: labs.google/experiments/video-fx or similar
+    // Scenebuilder URL: labs.google/experiments/flow or contains /flow/ or /scenebuilder
+    if (url.includes('video-fx') || url.includes('videofx')) return true;
+    if (url.includes('/flow') || url.includes('scenebuilder')) return false;
+    // Fallback: check for VideoFX-specific UI elements not present in Scenebuilder
+    const hasVideoFXPrompt = findAllElementsDeep('textarea, [contenteditable]').some(el => {
+        const ph = (el as HTMLInputElement).placeholder || el.getAttribute('data-placeholder') || '';
+        return ph.includes('สร้างวิดีโอ') || ph.includes('describe') || ph.includes('Describe') || ph.includes('Type a prompt');
+    });
+    return hasVideoFXPrompt;
+};
+
 // --- Helper: Check if we are in Workspace ---
 const isInWorkspace = (selectors: AutomationSelectors): boolean => {
+    // Must be on VideoFX page, not Scenebuilder (both have 'Images' tab)
+    if (!isOnVideoFXPage()) return false;
     const tabs = findAllElementsDeep('button, div[role="tab"], span'); // Deep Search
     for (const tab of tabs) {
         const text = tab.textContent?.trim() || '';
@@ -1380,9 +1397,29 @@ const sanitizeBrandTermsForSafety = (text: string): string => {
         .trim();
 };
 
-// Build safer retry prompt while preserving THAI VOICEOVER SCRIPT exactly.
+// Build safer retry prompt while preserving voiceover script exactly.
 const buildBrandSafeRetryPrompt = (prompt: string): string => {
-    const cleaned = compactPromptText(prompt);
+    const trimmed = (prompt || '').trim();
+
+    // ── JSON path ──
+    if (trimmed.startsWith('{')) {
+        try {
+            const obj = JSON.parse(trimmed) as Record<string, string>;
+            const voiceoverBackup = obj.voiceover; // preserve exactly
+            for (const key of Object.keys(obj)) {
+                if (key !== 'voiceover' && typeof obj[key] === 'string') {
+                    obj[key] = sanitizeBrandTermsForSafety(obj[key]);
+                }
+            }
+            if (voiceoverBackup !== undefined) obj.voiceover = voiceoverBackup;
+            return JSON.stringify(obj);
+        } catch {
+            // fall through to plain-text path
+        }
+    }
+
+    // ── Plain-text path ──
+    const cleaned = compactPromptText(trimmed);
     const thaiVoiceRegex = /(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*")([^"]*)(")/i;
     const voiceRegex = /(VOICEOVER\s*:\s*")([^"]*)(")/i;
     const match = cleaned.match(thaiVoiceRegex) || cleaned.match(voiceRegex);
@@ -1395,11 +1432,7 @@ const buildBrandSafeRetryPrompt = (prompt: string): string => {
     const placeholder = '__VOICE_BLOCK_KEEP_EXACT__';
     let body = cleaned.replace(fullVoiceBlock, placeholder);
     body = sanitizeBrandTermsForSafety(body);
-
-    return body
-        .replace(placeholder, fullVoiceBlock)
-        .replace(/\s{2,}/g, ' ')
-        .trim();
+    return body.replace(placeholder, fullVoiceBlock).replace(/\s{2,}/g, ' ').trim();
 };
 
 const trimPromptToLimit = (prompt: string, maxChars: number): string => {
@@ -1569,45 +1602,24 @@ const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
 };
 
 const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string, maxChars = VIDEO_PROMPT_MAX_CHARS): string => {
-    let prompt = basePrompt || '';
+    const prompt = basePrompt || '';
     console.log(`🐛 DEBUG: replaceVoiceoverInPrompt called with sceneScriptText = "${sceneScriptText.substring(0, 80)}"`);
-    const voiceoverText = sanitizeSceneScriptForVoiceover(sceneScriptText);
+
+    // Extract clean voiceover text (strip quotes, scene prefixes, etc.)
+    const voiceoverText = sanitizeSceneScriptForVoiceover(sceneScriptText) || sceneScriptText.trim();
     console.log(`🐛 DEBUG: extracted voiceoverText = "${voiceoverText.substring(0, 80)}"`);
-    if (!voiceoverText) {
-        // sceneScriptText looks like a full prompt (has IMPORTANT:/aspect ratio) — don't inject it as voiceover.
-        // Just finalize the basePrompt as-is.
-        const looksLikeFullPrompt = /IMPORTANT\s*:/i.test(sceneScriptText) || /aspect\s+ratio/i.test(sceneScriptText) || /THAI\s+VOICEOVER\s+SCRIPT/i.test(sceneScriptText);
-        if (looksLikeFullPrompt) {
-            console.warn(`⚠️ sceneScriptText is a full prompt — using basePrompt as-is (finalizeVideoPrompt)`);
-            return trimPromptToLimit(finalizeVideoPrompt(prompt, requestedAspectRatio), maxChars);
-        }
-        console.warn(`⚠️ No voiceover text extracted — appending sceneScriptText as voiceover`);
-        const fallback = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: "${sceneScriptText.trim()}"`;
-        return trimPromptToLimit(fallback, maxChars);
-    }
 
-    const quotedVoice = `"${voiceoverText}"`;
-
-    // Replace THAI VOICEOVER SCRIPT block while keeping everything else unchanged.
-    if (/THAI\s+VOICEOVER\s+SCRIPT\s*:/i.test(prompt)) {
-        prompt = prompt.replace(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1${quotedVoice}`);
-    } else if (/VOICEOVER\s*:/i.test(prompt)) {
-        prompt = prompt.replace(/(VOICEOVER\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1${quotedVoice}`);
+    // Replace THAI VOICEOVER SCRIPT block, preserve everything else exactly
+    let out = prompt;
+    if (/THAI\s+VOICEOVER\s+SCRIPT\s*:/i.test(out)) {
+        out = out.replace(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1"${voiceoverText}"`);
+    } else if (/VOICEOVER\s*:/i.test(out)) {
+        out = out.replace(/(VOICEOVER\s*:\s*)("[\s\S]*?"|[^\n\r]*)/i, `$1"${voiceoverText}"`);
     } else {
-        prompt = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: ${quotedVoice}`;
+        out = `${compactPromptText(out)} THAI VOICEOVER SCRIPT: "${voiceoverText}"`;
     }
 
-    // Dedupe only non-voice section to avoid mutating script cadence/wording.
-    const voiceBlockMatch = prompt.match(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"[\s\S]*?")/i)
-        || prompt.match(/(VOICEOVER\s*:\s*"[\s\S]*?")/i);
-    if (voiceBlockMatch?.[1]) {
-        const voiceBlock = voiceBlockMatch[1];
-        const body = dedupePromptClauses(prompt.replace(voiceBlock, ' ').replace(/\s{2,}/g, ' ').trim());
-        prompt = `${body} ${voiceBlock}`.replace(/\s{2,}/g, ' ').trim();
-    } else {
-        prompt = dedupePromptClauses(prompt);
-    }
-    const finalPrompt = trimPromptToLimit(prompt, maxChars);
+    const finalPrompt = trimPromptToLimit(compactPromptText(out), maxChars);
     console.log(`📝 replaceVoiceoverInPrompt result: ${finalPrompt.length}/${maxChars} chars`);
     return finalPrompt;
 };
@@ -5522,6 +5534,13 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
         return false;
     }
 
+    // ===== REMOVE ALL REFERENCE CHIPS =====
+    // Extend mode uses last frame automatically — any extra chips (character/product from Scene 1)
+    // cause "Failed Generation" in Frames-to-Video mode. Remove ALL chips before filling prompt.
+    console.log("🧹 Removing all reference chips (Extend uses last frame automatically)...");
+    await normalizeVideoReferenceChips(promptInput, 0, true);
+    await delay(500);
+
     console.log("✅ Found prompt input, filling with multi-strategy approach...");
 
     // ===== MULTI-STRATEGY PROMPT INJECTION =====
@@ -5930,6 +5949,14 @@ export const runMultiScenePipeline = async (
         await configService.init();
         const selectors = configService.getSelectors();
 
+        // ── Page guard: must be on VideoFX, not Scenebuilder/Flow ──
+        if (!isOnVideoFXPage()) {
+            const currentUrl = window.location.href;
+            const errMsg = `❌ Wrong page! Automation must run on Google VideoFX, not "${currentUrl}". Please open labs.google/experiments/video-fx and try again.`;
+            console.error(errMsg);
+            throw new Error(errMsg);
+        }
+
         // Check/Enter workspace
         let inWorkspace = isInWorkspace(selectors);
         if (!inWorkspace) {
@@ -6174,23 +6201,29 @@ export const runMultiScenePipeline = async (
                         VIDEO_EXTEND_PROMPT_MAX_CHARS
                     );
                 }
-                console.log(`📝 Scene ${sceneNum} Prompt (scene1-template): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
+                // Extend API is stricter with trademarks — sanitize non-voice sections to avoid safety blocks
+                scenePrompt = buildBrandSafeRetryPrompt(scenePrompt);
+                scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                console.log(`📝 Scene ${sceneNum} Prompt (scene1-template+brand-safe): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             } else if (config.videoPromptMeta) {
                 // Fallback: meta builder when base template is unavailable
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
+                scenePrompt = buildBrandSafeRetryPrompt(scenePrompt);
                 scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
-                console.log(`📝 Scene ${sceneNum} Prompt (compact-meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
+                console.log(`📝 Scene ${sceneNum} Prompt (compact-meta+brand-safe): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             } else {
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
+                scenePrompt = buildBrandSafeRetryPrompt(scenePrompt);
                 scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
-                console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
+                console.log(`📝 Scene ${sceneNum} Prompt (fallback+brand-safe): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             }
             console.log(`\n${'='.repeat(60)}`);
             console.log(`🎬 [PHASE: SCENE ${sceneNum} VIDEO PROMPT] (${scenePrompt.length} chars)`);
             console.log(scenePrompt);
             console.log('='.repeat(60));
-            const generated = await fillPromptAndGenerate(scenePrompt);
+            // Use Extend-specific function: proper React state sync, no reference chip removal, better button detection
+            const generated = await fillNextScenePromptAndGenerate(scenePrompt, selectors);
             if (!generated) {
                 console.warn(`⚠️ Could not generate Scene ${sceneNum}`);
                 continue;
@@ -6207,7 +6240,7 @@ export const runMultiScenePipeline = async (
                 let retryPrompt = buildBrandSafeRetryPrompt(scenePrompt);
                 retryPrompt = trimPromptToLimit(retryPrompt, VIDEO_EXTEND_RETRY_MAX_CHARS);
                 console.log(`🔁 Retry #1 prompt: "${retryPrompt.substring(0, 120)}..." (${retryPrompt.length}/${VIDEO_EXTEND_RETRY_MAX_CHARS} chars)`);
-                const retryGenerated = await fillPromptAndGenerate(retryPrompt);
+                const retryGenerated = await fillNextScenePromptAndGenerate(retryPrompt, selectors);
                 if (retryGenerated) {
                     videoSrc = await waitForVideoComplete(180000, videoUrls);
                 }
@@ -6221,7 +6254,7 @@ export const runMultiScenePipeline = async (
                         compactRetry = trimPromptToLimit(`${compactRetry} Continue seamlessly from previous clip.`, 640);
                     }
                     console.log(`🔁 Retry #2 prompt: "${compactRetry.substring(0, 120)}..." (${compactRetry.length}/640 chars)`);
-                    const retryGenerated2 = await fillPromptAndGenerate(compactRetry);
+                    const retryGenerated2 = await fillNextScenePromptAndGenerate(compactRetry, selectors);
                     if (retryGenerated2) {
                         videoSrc = await waitForVideoComplete(150000, videoUrls);
                     }
