@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Play, Loader2, ExternalLink, Wand2 } from "lucide-react";
@@ -40,6 +40,32 @@ const CreateVideoTab = () => {
     const [generatedVideoPrompt, setGeneratedVideoPrompt] = useState<string | null>(null);
     const [generatedImagePrompt, setGeneratedImagePrompt] = useState<string | null>(null);
     const [flowOpened, setFlowOpened] = useState(false);
+
+    // ⚠️ DEV AUTO-LOAD: Pre-fill character + product images from public/dev/
+    // Remove this useEffect before shipping!
+    useEffect(() => {
+        const loadDevImage = async (path: string): Promise<string | null> => {
+            try {
+                const res = await fetch(path);
+                if (!res.ok) return null;
+                const blob = await res.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                });
+            } catch { return null; }
+        };
+        (async () => {
+            const [char, prod] = await Promise.all([
+                loadDevImage('/dev/character.jpg'),
+                loadDevImage('/dev/product.jpg')
+            ]);
+            if (char) setCharacterImages([char, null]);
+            if (prod) setProductImages([prod, null]);
+        })();
+    }, []);
 
     const logs = [
         "ระบบพร้อมทำงาน...",
