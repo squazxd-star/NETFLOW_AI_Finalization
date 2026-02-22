@@ -2311,25 +2311,36 @@ const captureAndSelectGeneratedImage = async (
         console.warn("⚠️ base64 capture failed:", e);
     }
 
-    // ── Hover to reveal overlay buttons ───────────────────────────────────
-    const parent = targetImg.closest('button, a, [role="button"], div[class*="card"], div[class*="result"]') || targetImg;
-    const hoverTarget = parent as HTMLElement;
-    const rect = hoverTarget.getBoundingClientRect();
-    const hoverOpts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-    hoverTarget.dispatchEvent(new MouseEvent('mouseenter', hoverOpts));
-    hoverTarget.dispatchEvent(new MouseEvent('mouseover', hoverOpts));
-    hoverTarget.dispatchEvent(new MouseEvent('mousemove', hoverOpts));
-    console.log("⏳ Waiting for hover UI...");
-    await delay(2000);
+    // ── Helper: dispatch hover events on element ──────────────────────────
+    const doHover = (el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const opts = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy };
+        el.dispatchEvent(new MouseEvent('mouseenter', opts));
+        el.dispatchEvent(new MouseEvent('mouseover', opts));
+        el.dispatchEvent(new MouseEvent('mousemove', opts));
+        el.dispatchEvent(new PointerEvent('pointerenter', { ...opts, pointerType: 'mouse' }));
+        el.dispatchEvent(new PointerEvent('pointermove', { ...opts, pointerType: 'mouse' }));
+    };
 
-    // ── Click "Add to prompt" ─────────────────────────────────────────────
+    const parent = targetImg.closest('button, a, [role="button"], div[class*="card"], div[class*="result"], div[class*="image"]') || targetImg.parentElement || targetImg;
+    const hoverTarget = parent as HTMLElement;
+
+    // ── Click "Add to prompt" — re-hover before each attempt ─────────────
     const addToPromptTriggers = [
         ...selectors.generation.addToPromptTriggers,
-        'เพิ่มไปยังพรอมต์', 'Add to prompt', 'เพิ่มไปยัง', 'Add to',
-        'ใช้ภาพนี้', 'Use this image', 'เลือก', 'Select'
+        'เพิ่มไปยังพรอมต์', 'Add to prompt', 'Add To Prompt',
+        'เพิ่มไปยัง', 'Add to', 'ใช้ภาพนี้', 'Use this image', 'เลือก', 'Select'
     ];
 
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 6; attempt++) {
+        // Re-hover every attempt to keep overlay visible
+        doHover(hoverTarget);
+        doHover(targetImg);
+        console.log(`⏳ Hover attempt ${attempt}/6 — waiting for overlay...`);
+        await delay(1500);
+
         const buttons = findAllElementsDeep('button, [role="button"], a');
         for (const btn of buttons) {
             const text = (btn.textContent || '').trim();
@@ -2352,11 +2363,18 @@ const captureAndSelectGeneratedImage = async (
                 return { base64, clicked: true };
             }
         }
-        await delay(1000);
     }
 
-    console.warn("⚠️ Could not find 'Add to prompt' button");
-    return { base64, clicked: false };
+    // ── Fallback: click the image card directly ───────────────────────────
+    console.warn("⚠️ 'Add to prompt' button not found — clicking image card directly as fallback");
+    doHover(hoverTarget);
+    const cardRect = hoverTarget.getBoundingClientRect();
+    const fallbackOpts = { bubbles: true, cancelable: true, view: window, clientX: cardRect.left + cardRect.width / 2, clientY: cardRect.top + cardRect.height / 2 };
+    hoverTarget.dispatchEvent(new MouseEvent('click', fallbackOpts));
+    hoverTarget.click();
+    await delay(2000);
+    // Return clicked:true so pipeline continues — video mode switch will handle the rest
+    return { base64, clicked: true };
 };
 
 /**
