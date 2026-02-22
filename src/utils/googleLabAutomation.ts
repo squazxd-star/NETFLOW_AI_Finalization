@@ -5724,13 +5724,29 @@ export const runMultiScenePipeline = async (
         await delay(1500);
 
         report("Uploading Character...", 4, totalSteps);
-        await uploadSingleImage(config.characterImage, 1, selectors);
+        let charUploadOk = await uploadSingleImage(config.characterImage, 1, selectors);
+        if (!charUploadOk) {
+            console.warn("⚠️ Character upload failed on first try, retrying...");
+            await delay(3000);
+            charUploadOk = await uploadSingleImage(config.characterImage, 1, selectors);
+        }
+        if (!charUploadOk) {
+            console.error("❌ Character image upload failed after 2 attempts!");
+        }
         await delay(2000);
 
         report("Uploading Product...", 5, totalSteps);
         const shouldUploadProduct = !!config.productImage && config.productImage !== config.characterImage;
         if (shouldUploadProduct) {
-            await uploadSingleImage(config.productImage, 2, selectors);
+            let prodUploadOk = await uploadSingleImage(config.productImage, 2, selectors);
+            if (!prodUploadOk) {
+                console.warn("⚠️ Product upload failed on first try, retrying...");
+                await delay(3000);
+                prodUploadOk = await uploadSingleImage(config.productImage, 2, selectors);
+            }
+            if (!prodUploadOk) {
+                console.error("❌ Product image upload failed after 2 attempts!");
+            }
         } else {
             console.log("ℹ️ Skip product upload: missing or same as character image (prevents duplicate references)");
         }
