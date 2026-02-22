@@ -618,6 +618,7 @@ export interface VideoPromptMeta {
     camera: string;
     product: string;
     template: string;
+    pacing: string;
     restrictions: string;
 }
 
@@ -897,6 +898,7 @@ const buildVideoPrompt = (
         camera: 'Smooth cinematic movement, professional lighting',
         product: config.productName,
         template: templateConfig.thaiName,
+        pacing: durationConfig.pacing,
         restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.'
     };
 
@@ -916,6 +918,7 @@ export const buildSceneVideoPromptJSON = (
 ): string => {
     const payload = {
         scene: sceneNumber,
+        pacing: meta.pacing,
         character: `${meta.gender}, ${meta.expression}, holding ${meta.product} naturally`,
         style: meta.style,
         camera: meta.camera,
