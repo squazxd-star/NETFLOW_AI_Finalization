@@ -1467,16 +1467,28 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
 const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
     const raw = (sceneScriptText || '').trim();
 
-    // Extract THAI VOICEOVER SCRIPT: "..." (single or double quotes)
-    const thaiScriptMatch = raw.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*["\u201c\u201d]([\s\S]*?)["\u201c\u201d]/i);
+    // If input is a full prompt containing THAI VOICEOVER SCRIPT, extract just the script value.
+    // Use a greedy match to find the LAST occurrence (most specific), then capture until end-quote or IMPORTANT/newline.
+    const thaiScriptMatch = raw.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"([^"]+)"/i);
     if (thaiScriptMatch?.[1]) return thaiScriptMatch[1].trim();
 
-    // Extract VOICEOVER: "..."
-    const voiceMatch = raw.match(/VOICEOVER\s*:\s*["\u201c\u201d]([\s\S]*?)["\u201c\u201d]/i);
+    // Curly/smart quotes
+    const curlyMatch = raw.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*[\u201c\u201d]([^\u201c\u201d]+)[\u201c\u201d]/i);
+    if (curlyMatch?.[1]) return curlyMatch[1].trim();
+
+    // VOICEOVER: "..."
+    const voiceMatch = raw.match(/VOICEOVER\s*:\s*"([^"]+)"/i);
     if (voiceMatch?.[1]) return voiceMatch[1].trim();
 
+    // If no VOICEOVER marker at all — check if it looks like a full prompt (has IMPORTANT: or aspect ratio)
+    // In that case, return empty so caller uses sceneScriptText directly (it IS the script)
+    if (/IMPORTANT\s*:/i.test(raw) || /aspect\s+ratio/i.test(raw)) {
+        // It's a full prompt with no extractable script — return empty to trigger fallback
+        return '';
+    }
+
     // Extract any quoted text
-    const quoteMatch = raw.match(/["\u201c\u201d]([\s\S]*?)["\u201c\u201d]/);
+    const quoteMatch = raw.match(/"([^"]+)"/);
     if (quoteMatch?.[1]) return quoteMatch[1].trim();
 
     // Plain text — strip scene prefix and return as-is
@@ -1493,7 +1505,14 @@ const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, r
     const voiceoverText = sanitizeSceneScriptForVoiceover(sceneScriptText);
     console.log(`🐛 DEBUG: extracted voiceoverText = "${voiceoverText.substring(0, 80)}"`);
     if (!voiceoverText) {
-        console.warn(`⚠️ No voiceover text extracted — using sceneScriptText as-is`);
+        // sceneScriptText looks like a full prompt (has IMPORTANT:/aspect ratio) — don't inject it as voiceover.
+        // Just finalize the basePrompt as-is.
+        const looksLikeFullPrompt = /IMPORTANT\s*:/i.test(sceneScriptText) || /aspect\s+ratio/i.test(sceneScriptText) || /THAI\s+VOICEOVER\s+SCRIPT/i.test(sceneScriptText);
+        if (looksLikeFullPrompt) {
+            console.warn(`⚠️ sceneScriptText is a full prompt — using basePrompt as-is (finalizeVideoPrompt)`);
+            return trimPromptToLimit(finalizeVideoPrompt(prompt, requestedAspectRatio), maxChars);
+        }
+        console.warn(`⚠️ No voiceover text extracted — appending sceneScriptText as voiceover`);
         const fallback = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: "${sceneScriptText.trim()}"`;
         return trimPromptToLimit(fallback, maxChars);
     }
