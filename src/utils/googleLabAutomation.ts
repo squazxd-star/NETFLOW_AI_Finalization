@@ -871,8 +871,8 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
 };
 
 // StartAndEnd video endpoint is more sensitive to long prompts; keep Scene 1 concise but detailed.
-const VIDEO_PROMPT_MAX_CHARS = 680;
-const VIDEO_PROMPT_RETRY_MAX_CHARS = 520;
+const VIDEO_PROMPT_MAX_CHARS = 610;
+const VIDEO_PROMPT_RETRY_MAX_CHARS = 480;
 const VIDEO_EXTEND_PROMPT_MAX_CHARS = 400; // Extend API has stricter char limit than Generate
 
 // Voice seed management for consistent voice across scenes
@@ -1373,7 +1373,7 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
 
     let prompt = compactPromptText(rawPrompt);
     if (!prompt) {
-        prompt = 'Thai presenter introduces the product naturally with clear speaking and cinematic motion.';
+        prompt = 'Thai presenter introduces product naturally with clear speaking and cinematic motion.';
     }
 
     let normalized = prompt.toLowerCase();
@@ -1394,7 +1394,7 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
     }
 
     if (!normalized.includes('same person') && !normalized.includes('same face') && !normalized.includes('same outfit')) {
-        prompt = `${prompt} Same person identity, outfit, and voice from previous scene.`;
+        prompt = `${prompt} Same person/outfit/voice.`;
     }
 
     // Voice continuity: log captured data but keep prompt concise
@@ -1404,14 +1404,16 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
         console.log(`🎵 Voice data captured (${voiceData.primaryMethod}) — continuity handled via reference frame`);
     }
     if (currentVoiceGender && !normalized.includes('voice')) {
-        prompt = `${prompt} ${currentVoiceGender} Thai voice, same pitch and tone throughout.`;
+        prompt = `${prompt} ${currentVoiceGender} Thai voice, same tone.`;
     }
 
     // Compact repeated instructions while preserving quality constraints.
     prompt = dedupePromptClauses(prompt)
-        .replace(/No CTA, no popup text, no floating text, no overlay text in the video\./gi, 'No CTA/popup/overlay text.')
+        .replace(/No CTA, no popup text, no floating text, no overlay text in the video\./gi, 'No text.')
         .replace(/No text overlays or subtitles\./gi, 'No text overlays/subtitles.')
-        .replace(/Same person identity, outfit, and voice from previous scene\./gi, 'Same person identity/outfit/voice from previous scene.');
+        .replace(/Same person identity, outfit, and voice from previous scene\./gi, 'Same person/outfit/voice.')
+        .replace(/Moderate pace, 2-3 key moments, balanced storytelling/gi, 'Moderate pace, balanced story')
+        .replace(/Smooth cinematic movement, professional lighting\./gi, 'Cinematic motion, pro lighting.');
 
     const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
     console.log(`📝 Video prompt finalized: ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
