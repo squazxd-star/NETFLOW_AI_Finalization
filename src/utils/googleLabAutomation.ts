@@ -3219,6 +3219,48 @@ export const runTwoStagePipeline = async (
 // ========== MULTI-SCENE PIPELINE ==========
 
 /**
+ * Handle the "Switch to SceneBuilder / Dismiss" popup that appears after clicking "Add to Scene".
+ * Clicks "Switch to SceneBuilder" to navigate into the scene builder workspace.
+ */
+const handleSwitchToSceneBuilderPopup = async (): Promise<boolean> => {
+    const switchTriggers = [
+        'Switch to SceneBuilder',
+        'Switch to Scene Builder',
+        'สลับไปยัง SceneBuilder',
+        'สลับไปยัง Scene Builder',
+        'ไปที่ SceneBuilder',
+        'ไปที่ Scene Builder',
+        'SceneBuilder',
+    ];
+
+    for (let attempt = 1; attempt <= 6; attempt++) {
+        console.log(`🔍 Looking for 'Switch to SceneBuilder' popup (attempt ${attempt}/6)...`);
+
+        const buttons = findAllElementsDeep('button, [role="button"], a');
+        for (const btn of buttons) {
+            const text = (btn.textContent || '').trim();
+            const rect = (btn as HTMLElement).getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            if (switchTriggers.some(t => text.includes(t))) {
+                // Make sure we're NOT clicking "Dismiss"
+                if (text.toLowerCase().includes('dismiss') || text.toLowerCase().includes('ปิด')) continue;
+
+                console.log(`✅ Found 'Switch to SceneBuilder' button: "${text}"`);
+                await robustElementClick(btn as HTMLElement);
+                await delay(2000);
+                return true;
+            }
+        }
+
+        await delay(500);
+    }
+
+    console.warn("⚠️ 'Switch to SceneBuilder' popup not detected");
+    return false;
+};
+
+/**
  * Hover on generated video and click "เพิ่มลงในฉาก" (Add to Scene)
  */
 const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<boolean> => {
@@ -3300,7 +3342,17 @@ const hoverVideoAndAddToScene = async (selectors: AutomationSelectors): Promise<
                     (btn as HTMLElement).dispatchEvent(new MouseEvent('click', clickOpts));
                     (btn as HTMLElement).click();
 
-                    console.log("✅ 'Add to Scene' clicked! Transitioning to scene builder...");
+                    console.log("✅ 'Add to Scene' clicked! Waiting for 'Switch to SceneBuilder' popup...");
+                    await delay(2000);
+
+                    // Handle "Switch to SceneBuilder / Dismiss" popup
+                    const switchToSceneBuilderHandled = await handleSwitchToSceneBuilderPopup();
+                    if (switchToSceneBuilderHandled) {
+                        console.log("✅ 'Switch to SceneBuilder' popup handled!");
+                    } else {
+                        console.warn("⚠️ 'Switch to SceneBuilder' popup not found or already dismissed");
+                    }
+
                     await delay(3000);
                     return true;
                 }
