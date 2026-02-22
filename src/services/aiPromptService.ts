@@ -917,19 +917,22 @@ export const buildSceneVideoPromptJSON = (
     sceneScript: string,
     sceneNumber: number
 ): string => {
-    const aspectDirective = meta.aspectRatio === '9:16'
-        ? 'Aspect ratio: 9:16 vertical portrait framing.'
-        : 'Aspect ratio: 16:9 horizontal landscape framing.';
+    // Strip any surrounding quotes that may have been added by sanitizeSceneScriptForVoiceover
+    const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
 
+    const aspectDirective = meta.aspectRatio === '9:16'
+        ? '9:16 vertical portrait.'
+        : '16:9 landscape.';
+
+    // Compact style: remove duplicate pacing, shorten restrictions (~10% shorter overall)
     const lines = [
         `${meta.pacing} ${meta.template} video.`,
         `${meta.gender}, ${meta.expression}, presenting ${meta.product}.`,
         `${meta.style}.`,
         `${meta.camera}.`,
-        `Movement: active. ${meta.pacing}.`,
         `${meta.genderVoice}.`,
-        `THAI VOICEOVER SCRIPT: "${sceneScript}"`,
-        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene.`
+        `THAI VOICEOVER SCRIPT: "${cleanScript}"`,
+        `No text/overlays. Same face, outfit, voice. ${aspectDirective} Natural hands. No floating objects.`
     ];
 
     return lines.join(' ');
