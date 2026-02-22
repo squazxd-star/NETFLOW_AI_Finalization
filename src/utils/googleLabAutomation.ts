@@ -472,40 +472,34 @@ export const uploadSingleImage = async (base64Image: string, imageIndex: number,
             console.log(`🔄 Attempt ${attempt + 1}/5`);
 
             // ========== STRATEGY 0: Direct file input injection (no button click needed) ==========
-            // Check for file inputs on every attempt (dialog may have opened from previous click)
-            const existingInputs = findAllElementsDeep('input[type="file"]') as HTMLInputElement[];
-            if (existingInputs.length > 0) {
-                console.log(`🔍 Strategy 0: Found ${existingInputs.length} file input(s), trying direct injection...`);
-                const targetInput = existingInputs[existingInputs.length - 1];
-                try {
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    targetInput.files = dt.files;
-                    targetInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    console.log(`✅ Strategy 0: File injected directly into existing input!`);
-                    await delay(2000);
-
-                    // Handle "Crop and Save" dialog if it appeared
-                    const cropClicked = await waitAndClickCropSave(selectors);
-                    if (cropClicked) {
-                        console.log(`✅ Strategy 0: Crop and Save clicked!`);
-                        await delay(1500);
+            // Only on attempt 0 — avoids re-injecting into stale inputs on later attempts
+            if (attempt === 0) {
+                const existingInputs = findAllElementsDeep('input[type="file"]') as HTMLInputElement[];
+                if (existingInputs.length > 0) {
+                    console.log(`🔍 Strategy 0: Found ${existingInputs.length} file input(s), trying direct injection...`);
+                    const targetInput = existingInputs[existingInputs.length - 1];
+                    try {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        targetInput.files = dt.files;
+                        targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        console.log(`✅ Strategy 0: File injected — waiting for crop dialog...`);
+                        await delay(2000);
+                        // Handle crop dialog if appeared
+                        const cropClicked = await waitAndClickCropSave(selectors);
+                        if (cropClicked) {
+                            console.log(`✅ Strategy 0: Crop and Save clicked!`);
+                            await delay(1500);
+                        } else {
+                            console.log(`✅ Strategy 0: No crop dialog — injection complete`);
+                            await delay(1000);
+                        }
+                        // Always return true after successful injection to prevent double-upload
                         return true;
+                    } catch (e) {
+                        console.warn(`⚠️ Strategy 0: Direct injection failed:`, e);
                     }
-
-                    // Check if image appeared (no crop dialog case)
-                    const imgs = findAllElementsDeep('img') as HTMLElement[];
-                    const newImg = imgs.find(img => {
-                        const r = img.getBoundingClientRect();
-                        return r.width > 50 && r.height > 50 && hasUsableImageSrc(img);
-                    });
-                    if (newImg) {
-                        console.log(`✅ Strategy 0: Image appeared after direct injection!`);
-                        return true;
-                    }
-                } catch (e) {
-                    console.warn(`⚠️ Strategy 0: Direct injection failed:`, e);
                 }
             }
 
