@@ -2198,12 +2198,21 @@ const waitForVideoComplete = async (timeout = 300000, ignoreUrls: string[] = [])
     console.log("⏳ Waiting for video generation...");
 
     while (Date.now() - startTime < timeout) {
-        // Strategy 0: Check for failure in the most recent card only (to avoid false positives from old cards)
+        // Strategy 0: Check for failure — both in cards and broader DOM (catch "Couldn't generate video" toast/banner)
         const recentCards = findAllElementsDeep('div[role="listitem"], div[class*="card"], div[class*="item"]').slice(0, 3);
         for (const card of recentCards) {
             const text = (card.textContent || '').trim().toLowerCase();
             if (text.includes('failed generation') || text.includes('generation failed') || text.includes('something went wrong')) {
                 console.warn(`❌ Video generation failed in recent card: "${text.substring(0, 50)}..."`);
+                return null;
+            }
+        }
+        // Check for toast/banner errors (e.g. "Couldn't generate video. Try again later.")
+        const toasts = findAllElementsDeep('[role="alert"], [role="status"], [data-radix-toast-announce-exclude], [class*="toast"], [class*="snackbar"], [class*="error"]');
+        for (const toast of toasts) {
+            const text = (toast.textContent || '').trim().toLowerCase();
+            if (text.includes("couldn't generate") || text.includes('could not generate') || text.includes('try again later')) {
+                console.warn(`❌ Video generation error detected: "${(toast.textContent || '').trim().substring(0, 80)}"`);
                 return null;
             }
         }
@@ -6138,8 +6147,21 @@ export const runMultiScenePipeline = async (
 
             let videoSrc = await waitForVideoComplete(300000, videoUrls);
             if (!videoSrc) {
-                console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying generate once...`);
-                const retryGenerated = await fillPromptAndGenerate(scenePrompt);
+                // Retry with brand-sanitized prompt (Extend mode safety filter may have blocked trademark)
+                console.warn(`⚠️ Scene ${sceneNum} failed. Retrying with brand-sanitized prompt...`);
+                let retryPrompt = scenePrompt
+                    .replace(/\bVersace\s+Bright\s+Crystal\b/gi, 'luxury pink crystal perfume bottle')
+                    .replace(/\bVersace\b/gi, 'luxury Italian')
+                    .replace(/\bChanel\b/gi, 'luxury French')
+                    .replace(/\bDior\b/gi, 'luxury designer')
+                    .replace(/\bGucci\b/gi, 'luxury Italian designer')
+                    .replace(/\bPrada\b/gi, 'luxury Italian')
+                    .replace(/\biPhone\b/gi, 'premium smartphone')
+                    .replace(/\bSamsung\b/gi, 'premium tech')
+                    .replace(/\s{2,}/g, ' ').trim();
+                retryPrompt = trimPromptToLimit(retryPrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                console.log(`🔁 Retry prompt (sanitized): "${retryPrompt.substring(0, 120)}..." (${retryPrompt.length} chars)`);
+                const retryGenerated = await fillPromptAndGenerate(retryPrompt);
                 if (retryGenerated) {
                     videoSrc = await waitForVideoComplete(180000, videoUrls);
                 }

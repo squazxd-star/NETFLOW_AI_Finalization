@@ -912,6 +912,34 @@ const buildVideoPrompt = (
  * Uses the same proven format as Scene 1 (works with Extend API, voice sync correct).
  * Only the THAI VOICEOVER SCRIPT changes per scene.
  */
+/**
+ * Sanitize brand/trademark names for Extend mode prompts.
+ * Extend API has stricter safety filters that block trademarked brand names.
+ * Replace with generic descriptive text to avoid blocks while keeping visual intent.
+ */
+const sanitizeBrandForExtend = (text: string): string => {
+    return text
+        // Perfume brands
+        .replace(/\bVersace\s+Bright\s+Crystal\b/gi, 'luxury pink crystal perfume bottle')
+        .replace(/\bVersace\b/gi, 'luxury Italian')
+        .replace(/\bChanel\s+No\.?\s*5\b/gi, 'elegant gold perfume bottle')
+        .replace(/\bChanel\b/gi, 'luxury French')
+        .replace(/\bDior\b/gi, 'luxury designer')
+        .replace(/\bGucci\b/gi, 'luxury Italian designer')
+        .replace(/\bPrada\b/gi, 'luxury Italian')
+        .replace(/\bLouis\s+Vuitton\b/gi, 'luxury French designer')
+        .replace(/\bHermès\b/gi, 'luxury French')
+        .replace(/\bBurberry\b/gi, 'British luxury')
+        .replace(/\bYSL\b/gi, 'luxury designer')
+        // Tech brands
+        .replace(/\bApple\b/gi, 'premium tech')
+        .replace(/\bSamsung\b/gi, 'premium tech')
+        .replace(/\biPhone\b/gi, 'premium smartphone')
+        .replace(/\bGalaxy\b/gi, 'premium smartphone')
+        // Generic cleanup: collapse double spaces
+        .replace(/\s{2,}/g, ' ').trim();
+};
+
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
     sceneScript: string,
@@ -920,6 +948,10 @@ export const buildSceneVideoPromptJSON = (
     // Strip any surrounding quotes that may have been added by sanitizeSceneScriptForVoiceover
     const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
 
+    // Sanitize brand names in Extend mode to avoid safety filter blocks
+    const safeProduct = sanitizeBrandForExtend(meta.product);
+    const safeScript = sanitizeBrandForExtend(cleanScript);
+
     const aspectDirective = meta.aspectRatio === '9:16'
         ? '9:16 vertical portrait.'
         : '16:9 landscape.';
@@ -927,11 +959,11 @@ export const buildSceneVideoPromptJSON = (
     // Compact style: remove duplicate pacing, shorten restrictions (~10% shorter overall)
     const lines = [
         `${meta.pacing} ${meta.template} video.`,
-        `${meta.gender}, ${meta.expression}, presenting ${meta.product}.`,
+        `${meta.gender}, ${meta.expression}, presenting ${safeProduct}.`,
         `${meta.style}.`,
         `${meta.camera}.`,
         `${meta.genderVoice}.`,
-        `THAI VOICEOVER SCRIPT: "${cleanScript}"`,
+        `THAI VOICEOVER SCRIPT: "${safeScript}"`,
         `No text/overlays. Same face, outfit, voice. ${aspectDirective} Natural hands. No floating objects.`
     ];
 
