@@ -6060,6 +6060,35 @@ export const runMultiScenePipeline = async (
         }
         await delay(400);
 
+        // ===== CLEANUP REFERENCE CHIPS BEFORE SCENE 1 GENERATE =====
+        // After uploading character+product, ensure only 1 chip remains to avoid 403
+        console.log("🧹 Cleaning reference chips before Scene 1 generation (keep 1 chip)...");
+        let inputEl: HTMLElement | null = null;
+        const inputs = findAllElementsDeep('textarea, input[type="text"]');
+        const visibleInputs = inputs.filter(el => (el as HTMLElement).clientHeight > 0);
+        if (visibleInputs.length > 0) {
+            inputEl = visibleInputs[visibleInputs.length - 1] as HTMLElement;
+        }
+        if (!inputEl) {
+            const editables = findAllElementsDeep('div[contenteditable="true"], [role="textbox"], span[data-placeholder]');
+            const isPromptBox = (el: Element) => {
+                const txt = (el.textContent || '').toLowerCase();
+                const placeholder = (el.getAttribute('data-placeholder') || '').toLowerCase();
+                const knownPlaceholders = [
+                    'สร้างวิดีโอที่มีข้อความ', 'type a prompt', 'describe', 'create video',
+                    'พิมพ์ในช่องพร้อมต์เพื่อเริ่มต้น', 'describe your video', 'สร้างรูปภาพจากข้อความและองค์ประกอบ'
+                ];
+                return knownPlaceholders.some(p => txt.includes(p) || placeholder.includes(p));
+            };
+            const match = editables.find(isPromptBox);
+            if (match) inputEl = match as HTMLElement;
+            else if (editables.length > 0) inputEl = editables[editables.length - 1] as HTMLElement;
+        }
+        if (inputEl) {
+            await normalizeVideoReferenceChips(inputEl, 1, true);
+            await delay(500);
+        }
+
         report("Generating Scene 1...", 9, totalSteps);
         // Scene 1: build proper prompt with voice script
         let scene1Prompt: string;
