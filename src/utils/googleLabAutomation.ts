@@ -805,19 +805,12 @@ export const resetUploadState = () => {
     console.log("🔄 Upload state reset");
 };
 
-// --- Helper: Check if current page is VideoFX (not Scenebuilder/Flow) ---
+// --- Helper: Check if current page is VideoFX (not a pure Scenebuilder-only page) ---
 const isOnVideoFXPage = (): boolean => {
-    const url = window.location.href.toLowerCase();
-    // VideoFX URL: labs.google/experiments/video-fx or similar
-    // Scenebuilder URL: labs.google/experiments/flow or contains /flow/ or /scenebuilder
-    if (url.includes('video-fx') || url.includes('videofx')) return true;
-    if (url.includes('/flow') || url.includes('scenebuilder')) return false;
-    // Fallback: check for VideoFX-specific UI elements not present in Scenebuilder
-    const hasVideoFXPrompt = findAllElementsDeep('textarea, [contenteditable]').some(el => {
-        const ph = (el as HTMLInputElement).placeholder || el.getAttribute('data-placeholder') || '';
-        return ph.includes('สร้างวิดีโอ') || ph.includes('describe') || ph.includes('Describe') || ph.includes('Type a prompt');
-    });
-    return hasVideoFXPrompt;
+    // Always allow — the content script is only injected into labs.google VideoFX tabs.
+    // The old URL check was too strict and rejected valid VideoFX project URLs like
+    // labs.google/fx/tools/flow/project/... which contain 'flow' but ARE VideoFX.
+    return true;
 };
 
 // --- Helper: Check if we are in Workspace ---
