@@ -823,6 +823,34 @@ const isInWorkspace = (selectors: AutomationSelectors): boolean => {
     return false;
 };
 
+// --- Wait until Image Tab upload slots are rendered (SPA may take time after tab switch) ---
+const waitForImageTabReady = async (maxWaitMs = 15000): Promise<boolean> => {
+    const startTime = Date.now();
+    console.log("⏳ Waiting for Image tab upload slots to render...");
+    while (Date.now() - startTime < maxWaitMs) {
+        const allButtons = findAllElementsDeep('button') as HTMLElement[];
+        for (const button of allButtons) {
+            const rect = button.getBoundingClientRect();
+            if (rect.width < 40 || rect.height < 40) continue;
+            const icon = button.querySelector('i, .material-icons, .google-symbols');
+            const iconText = icon?.textContent?.trim() || '';
+            if (iconText === 'add' || iconText === 'add_circle' || iconText === 'add_photo_alternate') {
+                console.log(`✅ Image tab ready: upload slot found (icon="${iconText}") after ${Date.now() - startTime}ms`);
+                return true;
+            }
+        }
+        // Also check for file inputs already present
+        const fileInputs = findAllElementsDeep('input[type="file"]');
+        if (fileInputs.length > 0) {
+            console.log(`✅ Image tab ready: file input found after ${Date.now() - startTime}ms`);
+            return true;
+        }
+        await delay(500);
+    }
+    console.warn(`⚠️ Image tab upload slots not found after ${maxWaitMs}ms — proceeding anyway`);
+    return false;
+};
+
 // --- Switch to Image Tab ---
 export const switchToImageTab = async (selectors: AutomationSelectors): Promise<boolean> => {
     console.log("🖼️ Switching to Image Tab...");
@@ -1996,6 +2024,21 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
 
     console.log("⏳ Waiting for image generation to complete...");
 
+    // Snapshot baseline images so we can detect NEW ones appearing (generation history)
+    const getImageSrcs = (): Set<string> => {
+        const imgs = findAllElementsDeep('img') as HTMLImageElement[];
+        const srcs = new Set<string>();
+        for (const img of imgs) {
+            const src = img.src || img.getAttribute('src') || '';
+            if (src && src.length > 10 && !src.includes('favicon') && !src.includes('logo') && !src.includes('avatar')) {
+                srcs.add(src);
+            }
+        }
+        return srcs;
+    };
+    const baselineImageSrcs = getImageSrcs();
+    console.log(`📸 Baseline: ${baselineImageSrcs.size} existing images in DOM`);
+
     while (Date.now() - startTime < timeout) {
         // Strategy 1: Look for progress indicators in specific contexts
         // Avoid false positives by looking for progress bars or specific containers
@@ -2035,19 +2078,31 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
             }
         }
 
-        // Strategy 3: Check if a new image appeared (result image)
+        // Strategy 3: Check if a NEW image appeared that wasn't in the baseline (generation history card)
+        const currentImageSrcs = getImageSrcs();
+        for (const src of currentImageSrcs) {
+            if (!baselineImageSrcs.has(src)) {
+                const img = findAllElementsDeep('img').find(i => (i as HTMLImageElement).src === src) as HTMLImageElement | undefined;
+                if (img && (img.naturalWidth > 100 || img.width > 100)) {
+                    console.log(`✅ New generated image appeared in history: ${src.substring(0, 60)}...`);
+                    await delay(1000);
+                    return true;
+                }
+            }
+        }
+
+        // Strategy 4: Check if a new blob/generated image appeared (result image, broader check)
         const images = findAllElementsDeep('img');
         const resultImages = images.filter(img => {
             const i = img as HTMLImageElement;
             const src = i.src || '';
-            // Look for generated images (usually blob URLs or specific patterns)
             return (src.startsWith('blob:') || src.includes('generated') || src.includes('result'))
                 && i.naturalWidth > 200 && i.naturalHeight > 200;
         });
 
         if (resultImages.length > 0) {
-            console.log("✅ Generated image detected");
-            await delay(1000); // Give it a moment to fully render
+            console.log("✅ Generated image detected (blob/result URL)");
+            await delay(1000);
             return true;
         }
 
@@ -3055,7 +3110,7 @@ export const runTwoStagePipeline = async (
 
         report("Switching to Image Mode...", 3, 12);
         await switchToImageTab(selectors);
-        await delay(1500);
+        await waitForImageTabReady(15000);
 
         // Upload 2 reference images (character + product)
         report("Uploading Character...", 4, 12);
@@ -5781,7 +5836,7 @@ export const runMultiScenePipeline = async (
         // ===== SCENE 1: Generate First Video =====
         report("Switching to Image Mode...", 3, totalSteps);
         await switchToImageTab(selectors);
-        await delay(1500);
+        await waitForImageTabReady(15000);
 
         report("Uploading Character...", 4, totalSteps);
         let charUploadOk = await uploadSingleImage(config.characterImage, 1, selectors);
