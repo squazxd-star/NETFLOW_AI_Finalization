@@ -873,17 +873,19 @@ const buildVideoPrompt = (
     // Style description for meta
     const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`;
 
-    // Build compact prompt — voice script must survive trimming
+    // Build detailed prompt — trimPromptToLimit preserves VOICEOVER section
     const promptLines = [
-        `${templateConfig.thaiName} video. ${genderText}, ${expressionText}, holding ${config.productName} naturally in hands.`,
+        `${durationConfig.pacing} ${templateConfig.thaiName} video.`,
+        `${genderText}, ${expressionText} expression, holding ${config.productName} naturally in hands.`,
         `${templateConfig.style}, ${saleStyle.approach}, ${toneText}.`,
-        `Cinematic movement, pro lighting. Movement: ${movementText}.`,
+        `Smooth cinematic movement, professional lighting.`,
+        `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}.`,
         `${genderVoice} Thai voice speaking. Lip sync matches voiceover exactly.`,
         `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
-        `No CTA, no text overlays. Same face/identity from reference. Exactly two hands, five fingers each. No floating objects, no extra limbs.`
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. Aspect ratio: ${aspectRatio === '9:16' ? '9:16 vertical portrait' : '16:9 horizontal landscape'} framing. No text overlays or subtitles. Same person identity, outfit, and voice from previous scene. Exactly two hands, five fingers each. No floating objects, no extra limbs.`
     ];
 
-    const prompt = promptLines.join(' ');
+    const prompt = promptLines.join('\n');
 
     // Meta for building Scene 2+ prompts
     const meta: VideoPromptMeta = {
