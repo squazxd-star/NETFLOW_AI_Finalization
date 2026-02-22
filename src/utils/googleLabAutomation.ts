@@ -2487,7 +2487,9 @@ const switchToVideoModeAndGenerate = async (
 
     // Fill video prompt and generate
     console.log("🎬 Filling Video Prompt...");
+    console.log(`🔍 Detecting flow: Checking for Veo mode indicators...`);
     const normalizedPrompt = finalizeVideoPrompt(videoPrompt, requestedAspectRatio);
+    console.log(`📊 Flow: ${normalizedPrompt.length > 500 ? 'Image-to-Video (long prompt)' : 'Veo (short prompt)'}`);
     return await fillPromptAndGenerate(normalizedPrompt);
 };
 
