@@ -405,6 +405,13 @@ const ContentScriptApp = () => {
                     }
                 }
 
+                // Debug: verify scene scripts before pipeline
+                console.log(`🐛 sceneScripts before pipeline (${sceneScripts.length} items):`);
+                sceneScripts.forEach((s: any, i: number) => {
+                    const text = typeof s === 'string' ? s : s?.script || '';
+                    console.log(`  ฉาก ${i + 1}: "${text.substring(0, 80)}..." (${text.length} chars)`);
+                });
+
                 try {
                     const result = await runMultiScenePipeline({
                         characterImage,

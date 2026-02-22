@@ -836,6 +836,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
 };
 
 const VIDEO_PROMPT_MAX_CHARS = 850;
+const VIDEO_EXTEND_PROMPT_MAX_CHARS = 400; // Extend API has stricter char limit than Generate
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
@@ -5846,19 +5847,24 @@ export const runMultiScenePipeline = async (
                 continue;
             }
 
-            // Build Scene 2+ prompt
+            // Build Scene 2+ prompt — Extend API has stricter char limit
+            console.log(`🐛 Scene ${sceneNum} sceneScriptText = "${sceneScriptText.substring(0, 100)}..." (${sceneScriptText.length} chars)`);
             let scenePrompt: string;
-            if (config.videoPrompt) {
-                // User-required behavior: keep Scene 1 prompt structure, change only script
-                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio);
-                console.log(`📝 Scene ${sceneNum} Prompt (scene1-template): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
-            } else if (config.videoPromptMeta) {
+            if (config.videoPromptMeta) {
+                // Prefer compact meta-based prompt for Extend API (shorter char limit)
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
-                console.log(`📝 Scene ${sceneNum} Prompt (meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
+                scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                console.log(`📝 Scene ${sceneNum} Prompt (compact-meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
+            } else if (config.videoPrompt) {
+                // Fallback: use Scene 1 template with replaced script, trimmed for Extend
+                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio);
+                scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                console.log(`📝 Scene ${sceneNum} Prompt (template-trimmed): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             } else {
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
-                console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length} chars)`);
+                scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             }
             console.log(`🎬 SCENE ${sceneNum} FULL PROMPT:\n${scenePrompt}`);
             console.log(`✅ Scene ${sceneNum} has voice script: ${scenePrompt.includes('THAI VOICEOVER SCRIPT') || scenePrompt.includes('VOICEOVER:')}`);

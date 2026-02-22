@@ -137,8 +137,8 @@ const CreateVideoTab = () => {
                     autoPostTikTok: data.autoPostTikTok,
                     autoPostYoutube: data.autoPostYoutube,
                     
-                    // AI Prompt (manual override)
-                    aiPrompt: data.useAiScript ? "" : data.aiPrompt,
+                    // AI Prompt — always send scene scripts from UI cards
+                    aiPrompt: data.aiPrompt || "",
                     useAiScript: data.useAiScript
                 };
 
