@@ -912,33 +912,6 @@ const buildVideoPrompt = (
  * Uses the same proven format as Scene 1 (works with Extend API, voice sync correct).
  * Only the THAI VOICEOVER SCRIPT changes per scene.
  */
-/**
- * Sanitize brand/trademark names for Extend mode prompts.
- * Extend API has stricter safety filters that block trademarked brand names.
- * Replace with generic descriptive text to avoid blocks while keeping visual intent.
- */
-const sanitizeBrandForExtend = (text: string): string => {
-    return text
-        // Perfume brands
-        .replace(/\bVersace\s+Bright\s+Crystal\b/gi, 'luxury pink crystal perfume bottle')
-        .replace(/\bVersace\b/gi, 'luxury Italian')
-        .replace(/\bChanel\s+No\.?\s*5\b/gi, 'elegant gold perfume bottle')
-        .replace(/\bChanel\b/gi, 'luxury French')
-        .replace(/\bDior\b/gi, 'luxury designer')
-        .replace(/\bGucci\b/gi, 'luxury Italian designer')
-        .replace(/\bPrada\b/gi, 'luxury Italian')
-        .replace(/\bLouis\s+Vuitton\b/gi, 'luxury French designer')
-        .replace(/\bHermès\b/gi, 'luxury French')
-        .replace(/\bBurberry\b/gi, 'British luxury')
-        .replace(/\bYSL\b/gi, 'luxury designer')
-        // Tech brands
-        .replace(/\bApple\b/gi, 'premium tech')
-        .replace(/\bSamsung\b/gi, 'premium tech')
-        .replace(/\biPhone\b/gi, 'premium smartphone')
-        .replace(/\bGalaxy\b/gi, 'premium smartphone')
-        // Generic cleanup: collapse double spaces
-        .replace(/\s{2,}/g, ' ').trim();
-};
 
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
@@ -948,23 +921,24 @@ export const buildSceneVideoPromptJSON = (
     // Strip any surrounding quotes that may have been added by sanitizeSceneScriptForVoiceover
     const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
 
-    // Sanitize brand names in Extend mode to avoid safety filter blocks
-    const safeProduct = sanitizeBrandForExtend(meta.product);
-    const safeScript = sanitizeBrandForExtend(cleanScript);
-
     const aspectDirective = meta.aspectRatio === '9:16'
-        ? '9:16 vertical portrait.'
-        : '16:9 landscape.';
+        ? 'Aspect ratio: 9:16 vertical portrait framing.'
+        : 'Aspect ratio: 16:9 horizontal landscape framing.';
 
-    // Compact style: remove duplicate pacing, shorten restrictions (~10% shorter overall)
+    const transitionDirective = sceneNumber > 1
+        ? 'Continue seamlessly from previous clip with natural transition from last frame.'
+        : '';
+
+    // Keep Scene 1-like structure for stable voice sync and quality.
     const lines = [
         `${meta.pacing} ${meta.template} video.`,
-        `${meta.gender}, ${meta.expression}, presenting ${safeProduct}.`,
+        `${meta.gender}, ${meta.expression}, presenting ${meta.product}.`,
         `${meta.style}.`,
         `${meta.camera}.`,
+        `Movement: active. ${meta.pacing}.`,
         `${meta.genderVoice}.`,
-        `THAI VOICEOVER SCRIPT: "${safeScript}"`,
-        `No text/overlays. Same face, outfit, voice. ${aspectDirective} Natural hands. No floating objects.`
+        `THAI VOICEOVER SCRIPT: "${cleanScript}"`,
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene. ${transitionDirective} Natural hands. No floating objects.`
     ];
 
     return lines.join(' ');

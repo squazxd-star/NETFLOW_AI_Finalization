@@ -931,6 +931,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
 const VIDEO_PROMPT_MAX_CHARS = 610;
 const VIDEO_PROMPT_RETRY_MAX_CHARS = 480;
 const VIDEO_EXTEND_PROMPT_MAX_CHARS = 800; // JSON format for Extend API — higher budget than plain text
+const VIDEO_EXTEND_RETRY_MAX_CHARS = 720;
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
@@ -1365,6 +1366,42 @@ const buildAspectRatioPromptDirective = (ratio: AspectRatioValue): string => {
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
 };
 
+// Extend safety fallback: sanitize risky trademark terms in non-voice prompt sections.
+const sanitizeBrandTermsForSafety = (text: string): string => {
+    return (text || '')
+        .replace(/\bVersace\s+Bright\s+Crystal\b/gi, 'luxury pink crystal perfume')
+        .replace(/\bVersace\b/gi, 'luxury perfume')
+        .replace(/\bChanel\b/gi, 'luxury perfume')
+        .replace(/\bDior\b/gi, 'luxury designer perfume')
+        .replace(/\bGucci\b/gi, 'luxury designer perfume')
+        .replace(/\bPrada\b/gi, 'luxury perfume')
+        .replace(/\bYSL\b/gi, 'luxury perfume')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+};
+
+// Build safer retry prompt while preserving THAI VOICEOVER SCRIPT exactly.
+const buildBrandSafeRetryPrompt = (prompt: string): string => {
+    const cleaned = compactPromptText(prompt);
+    const thaiVoiceRegex = /(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*")([^"]*)(")/i;
+    const voiceRegex = /(VOICEOVER\s*:\s*")([^"]*)(")/i;
+    const match = cleaned.match(thaiVoiceRegex) || cleaned.match(voiceRegex);
+
+    if (!match) {
+        return sanitizeBrandTermsForSafety(cleaned);
+    }
+
+    const fullVoiceBlock = match[0];
+    const placeholder = '__VOICE_BLOCK_KEEP_EXACT__';
+    let body = cleaned.replace(fullVoiceBlock, placeholder);
+    body = sanitizeBrandTermsForSafety(body);
+
+    return body
+        .replace(placeholder, fullVoiceBlock)
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+};
+
 const trimPromptToLimit = (prompt: string, maxChars: number): string => {
     // If already valid JSON, do not mangle — just hard-truncate as last resort
     const isJson = prompt.trimStart().startsWith('{');
@@ -1496,10 +1533,13 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
 const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
     const raw = (sceneScriptText || '').trim();
 
-    // If input is a full prompt containing THAI VOICEOVER SCRIPT, extract just the script value.
-    // Use a greedy match to find the LAST occurrence (most specific), then capture until end-quote or IMPORTANT/newline.
-    const thaiScriptMatch = raw.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"([^"]+)"/i);
-    if (thaiScriptMatch?.[1]) return thaiScriptMatch[1].trim();
+    // If input is a full prompt containing THAI VOICEOVER SCRIPT, extract script value.
+    // If multiple blocks exist, use the LAST one (most recent / scene-specific).
+    const thaiScriptMatches = [...raw.matchAll(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"([^"]+)"/gi)];
+    if (thaiScriptMatches.length > 0) {
+        const extracted = thaiScriptMatches[thaiScriptMatches.length - 1]?.[1] || '';
+        if (extracted) return extracted.replace(/^"+|"+$/g, '').trim();
+    }
 
     // Curly/smart quotes
     const curlyMatch = raw.match(/THAI\s+VOICEOVER\s+SCRIPT\s*:\s*[\u201c\u201d]([^\u201c\u201d]+)[\u201c\u201d]/i);
@@ -1507,7 +1547,7 @@ const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
 
     // VOICEOVER: "..."
     const voiceMatch = raw.match(/VOICEOVER\s*:\s*"([^"]+)"/i);
-    if (voiceMatch?.[1]) return voiceMatch[1].trim();
+    if (voiceMatch?.[1]) return voiceMatch[1].replace(/^"+|"+$/g, '').trim();
 
     // If no VOICEOVER marker at all — check if it looks like a full prompt (has IMPORTANT: or aspect ratio)
     // In that case, return empty so caller uses sceneScriptText directly (it IS the script)
@@ -1518,14 +1558,14 @@ const sanitizeSceneScriptForVoiceover = (sceneScriptText: string): string => {
 
     // Extract any quoted text
     const quoteMatch = raw.match(/"([^"]+)"/);
-    if (quoteMatch?.[1]) return quoteMatch[1].trim();
+    if (quoteMatch?.[1]) return quoteMatch[1].replace(/^"+|"+$/g, '').trim();
 
     // Plain text — strip scene prefix and return as-is
     const cleaned = raw
         .replace(/^🎬\s*ฉาก\s*\d+\s*:\s*/i, '')
         .replace(/^scene\s*\d+\s*:\s*/i, '')
         .trim();
-    return cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned.replace(/^"+|"+$/g, '').replace(/\s+/g, ' ').trim();
 };
 
 const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, requestedAspectRatio?: string, maxChars = VIDEO_PROMPT_MAX_CHARS): string => {
@@ -1557,7 +1597,16 @@ const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, r
         prompt = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: ${quotedVoice}`;
     }
 
-    prompt = dedupePromptClauses(prompt);
+    // Dedupe only non-voice section to avoid mutating script cadence/wording.
+    const voiceBlockMatch = prompt.match(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"[\s\S]*?")/i)
+        || prompt.match(/(VOICEOVER\s*:\s*"[\s\S]*?")/i);
+    if (voiceBlockMatch?.[1]) {
+        const voiceBlock = voiceBlockMatch[1];
+        const body = dedupePromptClauses(prompt.replace(voiceBlock, ' ').replace(/\s{2,}/g, ' ').trim());
+        prompt = `${body} ${voiceBlock}`.replace(/\s{2,}/g, ' ').trim();
+    } else {
+        prompt = dedupePromptClauses(prompt);
+    }
     const finalPrompt = trimPromptToLimit(prompt, maxChars);
     console.log(`📝 replaceVoiceoverInPrompt result: ${finalPrompt.length}/${maxChars} chars`);
     return finalPrompt;
@@ -6116,16 +6165,22 @@ export const runMultiScenePipeline = async (
             // Build Scene 2+ prompt — Extend API has stricter char limit
             console.log(`🐛 Scene ${sceneNum} rawSceneText = "${rawSceneText.substring(0, 80)}..." → voiceover = "${sceneScriptText.substring(0, 80)}..."`);
             let scenePrompt: string;
-            if (config.videoPromptMeta) {
-                // Prefer compact meta-based prompt for Extend API (shorter char limit)
+            if (config.videoPrompt) {
+                // Primary path: keep Scene 1 template and only replace script (best voice sync/stability)
+                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio, VIDEO_EXTEND_PROMPT_MAX_CHARS);
+                if (sceneNum > 1 && !/continue\s+seamlessly\s+from\s+previous\s+clip/i.test(scenePrompt)) {
+                    scenePrompt = trimPromptToLimit(
+                        `${scenePrompt} Continue seamlessly from previous clip with natural transition from last frame.`,
+                        VIDEO_EXTEND_PROMPT_MAX_CHARS
+                    );
+                }
+                console.log(`📝 Scene ${sceneNum} Prompt (scene1-template): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
+            } else if (config.videoPromptMeta) {
+                // Fallback: meta builder when base template is unavailable
                 const { buildSceneVideoPromptJSON } = await import('../services/aiPromptService');
                 scenePrompt = buildSceneVideoPromptJSON(config.videoPromptMeta, sceneScriptText, sceneNum);
                 scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
                 console.log(`📝 Scene ${sceneNum} Prompt (compact-meta): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
-            } else if (config.videoPrompt) {
-                // Fallback: use Scene 1 template with replaced script, trimmed for Extend
-                scenePrompt = replaceVoiceoverInPrompt(config.videoPrompt, sceneScriptText, config.aspectRatio, VIDEO_EXTEND_PROMPT_MAX_CHARS);
-                console.log(`📝 Scene ${sceneNum} Prompt (template-trimmed): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             } else {
                 scenePrompt = finalizeVideoPrompt(sceneScriptText, config.aspectRatio);
                 scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
@@ -6147,23 +6202,29 @@ export const runMultiScenePipeline = async (
 
             let videoSrc = await waitForVideoComplete(300000, videoUrls);
             if (!videoSrc) {
-                // Retry with brand-sanitized prompt (Extend mode safety filter may have blocked trademark)
-                console.warn(`⚠️ Scene ${sceneNum} failed. Retrying with brand-sanitized prompt...`);
-                let retryPrompt = scenePrompt
-                    .replace(/\bVersace\s+Bright\s+Crystal\b/gi, 'luxury pink crystal perfume bottle')
-                    .replace(/\bVersace\b/gi, 'luxury Italian')
-                    .replace(/\bChanel\b/gi, 'luxury French')
-                    .replace(/\bDior\b/gi, 'luxury designer')
-                    .replace(/\bGucci\b/gi, 'luxury Italian designer')
-                    .replace(/\bPrada\b/gi, 'luxury Italian')
-                    .replace(/\biPhone\b/gi, 'premium smartphone')
-                    .replace(/\bSamsung\b/gi, 'premium tech')
-                    .replace(/\s{2,}/g, ' ').trim();
-                retryPrompt = trimPromptToLimit(retryPrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
-                console.log(`🔁 Retry prompt (sanitized): "${retryPrompt.substring(0, 120)}..." (${retryPrompt.length} chars)`);
+                // Retry #1: safer prompt while preserving THAI VOICEOVER SCRIPT exactly
+                console.warn(`⚠️ Scene ${sceneNum} failed. Retrying with safety fallback (preserve script)...`);
+                let retryPrompt = buildBrandSafeRetryPrompt(scenePrompt);
+                retryPrompt = trimPromptToLimit(retryPrompt, VIDEO_EXTEND_RETRY_MAX_CHARS);
+                console.log(`🔁 Retry #1 prompt: "${retryPrompt.substring(0, 120)}..." (${retryPrompt.length}/${VIDEO_EXTEND_RETRY_MAX_CHARS} chars)`);
                 const retryGenerated = await fillPromptAndGenerate(retryPrompt);
                 if (retryGenerated) {
                     videoSrc = await waitForVideoComplete(180000, videoUrls);
+                }
+
+                // Retry #2: ultra-compact safety fallback (still preserve script)
+                if (!videoSrc) {
+                    console.warn(`⚠️ Scene ${sceneNum} still failed. Retrying with ultra-compact safety prompt...`);
+                    let compactRetry = buildBrandSafeRetryPrompt(scenePrompt);
+                    compactRetry = trimPromptToLimit(compactRetry, 640);
+                    if (sceneNum > 1 && !/continue\s+seamlessly\s+from\s+previous\s+clip/i.test(compactRetry)) {
+                        compactRetry = trimPromptToLimit(`${compactRetry} Continue seamlessly from previous clip.`, 640);
+                    }
+                    console.log(`🔁 Retry #2 prompt: "${compactRetry.substring(0, 120)}..." (${compactRetry.length}/640 chars)`);
+                    const retryGenerated2 = await fillPromptAndGenerate(compactRetry);
+                    if (retryGenerated2) {
+                        videoSrc = await waitForVideoComplete(150000, videoUrls);
+                    }
                 }
             }
 
