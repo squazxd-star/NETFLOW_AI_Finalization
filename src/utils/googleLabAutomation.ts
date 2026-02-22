@@ -6169,11 +6169,13 @@ export const runMultiScenePipeline = async (
 
         // STEP A: Hover video and click "เพิ่มลงในฉาก" (Add to Scene Builder)
         report("Adding to Scene Builder...", 11, totalSteps);
+        console.log("🎯 STEP A: Adding Scene 1 to Scene Builder...");
         const addedToScene = await hoverVideoAndAddToScene(selectors);
         if (!addedToScene) {
-            console.warn("⚠️ Could not add to scene, trying to continue...");
+            throw new Error("Failed to add Scene 1 to Scene Builder - cannot continue to Scene 2");
         }
-        await delay(5000);
+        console.log("✅ Scene 1 added to Scene Builder");
+        await delay(3000);
 
         let actualScenesGenerated = 1; // Scene 1 already done
 
@@ -6188,14 +6190,14 @@ export const runMultiScenePipeline = async (
             console.log(`🎯 STEP 1: Click + → Extend for Scene ${sceneNum}...`);
 
             let extendSuccess = false;
-            for (let extAttempt = 1; extAttempt <= 2; extAttempt++) {
-                console.log(`  🔁 Extend attempt ${extAttempt}/2...`);
+            for (let extAttempt = 1; extAttempt <= 3; extAttempt++) {
+                console.log(`  🔁 Extend attempt ${extAttempt}/3...`);
                 extendSuccess = await clickAddClipButton();
                 if (extendSuccess) {
                     console.log(`✅ Extend clicked for Scene ${sceneNum} (attempt ${extAttempt})!`);
                     break;
                 }
-                if (extAttempt < 2) {
+                if (extAttempt < 3) {
                     console.warn(`  ⚠️ Extend failed on attempt ${extAttempt}. Retrying...`);
                     await delay(2000);
                 }
