@@ -901,7 +901,7 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
 // StartAndEnd video endpoint is more sensitive to long prompts; keep Scene 1 concise but detailed.
 const VIDEO_PROMPT_MAX_CHARS = 610;
 const VIDEO_PROMPT_RETRY_MAX_CHARS = 480;
-const VIDEO_EXTEND_PROMPT_MAX_CHARS = 400; // Extend API has stricter char limit than Generate
+const VIDEO_EXTEND_PROMPT_MAX_CHARS = 800; // JSON format for Extend API — higher budget than plain text
 
 // Voice seed management for consistent voice across scenes
 let voiceSeed: string | null = null;
@@ -1337,6 +1337,22 @@ const buildAspectRatioPromptDirective = (ratio: AspectRatioValue): string => {
 };
 
 const trimPromptToLimit = (prompt: string, maxChars: number): string => {
+    // If already valid JSON, do not mangle — just hard-truncate as last resort
+    const isJson = prompt.trimStart().startsWith('{');
+    if (isJson) {
+        if (prompt.length <= maxChars) return prompt;
+        console.warn(`⚠️ JSON prompt exceeds ${maxChars} chars (${prompt.length}) — truncating voiceover field`);
+        try {
+            const obj = JSON.parse(prompt);
+            if (obj.voiceover && typeof obj.voiceover === 'string' && obj.voiceover.length > 40) {
+                const overhead = prompt.length - obj.voiceover.length;
+                const budget = Math.max(20, maxChars - overhead - 5);
+                obj.voiceover = obj.voiceover.slice(0, budget).trim();
+                return JSON.stringify(obj);
+            }
+        } catch { }
+        return prompt.slice(0, maxChars);
+    }
     const cleaned = compactPromptText(prompt);
     if (cleaned.length <= maxChars) return cleaned;
 
