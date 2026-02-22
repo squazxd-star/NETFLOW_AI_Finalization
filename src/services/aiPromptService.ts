@@ -870,26 +870,20 @@ const buildVideoPrompt = (
     };
     const toneText = toneDescriptions[config.voiceTone] || toneDescriptions["friendly"];
 
-    // Build clean natural language prompt (Scene 1) — only Scene 1 script
+    // Style description for meta
     const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`;
-    const actionDesc = `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}`;
 
+    // Build compact prompt — voice script must survive trimming
     const promptLines = [
-        `${durationConfig.pacing} ${templateConfig.thaiName} video.`,
-        `${genderText}, ${expressionText} expression, presenting ${config.productName}.`,
-        `${styleDesc}.`,
-        `Smooth cinematic movement, professional lighting.`,
-        `${actionDesc}.`,
-        ``,
+        `${templateConfig.thaiName} video. ${genderText}, ${expressionText}, presenting ${config.productName}.`,
+        `${templateConfig.style}, ${saleStyle.approach}, ${toneText}.`,
+        `Cinematic movement, pro lighting. Movement: ${movementText}.`,
         `${genderVoice} Thai voice speaking.`,
-        ``,
-        `THAI VOICEOVER SCRIPT:`,
-        `"${sceneTexts[0] || ''}"`,
-        ``,
-        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image.`
+        `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
+        `No CTA, no text overlays, no subtitles. Same face/identity from reference.`
     ];
 
-    const prompt = promptLines.join('\n');
+    const prompt = promptLines.join(' ');
 
     // Meta for building Scene 2+ prompts
     const meta: VideoPromptMeta = {

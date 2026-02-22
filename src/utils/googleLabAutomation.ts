@@ -1274,10 +1274,31 @@ const trimPromptToLimit = (prompt: string, maxChars: number): string => {
     const cleaned = compactPromptText(prompt);
     if (cleaned.length <= maxChars) return cleaned;
 
-    const hardSlice = cleaned.slice(0, maxChars).trim();
-    const softCut = hardSlice.lastIndexOf(' ');
-    const clipped = softCut > Math.floor(maxChars * 0.65) ? hardSlice.slice(0, softCut).trim() : hardSlice;
-    return /[.!?…]$/.test(clipped) ? clipped : `${clipped}.`;
+    // Extract VOICEOVER section so it doesn't get cut off
+    const voiceMatch = cleaned.match(/(THAI\s+VOICEOVER\s+SCRIPT\s*:\s*"[^"]*")/i) 
+        || cleaned.match(/(VOICEOVER\s*:\s*"[^"]*")/i);
+    const voiceSection = voiceMatch ? voiceMatch[1] : '';
+    
+    // Remove voiceover from prompt body, trim the rest, then re-append
+    let body = voiceSection ? cleaned.replace(voiceSection, '').replace(/\s{2,}/g, ' ').trim() : cleaned;
+    
+    // Budget: leave room for voiceover section
+    const voiceBudget = voiceSection ? voiceSection.length + 1 : 0;
+    const bodyBudget = maxChars - voiceBudget;
+    
+    if (body.length > bodyBudget && bodyBudget > 100) {
+        const hardSlice = body.slice(0, bodyBudget).trim();
+        const softCut = hardSlice.lastIndexOf(' ');
+        body = softCut > Math.floor(bodyBudget * 0.65) ? hardSlice.slice(0, softCut).trim() : hardSlice;
+        if (!/[.!?…]$/.test(body)) body = `${body}.`;
+    }
+    
+    // Re-append voiceover
+    const result = voiceSection ? `${body} ${voiceSection}` : body;
+    
+    // Final hard limit
+    if (result.length <= maxChars) return result;
+    return result.slice(0, maxChars).trim();
 };
 
 const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): string => {
