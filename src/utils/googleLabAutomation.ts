@@ -870,7 +870,8 @@ const extractAspectRatioValue = (text: string): AspectRatioValue | null => {
     return null;
 };
 
-const VIDEO_PROMPT_MAX_CHARS = 850;
+// StartAndEnd video endpoint is more sensitive to long prompts; keep Scene 1 concise but detailed.
+const VIDEO_PROMPT_MAX_CHARS = 680;
 const VIDEO_EXTEND_PROMPT_MAX_CHARS = 400; // Extend API has stricter char limit than Generate
 
 // Voice seed management for consistent voice across scenes
@@ -1315,6 +1316,17 @@ const trimPromptToLimit = (prompt: string, maxChars: number): string => {
         || cleaned.match(/(VOICEOVER\s*:\s*"[^"]*")/i);
     const voiceSection = voiceMatch ? voiceMatch[1] : '';
     
+    // If voiceover alone exceeds budget, keep a shortened voice line instead of dropping it.
+    if (voiceSection && voiceSection.length >= maxChars) {
+        const voicePrefix = voiceSection.toLowerCase().includes('thai voiceover script')
+            ? 'THAI VOICEOVER SCRIPT: "'
+            : 'VOICEOVER: "';
+        const voiceText = voiceSection.replace(/^[^:]*:\s*"?/i, '').replace(/"$/, '').trim();
+        const voiceTextBudget = Math.max(40, maxChars - voicePrefix.length - 1);
+        const shortenedVoice = voiceText.slice(0, voiceTextBudget).trim();
+        return `${voicePrefix}${shortenedVoice}"`;
+    }
+
     // Remove voiceover from prompt body, trim the rest, then re-append
     let body = voiceSection ? cleaned.replace(voiceSection, '').replace(/\s{2,}/g, ' ').trim() : cleaned;
     
@@ -1335,6 +1347,23 @@ const trimPromptToLimit = (prompt: string, maxChars: number): string => {
     // Final hard limit
     if (result.length <= maxChars) return result;
     return result.slice(0, maxChars).trim();
+};
+
+const dedupePromptClauses = (prompt: string): string => {
+    const parts = (prompt || '')
+        .split(/(?<=[.!?…])\s+|\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+    const seen = new Set<string>();
+    const kept: string[] = [];
+    for (const part of parts) {
+        const key = part.toLowerCase().replace(/[^a-z0-9ก-๙\s:]/gi, '').replace(/\s+/g, ' ').trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        kept.push(part);
+    }
+    return kept.join(' ');
 };
 
 const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): string => {
@@ -1376,6 +1405,12 @@ const finalizeVideoPrompt = (rawPrompt: string, requestedAspectRatio?: string): 
     if (currentVoiceGender && !normalized.includes('voice')) {
         prompt = `${prompt} ${currentVoiceGender} Thai voice, same pitch and tone throughout.`;
     }
+
+    // Compact repeated instructions while preserving quality constraints.
+    prompt = dedupePromptClauses(prompt)
+        .replace(/No CTA, no popup text, no floating text, no overlay text in the video\./gi, 'No CTA/popup/overlay text.')
+        .replace(/No text overlays or subtitles\./gi, 'No text overlays/subtitles.')
+        .replace(/Same person identity, outfit, and voice from previous scene\./gi, 'Same person identity/outfit/voice from previous scene.');
 
     const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
     console.log(`📝 Video prompt finalized: ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
@@ -1425,6 +1460,8 @@ const replaceVoiceoverInPrompt = (basePrompt: string, sceneScriptText: string, r
         prompt = `${compactPromptText(prompt)} THAI VOICEOVER SCRIPT: ${quotedVoice}`;
     }
 
+    // Scene 1 uses StartAndEnd endpoint; keep it compact to reduce 403 risk.
+    prompt = dedupePromptClauses(prompt);
     const finalPrompt = trimPromptToLimit(prompt, VIDEO_PROMPT_MAX_CHARS);
     console.log(`📝 Extend prompt (scene script replaced): ${finalPrompt.length}/${VIDEO_PROMPT_MAX_CHARS} chars`);
     return finalPrompt;
