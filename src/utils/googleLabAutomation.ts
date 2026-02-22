@@ -5939,6 +5939,10 @@ export const runMultiScenePipeline = async (
         await delay(10000);
 
         report("Generating Base Image...", 6, totalSteps);
+        console.log(`\n${'='.repeat(60)}`);
+        console.log(`🖼️  [PHASE: IMAGE PROMPT] (${config.imagePrompt?.length || 0} chars)`);
+        console.log(config.imagePrompt);
+        console.log('='.repeat(60));
         await fillPromptAndGenerate(config.imagePrompt);
 
         report("Waiting for Image...", 7, totalSteps);
@@ -5988,9 +5992,10 @@ export const runMultiScenePipeline = async (
             scene1Prompt = finalizeVideoPrompt(config.imagePrompt, config.aspectRatio);
         }
         
-        console.log(`📝 Scene 1 Prompt: "${scene1Prompt.substring(0, 150)}..." (${scene1Prompt.length} chars)`);
-        console.log(`🎬 SCENE 1 FULL PROMPT:\n${scene1Prompt}`);
-        console.log(`✅ Scene 1 has voice script: ${scene1Prompt.includes('THAI VOICEOVER SCRIPT') || scene1Prompt.includes('VOICEOVER:')}`);
+        console.log(`\n${'='.repeat(60)}`);
+        console.log(`🎬 [PHASE: SCENE 1 VIDEO PROMPT] (${scene1Prompt.length} chars)`);
+        console.log(scene1Prompt);
+        console.log('='.repeat(60));
         await switchToVideoModeAndGenerate(scene1Prompt, selectors, config.aspectRatio);
 
         report("Waiting for Video 1...", 10, totalSteps);
@@ -5998,6 +6003,10 @@ export const runMultiScenePipeline = async (
         if (!video1Src) {
             console.warn("⚠️ Scene 1 video did not complete. Retrying once with cleaned references...");
             const retryPrompt = buildScene1RetryPrompt(scene1Prompt, config.aspectRatio);
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`🔁 [PHASE: SCENE 1 RETRY PROMPT] (${retryPrompt.length} chars)`);
+            console.log(retryPrompt);
+            console.log('='.repeat(60));
             const retryGenerated = await fillPromptAndGenerate(retryPrompt);
             if (retryGenerated) {
                 video1Src = await waitForVideoComplete(180000, videoUrls);
@@ -6102,8 +6111,10 @@ export const runMultiScenePipeline = async (
                 scenePrompt = trimPromptToLimit(scenePrompt, VIDEO_EXTEND_PROMPT_MAX_CHARS);
                 console.log(`📝 Scene ${sceneNum} Prompt (fallback): "${scenePrompt.substring(0, 150)}..." (${scenePrompt.length}/${VIDEO_EXTEND_PROMPT_MAX_CHARS} chars)`);
             }
-            console.log(`🎬 SCENE ${sceneNum} FULL PROMPT:\n${scenePrompt}`);
-            console.log(`✅ Scene ${sceneNum} has voice script: ${scenePrompt.includes('THAI VOICEOVER SCRIPT') || scenePrompt.includes('VOICEOVER:')}`);
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`🎬 [PHASE: SCENE ${sceneNum} VIDEO PROMPT] (${scenePrompt.length} chars)`);
+            console.log(scenePrompt);
+            console.log('='.repeat(60));
             const generated = await fillPromptAndGenerate(scenePrompt);
             if (!generated) {
                 console.warn(`⚠️ Could not generate Scene ${sceneNum}`);
