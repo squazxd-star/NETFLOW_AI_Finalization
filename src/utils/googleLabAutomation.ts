@@ -2058,13 +2058,23 @@ const waitForGenerationComplete = async (selectors: AutomationSelectors, timeout
     return false;
 };
 
-const waitForVideoComplete = async (timeout = 300000): Promise<string | null> => {
+const waitForVideoComplete = async (timeout = 300000, ignoreUrls: string[] = []): Promise<string | null> => {
     const startTime = Date.now();
     let lastProgress = -1;
 
     console.log("⏳ Waiting for video generation...");
 
     while (Date.now() - startTime < timeout) {
+        // Strategy 0: Check for failure in the most recent card only (to avoid false positives from old cards)
+        const recentCards = findAllElementsDeep('div[role="listitem"], div[class*="card"], div[class*="item"]').slice(0, 3);
+        for (const card of recentCards) {
+            const text = (card.textContent || '').trim().toLowerCase();
+            if (text.includes('failed generation') || text.includes('generation failed') || text.includes('something went wrong')) {
+                console.warn(`❌ Video generation failed in recent card: "${text.substring(0, 50)}..."`);
+                return null;
+            }
+        }
+
         // Strategy 1: Check progress percentage
         const allElements = findAllElementsDeep('div, span, p');
         for (const el of allElements) {
@@ -2093,7 +2103,7 @@ const waitForVideoComplete = async (timeout = 300000): Promise<string | null> =>
         const videos = findAllElementsDeep('video');
         for (const v of videos) {
             const vid = v as HTMLVideoElement;
-            if (vid.src && vid.src.length > 50) {
+            if (vid.src && vid.src.length > 50 && !ignoreUrls.includes(vid.src)) {
                 console.log("✅ Video element found with src:", vid.src.substring(0, 80));
                 return vid.src;
             }
@@ -2109,7 +2119,7 @@ const waitForVideoComplete = async (timeout = 300000): Promise<string | null> =>
                 const vids = findAllElementsDeep('video');
                 for (const v of vids) {
                     const vid = v as HTMLVideoElement;
-                    if (vid.src && vid.src.length > 50) return vid.src;
+                    if (vid.src && vid.src.length > 50 && !ignoreUrls.includes(vid.src)) return vid.src;
                 }
             }
         }
@@ -5861,13 +5871,13 @@ export const runMultiScenePipeline = async (
         await switchToVideoModeAndGenerate(scene1Prompt, selectors, config.aspectRatio);
 
         report("Waiting for Video 1...", 10, totalSteps);
-        let video1Src = await waitForVideoComplete(300000);
+        let video1Src = await waitForVideoComplete(300000, videoUrls);
         if (!video1Src) {
             console.warn("⚠️ Scene 1 video did not complete. Retrying once with cleaned references...");
             const retryPrompt = buildScene1RetryPrompt(scene1Prompt, config.aspectRatio);
             const retryGenerated = await fillPromptAndGenerate(retryPrompt);
             if (retryGenerated) {
-                video1Src = await waitForVideoComplete(180000);
+                video1Src = await waitForVideoComplete(180000, videoUrls);
             }
         }
         if (!video1Src) throw new Error("Video 1 Generation Timeout");
@@ -5981,12 +5991,12 @@ export const runMultiScenePipeline = async (
             report(`Waiting for Video ${sceneNum}...`, stepBase + 2, totalSteps);
             console.log(`🎯 STEP 3: Waiting for Scene ${sceneNum} video...`);
 
-            let videoSrc = await waitForVideoComplete(300000);
+            let videoSrc = await waitForVideoComplete(300000, videoUrls);
             if (!videoSrc) {
                 console.warn(`⚠️ Scene ${sceneNum} not ready. Retrying generate once...`);
                 const retryGenerated = await fillPromptAndGenerate(scenePrompt);
                 if (retryGenerated) {
-                    videoSrc = await waitForVideoComplete(180000);
+                    videoSrc = await waitForVideoComplete(180000, videoUrls);
                 }
             }
 
