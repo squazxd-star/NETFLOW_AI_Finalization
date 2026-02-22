@@ -218,7 +218,7 @@ const robustElementClick = async (el: HTMLElement): Promise<void> => {
     el.click();
 };
 
-const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount: number = 1, force: boolean = false): Promise<void> => {
+const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount: number = 1, force: boolean = false, preferGeneratedImage: boolean = false): Promise<void> => {
     const mode = detectGenerationMode();
     if (mode !== 'video' && !force) return;
 
@@ -264,8 +264,22 @@ const normalizeVideoReferenceChips = async (promptInput: HTMLElement, keepCount:
         }
         await delay(250);
 
-        const sortedImages = [...chipImages].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-        const toRemove = sortedImages.slice(0, Math.max(0, sortedImages.length - keepCount)); // Keep right-most/latest chips
+        let sortedImages = [...chipImages].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+        
+        // If preferGeneratedImage, try to identify and keep generated images first
+        if (preferGeneratedImage && keepCount > 0) {
+            const generatedImages = sortedImages.filter(img => {
+                const src = (img as HTMLImageElement).src || '';
+                // Generated images often have blob: URLs or data: URLs, while uploaded have regular URLs
+                return src.startsWith('blob:') || src.startsWith('data:') || src.includes('googleusercontent.com/video-generate');
+            });
+            const otherImages = sortedImages.filter(img => !generatedImages.includes(img));
+            
+            // Prioritize generated images, then fill remaining slots with others
+            sortedImages = [...generatedImages, ...otherImages];
+        }
+        
+        const toRemove = sortedImages.slice(0, Math.max(0, sortedImages.length - keepCount)); // Keep right-most/latest chips (or generated if preferred)
 
         const closeButtons = findAllElementsDeep('button, [role="button"]').filter((btn) => {
             const el = btn as HTMLElement;
@@ -5525,7 +5539,7 @@ const fillNextScenePromptAndGenerate = async (scenePrompt: string, selectors: Au
     // ===== KEEP ONLY 1 REFERENCE CHIP (generated image) =====
     // Extend mode should keep the generated reference image, remove extra character/product chips.
     console.log("🧹 Keeping only 1 reference chip (generated image), removing others...");
-    await normalizeVideoReferenceChips(promptInput, 1, true);
+    await normalizeVideoReferenceChips(promptInput, 1, true, true); // preferGeneratedImage=true
     await delay(500);
 
     console.log("✅ Found prompt input, filling with multi-strategy approach...");
