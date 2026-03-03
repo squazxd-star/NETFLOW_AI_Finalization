@@ -273,82 +273,160 @@ async function setPromptText(el: HTMLElement, text: string) {
 
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
 
+/** Count how many image thumbnails are currently visible in the prompt area */
+function countPromptThumbnails(): number {
+    // Look for small images/thumbnails near the bottom of the page (prompt bar area)
+    let count = 0;
+    const imgs = document.querySelectorAll<HTMLImageElement>("img");
+    for (const img of imgs) {
+        const rect = img.getBoundingClientRect();
+        // Thumbnails in prompt bar: near bottom, small-ish
+        if (rect.bottom > window.innerHeight * 0.5 && rect.width > 20 && rect.width < 300 && rect.height > 20) {
+            count++;
+        }
+    }
+    return count;
+}
+
 /**
- * Upload a single image into the prompt bar.
- * 1. Snapshot existing file inputs
- * 2. Click the "+" button → look for upload option
- * 3. Wait for a NEW file input → inject file
+ * Upload a single image into the prompt bar using multiple strategies:
+ *  1. Clipboard paste (Ctrl+V simulation) — most reliable for React apps
+ *  2. Drag-and-drop simulation onto prompt area
+ *  3. File input injection via "+" button (fallback)
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── Uploading ${fileName} into prompt bar ──`);
 
-    // Snapshot all existing file inputs so we can detect a new one
-    const existingInputs = new Set(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
-    LOG(`Existing file inputs: ${existingInputs.size}`);
-
-    // Step 1: Find and click the "+" button
-    const addBtn = findPromptBarAddButton();
-    if (!addBtn) {
-        WARN("Could not find prompt bar '+' button");
-        return false;
-    }
-
-    addBtn.click();
-    LOG("Clicked prompt bar '+' button");
-    await sleep(1200);
-
-    // Step 2: Look for upload menu option (if a popup/menu appeared)
-    let clickedUpload = false;
-    const menuElements = document.querySelectorAll<HTMLElement>(
-        "button, [role='menuitem'], [role='option'], [role='listbox'] > *, li"
-    );
-    for (const el of menuElements) {
-        // Skip if this is the add button itself
-        if (el === addBtn) continue;
-
-        // Check icon
-        const icons = el.querySelectorAll("i");
-        for (const icon of icons) {
-            const iconText = icon.textContent?.trim() || "";
-            if (iconText === "upload" || iconText === "upload_file" || iconText === "cloud_upload") {
-                el.click();
-                clickedUpload = true;
-                LOG(`Clicked upload menu item (icon: ${iconText})`);
-                break;
-            }
-        }
-        if (clickedUpload) break;
-
-        // Check text
-        const txt = (el.textContent || "").trim().toLowerCase();
-        if (txt.includes("upload") || txt.includes("อัปโหลด") || txt.includes("อัพโหลด") || txt.includes("from computer")) {
-            el.click();
-            clickedUpload = true;
-            LOG(`Clicked upload menu item (text: "${txt.substring(0, 30)}")`);
-            break;
-        }
-    }
-
-    if (!clickedUpload) {
-        LOG("No upload menu item found — assuming '+' directly triggers file input");
-    }
-    await sleep(1000);
-
-    // Step 3: Wait for a NEW file input to appear
-    const fileInput = await waitForNewFileInput(existingInputs, 8000);
-    if (!fileInput) {
-        WARN(`No file input found for ${fileName}`);
-        return false;
-    }
-
-    // Step 4: Inject the file
     const file = base64ToFile(dataUrl, fileName);
-    setFileInput(fileInput, file);
-    LOG(`✅ Injected ${fileName} (${(file.size / 1024).toFixed(1)} KB)`);
+    LOG(`File size: ${(file.size / 1024).toFixed(1)} KB`);
 
-    // Wait for thumbnail to appear and processing
-    await sleep(3000);
-    return true;
+    const thumbsBefore = countPromptThumbnails();
+    LOG(`Thumbnails before: ${thumbsBefore}`);
+
+    // Find the prompt input area as drop/paste target
+    const promptInput = findPromptTextInput();
+    const promptBar = promptInput?.closest('[class*="prompt"], [class*="input"], [class*="composer"]') as HTMLElement
+        || promptInput?.parentElement?.parentElement as HTMLElement
+        || document.querySelector('[class*="prompt-bar"], [class*="composer"]') as HTMLElement;
+
+    const pasteTarget = promptInput || promptBar || document.body;
+
+    // ═══ Strategy 1: Clipboard paste (Ctrl+V) ═══
+    LOG("Strategy 1: Clipboard paste simulation");
+    try {
+        pasteTarget.focus();
+        await sleep(200);
+
+        const dt = new DataTransfer();
+        dt.items.add(file);
+
+        const pasteEvent = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt
+        });
+        pasteTarget.dispatchEvent(pasteEvent);
+        LOG("Dispatched paste event on prompt target");
+        await sleep(3000);
+
+        if (countPromptThumbnails() > thumbsBefore) {
+            LOG(`✅ Strategy 1 (paste) succeeded for ${fileName}`);
+            return true;
+        }
+        LOG("Strategy 1: no new thumbnail detected");
+    } catch (e: any) {
+        LOG(`Strategy 1 failed: ${e.message}`);
+    }
+
+    // ═══ Strategy 2: Drag-and-drop simulation ═══
+    LOG("Strategy 2: Drag-and-drop simulation");
+    try {
+        const dropTarget = promptBar || pasteTarget;
+        const rect = dropTarget.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+
+        const dtDrag = new DataTransfer();
+        dtDrag.items.add(file);
+
+        // dragenter → dragover → drop
+        dropTarget.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dtDrag, clientX: cx, clientY: cy }));
+        await sleep(100);
+        dropTarget.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dtDrag, clientX: cx, clientY: cy }));
+        await sleep(100);
+        dropTarget.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dtDrag, clientX: cx, clientY: cy }));
+        LOG("Dispatched drag-and-drop events");
+        await sleep(3000);
+
+        if (countPromptThumbnails() > thumbsBefore) {
+            LOG(`✅ Strategy 2 (drop) succeeded for ${fileName}`);
+            return true;
+        }
+        LOG("Strategy 2: no new thumbnail detected");
+    } catch (e: any) {
+        LOG(`Strategy 2 failed: ${e.message}`);
+    }
+
+    // ═══ Strategy 3: Click "+" → file input injection ═══
+    LOG("Strategy 3: Click '+' → file input injection");
+    try {
+        const existingInputs = new Set(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
+        const addBtn = findPromptBarAddButton();
+        if (addBtn) {
+            addBtn.click();
+            LOG("Clicked '+' button");
+            await sleep(1200);
+
+            // Look for upload menu option
+            const menuElements = document.querySelectorAll<HTMLElement>(
+                "button, [role='menuitem'], [role='option'], li"
+            );
+            for (const el of menuElements) {
+                if (el === addBtn) continue;
+                const icons = el.querySelectorAll("i");
+                let found = false;
+                for (const icon of icons) {
+                    const it = icon.textContent?.trim() || "";
+                    if (it === "upload" || it === "upload_file" || it === "cloud_upload") {
+                        el.click();
+                        found = true;
+                        LOG(`Clicked upload menu (icon: ${it})`);
+                        break;
+                    }
+                }
+                if (found) break;
+                const txt = (el.textContent || "").trim().toLowerCase();
+                if (txt.includes("upload") || txt.includes("อัปโหลด") || txt.includes("อัพโหลด")) {
+                    el.click();
+                    LOG(`Clicked upload menu (text: "${txt.substring(0, 30)}")`);
+                    break;
+                }
+            }
+            await sleep(1000);
+
+            // Find file input (new or existing)
+            const fileInput = await waitForNewFileInput(existingInputs, 8000);
+            if (fileInput) {
+                setFileInput(fileInput, file);
+                LOG(`Injected file into input`);
+                await sleep(3000);
+
+                if (countPromptThumbnails() > thumbsBefore) {
+                    LOG(`✅ Strategy 3 (file input) succeeded for ${fileName}`);
+                    return true;
+                }
+            } else {
+                LOG("No file input found");
+            }
+        } else {
+            LOG("No '+' button found");
+        }
+    } catch (e: any) {
+        LOG(`Strategy 3 failed: ${e.message}`);
+    }
+
+    WARN(`All 3 strategies failed for ${fileName}`);
+    return false;
 }
 
 // ─── GENERATE_IMAGE handler ─────────────────────────────────────────────────
