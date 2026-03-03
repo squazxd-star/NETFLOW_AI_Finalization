@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Play, Loader2, ExternalLink, Wand2, Upload } from "lucide-react";
+import { Play, Loader2, ExternalLink, Wand2 } from "lucide-react";
 import { createVideoSchema, CreateVideoFormData, createVideoDefaultValues } from "@/schemas";
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import {
@@ -235,23 +235,29 @@ const CreateVideoTab = () => {
                     </button>
                 </div>
 
-                {/* Step 3: Upload Images to Flow */}
-                <div className={`space-y-2 transition-opacity duration-200 ${!flowOpened ? 'opacity-50 pointer-events-none' : ''}`}>
+                {/* Step 3: Generate Image on Google Flow */}
+                <div className={`space-y-2 transition-opacity duration-200 ${!generatedImagePrompt || !flowOpened ? 'opacity-50 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                        <span className="bg-purple-500/20 text-purple-400 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">3</span>
-                        อัพโหลดรูปเข้า Flow
+                        <span className="bg-neon-red/20 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px]">3</span>
+                        สร้างภาพ (Image Generation)
                     </label>
+                    <p className="text-[10px] text-muted-foreground">อัพโหลดรูป reference → ใส่ prompt → กด Generate อัตโนมัติ</p>
                     <button
                         type="button"
-                        disabled={isUploading || (!productImage && !characterImage)}
+                        disabled={isUploading || !generatedImagePrompt}
                         onClick={async () => {
-                            if (!productImage && !characterImage) return;
+                            if (!generatedImagePrompt) return;
                             setIsUploading(true);
-                            setUploadStatus("⏳ กำลังอัพโหลด...");
+                            setUploadStatus("⏳ กำลังอัพโหลดรูป + สร้างภาพ...");
                             try {
-                                const response = await new Promise<{ success: boolean; message: string }>((resolve) => {
+                                const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
                                     chrome.runtime.sendMessage(
-                                        { action: "UPLOAD_IMAGES", productImage, characterImage },
+                                        {
+                                            action: "GENERATE_IMAGE",
+                                            imagePrompt: generatedImagePrompt,
+                                            productImage: productImage || undefined,
+                                            characterImage: characterImage || undefined,
+                                        },
                                         (res) => {
                                             if (chrome.runtime.lastError) {
                                                 resolve({ success: false, message: chrome.runtime.lastError.message || "Connection failed" });
@@ -268,37 +274,20 @@ const CreateVideoTab = () => {
                                 setIsUploading(false);
                             }
                         }}
-                        className={`w-full py-2 px-4 rounded-lg text-xs font-medium border transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-4 px-6 rounded-2xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-2 ${
                             isUploading
-                                ? 'border-purple-500/50 text-purple-300 bg-purple-500/10 cursor-wait'
-                                : (!productImage && !characterImage)
-                                    ? 'border-border text-muted-foreground opacity-50 cursor-not-allowed'
-                                    : 'border-purple-500/50 text-purple-400 hover:bg-purple-500/10'
+                                ? 'bg-neon-red/60 cursor-wait'
+                                : !generatedImagePrompt
+                                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                    : 'bg-neon-red pulse-glow hover:scale-[1.02] active:scale-[0.98]'
                         }`}
                     >
-                        {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                        {isUploading ? "กำลังอัพโหลด..." : "อัพโหลดรูปสินค้า + ตัวละคร"}
+                        {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
+                        {isUploading ? "กำลังสร้างภาพ..." : "GENERATE IMAGE"}
                     </button>
                     {uploadStatus && (
                         <p className="text-[10px] text-center text-muted-foreground">{uploadStatus}</p>
                     )}
-                </div>
-
-                {/* Step 4: Generate Video */}
-                <div className={`space-y-2 transition-opacity duration-200 ${!flowOpened ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                        <span className="bg-neon-red/20 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px]">4</span>
-                        สั่งทำงาน (Execution)
-                    </label>
-                    <button
-                        onClick={form.handleSubmit(onSubmit)}
-                        className="w-full py-4 px-6 rounded-2xl font-semibold text-white bg-neon-red pulse-glow hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200"
-                    >
-                        <span className="flex items-center justify-center gap-2">
-                            <Play className="w-5 h-5 fill-current" />
-                            GENERATE VIDEO
-                        </span>
-                    </button>
                 </div>
             </div>
 
