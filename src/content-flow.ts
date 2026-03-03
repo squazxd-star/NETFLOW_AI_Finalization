@@ -713,6 +713,158 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         errors.push("generate button not found");
     }
 
+    // ── Step 4: Wait for image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
+    LOG("=== Step 4: Wait for generated image + Animate ===");
+    try {
+        // Step 4a: Wait for the generated image to appear (poll for new large images)
+        LOG("Waiting for generated image...");
+        let generatedImg: HTMLElement | null = null;
+        const imgWaitStart = Date.now();
+        while (!generatedImg && Date.now() - imgWaitStart < 120000) { // 2 min timeout
+            // Look for large images in the main content area (not thumbnails in prompt bar)
+            const imgs = document.querySelectorAll<HTMLImageElement>("img");
+            for (const img of imgs) {
+                const rect = img.getBoundingClientRect();
+                // Generated images are large (>200px) and in the upper/center area
+                if (rect.width > 200 && rect.height > 200 && rect.top < window.innerHeight * 0.8 && rect.top > 0) {
+                    // Check if this image has the hover overlay (heart, chat, 3-dots)
+                    const parent = img.closest("div") as HTMLElement;
+                    if (parent) {
+                        generatedImg = parent;
+                        break;
+                    }
+                }
+            }
+            if (!generatedImg) {
+                await sleep(3000);
+                LOG("Still waiting for generated image...");
+            }
+        }
+
+        if (!generatedImg) {
+            WARN("Timeout waiting for generated image");
+            steps.push("⚠️ Wait Image");
+        } else {
+            LOG(`Found generated image element`);
+            steps.push("✅ Image Found");
+
+            // Step 4b: Hover over the image to reveal the 3 overlay icons
+            const imgRect = generatedImg.getBoundingClientRect();
+            const imgCx = imgRect.left + imgRect.width / 2;
+            const imgCy = imgRect.top + imgRect.height / 2;
+
+            generatedImg.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: imgCx, clientY: imgCy }));
+            generatedImg.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: imgCx, clientY: imgCy }));
+            generatedImg.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: imgCx, clientY: imgCy }));
+            LOG("Dispatched hover events on image");
+            await sleep(1500);
+
+            // Step 4c: Find and click the 3-dots (more_vert / more_horiz) icon
+            let dotsBtn: HTMLElement | null = null;
+
+            // Search for more_vert or more_horiz icon buttons near the image
+            for (const iconName of ["more_vert", "more_horiz", "more"]) {
+                const btns = findAllButtonsByIcon(iconName);
+                for (const btn of btns) {
+                    const btnRect = btn.getBoundingClientRect();
+                    // Must be near the top-right of the image
+                    if (btnRect.top >= imgRect.top - 20 && btnRect.top <= imgRect.bottom &&
+                        btnRect.right >= imgRect.right - 150 && btnRect.right <= imgRect.right + 20) {
+                        dotsBtn = btn;
+                        break;
+                    }
+                }
+                if (dotsBtn) break;
+            }
+
+            // Fallback: look for any small button in the top-right corner of the image
+            if (!dotsBtn) {
+                const allBtns = document.querySelectorAll<HTMLElement>("button");
+                for (const btn of allBtns) {
+                    const btnRect = btn.getBoundingClientRect();
+                    if (btnRect.width < 50 && btnRect.height < 50 &&
+                        btnRect.top >= imgRect.top - 10 && btnRect.top <= imgRect.top + 60 &&
+                        btnRect.left >= imgRect.right - 80) {
+                        // Check if it has 3-dots icon or "เพิ่มเติม" tooltip
+                        const icons = btn.querySelectorAll("i");
+                        for (const icon of icons) {
+                            const t = icon.textContent?.trim() || "";
+                            if (t.includes("more")) {
+                                dotsBtn = btn;
+                                break;
+                            }
+                        }
+                        if (dotsBtn) break;
+
+                        // Or if it's the rightmost small button
+                        const aria = btn.getAttribute("aria-label") || "";
+                        if (aria.includes("เพิ่มเติม") || aria.includes("more")) {
+                            dotsBtn = btn;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!dotsBtn) {
+                WARN("Could not find 3-dots button on generated image");
+                steps.push("⚠️ 3-dots");
+            } else {
+                // Click the 3-dots button with full mouse sequence
+                const dotsRect = dotsBtn.getBoundingClientRect();
+                const dotsCx = dotsRect.left + dotsRect.width / 2;
+                const dotsCy = dotsRect.top + dotsRect.height / 2;
+                const dotsOpts = { bubbles: true, cancelable: true, clientX: dotsCx, clientY: dotsCy, button: 0 };
+
+                dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dotsOpts, pointerId: 1 }));
+                dotsBtn.dispatchEvent(new MouseEvent("mousedown", dotsOpts));
+                await sleep(80);
+                dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dotsOpts, pointerId: 1 }));
+                dotsBtn.dispatchEvent(new MouseEvent("mouseup", dotsOpts));
+                dotsBtn.dispatchEvent(new MouseEvent("click", dotsOpts));
+                LOG("Clicked 3-dots button");
+                await sleep(1500);
+
+                // Step 4d: Find and click "ทำให้เป็นภาพเคลื่อนไหว" in the dropdown
+                let animateBtn: HTMLElement | null = null;
+                const menuItems = document.querySelectorAll<HTMLElement>(
+                    "button, [role='menuitem'], [role='option'], li, div[role='button']"
+                );
+                for (const item of menuItems) {
+                    const txt = (item.textContent || "").trim();
+                    if (txt.includes("ทำให้เป็นภาพเคลื่อนไหว") || txt.includes("Animate") || txt.includes("animate")) {
+                        animateBtn = item;
+                        break;
+                    }
+                }
+
+                if (!animateBtn) {
+                    WARN("Could not find 'ทำให้เป็นภาพเคลื่อนไหว' menu item");
+                    steps.push("⚠️ Animate");
+                } else {
+                    // Click Animate with full mouse sequence
+                    const animRect = animateBtn.getBoundingClientRect();
+                    const animCx = animRect.left + animRect.width / 2;
+                    const animCy = animRect.top + animRect.height / 2;
+                    const animOpts = { bubbles: true, cancelable: true, clientX: animCx, clientY: animCy, button: 0 };
+
+                    animateBtn.dispatchEvent(new PointerEvent("pointerdown", { ...animOpts, pointerId: 1 }));
+                    animateBtn.dispatchEvent(new MouseEvent("mousedown", animOpts));
+                    await sleep(80);
+                    animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1 }));
+                    animateBtn.dispatchEvent(new MouseEvent("mouseup", animOpts));
+                    animateBtn.dispatchEvent(new MouseEvent("click", animOpts));
+                    LOG("✅ Clicked 'ทำให้เป็นภาพเคลื่อนไหว' — image ready for video gen");
+                    steps.push("✅ Animate");
+                    await sleep(2000);
+                }
+            }
+        }
+    } catch (e: any) {
+        WARN(`Step 4 error: ${e.message}`);
+        steps.push("⚠️ Animate");
+    }
+
     const success = errors.length === 0;
     return {
         success,
