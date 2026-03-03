@@ -732,6 +732,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     }
     await sleep(800);
 
+    // ── Snapshot existing images BEFORE generating ──
+    const existingImageSrcs = new Set<string>();
+    document.querySelectorAll<HTMLImageElement>("img").forEach(img => {
+        if (img.src) existingImageSrcs.add(img.src);
+    });
+    LOG(`Snapshot: ${existingImageSrcs.size} existing images before Generate`);
+
     // ── Step 3: ALWAYS click Generate → (even if some steps failed) ──
     LOG("=== Step 3: Click Generate → ===");
     await sleep(500);
@@ -767,31 +774,36 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         errors.push("generate button not found");
     }
 
-    // ── Step 4: Wait for image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
+    // ── Step 4: Wait for NEW image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
     LOG("=== Step 4: Wait for generated image + Animate ===");
     try {
-        // Step 4a: Wait for the generated image to appear (poll for new large images)
-        LOG("Waiting for generated image...");
+        // Step 4a: Wait minimum 15s for generation to start, then poll for NEW images
+        LOG("Waiting 15s for generation to start...");
+        await sleep(15000);
+
+        LOG("Polling for NEW generated image (not in snapshot)...");
         let generatedImg: HTMLElement | null = null;
         const imgWaitStart = Date.now();
-        while (!generatedImg && Date.now() - imgWaitStart < 120000) { // 2 min timeout
-            // Look for large images in the main content area (not thumbnails in prompt bar)
+        while (!generatedImg && Date.now() - imgWaitStart < 180000) { // 3 min timeout
             const imgs = document.querySelectorAll<HTMLImageElement>("img");
             for (const img of imgs) {
+                // Skip images that existed before Generate
+                if (existingImageSrcs.has(img.src)) continue;
+
                 const rect = img.getBoundingClientRect();
-                // Generated images are large (>200px) and in the upper/center area
-                if (rect.width > 200 && rect.height > 200 && rect.top < window.innerHeight * 0.8 && rect.top > 0) {
-                    // Check if this image has the hover overlay (heart, chat, 3-dots)
+                // New generated images: large (>200px), visible, in content area
+                if (rect.width > 200 && rect.height > 200 && rect.top > 0 && rect.top < window.innerHeight * 0.8) {
                     const parent = img.closest("div") as HTMLElement;
                     if (parent) {
                         generatedImg = parent;
+                        LOG(`Found NEW image: ${img.src.substring(0, 80)}...`);
                         break;
                     }
                 }
             }
             if (!generatedImg) {
-                await sleep(3000);
-                LOG("Still waiting for generated image...");
+                await sleep(5000);
+                LOG("Still waiting for new generated image...");
             }
         }
 
