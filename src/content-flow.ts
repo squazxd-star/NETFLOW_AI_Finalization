@@ -281,14 +281,62 @@ async function setPromptText(el: HTMLElement, text: string) {
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
 
 /**
- * Upload a single image by watching for file inputs via MutationObserver
- * and overriding .click() on the INSTANCE level (not prototype).
+ * Neutralize all file inputs: change type to "text" so .click() won't open native dialog.
+ * Returns the original types for restoration.
+ */
+function neutralizeFileInputs(): { input: HTMLInputElement; origType: string }[] {
+    const neutralized: { input: HTMLInputElement; origType: string }[] = [];
+    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    for (const inp of inputs) {
+        neutralized.push({ input: inp, origType: "file" });
+        inp.type = "text";
+    }
+    if (neutralized.length > 0) {
+        LOG(`Neutralized ${neutralized.length} file inputs (type → text)`);
+    }
+    return neutralized;
+}
+
+/**
+ * Restore file inputs to type="file", inject our file, and dispatch change.
+ */
+function restoreAndInject(neutralized: { input: HTMLInputElement; origType: string }[], file: File): boolean {
+    // Also check for any inputs that were added during the process
+    const allInputs = document.querySelectorAll<HTMLInputElement>('input[type="text"][style*="display: none"], input[type="text"][hidden], input[type="text"]');
+    const candidates = [...neutralized.map(n => n.input)];
+
+    // Also add any recently created hidden text inputs (likely our neutralized ones)
+    for (const inp of allInputs) {
+        if (!candidates.includes(inp) && inp.offsetParent === null) {
+            candidates.push(inp);
+        }
+    }
+
+    for (const inp of candidates) {
+        inp.type = "file";
+    }
+    LOG(`Restored ${candidates.length} inputs to type=file`);
+
+    // Find the best file input to inject into
+    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    if (fileInputs.length === 0) return false;
+
+    const target = fileInputs[fileInputs.length - 1];
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    target.files = dt.files;
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+}
+
+/**
+ * Upload a single image into the prompt bar.
  *
- * Flow:
- *  1. Start MutationObserver watching for new <input type="file"> in DOM
- *  2. When one appears, override its .click() to inject our file instead of opening dialog
- *  3. Click "+" → menu appears → click upload option → file input created → observer fires
- *  4. Our instance override injects the file
+ * Key trick: NEUTRALIZE all file inputs (type="text") BEFORE clicking upload menu.
+ * When Google Flow calls .click() on the input, it won't open the native dialog
+ * because type="text" inputs don't trigger file chooser.
+ * Then we restore type="file", inject our file, and dispatch change.
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── Uploading ${fileName} into prompt bar ──`);
@@ -296,60 +344,31 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     const file = base64ToFile(dataUrl, fileName);
     LOG(`File size: ${(file.size / 1024).toFixed(1)} KB`);
 
-    let injected = false;
-
-    // Also override any EXISTING file inputs right now
-    const existingInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    for (const inp of existingInputs) {
-        const origClick = inp.click.bind(inp);
-        inp.click = function() {
-            if (!injected) {
-                injected = true;
-                LOG(`🎯 Intercepted existing file input .click() — injecting ${fileName}`);
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                inp.files = dt.files;
-                inp.dispatchEvent(new Event('change', { bubbles: true }));
-                inp.dispatchEvent(new Event('input', { bubbles: true }));
-                return;
-            }
-            origClick();
-        };
+    // Find and click the "+" button
+    const addBtn = findPromptBarAddButton();
+    if (!addBtn) {
+        WARN("Could not find prompt bar '+' button");
+        return false;
     }
 
-    // MutationObserver: watch for NEW file inputs being added to DOM
+    // Step 1: Neutralize ALL existing file inputs (type → text)
+    let neutralized = neutralizeFileInputs();
+
+    // Step 2: Set up MutationObserver to neutralize ANY new file inputs immediately
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
-                // Check the node itself
-                if (node instanceof HTMLInputElement && node.type === "file" && !injected) {
-                    injected = true;
-                    LOG(`🎯 MutationObserver caught new file input — injecting ${fileName}`);
-                    node.click = function() {
-                        LOG(`🎯 Blocked native .click() on file input`);
-                    };
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    node.files = dt.files;
-                    node.dispatchEvent(new Event('change', { bubbles: true }));
-                    node.dispatchEvent(new Event('input', { bubbles: true }));
-                    return;
+                if (node instanceof HTMLInputElement && node.type === "file") {
+                    node.type = "text";
+                    neutralized.push({ input: node, origType: "file" });
+                    LOG(`🎯 Observer neutralized new file input`);
                 }
-                // Check children of added node
                 if (node instanceof HTMLElement) {
-                    const fileInputs = node.querySelectorAll<HTMLInputElement>('input[type="file"]');
-                    for (const inp of fileInputs) {
-                        if (!injected) {
-                            injected = true;
-                            LOG(`🎯 MutationObserver caught nested file input — injecting ${fileName}`);
-                            inp.click = function() {};
-                            const dt = new DataTransfer();
-                            dt.items.add(file);
-                            inp.files = dt.files;
-                            inp.dispatchEvent(new Event('change', { bubbles: true }));
-                            inp.dispatchEvent(new Event('input', { bubbles: true }));
-                            return;
-                        }
+                    const fis = node.querySelectorAll<HTMLInputElement>('input[type="file"]');
+                    for (const fi of fis) {
+                        fi.type = "text";
+                        neutralized.push({ input: fi, origType: "file" });
+                        LOG(`🎯 Observer neutralized nested file input`);
                     }
                 }
             }
@@ -358,25 +377,12 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     observer.observe(document.body, { childList: true, subtree: true });
 
     try {
-        // Find and click the "+" button
-        const addBtn = findPromptBarAddButton();
-        if (!addBtn) {
-            WARN("Could not find prompt bar '+' button");
-            return false;
-        }
-
+        // Step 3: Click "+" to open menu
         addBtn.click();
         LOG("Clicked '+' button");
         await sleep(1500);
 
-        // If already injected (observer caught it), done!
-        if (injected) {
-            LOG(`✅ File injected for ${fileName} (after + click)`);
-            await sleep(2000);
-            return true;
-        }
-
-        // Look for upload menu option — be precise to avoid "drive_folder_upload"
+        // Step 4: Find and click upload menu option (precise: exclude drive_folder_upload)
         LOG("Checking for upload menu...");
         const menuElements = document.querySelectorAll<HTMLElement>(
             "button, [role='menuitem'], [role='option'], li, div[role='button']"
@@ -384,13 +390,10 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         let clickedMenu = false;
         for (const el of menuElements) {
             if (el === addBtn) continue;
-
-            // Check icon — ONLY match "upload" or "upload_file", NOT "drive_folder_upload"
             const icons = el.querySelectorAll("i");
             for (const icon of icons) {
                 const it = icon.textContent?.trim() || "";
                 if (it === "upload" || it === "upload_file") {
-                    // Make sure this element does NOT also contain "drive_folder_upload"
                     const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
                     if (!allIconTexts.includes("drive_folder_upload")) {
                         el.click();
@@ -404,7 +407,6 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         }
 
         if (!clickedMenu) {
-            // Text-based search — be very specific
             for (const el of menuElements) {
                 if (el === addBtn) continue;
                 const directText = el.childNodes.length <= 3 ? (el.textContent || "").trim() : "";
@@ -421,42 +423,26 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             }
         }
 
-        if (clickedMenu) {
-            await sleep(2000);
-        }
+        // Step 5: Wait a moment for Google Flow to call .click() (which does nothing now)
+        await sleep(1000);
 
-        // Wait for injection
-        const start = Date.now();
-        while (!injected && Date.now() - start < 5000) {
-            await sleep(300);
-        }
-
-        if (injected) {
-            LOG(`✅ File injected for ${fileName}`);
-            await sleep(2000);
+        // Step 6: Restore file inputs and inject our file
+        const ok = restoreAndInject(neutralized, file);
+        if (ok) {
+            LOG(`✅ Injected ${fileName} — no dialog opened`);
+            await sleep(2500);
             return true;
         }
 
-        // Last resort: find any file input and inject directly
-        LOG("Observer didn't catch — trying direct injection");
-        const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-        if (fileInputs.length > 0) {
-            const inp = fileInputs[fileInputs.length - 1];
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            inp.files = dt.files;
-            inp.dispatchEvent(new Event('change', { bubbles: true }));
-            inp.dispatchEvent(new Event('input', { bubbles: true }));
-            LOG(`Injected file directly into last file input`);
-            await sleep(2000);
-            return true;
-        }
-
-        WARN(`Upload failed for ${fileName}`);
+        WARN(`No file input found for ${fileName}`);
         return false;
 
     } finally {
         observer.disconnect();
+        // Safety: restore any remaining neutralized inputs
+        for (const n of neutralized) {
+            if (n.input.type !== "file") n.input.type = "file";
+        }
     }
 }
 
