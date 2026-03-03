@@ -1,10 +1,16 @@
 /**
  * Netflow AI — Content Script for Google Flow (labs.google)
  *
+ * Target: the PROMPT BAR at the bottom of the page
+ *   ┌───────────────────────────────────────────┐
+ *   │ [thumb1] [thumb2]                      [X] │
+ *   │ คุณต้องการสร้างอะไร                  [🟢]  │
+ *   │ [+]              [🔥 Nano Banana 2 □ x1][→]│
+ *   └───────────────────────────────────────────┘
+ *
  * Actions:
- *   GENERATE_IMAGE — Full pipeline: upload refs → paste prompt → switch to Image mode → Generate
- *   UPLOAD_IMAGES  — Upload reference images only
- *   PING           — Health check
+ *   GENERATE_IMAGE — upload refs into prompt bar → paste prompt → click → (generate)
+ *   PING           — health check
  */
 
 const LOG = (msg: string) => console.log(`[Netflow AI] ${msg}`);
@@ -26,62 +32,29 @@ function base64ToFile(dataUrl: string, fileName: string): File {
     return new File([bytes], fileName, { type: mime });
 }
 
-/** Find a button whose inner Google Material icon text matches */
-function findButtonByIconText(iconText: string): HTMLElement | null {
+/** Inject a File into a file input using DataTransfer */
+function setFileInput(input: HTMLInputElement, file: File) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** Find all buttons with a specific Material icon text */
+function findAllButtonsByIcon(iconText: string): HTMLElement[] {
+    const results: HTMLElement[] = [];
     const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons");
     for (const icon of icons) {
         if (icon.textContent?.trim() === iconText) {
-            return icon.closest("button") as HTMLElement | null;
+            const btn = icon.closest("button") as HTMLElement | null;
+            if (btn) results.push(btn);
         }
     }
-    return null;
+    return results;
 }
 
-/** Find a button by its visible text content */
-function findButtonByText(text: string): HTMLElement | null {
-    const buttons = document.querySelectorAll("button");
-    for (const btn of buttons) {
-        if (btn.textContent?.trim().toLowerCase().includes(text.toLowerCase())) {
-            return btn as HTMLElement;
-        }
-    }
-    return null;
-}
-
-/** Wait for any element matching a selector */
-async function waitForSelector<T extends Element>(selector: string, timeoutMs = 8000): Promise<T | null> {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        const el = document.querySelector<T>(selector);
-        if (el) return el;
-        await sleep(300);
-    }
-    return null;
-}
-
-/** Wait for a button with specific icon text to appear */
-async function waitForButton(iconText: string, timeoutMs = 8000): Promise<HTMLElement | null> {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        const btn = findButtonByIconText(iconText);
-        if (btn) return btn;
-        await sleep(300);
-    }
-    return null;
-}
-
-/** Wait for a button by text */
-async function waitForButtonByText(text: string, timeoutMs = 8000): Promise<HTMLElement | null> {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        const btn = findButtonByText(text);
-        if (btn) return btn;
-        await sleep(300);
-    }
-    return null;
-}
-
-/** Find a visible file input on the page */
+/** Wait for a file input to appear */
 async function waitForFileInput(timeoutMs = 5000): Promise<HTMLInputElement | null> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
@@ -92,157 +65,279 @@ async function waitForFileInput(timeoutMs = 5000): Promise<HTMLInputElement | nu
     return null;
 }
 
-/** Inject a File into a file input using DataTransfer */
-function setFileInput(input: HTMLInputElement, file: File) {
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    input.files = dt.files;
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-}
+// ─── Prompt Bar Detection ───────────────────────────────────────────────────
 
-/** Find the main prompt textarea/input on the page */
-function findPromptInput(): HTMLTextAreaElement | HTMLElement | null {
-    // Strategy 1: textarea
-    const ta = document.querySelector<HTMLTextAreaElement>('textarea');
-    if (ta) return ta;
+/**
+ * Find the prompt bar container at the bottom of the page.
+ * It contains the text input (placeholder: "คุณต้องการสร้างอะไร"),
+ * the "+" button, thumbnails, and the "→" generate button.
+ */
+function findPromptBar(): HTMLElement | null {
+    // Strategy 1: Find by placeholder text or aria-label
+    const textInputs = document.querySelectorAll<HTMLElement>(
+        'textarea, input[type="text"], [contenteditable="true"], [role="textbox"]'
+    );
+    for (const el of textInputs) {
+        const ph = (el as HTMLInputElement).placeholder || el.getAttribute("aria-label") || el.getAttribute("data-placeholder") || "";
+        if (ph.includes("สร้าง") || ph.includes("create") || ph.includes("prompt") || ph.includes("describe")) {
+            // Walk up to find the prompt bar container
+            let container = el.parentElement;
+            for (let i = 0; i < 8 && container; i++) {
+                // The prompt bar is usually a large container near the bottom
+                const rect = container.getBoundingClientRect();
+                if (rect.height > 60 && rect.bottom > window.innerHeight * 0.6) {
+                    LOG(`Found prompt bar via text input (depth ${i}): ${rect.width}x${rect.height}`);
+                    return container;
+                }
+                container = container.parentElement;
+            }
+        }
+    }
 
-    // Strategy 2: contenteditable div with role=textbox
-    const ce = document.querySelector<HTMLElement>('[contenteditable="true"][role="textbox"]');
-    if (ce) return ce;
-
-    // Strategy 3: any contenteditable div near prompt-related aria labels
-    const ceAll = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
-    if (ceAll.length > 0) return ceAll[0];
-
-    // Strategy 4: input with placeholder containing "prompt" or "describe"
-    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="text"]');
-    for (const inp of inputs) {
-        const ph = (inp.placeholder || '').toLowerCase();
-        if (ph.includes('prompt') || ph.includes('describe') || ph.includes('type')) return inp;
+    // Strategy 2: Find the bottom-most container that has both a "+" button and a "→" or send button
+    const allButtons = document.querySelectorAll<HTMLElement>("button");
+    let bestContainer: HTMLElement | null = null;
+    let bestY = 0;
+    for (const btn of allButtons) {
+        const rect = btn.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.7 && rect.y > bestY) {
+            const parent = btn.closest('[class*="prompt"], [class*="input"], [class*="composer"], [class*="chat"]') as HTMLElement;
+            if (parent) {
+                bestContainer = parent;
+                bestY = rect.y;
+            }
+        }
+    }
+    if (bestContainer) {
+        LOG("Found prompt bar via bottom button heuristic");
+        return bestContainer;
     }
 
     return null;
 }
 
-/** Set text into a prompt input (textarea, contenteditable, or input) */
-function setPromptText(el: HTMLTextAreaElement | HTMLElement, text: string) {
+/**
+ * Find the "+" button inside or near the prompt bar.
+ * This is the bottom-most "+" button on the page (inside the prompt bar).
+ */
+function findPromptBarAddButton(): HTMLElement | null {
+    // Find all "+" buttons (add, add_2 icons)
+    const addButtons = [...findAllButtonsByIcon("add"), ...findAllButtonsByIcon("add_2")];
+
+    if (addButtons.length === 0) {
+        LOG("No add buttons found on page");
+        return null;
+    }
+
+    // Pick the one closest to the bottom of the viewport (prompt bar is at bottom)
+    let bestBtn: HTMLElement | null = null;
+    let bestY = 0;
+    for (const btn of addButtons) {
+        const rect = btn.getBoundingClientRect();
+        if (rect.y > bestY) {
+            bestY = rect.y;
+            bestBtn = btn;
+        }
+    }
+
+    if (bestBtn) {
+        LOG(`Found prompt bar "+" button at y=${bestY.toFixed(0)}`);
+    }
+    return bestBtn;
+}
+
+/**
+ * Find the generate "→" button in the prompt bar (bottom-right circular arrow).
+ */
+function findGenerateButton(): HTMLElement | null {
+    // Strategy 1: icon buttons — arrow_forward, send, arrow_upward, navigate_next
+    for (const icon of ["arrow_forward", "send", "arrow_upward", "navigate_next", "arrow_right"]) {
+        const btns = findAllButtonsByIcon(icon);
+        // Pick the bottom-most one
+        let best: HTMLElement | null = null;
+        let bestY = 0;
+        for (const btn of btns) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.y > bestY) {
+                bestY = rect.y;
+                best = btn;
+            }
+        }
+        if (best) {
+            LOG(`Found generate button via icon "${icon}" at y=${bestY.toFixed(0)}`);
+            return best;
+        }
+    }
+
+    // Strategy 2: circular button at the bottom-right of the page
+    const allBtns = document.querySelectorAll<HTMLElement>("button");
+    let candidate: HTMLElement | null = null;
+    let bestScore = 0;
+    for (const btn of allBtns) {
+        const rect = btn.getBoundingClientRect();
+        // Must be at the bottom-right area
+        if (rect.bottom > window.innerHeight * 0.7 && rect.right > window.innerWidth * 0.6) {
+            // Prefer circular buttons (roughly square aspect ratio, small size)
+            const isCircular = Math.abs(rect.width - rect.height) < 10 && rect.width < 60;
+            const score = rect.y + (isCircular ? 1000 : 0);
+            if (score > bestScore) {
+                bestScore = score;
+                candidate = btn;
+            }
+        }
+    }
+    if (candidate) {
+        LOG("Found generate button via bottom-right heuristic");
+        return candidate;
+    }
+
+    // Strategy 3: aria-label
+    for (const btn of allBtns) {
+        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+        if (aria.includes("generate") || aria.includes("submit") || aria.includes("send") || aria.includes("สร้าง")) {
+            return btn;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Find the prompt text input inside the prompt bar.
+ */
+function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLElement | null {
+    // Strategy 1: textarea at the bottom area
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
+    for (const ta of textareas) {
+        const rect = ta.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.5) return ta;
+    }
+
+    // Strategy 2: contenteditable in bottom area
+    const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
+    for (const el of editables) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.5) return el;
+    }
+
+    // Strategy 3: input with Thai placeholder
+    const inputs = document.querySelectorAll<HTMLInputElement>("input[type='text'], input:not([type])");
+    for (const inp of inputs) {
+        const ph = inp.placeholder || "";
+        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe")) return inp;
+    }
+
+    // Strategy 4: any textarea/input
+    if (textareas.length > 0) return textareas[textareas.length - 1];
+
+    return null;
+}
+
+/** Set text into prompt input (handles textarea, input, contenteditable) */
+function setPromptText(el: HTMLElement, text: string) {
     if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-        // Native input/textarea
-        const nativeSetter = Object.getOwnPropertyDescriptor(
-            el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-            'value'
-        )?.set;
+        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
         if (nativeSetter) {
             nativeSetter.call(el, text);
         } else {
             el.value = text;
         }
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
     } else {
         // contenteditable
         el.focus();
         el.textContent = text;
-        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
+        el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
     }
 }
 
-/** Find and click the Generate button */
-function findGenerateButton(): HTMLElement | null {
-    // Strategy 1: button with icon "play_arrow" or "send" or "auto_awesome"
-    for (const icon of ["play_arrow", "send", "auto_awesome", "spark"]) {
-        const btn = findButtonByIconText(icon);
-        if (btn) return btn;
-    }
+// ─── Upload Image into Prompt Bar ───────────────────────────────────────────
 
-    // Strategy 2: button with text "Generate"
-    const genBtn = findButtonByText("Generate");
-    if (genBtn) return genBtn;
+/**
+ * Upload a single image into the prompt bar as an ingredient.
+ * Clicks the prompt bar "+" → triggers upload → injects file.
+ */
+async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
+    LOG(`Uploading ${fileName} into prompt bar...`);
 
-    // Strategy 3: button with aria-label containing "generate"
-    const allBtns = document.querySelectorAll<HTMLElement>("button");
-    for (const btn of allBtns) {
-        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
-        if (aria.includes("generate")) return btn;
-    }
+    // Count existing file inputs before clicking "+"
+    const inputsBefore = document.querySelectorAll<HTMLInputElement>('input[type="file"]').length;
 
-    return null;
-}
-
-// ─── Upload Single Image ────────────────────────────────────────────────────
-
-async function uploadSingleImage(dataUrl: string, fileName: string): Promise<boolean> {
-    LOG(`Uploading ${fileName}...`);
-
-    // Step 1: Click the "+" (add_2 / create) button
-    const addBtn = findButtonByIconText("add_2") || findButtonByIconText("add");
+    // Step 1: Click the "+" button in the prompt bar (bottom of page)
+    const addBtn = findPromptBarAddButton();
     if (!addBtn) {
-        WARN("Could not find '+' (add_2) button");
+        WARN("Could not find prompt bar '+' button");
         return false;
     }
     addBtn.click();
-    LOG("Clicked '+' button");
+    LOG("Clicked prompt bar '+' button");
+    await sleep(1000);
+
+    // Step 2: Look for "upload" button or menu option that appeared
+    // Try to find an upload option in the popup/menu
+    const allBtns = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option']");
+    let clickedUpload = false;
+    for (const btn of allBtns) {
+        const icons = btn.querySelectorAll("i");
+        for (const icon of icons) {
+            if (icon.textContent?.trim() === "upload" || icon.textContent?.trim() === "upload_file") {
+                btn.click();
+                clickedUpload = true;
+                LOG("Clicked 'upload' option from menu");
+                break;
+            }
+        }
+        if (clickedUpload) break;
+
+        const txt = (btn.textContent || "").trim().toLowerCase();
+        if (txt.includes("upload") || txt.includes("อัปโหลด") || txt.includes("อัพโหลด")) {
+            btn.click();
+            clickedUpload = true;
+            LOG("Clicked upload option by text");
+            break;
+        }
+    }
+
+    if (!clickedUpload) {
+        LOG("No upload menu item found — trying direct file input approach");
+    }
     await sleep(800);
 
-    // Step 2: Click the "upload" button
-    const uploadBtn = await waitForButton("upload", 5000);
-    if (!uploadBtn) {
-        WARN("Could not find 'upload' button");
-        return false;
-    }
-    uploadBtn.click();
-    LOG("Clicked 'upload' button");
-    await sleep(600);
+    // Step 3: Find the file input (new one that appeared after clicking +)
+    const inputsAfter = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    let fileInput: HTMLInputElement | null = null;
 
-    // Step 3: Find the file input and inject the file
-    const fileInput = await waitForFileInput(5000);
+    if (inputsAfter.length > inputsBefore) {
+        // Use the newly appeared file input
+        fileInput = inputsAfter[inputsAfter.length - 1];
+        LOG("Found new file input after clicking '+'");
+    } else if (inputsAfter.length > 0) {
+        // Use the last available file input
+        fileInput = inputsAfter[inputsAfter.length - 1];
+        LOG("Using existing file input");
+    } else {
+        // Wait for one to appear
+        fileInput = await waitForFileInput(5000);
+    }
+
     if (!fileInput) {
-        WARN("Could not find file input");
+        WARN("Could not find file input after clicking '+'");
         return false;
     }
 
+    // Step 4: Inject the file
     const file = base64ToFile(dataUrl, fileName);
     setFileInput(fileInput, file);
     LOG(`Injected ${fileName} (${(file.size / 1024).toFixed(1)} KB)`);
 
-    await sleep(1500);
+    // Wait for the thumbnail to appear in prompt bar
+    await sleep(2000);
     return true;
 }
 
-// ─── UPLOAD_IMAGES handler ──────────────────────────────────────────────────
-
-interface UploadRequest {
-    action: "UPLOAD_IMAGES";
-    productImage?: string;
-    characterImage?: string;
-}
-
-async function handleUploadImages(req: UploadRequest): Promise<{ success: boolean; message: string }> {
-    const results: string[] = [];
-    let anyFailed = false;
-
-    if (req.productImage) {
-        const ok = await uploadSingleImage(req.productImage, "product.png");
-        results.push(ok ? "✅ สินค้า uploaded" : "❌ สินค้า failed");
-        if (!ok) anyFailed = true;
-        if (req.characterImage) await sleep(1000);
-    }
-
-    if (req.characterImage) {
-        const ok = await uploadSingleImage(req.characterImage, "character.png");
-        results.push(ok ? "✅ ตัวละคร uploaded" : "❌ ตัวละคร failed");
-        if (!ok) anyFailed = true;
-    }
-
-    if (results.length === 0) {
-        return { success: false, message: "ไม่มีรูปให้อัพโหลด" };
-    }
-
-    return { success: !anyFailed, message: results.join(" | ") };
-}
-
-// ─── GENERATE_IMAGE handler — Full Image Generation Pipeline ────────────────
+// ─── GENERATE_IMAGE handler ─────────────────────────────────────────────────
 
 interface GenerateImageRequest {
     action: "GENERATE_IMAGE";
@@ -254,66 +349,46 @@ interface GenerateImageRequest {
 async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success: boolean; message: string; step: string }> {
     const steps: string[] = [];
 
-    // ── Step 1: Upload reference images ──
-    LOG("=== Step 1: Upload reference images ===");
+    // ── Step 1: Upload reference images into prompt bar ──
+    LOG("=== Step 1: Upload reference images into prompt bar ===");
     if (req.characterImage) {
-        const ok = await uploadSingleImage(req.characterImage, "character.png");
+        const ok = await uploadImageToPromptBar(req.characterImage, "character.png");
         steps.push(ok ? "✅ ตัวละคร" : "❌ ตัวละคร");
-        if (!ok) return { success: false, message: "อัพโหลดรูปตัวละครล้มเหลว", step: "upload-character" };
+        if (!ok) return { success: false, message: "อัพโหลดรูปตัวละครเข้า prompt bar ล้มเหลว", step: "upload-character" };
         await sleep(800);
     }
 
     if (req.productImage) {
-        const ok = await uploadSingleImage(req.productImage, "product.png");
+        const ok = await uploadImageToPromptBar(req.productImage, "product.png");
         steps.push(ok ? "✅ สินค้า" : "❌ สินค้า");
-        if (!ok) return { success: false, message: "อัพโหลดรูปสินค้าล้มเหลว", step: "upload-product" };
+        if (!ok) return { success: false, message: "อัพโหลดรูปสินค้าเข้า prompt bar ล้มเหลว", step: "upload-product" };
         await sleep(800);
     }
 
-    // ── Step 2: Switch to Image mode ──
-    LOG("=== Step 2: Switch to Image mode ===");
-    // Look for model selector or mode buttons — click "Image" if available
-    const imageModeBtns = document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='menuitem']");
-    let switchedToImage = false;
-    for (const btn of imageModeBtns) {
-        const txt = (btn.textContent || "").trim().toLowerCase();
-        if (txt === "image" || txt === "รูปภาพ") {
-            btn.click();
-            LOG("Switched to Image mode");
-            switchedToImage = true;
-            await sleep(500);
-            break;
-        }
-    }
-    if (!switchedToImage) {
-        LOG("Image mode button not found — may already be in Image mode");
-    }
-    steps.push(switchedToImage ? "✅ Image mode" : "⚠️ Mode unchanged");
-
-    // ── Step 3: Paste image prompt ──
-    LOG("=== Step 3: Paste image prompt ===");
+    // ── Step 2: Paste image prompt into prompt bar text input ──
+    LOG("=== Step 2: Paste image prompt ===");
     await sleep(500);
-    const promptInput = findPromptInput();
+    const promptInput = findPromptTextInput();
     if (!promptInput) {
-        WARN("Could not find prompt input");
-        return { success: false, message: "ไม่พบช่อง prompt บนหน้า Google Flow", step: "find-prompt" };
+        WARN("Could not find prompt text input");
+        return { success: false, message: "ไม่พบช่อง prompt ใน prompt bar", step: "find-prompt" };
     }
-    setPromptText(promptInput as HTMLTextAreaElement, req.imagePrompt);
+    setPromptText(promptInput, req.imagePrompt);
     LOG(`Pasted prompt (${req.imagePrompt.length} chars)`);
     steps.push("✅ Prompt");
     await sleep(500);
 
-    // ── Step 4: Click Generate ──
-    LOG("=== Step 4: Click Generate ===");
+    // ── Step 3: Click Generate → button ──
+    LOG("=== Step 3: Click Generate → ===");
     await sleep(300);
     const genBtn = findGenerateButton();
     if (!genBtn) {
-        WARN("Could not find Generate button");
-        return { success: false, message: "ไม่พบปุ่ม Generate", step: "find-generate" };
+        WARN("Could not find → generate button");
+        return { success: false, message: "ไม่พบปุ่ม → Generate", step: "find-generate" };
     }
     genBtn.click();
-    LOG("Clicked Generate button");
-    steps.push("✅ Generate clicked");
+    LOG("Clicked → Generate button");
+    steps.push("✅ Generate");
 
     return {
         success: true,
@@ -332,17 +407,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             .catch(err => {
                 console.error("[Netflow AI] Generate error:", err);
                 sendResponse({ success: false, message: `Error: ${err.message}`, step: "error" });
-            });
-        return true;
-    }
-
-    if (message?.action === "UPLOAD_IMAGES") {
-        LOG("Received UPLOAD_IMAGES request");
-        handleUploadImages(message as UploadRequest)
-            .then(sendResponse)
-            .catch(err => {
-                console.error("[Netflow AI] Upload error:", err);
-                sendResponse({ success: false, message: `Error: ${err.message}` });
             });
         return true;
     }
