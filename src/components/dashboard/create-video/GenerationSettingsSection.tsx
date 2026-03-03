@@ -26,7 +26,6 @@ const GenerationSettingsSection = ({
     productImages
 }: GenerationSettingsSectionProps) => {
     const sceneCount = (watch("sceneCount") || 1) as 1 | 2 | 3;
-    const clipDuration = watch("clipDuration") || 8;
     const aiPrompt = watch("aiPrompt") || "";
     const language = watch("language") || "th-central";
     const productName = watch("productName") || "";
@@ -91,7 +90,7 @@ const GenerationSettingsSection = ({
 - ภาษา: ${langLabel}
 - สไตล์การขาย: ${styleLabel}
 
-🎬 โครงสร้างโฆษณา (${sceneCount} ฉาก รวม ${clipDuration} วินาที):
+🎬 โครงสร้างโฆษณา (${sceneCount} ฉาก รวม ${sceneCount * 8} วินาที):
 ${sceneStructure}
 
 📝 กฎสำคัญ:
@@ -178,29 +177,27 @@ ${sceneCount === 3 ? "ฉาก 3: [สคริปต์]" : ""}`;
 
             {isOpen && (
                 <div className="px-4 pb-4 space-y-4">
-                    {/* Duration Dropdown */}
+                    {/* Scene Count */}
                     <div>
                         <label className="text-sm text-foreground mb-2 block font-medium">
-                            ระยะเวลา
+                            จำนวนฉาก
                         </label>
-                        <select
-                            value={clipDuration}
-                            onChange={(e) => {
-                                const duration = Number(e.target.value) as 8 | 16 | 24;
-                                setValue("clipDuration", duration);
-                                setValue("sceneCount", (duration / 8) as 1 | 2 | 3);
-                            }}
-                            className="w-full neon-select text-sm py-3"
-                        >
-                            {[8, 16, 24].map((duration) => (
-                                <option key={duration} value={duration}>
-                                    {duration} วินาที ({duration / 8} ฉาก)
-                                </option>
+                        <div className="flex gap-2">
+                            {([1, 2, 3] as const).map((count) => (
+                                <button
+                                    key={count}
+                                    type="button"
+                                    onClick={() => setValue("sceneCount", count)}
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                                        sceneCount === count
+                                            ? 'bg-neon-red text-white'
+                                            : 'bg-muted border border-border text-muted-foreground'
+                                    }`}
+                                >
+                                    {count} ฉาก ({count * 8}s)
+                                </button>
                             ))}
-                        </select>
-                        <p className="text-xs text-muted-foreground mt-2">
-                            เลือกระยะเวลา - กล่องสคริปต์ฉากจะอัปเดตโดยอัตโนมัติ
-                        </p>
+                        </div>
                     </div>
 
                     {/* Script Language */}
@@ -274,21 +271,6 @@ ${sceneCount === 3 ? "ฉาก 3: [สคริปต์]" : ""}`;
                         ))}
                     </div>
 
-                    {/* Smart Loop */}
-                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                        <span className="text-xs font-medium">โหมดวนซ้ำใช้วิดีโอเดิม (Smart Loop)</span>
-                        <Controller
-                            name="smartLoop"
-                            control={control}
-                            render={({ field }) => (
-                                <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                    className="data-[state=checked]:bg-neon-red"
-                                />
-                            )}
-                        />
-                    </div>
                 </div>
             )}
         </section>

@@ -569,7 +569,6 @@ const generateThaiScript = (
 export interface PromptGenerationConfig {
     // Images
     productImage?: string;      // Base64
-    characterImage?: string;    // Base64
     
     // Product Info
     productName: string;
@@ -590,15 +589,15 @@ export interface PromptGenerationConfig {
     mustUseKeywords?: string;
     avoidKeywords?: string;
     
-    // Video Settings
-    clipDuration: number;       // 8, 16, 24
-    aspectRatio?: string;       // 9:16, 16:9
+    // Video Settings (optional — defaults applied internally)
+    clipDuration?: number;
+    aspectRatio?: string;
     gender?: string;
     expression?: string;
     movement?: string;
     
-    // User-provided script (from GenerationSettingsSection scene cards)
-    userScript?: string;        // Thai script from user input (joined by \n\n)
+    // User-provided script
+    userScript?: string;
 }
 
 export interface GeneratedPrompts {
@@ -781,7 +780,7 @@ const buildImagePrompt = (
     const category = detectProductCategory(config.productName, productAnalysis, config.template);
     
     const aspectRatio = config.aspectRatio || '9:16';
-    const hasProductImage = !!config.productImage && config.productImage !== config.characterImage;
+    const hasProductImage = !!config.productImage;
 
     let prompt = `Professional photograph for ${templateConfig.thaiName} video thumbnail.
 

@@ -32,50 +32,26 @@ export const createVideoSchema = z.object({
     hookEnabled: z.boolean().default(true),
     ctaEnabled: z.boolean().default(true),
 
-    // Character & Style
-    gender: z.enum(["male", "female"]).default("female"),
-    ageRange: z.enum(["teen", "young-adult", "adult", "middle-age", "senior"]).default("teen"),
-    personality: z.enum(["cheerful", "calm", "professional", "playful", "mysterious"]).default("cheerful"),
-    clothingStyles: z.array(z.enum(["casual", "formal", "sporty", "fashion", "uniform"])).default(["casual"]),
-    background: z.enum(["studio", "outdoor", "home", "office", "abstract"]).default("studio"),
-    voiceSetting: z.enum(["original", "ai-generated", "text-to-speech"]).default("original"),
-    touchLevel: z.enum(["low", "medium", "high"]).default("medium"),
-    expression: z.enum(["neutral", "happy", "excited", "serious"]).default("neutral"),
-    cameraAngles: z.array(z.enum(["front", "side", "close-up", "full-body", "dynamic"])).default(["front"]),
-    movement: z.enum(["static", "minimal", "active"]).default("minimal"),
-
-    // Generation Settings
-    clipCount: z.union([
-        z.literal(5),
-        z.literal(10),
-        z.literal(25),
-        z.literal(50),
-        z.literal(100),
-        z.literal("unlimited")
-    ]).default(50),
+    // Google Flow Settings (new)
+    outputType: z.enum(["image", "video"]).default("video"),
+    orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
+    outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
     sceneCount: z.number().int().min(1).max(3).default(1),
-    aspectRatio: z.enum(["9:16", "16:9"]).default("9:16"),
-    videoDuration: z.enum(["short", "medium", "long"]).default("short"),
-    clipDuration: z.union([z.literal(8), z.literal(16), z.literal(24)]).default(16),
-    restInterval: z.enum(["30s", "1m", "2m", "5m", "10m"]).default("30s"),
 
     // Posting Settings
     autoPostTikTok: z.boolean().default(true),
     autoPostYoutube: z.boolean().default(false),
-    smartLoop: z.boolean().default(false),
 
-    // Keywords (additional fields from the component)
+    // Keywords
     mustUseKeywords: z.string().default(""),
     avoidKeywords: z.string().default(""),
 });
 
 export type CreateVideoFormData = z.infer<typeof createVideoSchema>;
 
-// Default values for useForm
-// ⚠️ DEV DEFAULTS — remove before shipping!
 export const createVideoDefaultValues: CreateVideoFormData = {
     productId: "",
-    productName: "Versace Bright Crystal",
+    productName: "",
     useAiScript: true,
     aiPrompt: "",
     saleStyle: "storytelling",
@@ -86,25 +62,12 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     ctaText: "",
     hookEnabled: true,
     ctaEnabled: true,
-    gender: "female",
-    ageRange: "young-adult",
-    personality: "cheerful",
-    clothingStyles: ["casual"],
-    background: "studio",
-    voiceSetting: "original",
-    touchLevel: "medium",
-    expression: "serious",
-    cameraAngles: ["front"],
-    movement: "active",
-    clipCount: 5,
-    sceneCount: 2,
-    aspectRatio: "9:16",
-    videoDuration: "medium",
-    clipDuration: 16,
-    restInterval: "30s",
+    outputType: "video",
+    orientation: "vertical",
+    outputCount: 1,
+    sceneCount: 1,
     autoPostTikTok: true,
     autoPostYoutube: false,
-    smartLoop: true,
     mustUseKeywords: "",
     avoidKeywords: "",
 };

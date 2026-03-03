@@ -1,4 +1,4 @@
-import { Video, Youtube, Save } from "lucide-react";
+import { Video, Image, Youtube, Save, Monitor, Smartphone } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 
@@ -18,14 +18,12 @@ const ProductionPreviewSection = ({
     isTikTokReady,
     onTikTokNotReady
 }: ProductionPreviewSectionProps) => {
-    const aspectRatio = watch("aspectRatio");
+    const outputType = watch("outputType");
+    const orientation = watch("orientation");
+    const outputCount = watch("outputCount");
     const autoPostTikTok = watch("autoPostTikTok");
     const autoPostYoutube = watch("autoPostYoutube");
 
-    // TikTok button state:
-    // - gray (text-muted-foreground/40) = not configured
-    // - white (text-white) = configured & ready but not active
-    // - orange (text-orange-400 bg-orange-500/15) = active (auto-post enabled)
     const handleTikTokToggle = () => {
         if (!isTikTokReady) {
             onTikTokNotReady?.();
@@ -34,22 +32,12 @@ const ProductionPreviewSection = ({
         setValue("autoPostTikTok", !autoPostTikTok);
     };
 
-    const getTikTokButtonStyle = () => {
-        if (!isTikTokReady) {
-            return "text-muted-foreground/40 opacity-40";
-        }
-        if (autoPostTikTok) {
-            return "text-orange-400 bg-orange-500/15";
-        }
-        return "text-white";
-    };
-
     return (
         <section className="glass-card overflow-hidden">
             <div className="px-4 pt-3">
                 <SectionHeader
                     icon={Video}
-                    title="การผลิตและพรีวิว"
+                    title="Google Flow Settings"
                     isOpen={isOpen}
                     onToggle={onToggle}
                 />
@@ -57,90 +45,118 @@ const ProductionPreviewSection = ({
 
             {isOpen && (
                 <div className="px-4 pb-4 space-y-4">
-                    {/* Aspect Ratio */}
+                    {/* Output Type: Image / Video */}
                     <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">
-                            สัดส่วนวิดีโอ (Aspect Ratio)
-                        </label>
-                        <div className="flex gap-3">
+                        <label className="text-xs text-muted-foreground mb-2 block">ประเภท</label>
+                        <div className="flex gap-2">
                             <button
-                                onClick={() => setValue("aspectRatio", "9:16")}
-                                className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${aspectRatio === "9:16"
-                                    ? 'bg-neon-red text-white'
-                                    : 'bg-muted border border-border text-muted-foreground'
-                                    }`}
+                                onClick={() => setValue("outputType", "image")}
+                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
+                                    outputType === "image"
+                                        ? 'bg-white text-black'
+                                        : 'bg-muted border border-border text-muted-foreground'
+                                }`}
                             >
-                                <div className="w-4 h-7 border-2 border-current rounded-sm"></div>
-                                <span className="text-[10px]">แนวตั้ง 9:16</span>
-                                <span className="text-[10px] opacity-70">TikTok</span>
+                                <Image className="w-4 h-4" />
+                                Image
                             </button>
                             <button
-                                onClick={() => setValue("aspectRatio", "16:9")}
-                                className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${aspectRatio === "16:9"
-                                    ? 'bg-neon-red text-white'
-                                    : 'bg-muted border border-border text-muted-foreground'
-                                    }`}
+                                onClick={() => setValue("outputType", "video")}
+                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
+                                    outputType === "video"
+                                        ? 'bg-white text-black'
+                                        : 'bg-muted border border-border text-muted-foreground'
+                                }`}
                             >
-                                <div className="w-7 h-4 border-2 border-current rounded-sm"></div>
-                                <span className="text-[10px]">แนวนอน 16:9</span>
-                                <span className="text-[10px] opacity-70">YouTube</span>
+                                <Video className="w-4 h-4" />
+                                Video
                             </button>
                         </div>
                     </div>
 
-                    {/* Platform & Mode Selection */}
-                    <div className="flex items-center justify-between gap-4">
-                        {/* Platform Selection */}
-                        <div className="flex-1">
-                            <label className="text-xs text-neon-red mb-2 block">แพลตฟอร์ม</label>
-                            <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
-                                <button
-                                    onClick={handleTikTokToggle}
-                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-200 ${getTikTokButtonStyle()}`}
-                                    title={
-                                        !isTikTokReady
-                                            ? "ไปตั้งค่าในหน้า ตั้งค่า TikTok ก่อน"
-                                            : autoPostTikTok
-                                                ? "โพสต์ TikTok อัตโนมัติ: เปิด"
-                                                : "กดเพื่อเปิดโพสต์ TikTok อัตโนมัติ"
-                                    }
-                                >
-                                    <TikTokIcon className="w-6 h-6" />
-                                </button>
-                                <div className="w-px h-8 bg-border"></div>
-                                <button
-                                    onClick={() => setValue("autoPostYoutube", !autoPostYoutube)}
-                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${autoPostYoutube ? 'text-white' : 'text-muted-foreground'
-                                        }`}
-                                >
-                                    <Youtube className="w-6 h-6" />
-                                </button>
-                            </div>
-                            {/* TikTok status indicator */}
-                            {autoPostTikTok && isTikTokReady && (
-                                <p className="text-[9px] text-orange-400 mt-1 text-center">โพสต์ TikTok อัตโนมัติ: เปิด</p>
-                            )}
+                    {/* Orientation: Horizontal / Vertical */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">ทิศทาง</label>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setValue("orientation", "horizontal")}
+                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
+                                    orientation === "horizontal"
+                                        ? 'bg-white text-black'
+                                        : 'bg-muted border border-border text-muted-foreground'
+                                }`}
+                            >
+                                <Monitor className="w-4 h-4" />
+                                แนวนอน
+                            </button>
+                            <button
+                                onClick={() => setValue("orientation", "vertical")}
+                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
+                                    orientation === "vertical"
+                                        ? 'bg-white text-black'
+                                        : 'bg-muted border border-border text-muted-foreground'
+                                }`}
+                            >
+                                <Smartphone className="w-4 h-4" />
+                                แนวตั้ง
+                            </button>
                         </div>
+                    </div>
 
-                        {/* Mode Selection */}
-                        <div className="flex-1">
-                            <label className="text-xs text-neon-red mb-2 block text-right">โหมด</label>
-                            <div className={`flex items-center justify-center bg-background rounded-xl border border-border overflow-hidden transition-all ${hasVideo ? 'border-neon-red/50 shadow-[0_0_10px_rgba(255,46,87,0.1)]' : ''}`}>
+                    {/* Output Count: x1, x2, x3, x4 */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">จำนวน</label>
+                        <div className="flex gap-2">
+                            {([1, 2, 3, 4] as const).map((count) => (
                                 <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        onDownloadVideo();
-                                    }}
-                                    disabled={!hasVideo}
-                                    className={`w-full py-3 px-6 flex items-center justify-center transition-all ${hasVideo
-                                        ? 'text-white hover:bg-neon-red hover:text-white cursor-pointer'
-                                        : 'text-muted-foreground opacity-50 cursor-not-allowed'
-                                        }`}
-                                    title="บันทึกวิดีโอลงเครื่อง"
+                                    key={count}
+                                    onClick={() => setValue("outputCount", count)}
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                                        outputCount === count
+                                            ? 'bg-white text-black'
+                                            : 'bg-muted border border-border text-muted-foreground'
+                                    }`}
                                 >
-                                    <Save className="w-6 h-6" />
+                                    x{count}
                                 </button>
-                            </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Platform Selection */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">โพสต์อัตโนมัติ</label>
+                        <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
+                            <button
+                                onClick={handleTikTokToggle}
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-200 ${
+                                    !isTikTokReady ? 'text-muted-foreground/40 opacity-40' :
+                                    autoPostTikTok ? 'text-orange-400 bg-orange-500/15' : 'text-white'
+                                }`}
+                                title={!isTikTokReady ? "ตั้งค่า TikTok ก่อน" : autoPostTikTok ? "TikTok: เปิด" : "TikTok: ปิด"}
+                            >
+                                <TikTokIcon className="w-5 h-5" />
+                            </button>
+                            <div className="w-px h-8 bg-border" />
+                            <button
+                                onClick={() => setValue("autoPostYoutube", !autoPostYoutube)}
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${
+                                    autoPostYoutube ? 'text-white' : 'text-muted-foreground'
+                                }`}
+                            >
+                                <Youtube className="w-5 h-5" />
+                            </button>
+                            <div className="w-px h-8 bg-border" />
+                            <button
+                                onClick={(e) => { e.preventDefault(); onDownloadVideo(); }}
+                                disabled={!hasVideo}
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${
+                                    hasVideo ? 'text-white hover:bg-neon-red cursor-pointer' : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                                }`}
+                                title="บันทึกลงเครื่อง"
+                            >
+                                <Save className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
                 </div>

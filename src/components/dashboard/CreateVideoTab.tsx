@@ -6,7 +6,6 @@ import { createVideoSchema, CreateVideoFormData, createVideoDefaultValues } from
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import {
     AiScriptSection,
-    CharacterStyleSection,
     ProductDataSection,
     ProductionPreviewSection,
     GenerationSettingsSection,
@@ -27,11 +26,9 @@ const CreateVideoTab = () => {
 
     const { register, control, watch, setValue, getValues } = form;
 
-    // UI State (not form data - stays as useState)
-    const [characterImages, setCharacterImages] = useState<(string | null)[]>([null, null]);
+    // UI State
     const [productImages, setProductImages] = useState<(string | null)[]>([null, null]);
     const [aiScriptOpen, setAiScriptOpen] = useState(true);
-    const [characterOpen, setCharacterOpen] = useState(true);
     const [productDataOpen, setProductDataOpen] = useState(true);
     const [productionOpen, setProductionOpen] = useState(true);
     const [settingsOpen, setSettingsOpen] = useState(true);
@@ -41,56 +38,11 @@ const CreateVideoTab = () => {
     const [generatedImagePrompt, setGeneratedImagePrompt] = useState<string | null>(null);
     const [flowOpened, setFlowOpened] = useState(false);
 
-    // ⚠️ DEV AUTO-LOAD: Pre-fill character + product images from public/dev/
-    // Remove this useEffect before shipping!
-    useEffect(() => {
-        const loadDevImage = async (path: string): Promise<string | null> => {
-            try {
-                const res = await fetch(path);
-                if (!res.ok) return null;
-                const blob = await res.blob();
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.onerror = () => resolve(null);
-                    reader.readAsDataURL(blob);
-                });
-            } catch { return null; }
-        };
-        (async () => {
-            const [char, prod] = await Promise.all([
-                loadDevImage('/dev/character.jpg'),
-                loadDevImage('/dev/product.jpg')
-            ]);
-            if (char) setCharacterImages([char, null]);
-            if (prod) setProductImages([prod, null]);
-        })();
-    }, []);
-
     const logs = [
         "ระบบพร้อมทำงาน...",
         ...(isLoading ? ["⏳ กำลังเชื่อมต่อ OpenAI/Gemini...", "🔄 กำลังสร้างสคริปต์และวิดีโอ..."] : []),
         ...(result ? ["✅ สร้างสำเร็จ! ผลลัพธ์แสดงอยู่ด้านล่าง"] : []),
     ];
-
-    const handleCharacterUpload = (index: number) => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.onchange = (e) => {
-            const file = (e.target as HTMLInputElement).files?.[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const newImages = [...characterImages];
-                    newImages[index] = e.target?.result as string;
-                    setCharacterImages(newImages);
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-        input.click();
-    };
 
     const handleProductImageUpload = (index: number) => {
         const input = document.createElement("input");
@@ -116,17 +68,11 @@ const CreateVideoTab = () => {
         console.log("Form data ready for video generation:", data);
 
         const userImage = productImages[0] || undefined;
-        const characterImage = characterImages[0] || undefined;
-        const loopCount = typeof data.clipCount === 'number' ? data.clipCount : 1;
-        const concatenate = data.smartLoop;
 
         await generate({
             type: "video-generation",
             ...data,
             userImage,
-            characterImage,
-            loopCount,
-            concatenate
         });
     };
 
@@ -150,16 +96,7 @@ const CreateVideoTab = () => {
                 onProductImageUpload={handleProductImageUpload}
             />
 
-            {/* 2. Character & Style Section - ตัวละคร & สไตล์ */}
-            <CharacterStyleSection
-                {...sectionProps}
-                isOpen={characterOpen}
-                onToggle={() => setCharacterOpen(!characterOpen)}
-                characterImages={characterImages}
-                onCharacterUpload={handleCharacterUpload}
-            />
-
-            {/* 3. AI Scripting Section - สคริปต์ AI */}
+            {/* 2. AI Scripting Section - สคริปต์ AI */}
             <AiScriptSection
                 {...sectionProps}
                 isOpen={aiScriptOpen}
@@ -211,7 +148,6 @@ const CreateVideoTab = () => {
                                 // Build config for AI prompt service
                                 const promptConfig = {
                                     productImage: productImages[0] || undefined,
-                                    characterImage: characterImages[0] || undefined,
                                     productName: data.productName || "Product",
                                     template: data.template || "product-review",
                                     voiceTone: data.voiceTone || "friendly",
@@ -221,12 +157,6 @@ const CreateVideoTab = () => {
                                     ctaText: data.ctaEnabled ? data.ctaText : "",
                                     mustUseKeywords: data.mustUseKeywords || "",
                                     avoidKeywords: data.avoidKeywords || "",
-                                    clipDuration: data.clipDuration || 16,
-                                    aspectRatio: data.aspectRatio || "9:16",
-                                    gender: data.gender || "female",
-                                    expression: data.expression || "happy",
-                                    movement: data.movement || "minimal",
-                                    // User-provided Thai script from scene cards
                                     userScript: data.aiPrompt || ""
                                 };
 
@@ -290,18 +220,18 @@ const CreateVideoTab = () => {
                 <div className={`space-y-2 transition-opacity duration-200 ${!generatedVideoPrompt ? 'opacity-50 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
                         <span className="bg-blue-500/20 text-blue-400 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span>
-                        เปิดหน้างาน (Google VideoFX)
+                        เปิดหน้างาน (Google Flow)
                     </label>
                     <button
                         type="button"
                         onClick={() => {
-                            window.open('https://labs.google/fx/tools/video-fx', '_blank');
+                            window.open('https://labs.google/fx/tools/flow', '_blank');
                             setFlowOpened(true);
                         }}
                         className={`w-full py-2 px-4 rounded-lg text-xs font-medium border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2 ${flowOpened ? 'bg-blue-500/10' : ''}`}
                     >
                         <ExternalLink className="w-3 h-3" />
-                        {flowOpened ? "เปิดอีกครั้ง (Opened)" : "เปิด Google VideoFX"}
+                        {flowOpened ? "เปิดอีกครั้ง (Opened)" : "เปิด Google Flow"}
                     </button>
                 </div>
 
