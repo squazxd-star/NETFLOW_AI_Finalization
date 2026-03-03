@@ -966,7 +966,7 @@ const buildImagePrompt = (
 [LIGHTING] ${lighting}.
 [QUALITY] ${cinematic}, ${aspectRatio} orientation, photorealistic, no text overlays.
 
-COMPOSITION: Character and product must be clearly visible together in the same frame. Product positioned naturally in hands or near the character.
+COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character holding or interacting with the product naturally. Both must be clearly visible together.
 ${ANTI_DISTORTION_DIRECTIVE}
 
 Reference Images:
