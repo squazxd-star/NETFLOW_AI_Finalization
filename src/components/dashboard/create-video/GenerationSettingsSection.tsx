@@ -177,6 +177,58 @@ ${sceneCount === 3 ? "ฉาก 3: [สคริปต์]" : ""}`;
 
             {isOpen && (
                 <div className="px-4 pb-4 space-y-4">
+                    {/* Google Flow Settings */}
+                    <div className="space-y-3 p-3 rounded-xl border border-blue-500/20 bg-blue-500/5">
+                        <label className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
+                            🍌 Google Flow Settings
+                        </label>
+
+                        {/* Orientation */}
+                        <div>
+                            <label className="text-xs text-muted-foreground mb-1.5 block">ขนาดภาพ</label>
+                            <div className="flex gap-2">
+                                {([
+                                    { value: "horizontal", label: "แนวนอน", icon: "▬" },
+                                    { value: "vertical", label: "แนวตั้ง", icon: "▮" }
+                                ] as const).map((opt) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setValue("orientation", opt.value)}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                                            (watch("orientation") || "horizontal") === opt.value
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-muted border border-border text-muted-foreground'
+                                        }`}
+                                    >
+                                        {opt.icon} {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Output Count */}
+                        <div>
+                            <label className="text-xs text-muted-foreground mb-1.5 block">จำนวนภาพ</label>
+                            <div className="flex gap-2">
+                                {([1, 2, 3, 4] as const).map((count) => (
+                                    <button
+                                        key={count}
+                                        type="button"
+                                        onClick={() => setValue("outputCount", count)}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                                            (watch("outputCount") || 1) === count
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-muted border border-border text-muted-foreground'
+                                        }`}
+                                    >
+                                        x{count}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Scene Count */}
                     <div>
                         <label className="text-sm text-foreground mb-2 block font-medium">

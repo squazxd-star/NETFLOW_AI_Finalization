@@ -251,12 +251,15 @@ const CreateVideoTab = () => {
                             setUploadStatus("⏳ กำลังอัพโหลดรูป + สร้างภาพ...");
                             try {
                                 const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
+                                    const formData = getValues();
                                     chrome.runtime.sendMessage(
                                         {
                                             action: "GENERATE_IMAGE",
                                             imagePrompt: generatedImagePrompt,
                                             productImage: productImage || undefined,
                                             characterImage: characterImage || undefined,
+                                            orientation: formData.orientation || "horizontal",
+                                            outputCount: formData.outputCount || 1,
                                         },
                                         (res) => {
                                             if (chrome.runtime.lastError) {

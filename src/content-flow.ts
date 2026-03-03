@@ -344,10 +344,103 @@ interface GenerateImageRequest {
     imagePrompt: string;
     productImage?: string;
     characterImage?: string;
+    orientation?: "horizontal" | "vertical";  // แนวนอน | แนวตั้ง
+    outputCount?: 1 | 2 | 3 | 4;               // x1 - x4
+}
+
+/**
+ * Step 0: Click the "Nano Banana 2" settings button and configure:
+ *   - Mode: Image (not Video)
+ *   - Orientation: แนวนอน (horizontal) / แนวตั้ง (vertical)
+ *   - Count: x1 / x2 / x3 / x4
+ */
+async function configureFlowSettings(orientation: string, outputCount: number): Promise<boolean> {
+    LOG("=== Step 0: Configure Flow settings ===");
+
+    // Find the Nano Banana settings button in prompt bar
+    // It contains text "Nano Banana" and has aria-haspopup="menu"
+    const allBtns = document.querySelectorAll<HTMLElement>("button");
+    let settingsBtn: HTMLElement | null = null;
+    for (const btn of allBtns) {
+        const txt = btn.textContent || "";
+        if (txt.includes("Nano Banana") || txt.includes("Imagen")) {
+            settingsBtn = btn;
+            break;
+        }
+    }
+
+    if (!settingsBtn) {
+        // Fallback: find button with crop icon at the bottom area
+        const cropBtns = findAllButtonsByIcon("crop_16_9");
+        if (cropBtns.length > 0) settingsBtn = cropBtns[cropBtns.length - 1];
+    }
+
+    if (!settingsBtn) {
+        WARN("Could not find Nano Banana settings button");
+        return false;
+    }
+
+    settingsBtn.click();
+    LOG("Clicked Nano Banana settings button");
+    await sleep(800);
+
+    // ── Select Image mode ──
+    const menuBtns = document.querySelectorAll<HTMLElement>("button");
+    for (const btn of menuBtns) {
+        const txt = (btn.textContent || "").trim();
+        if (txt === "Image" || txt === "รูปภาพ") {
+            btn.click();
+            LOG("Selected Image mode");
+            await sleep(300);
+            break;
+        }
+    }
+
+    // ── Select orientation ──
+    const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
+    const orientationAlt = orientation === "horizontal" ? "Landscape" : "Portrait";
+    for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+        const txt = (btn.textContent || "").trim();
+        if (txt === orientationText || txt.toLowerCase() === orientationAlt.toLowerCase()) {
+            btn.click();
+            LOG(`Selected orientation: ${orientationText}`);
+            await sleep(300);
+            break;
+        }
+    }
+
+    // ── Select output count ──
+    const countText = `x${outputCount}`;
+    for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+        const txt = (btn.textContent || "").trim();
+        if (txt === countText) {
+            btn.click();
+            LOG(`Selected count: ${countText}`);
+            await sleep(300);
+            break;
+        }
+    }
+
+    // Close the settings panel by clicking the settings button again
+    await sleep(300);
+    settingsBtn.click();
+    LOG("Closed settings panel");
+    await sleep(500);
+
+    return true;
 }
 
 async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success: boolean; message: string; step: string }> {
     const steps: string[] = [];
+
+    // ── Step 0: Configure Flow settings ──
+    const orientation = req.orientation || "horizontal";
+    const outputCount = req.outputCount || 1;
+    const configured = await configureFlowSettings(orientation, outputCount);
+    steps.push(configured ? "✅ Settings" : "⚠️ Settings");
+    if (!configured) {
+        LOG("Settings configuration failed — continuing anyway");
+    }
 
     // ── Step 1: Upload reference images into prompt bar ──
     LOG("=== Step 1: Upload reference images into prompt bar ===");
