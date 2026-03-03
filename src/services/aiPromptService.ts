@@ -206,22 +206,26 @@ const LIGHTING_BY_TONE: Record<string, string> = {
 };
 
 // Part 5: Cinematic Quality — technical specs per template style
+// Anti-Distortion: all entries use 85mm+ lens, zero distortion, symmetrical framing
 const CINEMATIC_SPECS: Record<string, string> = {
-    "product-review": "Professional product commercial, 35mm lens, 4K, smooth transitions, medium close-up shots",
-    "brainrot-product": "Handheld smartphone aesthetic, quick cuts, high frame rate, POV angles, vertical framing",
-    "food-review": "Food photography style, macro lens for texture, warm color grading, appetizing close-ups, 4K",
-    "fashion-review": "Fashion editorial style, full-body and detail shots, smooth tracking, runway-inspired, 4K",
-    "gadget-review": "Tech review aesthetic, clean product shots, hands-on close-ups, sharp focus, 4K",
-    "unboxing": "ASMR unboxing style, close-up hands, slow-motion reveals, crisp audio-visual, 4K",
-    "comparison": "Clean split-frame capable, analytical angles, clear side-by-side shots, sharp focus, 4K",
-    "testimonial": "Documentary interview style, eye-level framing, shallow depth of field, natural look, 4K",
-    "flash-sale": "High-energy commercial, fast cuts, dynamic angles, bold color grading, high frame rate",
-    "tutorial": "Educational demo style, overhead and eye-level angles, clear step visibility, steady shots, 4K",
-    "lifestyle": "Lifestyle vlog aesthetic, natural movement, golden hour grading, cinematic wide and close shots",
-    "trending": "TikTok viral aesthetic, vertical framing, trendy transitions, punchy color grading, high frame rate",
-    "mini-drama": "Short film cinematic, dramatic angles, emotional color grading, shallow DOF, 4K",
-    "before-after": "Transformation reveal style, locked-off comparison shots, dramatic lighting shift, 4K"
+    "product-review": "Professional product commercial, 85mm lens, zero lens distortion, frontal eye-level shot, perfectly centered, symmetrical composition, 4K, smooth transitions",
+    "brainrot-product": "Handheld smartphone aesthetic, quick cuts, high frame rate, POV angles, vertical framing, zero lens distortion",
+    "food-review": "Food photography style, 100mm macro lens, zero lens distortion, frontal eye-level, warm color grading, appetizing close-ups, 4K",
+    "fashion-review": "Fashion editorial style, 85mm lens, zero lens distortion, full-body and detail shots, smooth tracking, runway-inspired, 4K",
+    "gadget-review": "Tech review aesthetic, 85mm lens, zero lens distortion, frontal eye-level, clean product shots, hands-on close-ups, sharp focus, 4K",
+    "unboxing": "ASMR unboxing style, 85mm lens, zero lens distortion, close-up hands, slow-motion reveals, crisp audio-visual, 4K",
+    "comparison": "Clean split-frame capable, 85mm lens, zero lens distortion, perfectly centered, symmetrical composition, sharp focus, 4K",
+    "testimonial": "Documentary interview style, 85mm lens, zero lens distortion, eye-level framing, shallow depth of field, natural look, 4K",
+    "flash-sale": "High-energy commercial, 85mm lens, zero lens distortion, fast cuts, dynamic angles, bold color grading, high frame rate",
+    "tutorial": "Educational demo style, 85mm lens, zero lens distortion, overhead and eye-level angles, clear step visibility, steady shots, 4K",
+    "lifestyle": "Lifestyle vlog aesthetic, 85mm lens, zero lens distortion, natural movement, golden hour grading, cinematic wide and close shots",
+    "trending": "TikTok viral aesthetic, vertical framing, zero lens distortion, trendy transitions, punchy color grading, high frame rate",
+    "mini-drama": "Short film cinematic, 85mm lens, zero lens distortion, dramatic angles, emotional color grading, shallow DOF, 4K",
+    "before-after": "Transformation reveal style, 85mm lens, zero lens distortion, locked-off comparison shots, perfectly centered, dramatic lighting shift, 4K"
 };
+
+// Anti-Distortion directive — injected into all image prompts
+const ANTI_DISTORTION_DIRECTIVE = "PRODUCT ACCURACY: Frontal eye-level shot, perfectly centered, symmetrical composition. Shot on 85mm lens, f/8 aperture, zero lens distortion. High-end product photography, no perspective warping. If product has a label, use blank minimalist packaging with no text (add real logo in post-production).";
 
 // Brand & Policy Safety — words to auto-sanitize from prompts
 const BRAND_REPLACEMENTS: [RegExp, string][] = [
@@ -929,6 +933,7 @@ const buildImagePrompt = (
 [QUALITY] ${cinematic}, ${aspectRatio} orientation, photorealistic, no text overlays.
 
 COMPOSITION: Character and product must be clearly visible together in the same frame. Product positioned naturally in hands or near the character.
+${ANTI_DISTORTION_DIRECTIVE}
 
 Reference Images:
 - Image 1: Presenter face reference (must preserve exact face identity and gender)${hasProductImage ? `
@@ -1019,7 +1024,7 @@ const buildVideoPrompt = (
         `[QUALITY] ${cinematic}. ${durationConfig.pacing}.`,
         `${genderVoice} Thai voice speaking.`,
         `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
-        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene`
+        `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene. Product must appear frontal, centered, symmetrical, zero lens distortion.`
     ].join(' '));
 
     // Meta for building Scene 2+ prompts (also uses 5-part)
