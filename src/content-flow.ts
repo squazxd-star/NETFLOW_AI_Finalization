@@ -187,95 +187,97 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
 }
 
 /**
- * Set text into prompt input.
- * Google Flow uses Slate.js (contenteditable div), so we MUST use clipboard paste.
- * execCommand('insertText') breaks Slate's internal model.
+ * Copy text to the REAL system clipboard using a hidden textarea.
+ * Requires "clipboardWrite" permission in manifest.json.
+ */
+function copyToClipboard(text: string): boolean {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "-9999px";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+}
+
+/**
+ * Set text into Slate.js prompt editor using REAL clipboard paste.
+ *
+ * Slate.js ignores synthetic ClipboardEvents — it only processes REAL paste events
+ * triggered by the browser (trusted events with actual clipboard data).
+ *
+ * Approach:
+ *  1. Copy text to system clipboard via hidden textarea + execCommand('copy')
+ *  2. Focus the Slate editor
+ *  3. execCommand('paste') — triggers REAL paste that Slate handles
+ *
+ * Requires "clipboardWrite" + "clipboardRead" permissions in manifest.json.
  */
 async function setPromptText(el: HTMLElement, text: string) {
+    // Step 1: Copy text to REAL system clipboard
+    const copied = copyToClipboard(text);
+    LOG(`setPromptText: Copied to clipboard: ${copied}`);
+    await sleep(200);
+
+    // Step 2: Focus the Slate editor and place cursor
     el.focus();
     await sleep(300);
 
-    // ═══ Strategy 1: Clipboard paste (works with Slate.js) ═══
-    LOG("setPromptText: Using clipboard paste for Slate editor");
+    // Step 3: Use execCommand('paste') to trigger REAL paste from clipboard
+    // This creates a trusted paste event that Slate.js handles properly
+    const pasted = document.execCommand("paste");
+    LOG(`setPromptText: execCommand('paste'): ${pasted}`);
+    await sleep(500);
+
+    // Verify
+    const content = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement
+        ? el.value : (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+    if (content.length > 20) {
+        LOG(`setPromptText: ✅ Text confirmed (${content.length} chars)`);
+        return;
+    }
+
+    // Fallback: try navigator.clipboard API + execCommand('paste')
+    LOG("setPromptText: Trying navigator.clipboard.writeText fallback");
     try {
-        // Select all existing text first
-        const sel = window.getSelection();
-        if (sel) {
-            if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-                (el as HTMLInputElement).select();
-            } else {
-                const range = document.createRange();
-                range.selectNodeContents(el);
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-        }
-        await sleep(100);
-
-        // Delete existing content
-        document.execCommand("delete", false);
-        await sleep(100);
-
-        // Create paste event with text data
-        const dt = new DataTransfer();
-        dt.setData("text/plain", text);
-        const pasteEvent = new ClipboardEvent("paste", {
-            bubbles: true,
-            cancelable: true,
-            clipboardData: dt
-        });
-        el.dispatchEvent(pasteEvent);
-        LOG(`setPromptText: ✅ Dispatched paste event (${text.length} chars)`);
+        await navigator.clipboard.writeText(text);
+        el.focus();
+        await sleep(200);
+        document.execCommand("paste");
         await sleep(500);
 
-        // Verify: check if text appeared
-        const content = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement
-            ? el.value : (el.textContent || "");
-        if (content.length > 10) {
-            LOG("setPromptText: ✅ Text confirmed in editor");
+        const content2 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        if (content2.length > 20) {
+            LOG(`setPromptText: ✅ navigator.clipboard fallback worked (${content2.length} chars)`);
             return;
         }
     } catch (e: any) {
-        LOG(`setPromptText: Paste failed: ${e.message}`);
+        LOG(`setPromptText: navigator.clipboard failed: ${e.message}`);
     }
 
-    // ═══ Strategy 2: InputEvent beforeinput (Slate also listens for this) ═══
-    LOG("setPromptText: Trying beforeinput event");
+    // Last resort: synthetic ClipboardEvent (may not work with Slate)
+    LOG("setPromptText: Last resort — synthetic ClipboardEvent");
     try {
         el.focus();
         await sleep(100);
-        const beforeInput = new InputEvent("beforeinput", {
+        const dt = new DataTransfer();
+        dt.setData("text/plain", text);
+        el.dispatchEvent(new ClipboardEvent("paste", {
             bubbles: true,
             cancelable: true,
-            inputType: "insertText",
-            data: text
-        });
-        el.dispatchEvent(beforeInput);
+            clipboardData: dt
+        }));
         await sleep(300);
-
-        const content2 = el.textContent || "";
-        if (content2.length > 10) {
-            LOG("setPromptText: ✅ beforeinput succeeded");
-            return;
-        }
     } catch (e: any) {
-        LOG(`setPromptText: beforeinput failed: ${e.message}`);
+        LOG(`setPromptText: synthetic paste failed: ${e.message}`);
     }
 
-    // ═══ Strategy 3: React _valueTracker (for textarea/input only) ═══
-    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-        LOG("setPromptText: Trying _valueTracker hack");
-        const proto = el instanceof HTMLTextAreaElement
-            ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-        const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-        const tracker = (el as any)._valueTracker;
-        if (tracker) tracker.setValue("");
-        if (nativeSetter) nativeSetter.call(el, text);
-        else el.value = text;
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-        LOG("setPromptText: _valueTracker hack applied");
-    }
+    LOG("setPromptText: All strategies attempted");
 }
 
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────

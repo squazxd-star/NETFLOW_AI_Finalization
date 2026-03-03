@@ -6,7 +6,9 @@
   "permissions": [
     "storage",
     "sidePanel",
-    "activeTab"
+    "activeTab",
+    "clipboardWrite",
+    "clipboardRead"
   ],
   "side_panel": {
     "default_path": "index.html"
