@@ -187,103 +187,108 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
 }
 
 /**
- * Set text into prompt input using React _valueTracker hack.
- * This is the ONLY reliable way to update React-controlled inputs.
- *
- * React tracks input values internally via el._valueTracker.
- * We reset the tracker, set the value via native setter, then dispatch input event.
- * React sees the value changed (tracker says old="" but DOM says new=text) → updates state.
+ * Set text into prompt input.
+ * Google Flow uses Slate.js (contenteditable div), so we MUST use clipboard paste.
+ * execCommand('insertText') breaks Slate's internal model.
  */
 async function setPromptText(el: HTMLElement, text: string) {
     el.focus();
     await sleep(300);
 
-    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-        // ═══ React _valueTracker hack (most reliable) ═══
-        const proto = el instanceof HTMLTextAreaElement
-            ? HTMLTextAreaElement.prototype
-            : HTMLInputElement.prototype;
-        const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-
-        // Step 1: Reset React's internal value tracker so it thinks old value = ""
-        const tracker = (el as any)._valueTracker;
-        if (tracker) {
-            tracker.setValue("");
-            LOG("setPromptText: Reset React _valueTracker");
+    // ═══ Strategy 1: Clipboard paste (works with Slate.js) ═══
+    LOG("setPromptText: Using clipboard paste for Slate editor");
+    try {
+        // Select all existing text first
+        const sel = window.getSelection();
+        if (sel) {
+            if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+                (el as HTMLInputElement).select();
+            } else {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
         }
+        await sleep(100);
 
-        // Step 2: Set value via native setter (bypasses React's synthetic setter)
-        if (nativeSetter) {
-            nativeSetter.call(el, text);
-        } else {
-            el.value = text;
-        }
+        // Delete existing content
+        document.execCommand("delete", false);
+        await sleep(100);
 
-        // Step 3: Dispatch native 'input' event — React listens for this at document root
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
+        // Create paste event with text data
+        const dt = new DataTransfer();
+        dt.setData("text/plain", text);
+        const pasteEvent = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt
+        });
+        el.dispatchEvent(pasteEvent);
+        LOG(`setPromptText: ✅ Dispatched paste event (${text.length} chars)`);
+        await sleep(500);
 
-        LOG(`setPromptText: Set via _valueTracker hack (${text.length} chars)`);
-
-        // Verify
-        await sleep(200);
-        if (el.value === text) {
-            LOG("setPromptText: ✅ Value confirmed in DOM");
+        // Verify: check if text appeared
+        const content = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement
+            ? el.value : (el.textContent || "");
+        if (content.length > 10) {
+            LOG("setPromptText: ✅ Text confirmed in editor");
             return;
         }
-        LOG("setPromptText: Value not confirmed, trying execCommand fallback");
+    } catch (e: any) {
+        LOG(`setPromptText: Paste failed: ${e.message}`);
     }
 
-    // ═══ Fallback for contenteditable or if tracker hack failed ═══
-    el.focus();
-    await sleep(100);
+    // ═══ Strategy 2: InputEvent beforeinput (Slate also listens for this) ═══
+    LOG("setPromptText: Trying beforeinput event");
+    try {
+        el.focus();
+        await sleep(100);
+        const beforeInput = new InputEvent("beforeinput", {
+            bubbles: true,
+            cancelable: true,
+            inputType: "insertText",
+            data: text
+        });
+        el.dispatchEvent(beforeInput);
+        await sleep(300);
 
-    // Select all existing text
+        const content2 = el.textContent || "";
+        if (content2.length > 10) {
+            LOG("setPromptText: ✅ beforeinput succeeded");
+            return;
+        }
+    } catch (e: any) {
+        LOG(`setPromptText: beforeinput failed: ${e.message}`);
+    }
+
+    // ═══ Strategy 3: React _valueTracker (for textarea/input only) ═══
     if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-        el.select();
-    } else {
-        const sel = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-    }
-    await sleep(100);
-
-    // Try execCommand
-    const execOk = document.execCommand("insertText", false, text);
-    if (execOk) {
-        LOG("setPromptText: execCommand fallback succeeded");
-        // Also trigger React event just in case
+        LOG("setPromptText: Trying _valueTracker hack");
+        const proto = el instanceof HTMLTextAreaElement
+            ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        const tracker = (el as any)._valueTracker;
+        if (tracker) tracker.setValue("");
+        if (nativeSetter) nativeSetter.call(el, text);
+        else el.value = text;
         el.dispatchEvent(new Event("input", { bubbles: true }));
-        return;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        LOG("setPromptText: _valueTracker hack applied");
     }
-
-    // Last resort: direct set
-    LOG("setPromptText: using direct textContent fallback");
-    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-        el.value = text;
-    } else {
-        el.textContent = text;
-    }
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
 
-// Store the original HTMLInputElement.click so we can restore it
-const _originalInputClick = HTMLInputElement.prototype.click;
-
 /**
- * Upload a single image by intercepting the file input's .click() call.
+ * Upload a single image by watching for file inputs via MutationObserver
+ * and overriding .click() on the INSTANCE level (not prototype).
  *
- * How it works:
- *  1. Monkey-patch HTMLInputElement.prototype.click
- *  2. When Google Flow creates a file input and calls .click() (to open native dialog),
- *     our patch intercepts it, injects the file, and fires change — no dialog opens
- *  3. Click the "+" button which triggers the whole flow
- *  4. Restore original .click() after done
+ * Flow:
+ *  1. Start MutationObserver watching for new <input type="file"> in DOM
+ *  2. When one appears, override its .click() to inject our file instead of opening dialog
+ *  3. Click "+" → menu appears → click upload option → file input created → observer fires
+ *  4. Our instance override injects the file
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── Uploading ${fileName} into prompt bar ──`);
@@ -291,31 +296,69 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     const file = base64ToFile(dataUrl, fileName);
     LOG(`File size: ${(file.size / 1024).toFixed(1)} KB`);
 
-    let intercepted = false;
+    let injected = false;
 
-    // Monkey-patch: intercept file input .click() to inject our file instead of opening dialog
-    HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-        if (this.type === 'file' && !intercepted) {
-            intercepted = true;
-            LOG(`🎯 Intercepted file input .click() — injecting ${fileName}`);
+    // Also override any EXISTING file inputs right now
+    const existingInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    for (const inp of existingInputs) {
+        const origClick = inp.click.bind(inp);
+        inp.click = function() {
+            if (!injected) {
+                injected = true;
+                LOG(`🎯 Intercepted existing file input .click() — injecting ${fileName}`);
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                inp.files = dt.files;
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+            origClick();
+        };
+    }
 
-            // Inject file via DataTransfer
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            this.files = dt.files;
-
-            // Dispatch change + input events (React needs both)
-            this.dispatchEvent(new Event('change', { bubbles: true }));
-            this.dispatchEvent(new Event('input', { bubbles: true }));
-
-            return; // Don't open native dialog
+    // MutationObserver: watch for NEW file inputs being added to DOM
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                // Check the node itself
+                if (node instanceof HTMLInputElement && node.type === "file" && !injected) {
+                    injected = true;
+                    LOG(`🎯 MutationObserver caught new file input — injecting ${fileName}`);
+                    node.click = function() {
+                        LOG(`🎯 Blocked native .click() on file input`);
+                    };
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    node.files = dt.files;
+                    node.dispatchEvent(new Event('change', { bubbles: true }));
+                    node.dispatchEvent(new Event('input', { bubbles: true }));
+                    return;
+                }
+                // Check children of added node
+                if (node instanceof HTMLElement) {
+                    const fileInputs = node.querySelectorAll<HTMLInputElement>('input[type="file"]');
+                    for (const inp of fileInputs) {
+                        if (!injected) {
+                            injected = true;
+                            LOG(`🎯 MutationObserver caught nested file input — injecting ${fileName}`);
+                            inp.click = function() {};
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            inp.files = dt.files;
+                            inp.dispatchEvent(new Event('change', { bubbles: true }));
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                            return;
+                        }
+                    }
+                }
+            }
         }
-        // For non-file inputs or already intercepted, use original
-        return _originalInputClick.call(this);
-    };
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     try {
-        // Find and click the "+" button — this triggers Google Flow to create file input + .click()
+        // Find and click the "+" button
         const addBtn = findPromptBarAddButton();
         if (!addBtn) {
             WARN("Could not find prompt bar '+' button");
@@ -323,61 +366,79 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         }
 
         addBtn.click();
-        LOG("Clicked '+' button — waiting for file input interception...");
+        LOG("Clicked '+' button");
+        await sleep(1500);
 
-        // Wait up to 5s for interception to happen
-        const start = Date.now();
-        while (!intercepted && Date.now() - start < 5000) {
-            await sleep(200);
-        }
-
-        if (intercepted) {
-            LOG(`✅ File intercepted and injected for ${fileName}`);
-            await sleep(2000); // Wait for thumbnail processing
+        // If already injected (observer caught it), done!
+        if (injected) {
+            LOG(`✅ File injected for ${fileName} (after + click)`);
+            await sleep(2000);
             return true;
         }
 
-        // If "+" didn't directly trigger file input, there might be a menu
-        LOG("No immediate file input — checking for upload menu...");
+        // Look for upload menu option — be precise to avoid "drive_folder_upload"
+        LOG("Checking for upload menu...");
         const menuElements = document.querySelectorAll<HTMLElement>(
-            "button, [role='menuitem'], [role='option'], li"
+            "button, [role='menuitem'], [role='option'], li, div[role='button']"
         );
+        let clickedMenu = false;
         for (const el of menuElements) {
             if (el === addBtn) continue;
+
+            // Check icon — ONLY match "upload" or "upload_file", NOT "drive_folder_upload"
             const icons = el.querySelectorAll("i");
-            let found = false;
             for (const icon of icons) {
                 const it = icon.textContent?.trim() || "";
-                if (it === "upload" || it === "upload_file" || it === "cloud_upload") {
-                    el.click();
-                    found = true;
-                    LOG(`Clicked upload menu (icon: ${it})`);
-                    break;
+                if (it === "upload" || it === "upload_file") {
+                    // Make sure this element does NOT also contain "drive_folder_upload"
+                    const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
+                    if (!allIconTexts.includes("drive_folder_upload")) {
+                        el.click();
+                        clickedMenu = true;
+                        LOG(`Clicked upload menu (icon: ${it})`);
+                        break;
+                    }
                 }
             }
-            if (found) break;
-            const txt = (el.textContent || "").trim().toLowerCase();
-            if (txt.includes("upload") || txt.includes("อัปโหลด") || txt.includes("อัพโหลด") || txt.includes("from computer")) {
-                el.click();
-                LOG(`Clicked upload menu (text: "${txt.substring(0, 30)}")`);
-                break;
+            if (clickedMenu) break;
+        }
+
+        if (!clickedMenu) {
+            // Text-based search — be very specific
+            for (const el of menuElements) {
+                if (el === addBtn) continue;
+                const directText = el.childNodes.length <= 3 ? (el.textContent || "").trim() : "";
+                if (directText.length > 0 && directText.length < 30) {
+                    const lower = directText.toLowerCase();
+                    if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
+                        || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")) {
+                        el.click();
+                        clickedMenu = true;
+                        LOG(`Clicked upload menu (text: "${directText}")`);
+                        break;
+                    }
+                }
             }
         }
 
-        // Wait again for interception after menu click
-        const start2 = Date.now();
-        while (!intercepted && Date.now() - start2 < 5000) {
-            await sleep(200);
+        if (clickedMenu) {
+            await sleep(2000);
         }
 
-        if (intercepted) {
-            LOG(`✅ File intercepted after menu click for ${fileName}`);
+        // Wait for injection
+        const start = Date.now();
+        while (!injected && Date.now() - start < 5000) {
+            await sleep(300);
+        }
+
+        if (injected) {
+            LOG(`✅ File injected for ${fileName}`);
             await sleep(2000);
             return true;
         }
 
         // Last resort: find any file input and inject directly
-        LOG("Interception didn't trigger — trying direct file input injection");
+        LOG("Observer didn't catch — trying direct injection");
         const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
         if (fileInputs.length > 0) {
             const inp = fileInputs[fileInputs.length - 1];
@@ -391,13 +452,11 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             return true;
         }
 
-        WARN(`Upload failed for ${fileName} — no file input found`);
+        WARN(`Upload failed for ${fileName}`);
         return false;
 
     } finally {
-        // ALWAYS restore original .click() to avoid breaking the page
-        HTMLInputElement.prototype.click = _originalInputClick;
-        LOG("Restored original HTMLInputElement.click");
+        observer.disconnect();
     }
 }
 
