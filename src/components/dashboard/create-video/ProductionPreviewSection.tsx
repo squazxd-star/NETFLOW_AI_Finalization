@@ -18,7 +18,6 @@ const ProductionPreviewSection = ({
     isTikTokReady,
     onTikTokNotReady
 }: ProductionPreviewSectionProps) => {
-    const outputType = watch("outputType");
     const orientation = watch("orientation");
     const outputCount = watch("outputCount");
     const autoPostTikTok = watch("autoPostTikTok");
@@ -45,35 +44,6 @@ const ProductionPreviewSection = ({
 
             {isOpen && (
                 <div className="px-4 pb-4 space-y-4">
-                    {/* Output Type: Image / Video */}
-                    <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">ประเภท</label>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setValue("outputType", "image")}
-                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
-                                    outputType === "image"
-                                        ? 'bg-white text-black'
-                                        : 'bg-muted border border-border text-muted-foreground'
-                                }`}
-                            >
-                                <Image className="w-4 h-4" />
-                                Image
-                            </button>
-                            <button
-                                onClick={() => setValue("outputType", "video")}
-                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
-                                    outputType === "video"
-                                        ? 'bg-white text-black'
-                                        : 'bg-muted border border-border text-muted-foreground'
-                                }`}
-                            >
-                                <Video className="w-4 h-4" />
-                                Video
-                            </button>
-                        </div>
-                    </div>
-
                     {/* Orientation: Horizontal / Vertical */}
                     <div>
                         <label className="text-xs text-muted-foreground mb-2 block">ทิศทาง</label>
