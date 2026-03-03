@@ -446,73 +446,6 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     }
 }
 
-/**
- * After uploading an image to the asset library, click "+" again
- * to open the asset picker, then find and click the filename to add as reference.
- */
-async function selectAssetFromPicker(fileName: string): Promise<boolean> {
-    LOG(`── Selecting ${fileName} from asset picker ──`);
-
-    // Click "+" to open asset picker
-    const addBtn = findPromptBarAddButton();
-    if (!addBtn) {
-        WARN("Could not find '+' button for asset picker");
-        return false;
-    }
-
-    addBtn.click();
-    LOG("Clicked '+' to open asset picker");
-    await sleep(2000);
-
-    // Wait for the asset picker to appear and find the item
-    for (let attempt = 0; attempt < 10; attempt++) {
-        // Strategy 1: Find by img alt attribute matching fileName
-        const imgs = document.querySelectorAll<HTMLImageElement>(`img[alt="${fileName}"]`);
-        for (const img of imgs) {
-            const clickTarget = img.closest("div[class*='sc-dbfb6b4a']") as HTMLElement || img.parentElement as HTMLElement || img;
-            clickTarget.click();
-            LOG(`✅ Clicked asset item (img alt="${fileName}")`);
-            await sleep(1500);
-            return true;
-        }
-
-        // Strategy 2: Find by div text containing fileName
-        const allDivs = document.querySelectorAll("div");
-        for (const div of allDivs) {
-            // Only match leaf divs with exact or near-exact filename text
-            if (div.children.length === 0 && div.textContent?.trim() === fileName) {
-                const clickTarget = div.closest("div[class*='sc-dbfb6b4a']") as HTMLElement || div.parentElement as HTMLElement || div;
-                clickTarget.click();
-                LOG(`✅ Clicked asset item (text="${fileName}")`);
-                await sleep(1500);
-                return true;
-            }
-        }
-
-        // Strategy 3: Find any clickable element that contains the filename
-        const allElements = document.querySelectorAll<HTMLElement>("*");
-        for (const el of allElements) {
-            const txt = el.textContent?.trim() || "";
-            const alt = el.getAttribute("alt") || "";
-            if ((txt === fileName || alt === fileName) && el.offsetParent !== null) {
-                // Make sure it's inside a picker/dialog (not the prompt bar itself)
-                const isInDialog = el.closest("[role='dialog'], [role='listbox'], [class*='picker'], [class*='modal'], [class*='popover'], [class*='overlay']");
-                if (isInDialog || el.closest("[class*='sc-dbfb6b4a']")) {
-                    el.click();
-                    LOG(`✅ Clicked asset item (strategy 3, text/alt="${fileName}")`);
-                    await sleep(1500);
-                    return true;
-                }
-            }
-        }
-
-        await sleep(500);
-    }
-
-    WARN(`Could not find ${fileName} in asset picker`);
-    return false;
-}
-
 // ─── GENERATE_IMAGE handler ─────────────────────────────────────────────────
 
 interface GenerateImageRequest {
@@ -642,27 +575,23 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.productImage) {
         try {
-            // Step 1b-1: Upload product to asset library via file input intercept
-            const uploaded = await uploadImageToPromptBar(req.productImage, "product.png");
-            LOG(`Product upload to library: ${uploaded}`);
-            await sleep(1500);
-
-            // Step 1b-2: Click "+" → open asset picker → select "product.png"
-            LOG("=== Step 1b-2: Select product from asset picker ===");
-            const selected = await selectAssetFromPicker("product.png");
-            if (selected) {
-                steps.push("✅ สินค้า");
-            } else {
-                steps.push("⚠️ สินค้า");
-                errors.push("product not found in asset picker");
-            }
+            const ok = await uploadImageToPromptBar(req.productImage, "product.png");
+            steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
+            if (!ok) errors.push("product upload failed");
         } catch (e: any) {
-            WARN(`Product upload/select error: ${e.message}`);
+            WARN(`Product upload error: ${e.message}`);
             steps.push("❌ สินค้า");
             errors.push("product upload error");
         }
-        await sleep(1000);
+        await sleep(1500);
     }
+
+    // ── Step 1c: Close any open dialog/modal (Escape key) ──
+    LOG("Closing any open dialogs...");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+    await sleep(500);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+    await sleep(500);
 
     // ── Step 2: ALWAYS paste prompt (even if uploads failed) ──
     LOG("=== Step 2: Paste image prompt ===");
