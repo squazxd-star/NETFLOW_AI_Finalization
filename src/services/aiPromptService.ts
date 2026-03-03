@@ -528,8 +528,13 @@ const detectProductCategory = (productName: string, productAnalysis: string, tem
 
     if (includesAny(t, [
         "skincare", "makeup", "lip", "serum", "cream", "cleanser", "sunscreen",
-        "cosmetic", "beauty",
-        "สกินแคร์", "เครื่องสำอาง", "ลิป", "เซรั่ม", "ครีม", "กันแดด", "โฟม", "บำรุง"
+        "cosmetic", "beauty", "perfume", "fragrance", "cologne", "eau de", "toilette", "parfum",
+        "lotion", "moisturizer", "foundation", "mascara", "blush", "concealer", "primer",
+        "nail", "hair", "shampoo", "conditioner", "body wash", "deodorant",
+        "crystal", "bright crystal", "versace",
+        "สกินแคร์", "เครื่องสำอาง", "ลิป", "เซรั่ม", "ครีม", "กันแดด", "โฟม", "บำรุง",
+        "น้ำหอม", "เพอร์ฟูม", "โคโลญ", "โลชั่น", "แชมพู", "ครีมอาบน้ำ", "มอยเจอร์ไรเซอร์",
+        "รองพื้น", "มาสคาร่า", "บลัช", "คอนซีลเลอร์", "ไพรเมอร์"
     ])) return "beauty";
 
     return "other";
@@ -891,7 +896,35 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
 };
 
 /**
+ * Parse AI vision analysis (numbered 1-5 format) into structured parts.
+ * Returns an object with keys: product, character, environment, lighting, cinematic
+ */
+const parseAiAnalysis = (analysis: string): Record<string, string> => {
+    const result: Record<string, string> = {};
+    if (!analysis) return result;
+
+    // Match patterns like "1. PRODUCT HIGHLIGHT: ..." or "1. **PRODUCT HIGHLIGHT**: ..."
+    const patterns: [string, RegExp][] = [
+        ["product",     /(?:1\.\s*\**PRODUCT\s*HIGHLIGHT\**\s*[:：]\s*)(.*?)(?=\n\s*2\.|$)/is],
+        ["character",   /(?:2\.\s*\**CHARACTER\s*ACTION\**\s*[:：]\s*)(.*?)(?=\n\s*3\.|$)/is],
+        ["environment", /(?:3\.\s*\**ENVIRONMENT\**\s*[:：]\s*)(.*?)(?=\n\s*4\.|$)/is],
+        ["lighting",    /(?:4\.\s*\**LIGHTING\**\s*[:：]\s*)(.*?)(?=\n\s*5\.|$)/is],
+        ["cinematic",   /(?:5\.\s*\**CINEMATIC\**\s*[:：]\s*)(.*?)$/is],
+    ];
+
+    for (const [key, regex] of patterns) {
+        const match = analysis.match(regex);
+        if (match?.[1]) {
+            result[key] = match[1].trim().replace(/\*+/g, '');
+        }
+    }
+
+    return result;
+};
+
+/**
  * Build Image Generation Prompt — คัมภีร์ 5 ส่วน (Master Formula)
+ * When AI analysis exists, its 5 parts OVERRIDE template defaults.
  */
 const buildImagePrompt = (
     config: PromptGenerationConfig,
@@ -906,27 +939,28 @@ const buildImagePrompt = (
     const aspectRatio = config.aspectRatio || '9:16';
     const hasProductImage = !!config.productImage;
 
-    // ── Part 1: Product Highlight ──
-    const productHighlight = PRODUCT_HIGHLIGHT[category];
-    const productDesc = productAnalysis
-        ? `${config.productName}: ${productAnalysis}`
-        : `${config.productName}, ${productHighlight}`;
+    // Parse AI analysis into structured parts (if available)
+    const ai = parseAiAnalysis(productAnalysis);
 
-    // ── Part 2: Character & Dynamics ──
-    const dynamics = CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
+    // ── Part 1: Product Highlight — AI-analyzed > template default ──
+    const fallbackHighlight = PRODUCT_HIGHLIGHT[category];
+    const productDesc = ai.product || fallbackHighlight;
 
-    // ── Part 3: Environment ──
-    const environment = ENVIRONMENT_SETTING[template] || ENVIRONMENT_SETTING["product-review"];
+    // ── Part 2: Character & Dynamics — AI-analyzed > template default ──
+    const dynamics = ai.character || CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
 
-    // ── Part 4: Lighting & Mood ──
-    const lighting = LIGHTING_BY_TONE[config.voiceTone] || LIGHTING_BY_TONE["friendly"];
+    // ── Part 3: Environment — AI-analyzed > template default ──
+    const environment = ai.environment || ENVIRONMENT_SETTING[template] || ENVIRONMENT_SETTING["product-review"];
 
-    // ── Part 5: Cinematic Quality ──
-    const cinematic = CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
+    // ── Part 4: Lighting & Mood — AI-analyzed > voice-tone default ──
+    const lighting = ai.lighting || LIGHTING_BY_TONE[config.voiceTone] || LIGHTING_BY_TONE["friendly"];
+
+    // ── Part 5: Cinematic Quality — AI-analyzed > template default ──
+    const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
 
     let prompt = `Professional ${templateConfig.thaiName} photograph.
 
-[PRODUCT] ${productDesc}. ${productHighlight}.
+[PRODUCT] ${config.productName}: ${productDesc}.
 [CHARACTER] ${genderText}, ${expressionText} expression, ${dynamics}.
 [SETTING] ${environment}.
 [LIGHTING] ${lighting}.
