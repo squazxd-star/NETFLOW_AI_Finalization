@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Play, Loader2, ExternalLink, Wand2 } from "lucide-react";
+import { Play, Loader2, ExternalLink, Wand2, Upload } from "lucide-react";
 import { createVideoSchema, CreateVideoFormData, createVideoDefaultValues } from "@/schemas";
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import {
@@ -38,6 +38,8 @@ const CreateVideoTab = () => {
     const [generatedVideoPrompt, setGeneratedVideoPrompt] = useState<string | null>(null);
     const [generatedImagePrompt, setGeneratedImagePrompt] = useState<string | null>(null);
     const [flowOpened, setFlowOpened] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const logs = [
         "ระบบพร้อมทำงาน...",
@@ -233,10 +235,59 @@ const CreateVideoTab = () => {
                     </button>
                 </div>
 
-                {/* Step 3: Generate Video */}
+                {/* Step 3: Upload Images to Flow */}
                 <div className={`space-y-2 transition-opacity duration-200 ${!flowOpened ? 'opacity-50 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                        <span className="bg-neon-red/20 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px]">3</span>
+                        <span className="bg-purple-500/20 text-purple-400 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">3</span>
+                        อัพโหลดรูปเข้า Flow
+                    </label>
+                    <button
+                        type="button"
+                        disabled={isUploading || (!productImage && !characterImage)}
+                        onClick={async () => {
+                            if (!productImage && !characterImage) return;
+                            setIsUploading(true);
+                            setUploadStatus("⏳ กำลังอัพโหลด...");
+                            try {
+                                const response = await new Promise<{ success: boolean; message: string }>((resolve) => {
+                                    chrome.runtime.sendMessage(
+                                        { action: "UPLOAD_IMAGES", productImage, characterImage },
+                                        (res) => {
+                                            if (chrome.runtime.lastError) {
+                                                resolve({ success: false, message: chrome.runtime.lastError.message || "Connection failed" });
+                                            } else {
+                                                resolve(res || { success: false, message: "No response" });
+                                            }
+                                        }
+                                    );
+                                });
+                                setUploadStatus(response.success ? `✅ ${response.message}` : `❌ ${response.message}`);
+                            } catch (err: any) {
+                                setUploadStatus(`❌ ${err.message}`);
+                            } finally {
+                                setIsUploading(false);
+                            }
+                        }}
+                        className={`w-full py-2 px-4 rounded-lg text-xs font-medium border transition-colors flex items-center justify-center gap-2 ${
+                            isUploading
+                                ? 'border-purple-500/50 text-purple-300 bg-purple-500/10 cursor-wait'
+                                : (!productImage && !characterImage)
+                                    ? 'border-border text-muted-foreground opacity-50 cursor-not-allowed'
+                                    : 'border-purple-500/50 text-purple-400 hover:bg-purple-500/10'
+                        }`}
+                    >
+                        {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        {isUploading ? "กำลังอัพโหลด..." : "อัพโหลดรูปสินค้า + ตัวละคร"}
+                    </button>
+                    {uploadStatus && (
+                        <p className="text-[10px] text-center text-muted-foreground">{uploadStatus}</p>
+                    )}
+                </div>
+
+                {/* Step 4: Generate Video */}
+                <div className={`space-y-2 transition-opacity duration-200 ${!flowOpened ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className="text-xs font-medium text-foreground flex items-center gap-2">
+                        <span className="bg-neon-red/20 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px]">4</span>
                         สั่งทำงาน (Execution)
                     </label>
                     <button
