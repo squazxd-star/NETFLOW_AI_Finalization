@@ -164,42 +164,46 @@ const ProductDataSection = ({
                         />
                     </div>
 
-                    {/* Product & Character Images — 1 slot each */}
+                    {/* Product Image */}
                     <div>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                             <Image className="w-3 h-3 text-neon-red" />
-                            รูปสินค้า & ตัวละคร
+                            รูปสินค้า
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            {/* Product Image */}
-                            <button
-                                onClick={() => onProductImageUpload()}
-                                className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
-                            >
-                                {productImage ? (
-                                    <img src={productImage} alt="Product" className="w-full h-full object-cover" />
-                                ) : (
-                                    <>
-                                        <Plus className="w-6 h-6 text-muted-foreground" />
-                                        <span className="text-[10px] text-muted-foreground">สินค้า</span>
-                                    </>
-                                )}
-                            </button>
-                            {/* Character Image */}
-                            <button
-                                onClick={() => onCharacterImageUpload()}
-                                className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-200 overflow-hidden"
-                            >
-                                {characterImage ? (
-                                    <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
-                                ) : (
-                                    <>
-                                        <Plus className="w-6 h-6 text-muted-foreground" />
-                                        <span className="text-[10px] text-muted-foreground">ตัวละคร</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => onProductImageUpload()}
+                            className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
+                        >
+                            {productImage ? (
+                                <img src={productImage} alt="Product" className="w-full h-full object-cover" />
+                            ) : (
+                                <>
+                                    <Plus className="w-6 h-6 text-muted-foreground" />
+                                    <span className="text-[10px] text-muted-foreground">คลิกเพื่อเลือกรูปสินค้า</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Character Image */}
+                    <div>
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            <Image className="w-3 h-3 text-blue-400" />
+                            รูปตัวละคร
+                        </label>
+                        <button
+                            onClick={() => onCharacterImageUpload()}
+                            className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-200 overflow-hidden"
+                        >
+                            {characterImage ? (
+                                <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
+                            ) : (
+                                <>
+                                    <Plus className="w-6 h-6 text-muted-foreground" />
+                                    <span className="text-[10px] text-muted-foreground">คลิกเพื่อเลือกรูปตัวละคร</span>
+                                </>
+                            )}
+                        </button>
                     </div>
 
                     {/* Info Note */}

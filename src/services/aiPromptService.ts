@@ -147,6 +147,125 @@ const ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> =
     "isan": { dialect: "ภาษาอีสาน", characteristic: "สำเนียงเป็นกันเอง ม่วนซื่น" }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MASTER FORMULA — คัมภีร์ 5 ส่วน (The 5-Part Master Formula)
+// Based on Gemini expert recommendation for TikTok-safe commercial prompts
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Part 1: Product Highlight — material & texture descriptors per category
+const PRODUCT_HIGHLIGHT: Record<ProductCategory, string> = {
+    food: "appetizing presentation, visible texture and steam, vibrant natural food colors",
+    fashion: "premium fabric texture, clean stitching details, elegant draping",
+    gadget: "sleek modern design, brushed metal or matte finish, clean product lines",
+    beauty: "elegant glass or matte packaging, dewy product texture, premium aesthetic",
+    other: "high-quality product details, clean presentation, visible material texture"
+};
+
+// Part 2: Character & Video Dynamics — action descriptors per template
+const CHARACTER_DYNAMICS: Record<string, string> = {
+    "product-review": "holding the product naturally, showing it to camera with confident gestures, genuine reaction expressions",
+    "brainrot-product": "fast energetic movements, exaggerated surprised reactions, pointing at product dramatically",
+    "food-review": "picking up food with anticipation, taking first bite with genuine reaction, showing texture close-up",
+    "fashion-review": "modeling the outfit with confident walk, showing fit from multiple angles, smooth pose transitions",
+    "gadget-review": "hands-on demonstration, pressing buttons and showing features, clean hand movements",
+    "unboxing": "carefully opening package with anticipation, slow reveal of product, excited first impression",
+    "comparison": "holding two items side by side, pointing at differences, analytical gestures",
+    "testimonial": "speaking directly to camera with sincerity, natural hand gestures, emotional connection",
+    "flash-sale": "urgent excited movements, showing price/deal with energy, countdown energy",
+    "tutorial": "step-by-step hand movements, clear demonstration, pointing at key features",
+    "lifestyle": "naturally using product in daily routine, relaxed authentic movements, lifestyle integration",
+    "trending": "following viral movement pattern, trendy gestures, social media aesthetic poses",
+    "mini-drama": "acting out dramatic scene, emotional expressions, story-driven movements",
+    "before-after": "showing transformation clearly, dramatic reveal moment, amazed reaction"
+};
+
+// Part 3: Environment Layering — background setting per template
+const ENVIRONMENT_SETTING: Record<string, string> = {
+    "product-review": "clean minimalist desk or table setup, soft-focus background, modern aesthetic room",
+    "brainrot-product": "vibrant colorful background, trendy room setup, eye-catching environment",
+    "food-review": "clean kitchen counter or restaurant setting, appetizing ambiance, warm inviting space",
+    "fashion-review": "modern room with full-length mirror, clean urban backdrop, fashion-forward setting",
+    "gadget-review": "minimalist tech workspace, clean desk with subtle gadgets, modern office aesthetic",
+    "unboxing": "clean table surface with packaging, organized unboxing area, neutral backdrop",
+    "comparison": "clean comparison surface, organized layout, neutral professional background",
+    "testimonial": "cozy living room setting, warm homey atmosphere, relatable everyday environment",
+    "flash-sale": "bright attention-grabbing backdrop, sale energy environment, dynamic setting",
+    "tutorial": "well-organized workspace, clear demonstration surface, educational setting",
+    "lifestyle": "beautiful living space, daily life environment, aesthetic home or outdoor setting",
+    "trending": "trendy aesthetic backdrop, social media ready environment, modern stylish space",
+    "mini-drama": "cinematic scene setting, mood-appropriate environment, story-driven backdrop",
+    "before-after": "split-screen friendly clean background, transformation-ready setting, clear contrast environment"
+};
+
+// Part 4: Lighting & Mood — lighting style matched to voice tone
+const LIGHTING_BY_TONE: Record<string, string> = {
+    "energetic": "Bright natural sunlight, high-key lighting, vibrant and energetic colors, punchy contrast",
+    "calm": "Soft diffused golden-hour light, low-key gentle illumination, warm muted pastels, serene atmosphere",
+    "friendly": "Warm natural daylight, balanced soft exposure, inviting warm tones, approachable feel",
+    "professional": "Clean studio softbox lighting, sharp defined shadows, neutral crisp palette, polished look"
+};
+
+// Part 5: Cinematic Quality — technical specs per template style
+const CINEMATIC_SPECS: Record<string, string> = {
+    "product-review": "Professional product commercial, 35mm lens, 4K, smooth transitions, medium close-up shots",
+    "brainrot-product": "Handheld smartphone aesthetic, quick cuts, high frame rate, POV angles, vertical framing",
+    "food-review": "Food photography style, macro lens for texture, warm color grading, appetizing close-ups, 4K",
+    "fashion-review": "Fashion editorial style, full-body and detail shots, smooth tracking, runway-inspired, 4K",
+    "gadget-review": "Tech review aesthetic, clean product shots, hands-on close-ups, sharp focus, 4K",
+    "unboxing": "ASMR unboxing style, close-up hands, slow-motion reveals, crisp audio-visual, 4K",
+    "comparison": "Clean split-frame capable, analytical angles, clear side-by-side shots, sharp focus, 4K",
+    "testimonial": "Documentary interview style, eye-level framing, shallow depth of field, natural look, 4K",
+    "flash-sale": "High-energy commercial, fast cuts, dynamic angles, bold color grading, high frame rate",
+    "tutorial": "Educational demo style, overhead and eye-level angles, clear step visibility, steady shots, 4K",
+    "lifestyle": "Lifestyle vlog aesthetic, natural movement, golden hour grading, cinematic wide and close shots",
+    "trending": "TikTok viral aesthetic, vertical framing, trendy transitions, punchy color grading, high frame rate",
+    "mini-drama": "Short film cinematic, dramatic angles, emotional color grading, shallow DOF, 4K",
+    "before-after": "Transformation reveal style, locked-off comparison shots, dramatic lighting shift, 4K"
+};
+
+// Brand & Policy Safety — words to auto-sanitize from prompts
+const BRAND_REPLACEMENTS: [RegExp, string][] = [
+    [/\biphone\b/gi, "premium smartphone"],
+    [/\bsamsung\b/gi, "flagship device"],
+    [/\bapple\b(?!\s*(cider|juice|pie|fruit))/gi, "premium tech brand"],
+    [/\bgoogle\b/gi, "major tech platform"],
+    [/\bnike\b/gi, "athletic brand"],
+    [/\badidas\b/gi, "sportswear brand"],
+    [/\bgucci\b/gi, "luxury fashion brand"],
+    [/\blouis vuitton\b/gi, "luxury brand"],
+    [/\bchanel\b/gi, "high-end fashion brand"],
+    [/\brolex\b/gi, "luxury watch brand"],
+    [/\btiktok\b/gi, "short video platform"],
+    [/\binstagram\b/gi, "social media platform"],
+    [/\bfacebook\b/gi, "social network"],
+    [/\byoutube\b/gi, "video platform"],
+];
+
+// Policy-unsafe keywords that should be stripped
+const POLICY_UNSAFE_WORDS = [
+    "sexy", "seductive", "cheap", "fake", "counterfeit",
+    "miracle", "cure", "heal", "guaranteed results",
+    "100% effective", "instant results", "magic",
+    "weight loss", "slimming", "diet pill",
+    "before and after medical", "surgical",
+];
+
+/** Sanitize brand names and policy-unsafe keywords from a prompt */
+const sanitizePromptForPolicy = (text: string): string => {
+    let result = text;
+    for (const [pattern, replacement] of BRAND_REPLACEMENTS) {
+        result = result.replace(pattern, replacement);
+    }
+    for (const word of POLICY_UNSAFE_WORDS) {
+        const re = new RegExp(`\\b${word}\\b`, 'gi');
+        result = result.replace(re, '');
+    }
+    // Clean up double spaces
+    return result.replace(/\s{2,}/g, ' ').trim();
+};
+
+type ProductCategory = "food" | "fashion" | "gadget" | "beauty" | "other";
+
 // Randomized Hook variations per template (many options!)
 const HOOK_VARIATIONS: Record<string, string[]> = {
     "product-review": [
@@ -373,8 +492,6 @@ const CTA_VARIATIONS: Record<string, string[]> = {
 
 // Random picker helper
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-
-type ProductCategory = "food" | "fashion" | "gadget" | "beauty" | "other";
 
 const normalizeText = (s: string) => (s || "").toLowerCase();
 
@@ -665,17 +782,18 @@ const analyzeWithOpenAI = async (imageBase64: string, productName: string): Prom
                 content: [
                     {
                         type: "text",
-                        text: `Analyze this product image for video generation.
-                        
+                        text: `Analyze this product image for TikTok commercial video generation.
+
 Product Name: ${productName}
 
-Describe:
-1. Product appearance (color, shape, packaging, size)
-2. Key visual features that should be highlighted
-3. Suggested camera angles and lighting
-4. Mood/atmosphere that fits this product
+Describe using the 5-Part Formula:
+1. PRODUCT HIGHLIGHT: Material, texture, finish, packaging details (e.g. "sleek matte white with brushed aluminum buttons")
+2. CHARACTER ACTION: How a presenter should interact with this product (e.g. "gently holding and showing to camera")
+3. ENVIRONMENT: Best background setting for this product (e.g. "bright minimalist bathroom with soft-focus plants")
+4. LIGHTING: Ideal lighting style (e.g. "soft natural morning light, high-key, warm tones")
+5. CINEMATIC: Best camera approach (e.g. "close-up product shots, 35mm lens feel")
 
-Keep response concise (max 150 words). Focus on visual details useful for video generation.`
+Keep response concise (max 150 words). No brand names. Focus on visual details useful for video generation.`
                     },
                     {
                         type: "image_url",
@@ -708,17 +826,18 @@ const analyzeWithGemini = async (imageBase64: string, productName: string): Prom
     const mimeType = imageBase64.includes('png') ? 'image/png' : 'image/jpeg';
 
     const result = await model.generateContent([
-        `Analyze this product image for video generation.
-        
+        `Analyze this product image for TikTok commercial video generation.
+
 Product Name: ${productName}
 
-Describe:
-1. Product appearance (color, shape, packaging, size)
-2. Key visual features that should be highlighted
-3. Suggested camera angles and lighting
-4. Mood/atmosphere that fits this product
+Describe using the 5-Part Formula:
+1. PRODUCT HIGHLIGHT: Material, texture, finish, packaging details (e.g. "sleek matte white with brushed aluminum buttons")
+2. CHARACTER ACTION: How a presenter should interact with this product (e.g. "gently holding and showing to camera")
+3. ENVIRONMENT: Best background setting for this product (e.g. "bright minimalist bathroom with soft-focus plants")
+4. LIGHTING: Ideal lighting style (e.g. "soft natural morning light, high-key, warm tones")
+5. CINEMATIC: Best camera approach (e.g. "close-up product shots, 35mm lens feel")
 
-Keep response concise (max 150 words). Focus on visual details useful for video generation.`,
+Keep response concise (max 150 words). No brand names. Focus on visual details useful for video generation.`,
         {
             inlineData: {
                 data: base64Data,
@@ -768,7 +887,7 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
 };
 
 /**
- * Build Image Generation Prompt
+ * Build Image Generation Prompt — คัมภีร์ 5 ส่วน (Master Formula)
  */
 const buildImagePrompt = (
     config: PromptGenerationConfig,
@@ -778,34 +897,48 @@ const buildImagePrompt = (
     const genderText = config.gender === 'male' ? 'Thai man' : 'Thai woman';
     const expressionText = config.expression || 'happy and confident';
     const category = detectProductCategory(config.productName, productAnalysis, config.template);
+    const template = config.template || 'product-review';
     
     const aspectRatio = config.aspectRatio || '9:16';
     const hasProductImage = !!config.productImage;
 
-    let prompt = `Professional photograph for ${templateConfig.thaiName} video thumbnail.
+    // ── Part 1: Product Highlight ──
+    const productHighlight = PRODUCT_HIGHLIGHT[category];
+    const productDesc = productAnalysis
+        ? `${config.productName}: ${productAnalysis}`
+        : `${config.productName}, ${productHighlight}`;
 
-Subject: ${genderText}, ${expressionText} expression, holding/presenting ${config.productName}.
-IMPORTANT: Character and product must be clearly visible together in the same frame. Product should be positioned naturally in hands or near the character.
-Style: ${templateConfig.style}
-Focus: ${templateConfig.focus}
+    // ── Part 2: Character & Dynamics ──
+    const dynamics = CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
 
-Category: ${category}
+    // ── Part 3: Environment ──
+    const environment = ENVIRONMENT_SETTING[template] || ENVIRONMENT_SETTING["product-review"];
+
+    // ── Part 4: Lighting & Mood ──
+    const lighting = LIGHTING_BY_TONE[config.voiceTone] || LIGHTING_BY_TONE["friendly"];
+
+    // ── Part 5: Cinematic Quality ──
+    const cinematic = CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
+
+    let prompt = `Professional ${templateConfig.thaiName} photograph.
+
+[PRODUCT] ${productDesc}. ${productHighlight}.
+[CHARACTER] ${genderText}, ${expressionText} expression, ${dynamics}.
+[SETTING] ${environment}.
+[LIGHTING] ${lighting}.
+[QUALITY] ${cinematic}, ${aspectRatio} orientation, photorealistic, no text overlays.
+
+COMPOSITION: Character and product must be clearly visible together in the same frame. Product positioned naturally in hands or near the character.
 
 Reference Images:
 - Image 1: Presenter face reference (must preserve exact face identity and gender)${hasProductImage ? `
 - Image 2: Product reference (must preserve packaging and product type)` : ''}
 - If text conflicts with images, images win.
-- COMPOSITION: Ensure both character face and product are clearly visible and properly positioned together.
 
-${productAnalysis ? `Product Details: ${productAnalysis}` : ''}
-
-Technical: High resolution, studio lighting, sharp focus, social media optimized, ${aspectRatio} orientation.
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
-${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}
+${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
 
-NO text overlays. Photorealistic style.`;
-
-    return prompt.trim();
+    return sanitizePromptForPolicy(prompt.trim());
 };
 
 /**
@@ -861,43 +994,43 @@ const buildVideoPrompt = (
         console.log("📝 Auto-generated scene scripts:", sceneTexts);
     }
 
+    const template = config.template || 'product-review';
     const aspectRatio = config.aspectRatio || '9:16';
-    const toneDescriptions: Record<string, string> = {
-        "energetic": "High energy, excited, enthusiastic",
-        "calm": "Relaxed, smooth, gentle",
-        "friendly": "Warm, approachable, natural gestures",
-        "professional": "Confident, polished, authoritative"
-    };
-    const toneText = toneDescriptions[config.voiceTone] || toneDescriptions["friendly"];
 
-    // Style description for meta
-    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${toneText}`;
+    // ── 5-Part Master Formula lookups ──
+    const productHighlight = PRODUCT_HIGHLIGHT[category];
+    const dynamics = CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
+    const environment = ENVIRONMENT_SETTING[template] || ENVIRONMENT_SETTING["product-review"];
+    const lighting = LIGHTING_BY_TONE[config.voiceTone] || LIGHTING_BY_TONE["friendly"];
+    const cinematic = CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
+
+    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}`;
 
     const aspectDirective = aspectRatio === '9:16'
         ? 'Aspect ratio: 9:16 vertical portrait framing.'
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
 
-    // Plain-text format — user-confirmed working template
-    const prompt = [
-        `${durationConfig.pacing} ${templateConfig.thaiName} video.`,
-        `${genderText}, ${expressionText} expression, presenting ${config.productName}.`,
-        `${templateConfig.style}, ${saleStyle.approach}, ${toneText}.`,
-        `Smooth cinematic movement, professional lighting.`,
-        `${templateConfig.focus}. Movement: ${movementText}. ${durationConfig.pacing}.`,
+    // Plain-text format — 5-Part Master Formula
+    const prompt = sanitizePromptForPolicy([
+        `[PRODUCT] ${config.productName}, ${productHighlight}.`,
+        `[CHARACTER] ${genderText}, ${expressionText}, ${dynamics}.`,
+        `[SETTING] ${environment}.`,
+        `[LIGHTING] ${lighting}.`,
+        `[QUALITY] ${cinematic}. ${durationConfig.pacing}.`,
         `${genderVoice} Thai voice speaking.`,
         `THAI VOICEOVER SCRIPT: "${sceneTexts[0] || ''}"`,
         `IMPORTANT: No CTA, no popup text, no floating text, no overlay text in the video. Maintain face/identity consistency from reference image. ${aspectDirective} No text overlays or subtitles. Same person identity, outfit, and voice from previous scene`
-    ].join(' ');
+    ].join(' '));
 
-    // Meta for building Scene 2+ prompts
+    // Meta for building Scene 2+ prompts (also uses 5-part)
     const meta: VideoPromptMeta = {
         style: styleDesc,
         aspectRatio,
         gender: genderText,
         genderVoice: `${genderVoice} Thai voice speaking`,
         expression: expressionText,
-        camera: 'Smooth cinematic movement, professional lighting',
-        product: config.productName,
+        camera: `${cinematic}. ${lighting}`,
+        product: `${config.productName}, ${productHighlight}`,
         template: templateConfig.thaiName,
         pacing: durationConfig.pacing,
         restrictions: 'No CTA, no popup text, no floating text, no overlay text. Maintain face/identity consistency from reference image.'
