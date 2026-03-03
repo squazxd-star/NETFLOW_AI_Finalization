@@ -533,25 +533,37 @@ interface GenerateImageRequest {
 async function configureFlowSettings(orientation: string, outputCount: number): Promise<boolean> {
     LOG("=== Step 0: Configure Flow settings ===");
 
+    // Find the settings button — it shows current mode like "วิดีโอ crop_16_9 x1" or "Nano Banana 2"
     const allBtns = document.querySelectorAll<HTMLElement>("button");
     let settingsBtn: HTMLElement | null = null;
+
+    // Strategy 1: button text contains known keywords
     for (const btn of allBtns) {
         const txt = btn.textContent || "";
-        if (txt.includes("Nano Banana") || txt.includes("Imagen")) {
-            settingsBtn = btn;
-            break;
+        if (txt.includes("Nano Banana") || txt.includes("Imagen") || txt.includes("วิดีโอ") || txt.includes("รูปภาพ") || txt.includes("Image") || txt.includes("Video")) {
+            // Must be in the bottom prompt bar area
+            const rect = btn.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight * 0.7) {
+                settingsBtn = btn;
+                LOG(`Found settings button by text: "${txt.substring(0, 30).trim()}"`);
+                break;
+            }
         }
     }
 
+    // Strategy 2: button with crop icon in bottom area
     if (!settingsBtn) {
-        const cropBtns = findAllButtonsByIcon("crop_16_9");
-        if (cropBtns.length > 0) settingsBtn = cropBtns[cropBtns.length - 1];
-    }
-    if (!settingsBtn) {
-        // Try crop_portrait or crop_landscape icons
-        for (const icon of ["crop_portrait", "crop_landscape", "crop_3_2", "crop_5_4"]) {
+        for (const icon of ["crop_16_9", "crop_portrait", "crop_landscape", "crop_3_2", "crop_5_4"]) {
             const btns = findAllButtonsByIcon(icon);
-            if (btns.length > 0) { settingsBtn = btns[btns.length - 1]; break; }
+            for (const btn of btns) {
+                const rect = btn.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.7) {
+                    settingsBtn = btn;
+                    LOG(`Found settings button by icon: ${icon}`);
+                    break;
+                }
+            }
+            if (settingsBtn) break;
         }
     }
 
@@ -560,27 +572,54 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         return false;
     }
 
-    settingsBtn.click();
+    // Click settings button with full mouse sequence
+    const sRect = settingsBtn.getBoundingClientRect();
+    const sCx = sRect.left + sRect.width / 2;
+    const sCy = sRect.top + sRect.height / 2;
+    const sOpts = { bubbles: true, cancelable: true, clientX: sCx, clientY: sCy, button: 0 };
+    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
+    await sleep(80);
+    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
+    settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("Clicked settings button");
-    await sleep(1000);
+    await sleep(1500);
 
-    // Select Image mode
-    for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+    // ALWAYS select Image mode (switch from Video if needed)
+    let selectedImage = false;
+    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], [role='tab']")) {
         const txt = (btn.textContent || "").trim();
-        if (txt === "Image" || txt === "รูปภาพ") {
-            btn.click();
+        if (txt === "Image" || txt === "รูปภาพ" || txt === "ภาพ") {
+            const bRect = btn.getBoundingClientRect();
+            const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1 }));
+            btn.dispatchEvent(new MouseEvent("mousedown", bOpts));
+            await sleep(80);
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1 }));
+            btn.dispatchEvent(new MouseEvent("mouseup", bOpts));
+            btn.dispatchEvent(new MouseEvent("click", bOpts));
+            selectedImage = true;
             LOG("Selected Image mode");
             await sleep(400);
             break;
         }
     }
+    if (!selectedImage) LOG("Could not find Image mode button — may already be in Image mode");
 
     // Select orientation
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
-    for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
         const txt = (btn.textContent || "").trim();
         if (txt === orientationText || txt.toLowerCase() === (orientation === "horizontal" ? "landscape" : "portrait")) {
-            btn.click();
+            const oRect = btn.getBoundingClientRect();
+            const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1 }));
+            btn.dispatchEvent(new MouseEvent("mousedown", oOpts));
+            await sleep(80);
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1 }));
+            btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
+            btn.dispatchEvent(new MouseEvent("click", oOpts));
             LOG(`Selected orientation: ${orientationText}`);
             await sleep(400);
             break;
@@ -589,19 +628,34 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
 
     // Select count
     const countText = `x${outputCount}`;
-    for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
         const txt = (btn.textContent || "").trim();
         if (txt === countText) {
-            btn.click();
+            const cRect = btn.getBoundingClientRect();
+            const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1 }));
+            btn.dispatchEvent(new MouseEvent("mousedown", cOpts));
+            await sleep(80);
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1 }));
+            btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
+            btn.dispatchEvent(new MouseEvent("click", cOpts));
             LOG(`Selected count: ${countText}`);
             await sleep(400);
             break;
         }
     }
 
-    // Close settings
+    // Close settings — press Escape to dismiss the dropdown
     await sleep(300);
-    settingsBtn.click();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+    await sleep(300);
+    // Also try clicking the settings button again to toggle it closed
+    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
+    await sleep(80);
+    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
+    settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("Closed settings panel");
     await sleep(600);
 
