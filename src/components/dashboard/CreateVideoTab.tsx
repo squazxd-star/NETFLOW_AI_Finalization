@@ -191,7 +191,7 @@ const CreateVideoTab = () => {
                         </button>
                     </div>
 
-                    {generatedVideoPrompt && (
+                    {generatedImagePrompt && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                             <div className="bg-black/40 p-3 rounded-lg border border-border space-y-2">
                                 <div>
@@ -199,16 +199,7 @@ const CreateVideoTab = () => {
                                     <textarea
                                         value={generatedImagePrompt || ""}
                                         onChange={(e) => setGeneratedImagePrompt(e.target.value)}
-                                        className="w-full bg-transparent text-[10px] text-foreground font-mono resize-none outline-none min-h-[40px]"
-                                    />
-                                </div>
-                                <div className="h-px bg-border/50" />
-                                <div>
-                                    <label className="text-[10px] text-muted-foreground block mb-1">Video Prompt (Motion)</label>
-                                    <textarea
-                                        value={generatedVideoPrompt}
-                                        onChange={(e) => setGeneratedVideoPrompt(e.target.value)}
-                                        className="w-full bg-transparent text-[10px] text-foreground font-mono resize-none outline-none min-h-[60px]"
+                                        className="w-full bg-transparent text-[10px] text-foreground font-mono resize-none outline-none min-h-[80px]"
                                     />
                                 </div>
                             </div>
@@ -217,7 +208,7 @@ const CreateVideoTab = () => {
                 </div>
 
                 {/* Step 2: Open Flow */}
-                <div className={`space-y-2 transition-opacity duration-200 ${!generatedVideoPrompt ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`space-y-2 transition-opacity duration-200 ${!generatedImagePrompt ? 'opacity-50 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
                         <span className="bg-blue-500/20 text-blue-400 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span>
                         เปิดหน้างาน (Google Flow)
