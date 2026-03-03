@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 85% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 0 85% 55%;
+    --radius: 0.75rem;
+    --neon-red: 0 85% 55%;
+    --neon-red-light: 0 85% 65%;
+    --neon-red-dark: 0 85% 40%;
+    --neon-white: 0 0% 95%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    min-width: 320px;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}

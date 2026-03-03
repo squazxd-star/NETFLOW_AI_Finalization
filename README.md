@@ -1,92 +1,69 @@
-# NETFLOW AI
+# NETFLOW AI v2
 
-NETFLOW AI is a modern, high-performance web application designed for AI-powered video generation and management. Built with a cyberpunk/red-neon aesthetic, it offers a professional dashboard for content creators.
-
-## Features
-
-- **Standard & Advanced AI Modes**: Create videos using automated AI scripts or manual input.
-- **Character & Style Customization**: Select avatars, voice moods (Excited, Calm, etc.), and energy levels.
-- **Script Management**: Templates for Product Reviews, Educational content, and more.
-- **TikTok Integration**: Manage and schedule posts directly.
-- **NetCast Pro**: Advanced broadcasting capabilities.
+Clean rebuild — Chrome Extension (Manifest V3) with zero privacy issues on macOS.
 
 ## Tech Stack
 
-- **Framework**: [React](https://react.dev/) + [Vite](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
+- **Framework**: React 18 + Vite 5
 - **Language**: TypeScript
+- **Styling**: TailwindCSS + shadcn/ui
+- **Extension**: Chrome Manifest V3 Side Panel
+- **Platform**: macOS / Windows / Linux
 
-## Getting Started
+## Privacy
 
-### Prerequisites
+Extension ใช้ permissions น้อยที่สุด — ไม่มีอะไรกระทบ privacy บน Mac:
 
-- **Node.js** >= 18.x (LTS recommended)
-- **npm** >= 9.x
-- **Chrome** >= 116 (required for Side Panel API)
-- Works on **Windows**, **macOS**, and **Linux**
+- `storage` — เก็บข้อมูลภายใน extension เท่านั้น
+- `sidePanel` — เปิด side panel เมื่อคลิก icon
+- **ไม่มี** content scripts, host permissions, tabs, clipboard, webNavigation
 
-### Installation (All Platforms)
+## Quick Start
 
-1. Clone the repository:
-   ```bash
-   git clone <YOUR_GIT_URL>
-   cd NETFLOW_AI_REAL_PRODUCTION-main
-   ```
+```bash
+# Install
+npm install
 
-2. **Delete `node_modules` if present** (critical for cross-platform):
-   ```bash
-   rm -rf node_modules
-   ```
+# Dev (hot reload)
+npm run dev
 
-3. Install dependencies fresh:
-   ```bash
-   npm install
-   ```
+# Build extension
+npm run build
+```
 
-4. (Optional) Copy environment variables:
-   ```bash
-   cp .env.example .env
-   # Then edit .env with your API keys
-   ```
+## Load Extension
 
-5. Build the Chrome Extension:
-   ```bash
-   npm run build
-   ```
+1. `chrome://extensions/` → Enable **Developer mode**
+2. Click **Load unpacked** → select `dist/`
+3. Click Netflow AI icon → side panel opens
 
-6. Load in Chrome:
-   - Open `chrome://extensions/`
-   - Enable **Developer mode**
-   - Click **Load unpacked** → select the `dist/` folder
-   - Open any tab → click the NetFlow AI icon to open the side panel
+### macOS Notes
 
-### macOS Specific Notes
-
-- If `npm install` fails with `@swc/core` errors, run:
+- ถ้า `npm install` ติด `@swc/core`:
   ```bash
   npm install --force
   ```
-- If you see permission errors:
+- ถ้าเจอ permission error:
   ```bash
   sudo chown -R $(whoami) ~/.npm
   ```
-- Make sure Chrome is version 116+ (check `chrome://version`)
-
-### Development
-
-```bash
-npm run dev
-```
+- Chrome ต้อง >= 116 (`chrome://version`)
 
 ## Project Structure
 
-- `/src/components` — UI components (Side Panel)
-- `/src/content.tsx` — Content script (runs on Google Labs VideoFX)
-- `/src/utils/googleLabAutomation.ts` — VideoFX automation engine
-- `/src/services/aiPromptService.ts` — AI prompt generation
-- `/public/service-worker.js` — Background service worker
-- `/public/manifest.json` — Chrome Extension manifest
+```
+src/
+├── main.tsx          # Entry point
+├── App.tsx           # Main app shell
+├── index.css         # TailwindCSS + theme variables
+├── lib/utils.ts      # shadcn utility
+└── vite-env.d.ts     # Vite types
+
+public/
+├── manifest.json     # Manifest V3 (minimal permissions)
+├── background.js     # Service worker (side panel opener)
+└── icons/            # Extension icons
+```
 
 ## License
 

@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "types": [
-      "vitest/globals",
       "chrome"
     ],
     "target": "ES2020",
