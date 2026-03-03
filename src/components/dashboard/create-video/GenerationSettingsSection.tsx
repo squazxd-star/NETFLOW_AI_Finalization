@@ -23,7 +23,7 @@ const GenerationSettingsSection = ({
     watch,
     isOpen,
     onToggle,
-    productImages
+    productImage
 }: GenerationSettingsSectionProps) => {
     const sceneCount = (watch("sceneCount") || 1) as 1 | 2 | 3;
     const aiPrompt = watch("aiPrompt") || "";
@@ -58,7 +58,7 @@ const GenerationSettingsSection = ({
             return;
         }
 
-        if (!productName && !productImages[0]) {
+        if (!productName && !productImage) {
             alert("กรุณากรอกชื่อสินค้าหรืออัปโหลดรูปสินค้าก่อน");
             return;
         }

@@ -18,7 +18,7 @@ const AiScriptSection = ({
     watch,
     isOpen,
     onToggle,
-    productImages
+    productImage
 }: AiScriptSectionProps) => {
     const useAiScript = watch("useAiScript");
     const template = watch("template");
@@ -101,7 +101,7 @@ const AiScriptSection = ({
                             <button
                                 type="button"
                                 onClick={async () => {
-                                    const img = productImages[0];
+                                    const img = productImage;
                                     if (!img) {
                                         alert("กรุณาอัพโหลดรูปสินค้าก่อน (ในส่วนข้อมูลสินค้า)");
                                         return;

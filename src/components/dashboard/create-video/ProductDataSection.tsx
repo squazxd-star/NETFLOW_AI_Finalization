@@ -15,8 +15,10 @@ const ProductDataSection = ({
     setValue,
     isOpen,
     onToggle,
-    productImages,
+    productImage,
+    characterImage,
     onProductImageUpload,
+    onCharacterImageUpload,
     onSyncedProductImageSelect
 }: ProductDataSectionProps) => {
     const { toast } = useToast();
@@ -162,29 +164,41 @@ const ProductDataSection = ({
                         />
                     </div>
 
-                    {/* Product Images */}
+                    {/* Product & Character Images — 1 slot each */}
                     <div>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                             <Image className="w-3 h-3 text-neon-red" />
-                            รูปภาพ (สูงสุด 2)
+                            รูปสินค้า & ตัวละคร
                         </label>
                         <div className="grid grid-cols-2 gap-3">
-                            {productImages.map((img, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => onProductImageUpload(index)}
-                                    className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
-                                >
-                                    {img ? (
-                                        <img src={img} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <>
-                                            <Plus className="w-6 h-6 text-muted-foreground" />
-                                            <span className="text-[10px] text-muted-foreground">คลิกเพื่อเลือก</span>
-                                        </>
-                                    )}
-                                </button>
-                            ))}
+                            {/* Product Image */}
+                            <button
+                                onClick={() => onProductImageUpload()}
+                                className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
+                            >
+                                {productImage ? (
+                                    <img src={productImage} alt="Product" className="w-full h-full object-cover" />
+                                ) : (
+                                    <>
+                                        <Plus className="w-6 h-6 text-muted-foreground" />
+                                        <span className="text-[10px] text-muted-foreground">สินค้า</span>
+                                    </>
+                                )}
+                            </button>
+                            {/* Character Image */}
+                            <button
+                                onClick={() => onCharacterImageUpload()}
+                                className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-200 overflow-hidden"
+                            >
+                                {characterImage ? (
+                                    <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
+                                ) : (
+                                    <>
+                                        <Plus className="w-6 h-6 text-muted-foreground" />
+                                        <span className="text-[10px] text-muted-foreground">ตัวละคร</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
 

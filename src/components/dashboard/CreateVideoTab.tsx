@@ -26,8 +26,9 @@ const CreateVideoTab = () => {
 
     const { register, control, watch, setValue, getValues } = form;
 
-    // UI State
-    const [productImages, setProductImages] = useState<(string | null)[]>([null, null]);
+    // UI State — single image per slot (base64)
+    const [productImage, setProductImage] = useState<string | null>(null);
+    const [characterImage, setCharacterImage] = useState<string | null>(null);
     const [aiScriptOpen, setAiScriptOpen] = useState(true);
     const [productDataOpen, setProductDataOpen] = useState(true);
     const [productionOpen, setProductionOpen] = useState(true);
@@ -44,7 +45,7 @@ const CreateVideoTab = () => {
         ...(result ? ["✅ สร้างสำเร็จ! ผลลัพธ์แสดงอยู่ด้านล่าง"] : []),
     ];
 
-    const handleProductImageUpload = (index: number) => {
+    const pickImage = (setter: (v: string) => void) => {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "image/*";
@@ -52,11 +53,7 @@ const CreateVideoTab = () => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    const newImages = [...productImages];
-                    newImages[index] = e.target?.result as string;
-                    setProductImages(newImages);
-                };
+                reader.onload = (ev) => setter(ev.target?.result as string);
                 reader.readAsDataURL(file);
             }
         };
@@ -67,12 +64,11 @@ const CreateVideoTab = () => {
     const onSubmit = async (data: CreateVideoFormData) => {
         console.log("Form data ready for video generation:", data);
 
-        const userImage = productImages[0] || undefined;
-
         await generate({
             type: "video-generation",
             ...data,
-            userImage,
+            userImage: productImage || undefined,
+            characterImage: characterImage || undefined,
         });
     };
 
@@ -92,8 +88,10 @@ const CreateVideoTab = () => {
                 {...sectionProps}
                 isOpen={productDataOpen}
                 onToggle={() => setProductDataOpen(!productDataOpen)}
-                productImages={productImages}
-                onProductImageUpload={handleProductImageUpload}
+                productImage={productImage}
+                characterImage={characterImage}
+                onProductImageUpload={() => pickImage(setProductImage)}
+                onCharacterImageUpload={() => pickImage(setCharacterImage)}
             />
 
             {/* 2. AI Scripting Section - สคริปต์ AI */}
@@ -101,7 +99,7 @@ const CreateVideoTab = () => {
                 {...sectionProps}
                 isOpen={aiScriptOpen}
                 onToggle={() => setAiScriptOpen(!aiScriptOpen)}
-                productImages={productImages}
+                productImage={productImage}
             />
 
             {/* 4. Production & Preview Section - การผลิตและพรีวิว */}
@@ -119,7 +117,7 @@ const CreateVideoTab = () => {
                 {...sectionProps}
                 isOpen={settingsOpen}
                 onToggle={() => setSettingsOpen(!settingsOpen)}
-                productImages={productImages}
+                productImage={productImage}
             />
 
             {/* Workflow Control Section */}
@@ -147,7 +145,7 @@ const CreateVideoTab = () => {
 
                                 // Build config for AI prompt service
                                 const promptConfig = {
-                                    productImage: productImages[0] || undefined,
+                                    productImage: productImage || undefined,
                                     productName: data.productName || "Product",
                                     template: data.template || "product-review",
                                     voiceTone: data.voiceTone || "friendly",
@@ -166,7 +164,7 @@ const CreateVideoTab = () => {
 
                                 try {
                                     let prompts;
-                                    if (data.useAiScript && productImages[0]) {
+                                    if (data.useAiScript && productImage) {
                                         // Use AI Vision to analyze and generate
                                         prompts = await generatePrompts(promptConfig);
                                     } else {

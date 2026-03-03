@@ -13,7 +13,7 @@ export interface SectionProps {
 export interface AiScriptSectionProps extends SectionProps {
     isOpen: boolean;
     onToggle: () => void;
-    productImages: (string | null)[];
+    productImage: string | null;
 }
 
 export interface CharacterStyleSectionProps extends SectionProps {
@@ -26,8 +26,10 @@ export interface CharacterStyleSectionProps extends SectionProps {
 export interface ProductDataSectionProps extends SectionProps {
     isOpen: boolean;
     onToggle: () => void;
-    productImages: (string | null)[];
-    onProductImageUpload: (index: number) => void;
+    productImage: string | null;
+    characterImage: string | null;
+    onProductImageUpload: () => void;
+    onCharacterImageUpload: () => void;
     onSyncedProductImageSelect?: (imageUrl: string | null) => void;
 }
 
@@ -43,7 +45,7 @@ export interface ProductionPreviewSectionProps extends SectionProps {
 export interface GenerationSettingsSectionProps extends SectionProps {
     isOpen: boolean;
     onToggle: () => void;
-    productImages: (string | null)[];
+    productImage: string | null;
 }
 
 export interface ResultSectionProps {
