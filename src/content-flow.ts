@@ -200,8 +200,61 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
     return null;
 }
 
-/** Set text into prompt input (handles textarea, input, contenteditable) */
-function setPromptText(el: HTMLElement, text: string) {
+/**
+ * Set text into prompt input using methods that React/framework state recognizes.
+ * Priority: execCommand > clipboard paste > native setter fallback
+ */
+async function setPromptText(el: HTMLElement, text: string) {
+    el.focus();
+    await sleep(200);
+
+    // Select all existing text first
+    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+        el.select();
+    } else {
+        // contenteditable: select all
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+    }
+    await sleep(100);
+
+    // Strategy 1: execCommand('insertText') — works with most React apps
+    const execOk = document.execCommand('insertText', false, text);
+    if (execOk) {
+        LOG("setPromptText: execCommand('insertText') succeeded");
+        return;
+    }
+
+    // Strategy 2: Clipboard paste simulation
+    LOG("setPromptText: execCommand failed, trying clipboard paste");
+    try {
+        const clipboardData = new DataTransfer();
+        clipboardData.setData('text/plain', text);
+        const pasteEvent = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: clipboardData
+        });
+        el.dispatchEvent(pasteEvent);
+
+        // Check if it worked
+        await sleep(200);
+        const currentVal = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement
+            ? el.value
+            : el.textContent || "";
+        if (currentVal.includes(text.substring(0, 20))) {
+            LOG("setPromptText: clipboard paste succeeded");
+            return;
+        }
+    } catch (e) {
+        LOG("setPromptText: clipboard paste failed");
+    }
+
+    // Strategy 3: Native setter + InputEvent (last resort)
+    LOG("setPromptText: using native setter fallback");
     if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
         const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
         const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
@@ -210,13 +263,11 @@ function setPromptText(el: HTMLElement, text: string) {
         } else {
             el.value = text;
         }
-        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
     } else {
-        // contenteditable
-        el.focus();
         el.textContent = text;
-        el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
+        el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
     }
 }
 
@@ -453,7 +504,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     await sleep(500);
     const promptInput = findPromptTextInput();
     if (promptInput) {
-        setPromptText(promptInput, req.imagePrompt);
+        await setPromptText(promptInput, req.imagePrompt);
         LOG(`Pasted prompt (${req.imagePrompt.length} chars)`);
         steps.push("✅ Prompt");
     } else {
