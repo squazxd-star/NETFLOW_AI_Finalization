@@ -187,97 +187,165 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
 }
 
 /**
- * Copy text to the REAL system clipboard using a hidden textarea.
- * Requires "clipboardWrite" permission in manifest.json.
- */
-function copyToClipboard(text: string): boolean {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
-    ta.style.top = "-9999px";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
-}
-
-/**
- * Set text into Slate.js prompt editor using REAL clipboard paste.
+ * Set text into Slate.js prompt editor.
  *
- * Slate.js ignores synthetic ClipboardEvents — it only processes REAL paste events
- * triggered by the browser (trusted events with actual clipboard data).
+ * ROOT CAUSE: Slate.js has its own internal document model separate from DOM.
+ * Any DOM-level insertion (execCommand, textContent, etc.) updates the DOM but
+ * NOT Slate's model. When Generate is clicked, Slate reads its model → empty → error.
  *
- * Approach:
- *  1. Copy text to system clipboard via hidden textarea + execCommand('copy')
- *  2. Focus the Slate editor
- *  3. execCommand('paste') — triggers REAL paste that Slate handles
+ * Slate.js v0.90+ processes edits via `beforeinput` events.
+ * For paste: inputType='insertFromPaste', reads text from event.dataTransfer.
  *
- * Requires "clipboardWrite" + "clipboardRead" permissions in manifest.json.
+ * We dispatch beforeinput → Slate processes it → updates internal model → DOM matches.
  */
 async function setPromptText(el: HTMLElement, text: string) {
-    // Step 1: Copy text to REAL system clipboard
-    const copied = copyToClipboard(text);
-    LOG(`setPromptText: Copied to clipboard: ${copied}`);
-    await sleep(200);
-
-    // Step 2: Focus the Slate editor and place cursor
     el.focus();
     await sleep(300);
 
-    // Step 3: Use execCommand('paste') to trigger REAL paste from clipboard
-    // This creates a trusted paste event that Slate.js handles properly
-    const pasted = document.execCommand("paste");
-    LOG(`setPromptText: execCommand('paste'): ${pasted}`);
-    await sleep(500);
+    // ═══ Strategy 1: Slate beforeinput with insertFromPaste ═══
+    LOG("setPromptText: Strategy 1 — Slate beforeinput insertFromPaste");
+    try {
+        // Create DataTransfer with our text
+        const dt = new DataTransfer();
+        dt.setData("text/plain", text);
+        dt.setData("text/html", `<p>${text.replace(/\n/g, "<br>")}</p>`);
 
-    // Verify
-    const content = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement
-        ? el.value : (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
-    if (content.length > 20) {
-        LOG(`setPromptText: ✅ Text confirmed (${content.length} chars)`);
-        return;
+        // Dispatch beforeinput (Slate intercepts this)
+        const beforeInput = new InputEvent("beforeinput", {
+            bubbles: true,
+            cancelable: true,
+            inputType: "insertFromPaste",
+            dataTransfer: dt,
+        });
+        el.dispatchEvent(beforeInput);
+        LOG("setPromptText: Dispatched beforeinput insertFromPaste");
+
+        // Dispatch input event (Slate's cleanup handler)
+        const inputEv = new InputEvent("input", {
+            bubbles: true,
+            inputType: "insertFromPaste",
+            dataTransfer: dt,
+        });
+        el.dispatchEvent(inputEv);
+        await sleep(800);
+
+        // Verify — check actual text, excluding placeholder
+        const content = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        if (content.length > 20) {
+            LOG(`setPromptText: ✅ Strategy 1 worked (${content.length} chars)`);
+            return;
+        }
+        LOG(`setPromptText: Strategy 1 — text not detected (got ${content.length} chars)`);
+    } catch (e: any) {
+        LOG(`setPromptText: Strategy 1 failed: ${e.message}`);
     }
 
-    // Fallback: try navigator.clipboard API + execCommand('paste')
-    LOG("setPromptText: Trying navigator.clipboard.writeText fallback");
+    // ═══ Strategy 2: Slate beforeinput with insertText (character-level, but batched) ═══
+    LOG("setPromptText: Strategy 2 — Slate beforeinput insertText");
     try {
-        await navigator.clipboard.writeText(text);
+        el.focus();
+        await sleep(100);
+
+        const beforeInput2 = new InputEvent("beforeinput", {
+            bubbles: true,
+            cancelable: true,
+            inputType: "insertText",
+            data: text,
+        });
+        el.dispatchEvent(beforeInput2);
+
+        const inputEv2 = new InputEvent("input", {
+            bubbles: true,
+            inputType: "insertText",
+            data: text,
+        });
+        el.dispatchEvent(inputEv2);
+        await sleep(800);
+
+        const content2 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        if (content2.length > 20) {
+            LOG(`setPromptText: ✅ Strategy 2 worked (${content2.length} chars)`);
+            return;
+        }
+        LOG(`setPromptText: Strategy 2 — text not detected`);
+    } catch (e: any) {
+        LOG(`setPromptText: Strategy 2 failed: ${e.message}`);
+    }
+
+    // ═══ Strategy 3: System clipboard + execCommand('paste') ═══
+    LOG("setPromptText: Strategy 3 — system clipboard + execCommand paste");
+    try {
+        // Copy to clipboard
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+
+        // Paste into Slate
         el.focus();
         await sleep(200);
         document.execCommand("paste");
         await sleep(500);
 
-        const content2 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
-        if (content2.length > 20) {
-            LOG(`setPromptText: ✅ navigator.clipboard fallback worked (${content2.length} chars)`);
+        const content3 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        if (content3.length > 20) {
+            LOG(`setPromptText: ✅ Strategy 3 worked (${content3.length} chars)`);
             return;
         }
     } catch (e: any) {
-        LOG(`setPromptText: navigator.clipboard failed: ${e.message}`);
+        LOG(`setPromptText: Strategy 3 failed: ${e.message}`);
     }
 
-    // Last resort: synthetic ClipboardEvent (may not work with Slate)
-    LOG("setPromptText: Last resort — synthetic ClipboardEvent");
+    // ═══ Strategy 4: React fiber — find Slate editor and call insertText ═══
+    LOG("setPromptText: Strategy 4 — React fiber Slate editor");
     try {
-        el.focus();
-        await sleep(100);
-        const dt = new DataTransfer();
-        dt.setData("text/plain", text);
-        el.dispatchEvent(new ClipboardEvent("paste", {
-            bubbles: true,
-            cancelable: true,
-            clipboardData: dt
-        }));
-        await sleep(300);
+        // Find React fiber key on the contenteditable element
+        const fiberKey = Object.keys(el).find(k =>
+            k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$")
+        );
+        if (fiberKey) {
+            let fiber = (el as any)[fiberKey];
+            // Walk up the fiber tree looking for the Slate editor in memoizedProps or stateRef
+            for (let i = 0; i < 30 && fiber; i++) {
+                const props = fiber.memoizedProps;
+                const state = fiber.memoizedState;
+
+                // Check for editor in props
+                if (props?.editor?.insertText) {
+                    LOG("setPromptText: Found Slate editor via fiber props");
+                    const editor = props.editor;
+                    // Select all and delete, then insert
+                    if (editor.selection) {
+                        // Move to end
+                    }
+                    editor.insertText(text);
+                    LOG(`setPromptText: ✅ Strategy 4 — inserted via editor.insertText`);
+                    return;
+                }
+
+                // Check stateRef
+                if (state?.memoizedState?.editor?.insertText) {
+                    LOG("setPromptText: Found Slate editor via fiber state");
+                    state.memoizedState.editor.insertText(text);
+                    LOG(`setPromptText: ✅ Strategy 4 — inserted via state editor`);
+                    return;
+                }
+
+                fiber = fiber.return;
+            }
+            LOG("setPromptText: Fiber found but no Slate editor in tree");
+        } else {
+            LOG("setPromptText: No React fiber found on element");
+        }
     } catch (e: any) {
-        LOG(`setPromptText: synthetic paste failed: ${e.message}`);
+        LOG(`setPromptText: Strategy 4 failed: ${e.message}`);
     }
 
-    LOG("setPromptText: All strategies attempted");
+    LOG("setPromptText: ⚠️ All 4 strategies attempted — check console for results");
 }
 
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
