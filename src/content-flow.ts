@@ -683,12 +683,30 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     await sleep(500);
     const genBtn = findGenerateButton();
     if (genBtn) {
-        genBtn.click();
-        LOG("Clicked → Generate button");
+        // React needs full mouse event sequence, not just .click()
+        const rect = genBtn.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const evtOpts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+
+        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
+        await sleep(80);
+        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
+        genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
+        LOG("Dispatched full click sequence on Generate button");
         steps.push("✅ Generate");
-        await sleep(300);
-        // Double-click safety: sometimes first click doesn't register
-        genBtn.click();
+
+        // Safety: try again after 500ms if first didn't register
+        await sleep(500);
+        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
+        await sleep(80);
+        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
+        genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
+        LOG("Dispatched safety retry click on Generate button");
     } else {
         WARN("Could not find → Generate button");
         steps.push("❌ Generate");
