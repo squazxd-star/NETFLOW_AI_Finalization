@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Zap, Settings, RefreshCw, Wand2, Radio, ShoppingBag } from "lucide-react";
+import { Settings, RefreshCw, Wand2, Radio, ShoppingBag } from "lucide-react";
+import logoIcon from "/icons/icon128.png";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SettingsDialog from "@/components/SettingsDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -25,9 +26,18 @@ const NetflowPanel = () => {
                 <div className="flex items-center justify-between px-5 py-3.5">
                     {/* Logo with Glow */}
                     <div className="flex items-center gap-2.5 group cursor-pointer">
-                        <div className="relative">
-                            <div className="absolute -inset-1.5 bg-neon-red rounded-full blur-md opacity-20 group-hover:opacity-45 transition-opacity duration-500" />
-                            <Zap className="relative w-5 h-5 text-neon-red drop-shadow-[0_0_6px_hsl(var(--neon-red)/0.6)]" />
+                        <div className="relative w-8 h-8 flex-shrink-0">
+                            <div className="absolute -inset-2 bg-neon-red rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+                            <img
+                                src={logoIcon}
+                                alt="Netflow"
+                                className="relative w-8 h-8 object-cover rounded-md"
+                                style={{
+                                    filter: "drop-shadow(0 0 8px rgba(220,38,38,0.7))",
+                                    maskImage: "radial-gradient(circle, black 55%, transparent 100%)",
+                                    WebkitMaskImage: "radial-gradient(circle, black 55%, transparent 100%)",
+                                }}
+                            />
                         </div>
                         <h1 className="text-lg font-black tracking-tight text-foreground">
                             <span className="text-neon-red drop-shadow-[0_0_8px_hsl(var(--neon-red)/0.4)]">NETFLOW</span>{" "}
