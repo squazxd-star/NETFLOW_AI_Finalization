@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import {
     X,
     Settings,
@@ -11,14 +10,18 @@ import {
     Bell,
     Plus,
     MoreVertical,
-    Heart,
     CheckCircle2,
-    AlertCircle,
-    Loader2
+    Loader2,
+    Palette,
+    Key,
+    Link2,
+    Check,
+    Sparkles
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { saveApiKey, getApiKey } from "../services/storageService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useTheme, THEMES, ThemeKey } from "@/contexts/ThemeContext";
 
 interface SettingsDialogProps {
     open: boolean;
@@ -35,6 +38,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     const [isTesting, setIsTesting] = useState(false);
     const [isTestingOpenAI, setIsTestingOpenAI] = useState(false);
     const { toast } = useToast();
+    const { theme, config: themeConfig, setTheme } = useTheme();
 
     useEffect(() => {
         if (open) {
@@ -58,19 +62,15 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
         setIsTesting(true);
         try {
-            // Test connection by listing models or simple generation
             const genAI = new GoogleGenerativeAI(apiKey.trim());
-            // Use gemini-2.0-flash as it is the standard for new keys
             const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-            // Simple ping
             await model.generateContent("Test");
 
             toast({
                 title: "Gemini Connection Successful! 🎉",
                 description: "Your Google API Key is valid.",
                 variant: "default",
-                className: "bg-green-600 text-white"
+                className: "toast-theme-bg"
             });
         } catch (error: any) {
             let msg = error.message || "Unknown error";
@@ -106,7 +106,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     title: "OpenAI Connection Successful! 🎉",
                     description: "Your OpenAI Key is valid.",
                     variant: "default",
-                    className: "bg-green-600 text-white"
+                    className: "toast-theme-bg"
                 });
             } else {
                 throw new Error(`HTTP ${response.status}`);
@@ -136,7 +136,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 title: "บันทึกการตั้งค่าสำเร็จ",
                 description: "ข้อมูล API Key และการตั้งค่าอื่นๆ ถูกบันทึกแล้ว",
                 variant: "default",
-                className: "bg-green-600 text-white"
+                className: "toast-theme-bg"
             });
             onOpenChange(false);
         } catch (error) {
@@ -150,53 +150,115 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         }
     };
 
+    const aiProvider = localStorage.getItem("netflow_ai_provider") || "openai";
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md bg-[#0a0a0a] border border-white/10 text-white p-0 gap-0 max-h-[90vh] overflow-y-auto rounded-2xl">
                 {/* Header */}
                 <DialogDescription className="sr-only">ตั้งค่าระบบ Netflow AI</DialogDescription>
-                <DialogHeader className="p-4 pb-2 sticky top-0 bg-[#0a0a0a] z-10 border-b border-white/5">
+                <DialogHeader className="px-5 pt-5 pb-4 sticky top-0 bg-[#0a0a0a]/95 backdrop-blur-sm z-10 border-b border-white/[0.06]">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-neon-red/20 flex items-center justify-center">
-                                <Settings className="w-4 h-4 text-neon-red" />
+                            <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                                style={{ background: `rgba(${themeConfig.hexRgb}, 0.15)` }}
+                            >
+                                <Settings className="w-4.5 h-4.5" style={{ color: themeConfig.hex }} />
                             </div>
                             <div>
-                                <DialogTitle className="text-lg font-bold text-white">การตั้งค่าระบบ</DialogTitle>
-                                <p className="text-xs text-muted-foreground">จัดการบัญชี, การเชื่อมต่อ API และประสิทธิภาพการผลิต</p>
+                                <DialogTitle className="text-base font-bold text-white tracking-tight">การตั้งค่าระบบ</DialogTitle>
+                                <p className="text-[11px] text-white/40 mt-0.5">จัดการบัญชี, API และธีมแอป</p>
                             </div>
                         </div>
                         <button
                             onClick={() => onOpenChange(false)}
                             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                         >
-                            <X className="w-5 h-5 text-muted-foreground" />
+                            <X className="w-4 h-4 text-white/40" />
                         </button>
                     </div>
                 </DialogHeader>
 
-                <div className="p-4 space-y-6">
-                    {/* Section 1: การเชื่อมต่อและซิงค์ข้อมูล */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                <RefreshCw className="w-3 h-3 text-blue-400" />
+                <div className="px-5 py-4 space-y-5">
+
+                    {/* ═══════ Section 1: Theme Color ═══════ */}
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: `rgba(${themeConfig.hexRgb}, 0.15)` }}>
+                                <Palette className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                             </div>
-                            <h3 className="text-sm font-semibold text-white">การเชื่อมต่อและซิงค์ข้อมูล</h3>
+                            <h3 className="text-[13px] font-semibold text-white">ธีมสีแอป</h3>
                         </div>
 
-                        {/* TikTok Studio */}
-                        <div className="bg-white/5 rounded-xl p-4 space-y-3 border border-white/10">
+                        <div className="grid grid-cols-4 gap-2">
+                            {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
+                                const t = THEMES[key];
+                                const isActive = theme === key;
+                                return (
+                                    <button
+                                        key={key}
+                                        onClick={() => {
+                                            setTheme(key);
+                                            toast({
+                                                title: `เปลี่ยนธีมเป็น ${t.labelTh}`,
+                                                description: "สีแอปทั้งหมดถูกเปลี่ยนแล้ว",
+                                                className: "toast-theme-bg"
+                                            });
+                                        }}
+                                        className={`relative group flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-300 ${
+                                            isActive
+                                                ? "border-white/40 bg-white/[0.08] scale-[1.02]"
+                                                : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/[0.12]"
+                                        }`}
+                                    >
+                                        {/* Color circle */}
+                                        <div className="relative">
+                                            <div
+                                                className="w-8 h-8 rounded-full transition-transform duration-300 group-hover:scale-110"
+                                                style={{
+                                                    background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientVia})`,
+                                                    boxShadow: isActive ? `0 0 16px rgba(${t.hexRgb}, 0.5)` : `0 0 8px rgba(${t.hexRgb}, 0.2)`,
+                                                }}
+                                            />
+                                            {isActive && (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <Check className="w-4 h-4 text-white drop-shadow-lg" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className={`text-[10px] font-medium ${isActive ? "text-white" : "text-white/50"}`}>
+                                            {t.labelTh}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    <div className="border-t border-white/[0.06]" />
+
+                    {/* ═══════ Section 2: Connection & Sync ═══════ */}
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-6 h-6 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                                <Link2 className="w-3.5 h-3.5 text-blue-400" />
+                            </div>
+                            <h3 className="text-[13px] font-semibold text-white">การเชื่อมต่อและซิงค์</h3>
+                        </div>
+
+                        {/* TikTok Studio — compact card */}
+                        <div className="bg-white/[0.03] rounded-xl p-3.5 space-y-3 border border-white/[0.06]">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center">
-                                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="white">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-lg bg-black/80 flex items-center justify-center ring-1 ring-white/10">
+                                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white">
                                             <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64c.298.008.595.058.88.15V9.4a6.33 6.33 0 00-1-.05A6.34 6.34 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
                                         </svg>
                                     </div>
                                     <div>
                                         <span className="text-sm font-medium text-white">TikTok Studio</span>
-                                        <p className="text-xs text-muted-foreground">ซิงค์ Product ID อัตโนมัติ</p>
+                                        <p className="text-[10px] text-white/35">ซิงค์ Product ID อัตโนมัติ</p>
                                     </div>
                                 </div>
                                 <Switch
@@ -205,226 +267,221 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                     className="data-[state=checked]:bg-neon-red"
                                 />
                             </div>
-                            <Button className="w-full bg-neon-red hover:bg-neon-red/90 text-white text-sm font-medium">
-                                <RefreshCw className="w-4 h-4 mr-2" />
+                            <button
+                                className="w-full py-2 rounded-lg text-xs font-medium text-white transition-all duration-200 hover:opacity-90"
+                                style={{ background: themeConfig.hex }}
+                            >
+                                <RefreshCw className="w-3.5 h-3.5 mr-1.5 inline-block" />
                                 Force Sync ข้อมูลล่าสุด
-                            </Button>
-                        </div>
-
-                        {/* บัญชีที่เชื่อมต่อ */}
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                                <svg viewBox="0 0 24 24" className="w-4 h-4 text-muted-foreground" fill="currentColor">
-                                    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64c.298.008.595.058.88.15V9.4a6.33 6.33 0 00-1-.05A6.34 6.34 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
-                                </svg>
-                                <span className="text-xs text-muted-foreground">บัญชีที่เชื่อมต่อ</span>
-                            </div>
-
-                            {/* Connected Account */}
-                            <div className="bg-white/5 rounded-xl p-3 border border-white/10 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                                        S
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-medium text-white">@shopowner_th</span>
-                                        <p className="text-xs text-muted-foreground">Proxy: TH-Bangkok-01</p>
-                                    </div>
-                                </div>
-                                <button className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-                                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                                </button>
-                            </div>
-
-                            {/* Add New Account */}
-                            <button className="w-full bg-white/5 hover:bg-white/10 rounded-xl p-3 border border-white/10 border-dashed flex items-center justify-center gap-2 transition-colors">
-                                <Plus className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">เพิ่มบัญชีใหม่</span>
                             </button>
                         </div>
 
-                        {/* Webhooks */}
+                        {/* Connected Accounts */}
                         <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                                <Bell className="w-4 h-4 text-neon-red" />
-                                <span className="text-xs text-muted-foreground">Webhooks แจ้งเตือน</span>
+                            <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium pl-1">บัญชีที่เชื่อมต่อ</span>
+
+                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06] flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-lg">
+                                        S
+                                    </div>
+                                    <div>
+                                        <span className="text-[13px] font-medium text-white">@shopowner_th</span>
+                                        <p className="text-[10px] text-white/30">Proxy: TH-Bangkok-01</p>
+                                    </div>
+                                </div>
+                                <button className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                                    <MoreVertical className="w-3.5 h-3.5 text-white/30" />
+                                </button>
+                            </div>
+
+                            <button className="w-full bg-white/[0.02] hover:bg-white/[0.05] rounded-xl p-2.5 border border-dashed border-white/[0.08] flex items-center justify-center gap-1.5 transition-colors">
+                                <Plus className="w-3.5 h-3.5 text-white/30" />
+                                <span className="text-[11px] text-white/30">เพิ่มบัญชีใหม่</span>
+                            </button>
+                        </div>
+
+                        {/* Webhooks — inline */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 pl-1">
+                                <Bell className="w-3 h-3" style={{ color: themeConfig.hex }} />
+                                <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Webhook แจ้งเตือน</span>
                             </div>
                             <Input
                                 value={webhookUrl}
                                 onChange={(e) => setWebhookUrl(e.target.value)}
                                 placeholder="https://..."
-                                className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/50 text-sm"
+                                className="bg-white/[0.03] border-white/[0.06] text-white placeholder:text-white/20 text-xs h-8"
                             />
-                            <p className="text-[10px] text-muted-foreground">
-                                * แจ้งเตือนไปยัง Line/Discord เมื่อเรนเดอร์งานเสร็จ
-                            </p>
+                            <p className="text-[9px] text-white/25 pl-1">แจ้งเตือนไปยัง Line/Discord เมื่อเรนเดอร์งานเสร็จ</p>
                         </div>
-                    </div>
+                    </section>
 
-                    {/* Section 5: AI Provider Selection */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                                <div className="w-3 h-3 text-green-500 font-bold">AI</div>
+                    <div className="border-t border-white/[0.06]" />
+
+                    {/* ═══════ Section 3: AI Provider ═══════ */}
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                             </div>
-                            <h3 className="text-sm font-semibold text-white">เลือก AI สำหรับสร้าง Script</h3>
+                            <h3 className="text-[13px] font-semibold text-white">เลือก AI สำหรับสร้าง Script</h3>
                         </div>
 
-                        <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-3">
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => {
-                                        localStorage.setItem("netflow_ai_provider", "openai");
-                                        toast({
-                                            title: "เปลี่ยนเป็น OpenAI ✅",
-                                            description: "ระบบจะใช้ OpenAI GPT-4 ในการสร้าง Script",
-                                            className: "bg-green-600 text-white"
-                                        });
-                                    }}
-                                    className={`p-3 rounded-lg border transition-all ${localStorage.getItem("netflow_ai_provider") === "openai" || !localStorage.getItem("netflow_ai_provider")
-                                            ? "bg-green-500/20 border-green-500 text-green-400"
-                                            : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
-                                        }`}
-                                >
-                                    <div className="text-lg font-bold">OpenAI</div>
-                                    <div className="text-xs opacity-70">GPT-4o-mini</div>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        localStorage.setItem("netflow_ai_provider", "gemini");
-                                        toast({
-                                            title: "เปลี่ยนเป็น Gemini ✅",
-                                            description: "ระบบจะใช้ Google Gemini ในการสร้าง Script",
-                                            className: "bg-blue-600 text-white"
-                                        });
-                                    }}
-                                    className={`p-3 rounded-lg border transition-all ${localStorage.getItem("netflow_ai_provider") === "gemini"
-                                            ? "bg-blue-500/20 border-blue-500 text-blue-400"
-                                            : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
-                                        }`}
-                                >
-                                    <div className="text-lg font-bold">Gemini</div>
-                                    <div className="text-xs opacity-70">Gemini 2.0 Flash</div>
-                                </button>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => {
+                                    localStorage.setItem("netflow_ai_provider", "openai");
+                                    toast({
+                                        title: "เปลี่ยนเป็น OpenAI ✅",
+                                        description: "ระบบจะใช้ OpenAI GPT-4 ในการสร้าง Script",
+                                        className: "toast-theme-bg"
+                                    });
+                                }}
+                                className={`p-3 rounded-xl border-2 transition-all duration-200 text-center ${
+                                    aiProvider === "openai"
+                                        ? "bg-emerald-500/10 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.1)]"
+                                        : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]"
+                                }`}
+                            >
+                                <div className={`text-sm font-bold ${aiProvider === "openai" ? "text-emerald-400" : "text-white/60"}`}>OpenAI</div>
+                                <div className={`text-[10px] mt-0.5 ${aiProvider === "openai" ? "text-emerald-400/60" : "text-white/25"}`}>GPT-4o-mini</div>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    localStorage.setItem("netflow_ai_provider", "gemini");
+                                    toast({
+                                        title: "เปลี่ยนเป็น Gemini ✅",
+                                        description: "ระบบจะใช้ Google Gemini ในการสร้าง Script",
+                                        className: "toast-theme-bg"
+                                    });
+                                }}
+                                className={`p-3 rounded-xl border-2 transition-all duration-200 text-center ${
+                                    aiProvider === "gemini"
+                                        ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.1)]"
+                                        : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]"
+                                }`}
+                            >
+                                <div className={`text-sm font-bold ${aiProvider === "gemini" ? "text-blue-400" : "text-white/60"}`}>Gemini</div>
+                                <div className={`text-[10px] mt-0.5 ${aiProvider === "gemini" ? "text-blue-400/60" : "text-white/25"}`}>Gemini 2.0 Flash</div>
+                            </button>
+                        </div>
+                        <p className="text-[9px] text-white/25 text-center">เลือก AI ที่จะใช้สร้าง Script (ต้องใส่ API Key ด้วย)</p>
+                    </section>
+
+                    <div className="border-t border-white/[0.06]" />
+
+                    {/* ═══════ Section 4: API Keys ═══════ */}
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-6 h-6 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                                <Key className="w-3.5 h-3.5 text-purple-400" />
                             </div>
-                            <p className="text-xs text-muted-foreground text-center">
-                                * เลือก AI ที่จะใช้สร้าง Script (ต้องใส่ API Key ด้วย)
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Section 2: ตั้งค่า AI และ API Key */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
-                                <Settings className="w-3 h-3 text-purple-400" />
-                            </div>
-                            <h3 className="text-sm font-semibold text-white">ตั้งค่า AI และ API Key (BYOK)</h3>
+                            <h3 className="text-[13px] font-semibold text-white">API Keys (BYOK)</h3>
                         </div>
 
-                        {/* API Status Items */}
                         <div className="space-y-2">
                             {/* Gemini API */}
-                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                <div className="flex items-center justify-between mb-2">
+                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06] space-y-2">
+                                <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${apiKey ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                        <span className="text-sm font-medium text-white">Gemini API (Google Ultra/Veo)</span>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${apiKey ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+                                        <span className="text-xs font-medium text-white">Gemini API</span>
+                                        <span className="text-[9px] text-white/20">(Google Ultra/Veo)</span>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
+                                    <button
                                         onClick={handleTestConnection}
                                         disabled={isTesting || !apiKey}
-                                        className={`h-6 text-[10px] px-2 ${apiKey ? 'text-blue-400 hover:text-blue-300' : 'text-gray-500'}`}
+                                        className={`flex items-center gap-1 h-5 text-[9px] px-2 rounded-md transition-colors ${
+                                            apiKey ? 'text-blue-400 hover:bg-blue-500/10' : 'text-white/20 cursor-not-allowed'
+                                        }`}
                                     >
-                                        {isTesting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                        Test Connection
-                                    </Button>
+                                        {isTesting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+                                        Test
+                                    </button>
                                 </div>
                                 <Input
                                     type="password"
-                                    placeholder="Paste your AIza... Key Here"
+                                    placeholder="AIza..."
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
-                                    className="bg-white/5 border-white/10 text-white text-sm h-8"
+                                    className="bg-white/[0.03] border-white/[0.06] text-white text-xs h-7 placeholder:text-white/15"
                                 />
-                                <p className="text-[10px] text-muted-foreground mt-1">
-                                    * จำเป็นสำหรับ Real Mode (Ultra/Veo). สมัครฟรีที่ <a href="https://aistudio.google.com/" target="_blank" className="underline text-blue-400">aistudio.google.com</a>
+                                <p className="text-[9px] text-white/25">
+                                    สมัครฟรีที่ <a href="https://aistudio.google.com/" target="_blank" className="underline text-blue-400/70 hover:text-blue-400">aistudio.google.com</a>
                                 </p>
                             </div>
 
-                            {/* ElevenLabs API (Replaced with OpenAI for now as requested) */}
-                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                                <div className="flex items-center justify-between mb-2">
+                            {/* OpenAI API */}
+                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06] space-y-2">
+                                <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${openaiKey ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                                        <span className="text-sm font-medium text-white">OpenAI API (GPT-4)</span>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${openaiKey ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]' : 'bg-white/20'}`} />
+                                        <span className="text-xs font-medium text-white">OpenAI API</span>
+                                        <span className="text-[9px] text-white/20">(GPT-4)</span>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
+                                    <button
                                         onClick={handleTestOpenAI}
                                         disabled={isTestingOpenAI || !openaiKey}
-                                        className={`h-6 text-[10px] px-2 ${openaiKey ? 'text-blue-400 hover:text-blue-300' : 'text-gray-500'}`}
+                                        className={`flex items-center gap-1 h-5 text-[9px] px-2 rounded-md transition-colors ${
+                                            openaiKey ? 'text-blue-400 hover:bg-blue-500/10' : 'text-white/20 cursor-not-allowed'
+                                        }`}
                                     >
-                                        {isTestingOpenAI ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                        Test Connection
-                                    </Button>
+                                        {isTestingOpenAI ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+                                        Test
+                                    </button>
                                 </div>
                                 <Input
                                     type="password"
                                     placeholder="sk-..."
                                     value={openaiKey}
                                     onChange={(e) => setOpenaiKey(e.target.value)}
-                                    className="bg-white/5 border-white/10 text-white text-sm h-8"
+                                    className="bg-white/[0.03] border-white/[0.06] text-white text-xs h-7 placeholder:text-white/15"
                                 />
                             </div>
-                            {/* ElevenLabs API (Placeholder) */}
-                            <div className="bg-white/5 rounded-xl p-3 border border-white/10 opacity-50 pointer-events-none">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-gray-500"></div>
-                                        <span className="text-sm font-medium text-white">ElevenLabs API (Coming Soon)</span>
-                                    </div>
+
+                            {/* ElevenLabs — placeholder */}
+                            <div className="bg-white/[0.02] rounded-xl p-3 border border-white/[0.04] opacity-40">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/15" />
+                                    <span className="text-xs font-medium text-white/50">ElevenLabs API</span>
+                                    <span className="text-[9px] text-white/15 ml-auto">Coming Soon</span>
                                 </div>
-                                <Input
-                                    disabled
-                                    placeholder="Coming Soon..."
-                                    className="bg-white/5 border-white/10 text-white text-sm h-8"
-                                />
                             </div>
-
                         </div>
-                    </div>
+                    </section>
 
-                    {/* Section 3: Watermark */}
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-neon-red"></div>
-                                <span className="text-sm font-medium text-white">ลายน้ำ (Watermark)</span>
-                            </div>
-                            <Switch
-                                checked={watermarkEnabled}
-                                onCheckedChange={setWatermarkEnabled}
-                                className="data-[state=checked]:bg-neon-red"
-                            />
+                    <div className="border-t border-white/[0.06]" />
+
+                    {/* ═══════ Section 5: Misc ═══════ */}
+                    <section className="flex items-center justify-between py-1">
+                        <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.hex }} />
+                            <span className="text-xs font-medium text-white">ลายน้ำ (Watermark)</span>
                         </div>
-                    </div>
+                        <Switch
+                            checked={watermarkEnabled}
+                            onCheckedChange={setWatermarkEnabled}
+                            className="data-[state=checked]:bg-neon-red"
+                        />
+                    </section>
 
-                    {/* Save Button */}
+                    {/* ═══════ Save Button ═══════ */}
                     <Button
                         onClick={handleSaveAll}
                         disabled={isLoading}
-                        className="w-full bg-neon-red hover:bg-neon-red/90 text-white font-semibold py-6 text-base"
+                        className="w-full text-white font-semibold py-5 text-sm rounded-xl transition-all duration-200 hover:opacity-90 hover:shadow-lg"
+                        style={{
+                            background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})`,
+                            boxShadow: `0 4px 20px rgba(${themeConfig.hexRgb}, 0.25)`,
+                        }}
                     >
-                        {isLoading ? "Saving..." : (
-                            <>
-                                <Settings className="w-5 h-5 mr-2" />
-                                บันทึกการตั้งค่าทั้งหมด
-                            </>
+                        {isLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                            <Settings className="w-4 h-4 mr-2" />
                         )}
+                        {isLoading ? "กำลังบันทึก..." : "บันทึกการตั้งค่าทั้งหมด"}
                     </Button>
                 </div>
             </DialogContent>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Settings, RefreshCw, Wand2, Radio, ShoppingBag } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import logoIcon from "/icons/icon128.png";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SettingsDialog from "@/components/SettingsDialog";
@@ -19,6 +20,9 @@ const NetflowPanel = () => {
     // Settings Dialog state
     const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
+    // Theme
+    const { config: themeConfig } = useTheme();
+
     return (
         <div className="min-h-screen w-full max-w-[417px] mx-auto bg-background overflow-y-auto">
             {/* Header — Cyber-Pulse Premium */}
@@ -33,7 +37,7 @@ const NetflowPanel = () => {
                                 alt="Netflow"
                                 className="relative w-8 h-8 object-cover rounded-md"
                                 style={{
-                                    filter: "drop-shadow(0 0 8px rgba(220,38,38,0.7))",
+                                    filter: `drop-shadow(0 0 8px rgba(${themeConfig.hexRgb},0.7))`,
                                     maskImage: "radial-gradient(circle, black 55%, transparent 100%)",
                                     WebkitMaskImage: "radial-gradient(circle, black 55%, transparent 100%)",
                                 }}
@@ -43,8 +47,8 @@ const NetflowPanel = () => {
                             <span
                                 className="bg-clip-text text-transparent"
                                 style={{
-                                    backgroundImage: "linear-gradient(135deg, #ff4444 0%, #dc2626 40%, #ff6b6b 100%)",
-                                    filter: "drop-shadow(0 0 12px rgba(220,38,38,0.6))",
+                                    backgroundImage: `linear-gradient(135deg, ${themeConfig.gradientFrom} 0%, ${themeConfig.gradientVia} 40%, ${themeConfig.gradientTo} 100%)`,
+                                    filter: `drop-shadow(0 0 12px rgba(${themeConfig.hexRgb},0.6))`,
                                     letterSpacing: "0.2em",
                                 }}
                             >

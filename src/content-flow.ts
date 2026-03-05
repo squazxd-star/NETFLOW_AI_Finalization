@@ -24,11 +24,151 @@ const WARN = (msg: string) => {
     try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "warn", msg: `⚠️ ${msg}` }); } catch (_) { /* popup closed */ }
 };
 
-LOG("Content script loaded on Google Flow page");
+// ─── Platform Detection ─────────────────────────────────────────────────────
+const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isWindows = /Win/i.test(navigator.userAgent);
+const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
+
+LOG(`Content script loaded on Google Flow page ${platformTag}`);
+
+// ─── Mouse Position Tracker (Debug) ─────────────────────────────────────────
+document.addEventListener("click", (e) => {
+    const t = e.target as HTMLElement | null;
+    if (!t) return;
+    const tag = t.tagName.toLowerCase();
+    const x = Math.round(e.clientX), y = Math.round(e.clientY);
+    const txt = (t.textContent || "").trim().slice(0, 30);
+    LOG(`🖱️ Click (${x},${y}) → <${tag}> "${txt}"`);
+}, true);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** Cross-platform robust click: full pointer→mouse→click sequence for React/Radix */
+async function robustClick(el: HTMLElement) {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    el.dispatchEvent(new MouseEvent("mousedown", opts));
+    await sleep(80);
+    el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    el.dispatchEvent(new MouseEvent("mouseup", opts));
+    el.dispatchEvent(new MouseEvent("click", opts));
+}
+
+/** Cross-platform robust hover: pointer + mouse events for Radix UI menus */
+function robustHover(el: HTMLElement) {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy };
+    el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    el.dispatchEvent(new MouseEvent("mouseenter", opts));
+    el.dispatchEvent(new PointerEvent("pointerover", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    el.dispatchEvent(new MouseEvent("mouseover", opts));
+    el.dispatchEvent(new PointerEvent("pointermove", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    el.dispatchEvent(new MouseEvent("mousemove", opts));
+}
+
+// ─── Element-Based Card Detection (Screen-Size Independent) ─────────────────
+
+/**
+ * Find workspace cards by their type icon text (e.g., "videocam" for video, "image" for image).
+ * Uses <i> icon text instead of pixel coordinates — works on ANY screen size, Mac or Windows.
+ * Returns card container elements sorted by position (leftmost first = newest).
+ */
+function findCardsByIcon(iconText: string): HTMLElement[] {
+    const results: HTMLElement[] = [];
+    const icons = document.querySelectorAll<HTMLElement>("i");
+    for (const icon of icons) {
+        const txt = (icon.textContent || "").trim();
+        if (txt !== iconText) continue;
+
+        // Walk up the DOM to find the card container
+        let el: HTMLElement | null = icon;
+        let card: HTMLElement | null = null;
+        for (let depth = 0; depth < 20 && el; depth++) {
+            el = el.parentElement;
+            if (!el || el === document.body) break;
+            const r = el.getBoundingClientRect();
+            // Card: visible, reasonably sized, not the whole page
+            if (r.width > 100 && r.height > 80 &&
+                r.width < window.innerWidth * 0.6 &&
+                r.top >= -10 && r.bottom <= window.innerHeight + 10) {
+                card = el;
+                break;
+            }
+        }
+        if (card && !results.includes(card)) {
+            results.push(card);
+        }
+    }
+    // Sort: leftmost first (newest in Google Flow workspace)
+    results.sort((a, b) => {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        return ra.left - rb.left;
+    });
+    return results;
+}
+
+/**
+ * Find the first (newest) video card by <i>videocam</i> icon.
+ * Fallback: find card containing a <video> element.
+ */
+function findFirstVideoCard(): HTMLElement | null {
+    const cards = findCardsByIcon("videocam");
+    if (cards.length > 0) {
+        const r = cards[0].getBoundingClientRect();
+        LOG(`🎬 Found ${cards.length} video card(s) via <i>videocam</i> — first at (${r.left.toFixed(0)},${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+        return cards[0];
+    }
+    // Fallback: look for elements with <video> tag
+    const videos = document.querySelectorAll<HTMLVideoElement>("video");
+    for (const vid of videos) {
+        let container = vid.parentElement;
+        for (let i = 0; i < 10 && container; i++) {
+            const r = container.getBoundingClientRect();
+            if (r.width > 100 && r.height > 80 && r.width < window.innerWidth * 0.6) {
+                LOG(`🎬 Found video card via <video> fallback at (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
+                return container;
+            }
+            container = container.parentElement;
+        }
+    }
+    LOG("🎬 No video card found");
+    return null;
+}
+
+/**
+ * Find the first (newest) image card by <i>image</i> icon.
+ * Fallback: find card containing a <canvas> element.
+ */
+function findFirstImageCard(): HTMLElement | null {
+    const cards = findCardsByIcon("image");
+    if (cards.length > 0) {
+        const r = cards[0].getBoundingClientRect();
+        LOG(`🖼️ Found ${cards.length} image card(s) via <i>image</i> — first at (${r.left.toFixed(0)},${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+        return cards[0];
+    }
+    // Fallback: look for <canvas> elements
+    const canvases = document.querySelectorAll<HTMLCanvasElement>("canvas");
+    for (const cvs of canvases) {
+        let container = cvs.parentElement;
+        for (let i = 0; i < 10 && container; i++) {
+            const r = container.getBoundingClientRect();
+            if (r.width > 100 && r.height > 80 && r.width < window.innerWidth * 0.6) {
+                LOG(`🖼️ Found image card via <canvas> fallback at (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
+                return container;
+            }
+            container = container.parentElement;
+        }
+    }
+    LOG("🖼️ No image card found");
+    return null;
+}
 
 /** Convert a base64 data-URL to a File object */
 function base64ToFile(dataUrl: string, fileName: string): File {
@@ -280,18 +420,54 @@ async function setPromptText(el: HTMLElement, text: string) {
         LOG(`setPromptText: Strategy 2 failed: ${e.message}`);
     }
 
-    // ═══ Strategy 3: System clipboard + execCommand('paste') ═══
-    LOG("setPromptText: Strategy 3 — system clipboard + execCommand paste");
+    // ═══ Strategy 3: ClipboardEvent paste (Mac-compatible — Slate intercepts paste events) ═══
+    LOG("setPromptText: Strategy 3 — ClipboardEvent paste (Mac-safe)");
     try {
-        // Copy to clipboard
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
+        el.focus();
+        await sleep(200);
+
+        // Build a ClipboardEvent with text in clipboardData
+        const clipDt = new DataTransfer();
+        clipDt.setData("text/plain", text);
+        clipDt.setData("text/html", `<p>${text.replace(/\n/g, "<br>")}</p>`);
+
+        const pasteEvent = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: clipDt,
+        });
+        el.dispatchEvent(pasteEvent);
+        await sleep(800);
+
+        const content3a = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        if (content3a.length > 20) {
+            LOG(`setPromptText: ✅ Strategy 3 worked (${content3a.length} chars)`);
+            return;
+        }
+        LOG("setPromptText: Strategy 3 — ClipboardEvent text not detected");
+    } catch (e: any) {
+        LOG(`setPromptText: Strategy 3 failed: ${e.message}`);
+    }
+
+    // ═══ Strategy 4: navigator.clipboard + execCommand('paste') ═══
+    LOG("setPromptText: Strategy 4 — navigator.clipboard + execCommand paste");
+    try {
+        // Use modern clipboard API (works on Mac without user gesture in extensions with clipboardWrite)
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            LOG("setPromptText: Copied to clipboard via navigator.clipboard");
+        } else {
+            // Fallback: old-school copy
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            LOG("setPromptText: Copied to clipboard via execCommand");
+        }
 
         // Paste into Slate
         el.focus();
@@ -299,17 +475,17 @@ async function setPromptText(el: HTMLElement, text: string) {
         document.execCommand("paste");
         await sleep(500);
 
-        const content3 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
-        if (content3.length > 20) {
-            LOG(`setPromptText: ✅ Strategy 3 worked (${content3.length} chars)`);
+        const content4 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        if (content4.length > 20) {
+            LOG(`setPromptText: ✅ Strategy 4 worked (${content4.length} chars)`);
             return;
         }
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 3 failed: ${e.message}`);
+        LOG(`setPromptText: Strategy 4 failed: ${e.message}`);
     }
 
-    // ═══ Strategy 4: React fiber — find Slate editor and call insertText ═══
-    LOG("setPromptText: Strategy 4 — React fiber Slate editor");
+    // ═══ Strategy 5: React fiber — find Slate editor and call insertText ═══
+    LOG("setPromptText: Strategy 5 — React fiber Slate editor");
     try {
         // Find React fiber key on the contenteditable element
         const fiberKey = Object.keys(el).find(k =>
@@ -331,7 +507,7 @@ async function setPromptText(el: HTMLElement, text: string) {
                         // Move to end
                     }
                     editor.insertText(text);
-                    LOG(`setPromptText: ✅ Strategy 4 — inserted via editor.insertText`);
+                    LOG(`setPromptText: ✅ Strategy 5 — inserted via editor.insertText`);
                     return;
                 }
 
@@ -339,7 +515,7 @@ async function setPromptText(el: HTMLElement, text: string) {
                 if (state?.memoizedState?.editor?.insertText) {
                     LOG("setPromptText: Found Slate editor via fiber state");
                     state.memoizedState.editor.insertText(text);
-                    LOG(`setPromptText: ✅ Strategy 4 — inserted via state editor`);
+                    LOG(`setPromptText: ✅ Strategy 5 — inserted via state editor`);
                     return;
                 }
 
@@ -350,10 +526,10 @@ async function setPromptText(el: HTMLElement, text: string) {
             LOG("setPromptText: No React fiber found on element");
         }
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 4 failed: ${e.message}`);
+        LOG(`setPromptText: Strategy 5 failed: ${e.message}`);
     }
 
-    LOG("setPromptText: ⚠️ All 4 strategies attempted — check console for results");
+    LOG("setPromptText: ⚠️ All 5 strategies attempted — check console for results");
 }
 
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
@@ -376,9 +552,31 @@ function neutralizeFileInputs(): { input: HTMLInputElement; origType: string }[]
 }
 
 /**
- * Restore file inputs to type="file", inject our file, and dispatch change.
+ * Block ALL file dialog opens by overriding HTMLInputElement.prototype.click.
+ * Returns a restore function. CRITICAL for Mac where MutationObserver timing
+ * cannot reliably beat Google Flow's synchronous create→click sequence.
  */
-function restoreAndInject(neutralized: { input: HTMLInputElement; origType: string }[], file: File): boolean {
+function blockFileDialogs(): () => void {
+    const origClick = HTMLInputElement.prototype.click;
+    HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
+        if (this.type === "file") {
+            LOG(`🚫 Blocked file dialog open (${platformTag})`);
+            return; // suppress native file chooser
+        }
+        return origClick.call(this);
+    };
+    LOG(`🔒 File dialog blocker installed (${platformTag})`);
+    return () => {
+        HTMLInputElement.prototype.click = origClick;
+        LOG(`🔓 File dialog blocker removed`);
+    };
+}
+
+/**
+ * Restore file inputs to type="file", inject our file, and dispatch events.
+ * Uses multiple dispatch strategies for cross-platform React compatibility.
+ */
+function restoreAndInject(neutralized: { input: HTMLInputElement; origType: string }[], file: File, preExistingInputs?: Set<HTMLInputElement>): boolean {
     // Also check for any inputs that were added during the process
     const allInputs = document.querySelectorAll<HTMLInputElement>('input[type="text"][style*="display: none"], input[type="text"][hidden], input[type="text"]');
     const candidates = [...neutralized.map(n => n.input)];
@@ -397,14 +595,71 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
 
     // Find the best file input to inject into
     const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    if (fileInputs.length === 0) return false;
+    if (fileInputs.length === 0) {
+        LOG(`⚠️ No file inputs found after restore (${platformTag})`);
+        return false;
+    }
 
-    const target = fileInputs[fileInputs.length - 1];
+    // ★ Prefer NEW file inputs (not pre-existing) — fixes second upload targeting stale input
+    let target: HTMLInputElement;
+    if (preExistingInputs && preExistingInputs.size > 0) {
+        const newInputs = Array.from(fileInputs).filter(inp => !preExistingInputs.has(inp));
+        if (newInputs.length > 0) {
+            target = newInputs[newInputs.length - 1];
+            LOG(`Targeting NEW file input (${newInputs.length} new, ${fileInputs.length} total)`);
+        } else {
+            target = fileInputs[fileInputs.length - 1];
+            LOG(`No new file inputs found — using last of ${fileInputs.length}`);
+        }
+    } else {
+        target = fileInputs[fileInputs.length - 1];
+    }
+
+    // ★ Inject file via DataTransfer — cross-platform
     const dt = new DataTransfer();
     dt.items.add(file);
-    target.files = dt.files;
+
+    // Method 1: Direct assignment (works on most Chrome)
+    try {
+        target.files = dt.files;
+        LOG(`Injected file via target.files (${target.files?.length ?? 0} files)`);
+    } catch (e: any) {
+        LOG(`target.files assignment failed: ${e.message} — trying defineProperty`);
+        // Method 2: defineProperty override (Mac fallback)
+        try {
+            Object.defineProperty(target, 'files', {
+                value: dt.files,
+                writable: true,
+                configurable: true,
+            });
+            LOG(`Injected file via Object.defineProperty`);
+        } catch (e2: any) {
+            WARN(`Both file injection methods failed: ${e2.message}`);
+            return false;
+        }
+    }
+
+    // ★ Dispatch multiple event types for React/Radix compatibility
+    // React listens on 'change'; some frameworks also listen on 'input'
     target.dispatchEvent(new Event('change', { bubbles: true }));
     target.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // ★ Also dispatch a synthetic 'drop' event (some Mac React builds listen for drag-drop)
+    try {
+        const dropDt = new DataTransfer();
+        dropDt.items.add(file);
+        const dropEvent = new DragEvent('drop', {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dropDt,
+        });
+        target.dispatchEvent(dropEvent);
+        LOG(`Also dispatched drop event on file input`);
+    } catch (_) {
+        // drop event dispatch is optional — ignore errors
+    }
+
+    LOG(`✅ File injection complete: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → <input> ${platformTag}`);
     return true;
 }
 
@@ -429,10 +684,23 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         return false;
     }
 
-    // Step 1: Neutralize ALL existing file inputs (type → text)
+    // ★ Snapshot existing file inputs BEFORE neutralization
+    //   so restoreAndInject can prefer NEW inputs created during this upload
+    const preExistingInputs = new Set(
+        document.querySelectorAll<HTMLInputElement>('input[type="file"]')
+    );
+    LOG(`Pre-existing file inputs: ${preExistingInputs.size}`);
+
+    // Step 1: Block ALL file dialog opens at prototype level (Mac race-condition fix)
+    //   On Mac, MutationObserver can't reliably beat Google Flow's synchronous
+    //   create→click sequence. This override prevents ANY file input .click() from
+    //   opening the native dialog, regardless of timing.
+    const unblockDialogs = blockFileDialogs();
+
+    // Step 2: Neutralize ALL existing file inputs (type → text)
     let neutralized = neutralizeFileInputs();
 
-    // Step 2: Set up MutationObserver to neutralize ANY new file inputs immediately
+    // Step 3: Set up MutationObserver to neutralize ANY new file inputs immediately
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
@@ -455,12 +723,12 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     observer.observe(document.body, { childList: true, subtree: true });
 
     try {
-        // Step 3: Click "+" to open menu
-        addBtn.click();
+        // Step 4: Click "+" to open menu (full event sequence for Mac React compatibility)
+        await robustClick(addBtn);
         LOG("Clicked '+' button");
         await sleep(1500);
 
-        // Step 4: Find and click upload menu option (precise: exclude drive_folder_upload)
+        // Step 5: Find and click upload menu option (precise: exclude drive_folder_upload)
         LOG("Checking for upload menu...");
         const menuElements = document.querySelectorAll<HTMLElement>(
             "button, [role='menuitem'], [role='option'], li, div[role='button']"
@@ -474,7 +742,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                 if (it === "upload" || it === "upload_file") {
                     const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
                     if (!allIconTexts.includes("drive_folder_upload")) {
-                        el.click();
+                        await robustClick(el);
                         clickedMenu = true;
                         LOG(`Clicked upload menu (icon: ${it})`);
                         break;
@@ -492,7 +760,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                     const lower = directText.toLowerCase();
                     if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
                         || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")) {
-                        el.click();
+                        await robustClick(el);
                         clickedMenu = true;
                         LOG(`Clicked upload menu (text: "${directText}")`);
                         break;
@@ -501,11 +769,11 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             }
         }
 
-        // Step 5: Wait a moment for Google Flow to call .click() (which does nothing now)
+        // Step 6: Wait a moment for Google Flow to call .click() (blocked by prototype override)
         await sleep(1000);
 
-        // Step 6: Restore file inputs and inject our file
-        const ok = restoreAndInject(neutralized, file);
+        // Step 7: Restore file inputs and inject our file (prefer NEW inputs over stale ones)
+        const ok = restoreAndInject(neutralized, file, preExistingInputs);
         if (ok) {
             LOG(`✅ Injected ${fileName} — no dialog opened`);
             await sleep(2500);
@@ -517,6 +785,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
 
     } finally {
         observer.disconnect();
+        unblockDialogs(); // ★ Remove prototype override — restore normal .click() behavior
         // Safety: restore any remaining neutralized inputs
         for (const n of neutralized) {
             if (n.input.type !== "file") n.input.type = "file";
@@ -588,10 +857,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     const sCx = sRect.left + sRect.width / 2;
     const sCy = sRect.top + sRect.height / 2;
     const sOpts = { bubbles: true, cancelable: true, clientX: sCx, clientY: sCy, button: 0 };
-    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
     await sleep(80);
-    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("Clicked settings button");
@@ -650,10 +919,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         } else {
             const bRect = imageTabBtn.getBoundingClientRect();
             const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
-            imageTabBtn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1, pointerType: "mouse" }));
+            imageTabBtn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             imageTabBtn.dispatchEvent(new MouseEvent("mousedown", bOpts));
             await sleep(80);
-            imageTabBtn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1, pointerType: "mouse" }));
+            imageTabBtn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             imageTabBtn.dispatchEvent(new MouseEvent("mouseup", bOpts));
             imageTabBtn.dispatchEvent(new MouseEvent("click", bOpts));
             selectedImage = true;
@@ -670,10 +939,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         if (txt === orientationText || txt.toLowerCase() === (orientation === "horizontal" ? "landscape" : "portrait")) {
             const oRect = btn.getBoundingClientRect();
             const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
-            btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, pointerType: "mouse" }));
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mousedown", oOpts));
             await sleep(80);
-            btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, pointerType: "mouse" }));
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
             btn.dispatchEvent(new MouseEvent("click", oOpts));
             LOG(`Selected orientation: ${orientationText}`);
@@ -689,10 +958,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         if (txt === countText) {
             const cRect = btn.getBoundingClientRect();
             const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
-            btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, pointerType: "mouse" }));
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mousedown", cOpts));
             await sleep(80);
-            btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, pointerType: "mouse" }));
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
             btn.dispatchEvent(new MouseEvent("click", cOpts));
             LOG(`Selected count: ${countText}`);
@@ -706,10 +975,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
     await sleep(300);
     // Also try clicking the settings button again to toggle it closed
-    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
     await sleep(80);
-    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("Closed settings panel");
@@ -892,10 +1161,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         const cy = rect.top + rect.height / 2;
         const evtOpts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
 
-        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
+        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
         await sleep(80);
-        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
+        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
         LOG("Dispatched full click sequence on Generate button");
@@ -903,10 +1172,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
         // Safety: try again after 500ms if first didn't register
         await sleep(500);
-        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
+        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
         await sleep(80);
-        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
+        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
         LOG("Dispatched safety retry click on Generate button");
@@ -939,7 +1208,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (!alt.includes("generated")) continue;
 
                 const rect = img.getBoundingClientRect();
-                if (rect.width > 200 && rect.height > 200 && rect.top > 0 && rect.top < window.innerHeight * 0.8) {
+                if (rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85) {
                     const parent = img.closest("div") as HTMLElement;
                     if (parent) {
                         generatedImg = parent;
@@ -964,7 +1233,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     }
 
                     const rect = img.getBoundingClientRect();
-                    if (rect.width > 200 && rect.height > 200 && rect.top > 0 && rect.top < window.innerHeight * 0.8) {
+                    if (rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85) {
                         const parent = img.closest("div") as HTMLElement;
                         if (parent) {
                             generatedImg = parent;
@@ -995,10 +1264,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const imgCx = imgRect.left + imgRect.width / 2;
             const imgCy = imgRect.top + imgRect.height / 2;
 
-            generatedImg.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: imgCx, clientY: imgCy }));
-            generatedImg.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: imgCx, clientY: imgCy }));
-            generatedImg.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: imgCx, clientY: imgCy }));
-            LOG("Dispatched hover events on image");
+            const imgHoverOpts = { bubbles: true, cancelable: true, clientX: imgCx, clientY: imgCy };
+            generatedImg.dispatchEvent(new PointerEvent("pointerenter", { ...imgHoverOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+            generatedImg.dispatchEvent(new MouseEvent("mouseenter", imgHoverOpts));
+            generatedImg.dispatchEvent(new PointerEvent("pointerover", { ...imgHoverOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+            generatedImg.dispatchEvent(new MouseEvent("mouseover", imgHoverOpts));
+            generatedImg.dispatchEvent(new PointerEvent("pointermove", { ...imgHoverOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+            generatedImg.dispatchEvent(new MouseEvent("mousemove", imgHoverOpts));
+            LOG("Dispatched hover events on image (pointer + mouse)");
             await sleep(1500);
 
             // Step 4c: Find and click the 3-dots (more_vert / more_horiz) icon
@@ -1058,10 +1331,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const dotsCy = dotsRect.top + dotsRect.height / 2;
                 const dotsOpts = { bubbles: true, cancelable: true, clientX: dotsCx, clientY: dotsCy, button: 0 };
 
-                dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dotsOpts, pointerId: 1, pointerType: "mouse" }));
+                dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dotsOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 dotsBtn.dispatchEvent(new MouseEvent("mousedown", dotsOpts));
                 await sleep(80);
-                dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dotsOpts, pointerId: 1, pointerType: "mouse" }));
+                dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dotsOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 dotsBtn.dispatchEvent(new MouseEvent("mouseup", dotsOpts));
                 dotsBtn.dispatchEvent(new MouseEvent("click", dotsOpts));
                 LOG("Clicked 3-dots button");
@@ -1090,10 +1363,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const animCy = animRect.top + animRect.height / 2;
                     const animOpts = { bubbles: true, cancelable: true, clientX: animCx, clientY: animCy, button: 0 };
 
-                    animateBtn.dispatchEvent(new PointerEvent("pointerdown", { ...animOpts, pointerId: 1, pointerType: "mouse" }));
+                    animateBtn.dispatchEvent(new PointerEvent("pointerdown", { ...animOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                     animateBtn.dispatchEvent(new MouseEvent("mousedown", animOpts));
                     await sleep(80);
-                    animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1, pointerType: "mouse" }));
+                    animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                     animateBtn.dispatchEvent(new MouseEvent("mouseup", animOpts));
                     animateBtn.dispatchEvent(new MouseEvent("click", animOpts));
                     LOG("✅ Clicked 'ทำให้เป็นภาพเคลื่อนไหว' — switching to video mode");
@@ -1158,10 +1431,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const vCy = vRect.top + vRect.height / 2;
                 const vOpts = { bubbles: true, cancelable: true, clientX: vCx, clientY: vCy, button: 0 };
 
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mousedown", vOpts));
                 await sleep(80);
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
                 videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
                 LOG("✅ Clicked Generate for video — video generation started!");
@@ -1170,10 +1443,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 // Safety retry after 500ms
                 await sleep(500);
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mousedown", vOpts));
                 await sleep(80);
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
                 videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
                 LOG("Dispatched safety retry click on video Generate button");
@@ -1233,23 +1506,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("vid-wait", "active");
             await sleep(5000);
 
-            // ── Strategy B: Find the first <img> card by position (top-left in grid) ──
-            const findFirstCard = (): { el: HTMLElement; cx: number; cy: number } | null => {
-                const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
-                const visible = imgs.filter(img => {
-                    const r = img.getBoundingClientRect();
-                    return r.width > 100 && r.height > 80 && r.top > 30 && r.top < window.innerHeight * 0.8;
-                });
-                if (visible.length === 0) return null;
-                visible.sort((a, b) => {
-                    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-                    return ra.top !== rb.top ? ra.top - rb.top : ra.left - rb.left;
-                });
-                const first = visible[0];
-                const r = first.getBoundingClientRect();
-                return { el: first, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
-            };
-
             // ── Debug: dump all elements containing "%" text ──
             const debugDumpPct = () => {
                 const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
@@ -1270,13 +1526,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (count === 0) LOG("  🔍 No element with '%' text found");
             };
 
-            // Find the first card immediately
-            const firstCard = findFirstCard();
-            if (firstCard) {
-                const r = firstCard.el.getBoundingClientRect();
-                LOG(`📍 First card: <${firstCard.el.tagName.toLowerCase()}> at (${r.left.toFixed(0)},${r.top.toFixed(0)}) size ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+            // Debug: scan for existing cards at start
+            const earlyVideoCard = findFirstVideoCard();
+            if (earlyVideoCard) {
+                LOG(`📍 Video card already present at start`);
             } else {
-                LOG("⚠️ No visible card found yet");
+                LOG("⏳ No video card yet — will poll for % progress");
             }
 
             // Debug: dump % text once
@@ -1321,40 +1576,46 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 await sleep(3000);
             }
 
-            // Now find the card to click — refresh position
-            const card = findFirstCard();
-            if (!card) {
-                LOG("❌ No card found to click");
+            // Now find the VIDEO card to click — using <i>videocam</i> icon (screen-size independent)
+            const videoCard = findFirstVideoCard();
+            if (!videoCard) {
+                LOG("❌ No video card found to click");
                 updateStep("vid-wait", "error");
                 return null;
             }
 
-            const { el, cx, cy } = card;
+            const el = videoCard;
             if (completed) {
                 updateStep("vid-wait", "done", 100);
                 LOG("Cool-down 4s before clicking...");
                 await sleep(4000);
             } else {
-                LOG("⚠️ Timeout — attempting to click first card anyway");
+                LOG("⚠️ Timeout — attempting to click video card anyway");
             }
 
-            // Hover 4s
-            LOG(`🖱️ Hovering 4s at (${cx.toFixed(0)}, ${cy.toFixed(0)})...`);
-            el.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: cx, clientY: cy }));
-            el.dispatchEvent(new MouseEvent("mouseover",  { bubbles: true, clientX: cx, clientY: cy }));
+            // Compute center of the card for hover/click
+            const cardRect = el.getBoundingClientRect();
+            const cx = cardRect.left + cardRect.width / 2;
+            const cy = cardRect.top + cardRect.height / 2;
+
+            // Hover 4s (with PointerEvents for Mac Radix UI compatibility)
+            LOG(`🖱️ Hovering video card 4s at (${cx.toFixed(0)}, ${cy.toFixed(0)})...`);
+            robustHover(el);
             for (let t = 0; t < 8; t++) {
-                el.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: cx + (t % 2), clientY: cy }));
+                const moveOpts = { bubbles: true, cancelable: true, clientX: cx + (t % 2), clientY: cy };
+                el.dispatchEvent(new PointerEvent("pointermove", { ...moveOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                el.dispatchEvent(new MouseEvent("mousemove", moveOpts));
                 await sleep(500);
             }
 
-            // Click 2 times using native .click() via elementFromPoint
-            LOG("Clicking card...");
+            // Click 2 times with full pointer event sequence (cross-platform)
+            LOG("Clicking video card...");
             for (let i = 0; i < 2; i++) {
                 const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
-                if (target) target.click(); else el.click();
+                if (target) await robustClick(target); else await robustClick(el);
                 await sleep(300);
             }
-            LOG("✅ Clicks done");
+            LOG("✅ Video card clicks done");
             return el;
         };
 
@@ -1408,10 +1669,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const cy = rect.top + rect.height / 2;
             const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
 
-            card.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, pointerType: "mouse" }));
+            card.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mousedown", opts));
             await sleep(80);
-            card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, pointerType: "mouse" }));
+            card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mouseup", opts));
             card.dispatchEvent(new MouseEvent("click", opts));
             LOG("Clicked video card");
@@ -1464,10 +1725,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Click 3-dots
             const dRect = dotsBtn.getBoundingClientRect();
             const dOpts = { bubbles: true, cancelable: true, clientX: dRect.left + dRect.width / 2, clientY: dRect.top + dRect.height / 2, button: 0 };
-            dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1, pointerType: "mouse" }));
+            dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             dotsBtn.dispatchEvent(new MouseEvent("mousedown", dOpts));
             await sleep(80);
-            dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1, pointerType: "mouse" }));
+            dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             dotsBtn.dispatchEvent(new MouseEvent("mouseup", dOpts));
             dotsBtn.dispatchEvent(new MouseEvent("click", dOpts));
             LOG("Clicked 3-dots menu");
@@ -1491,10 +1752,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             const dlRect = downloadBtn.getBoundingClientRect();
             const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
-            downloadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
+            downloadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             downloadBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
             await sleep(80);
-            downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
+            downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             downloadBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             downloadBtn.dispatchEvent(new MouseEvent("click", dlOpts));
             LOG("Clicked ดาวน์โหลด");
@@ -1525,10 +1786,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             if (btn1080) {
                 const hRect = btn1080.getBoundingClientRect();
                 const hOpts = { bubbles: true, cancelable: true, clientX: hRect.left + hRect.width / 2, clientY: hRect.top + hRect.height / 2, button: 0 };
-                btn1080.dispatchEvent(new PointerEvent("pointerdown", { ...hOpts, pointerId: 1, pointerType: "mouse" }));
+                btn1080.dispatchEvent(new PointerEvent("pointerdown", { ...hOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 btn1080.dispatchEvent(new MouseEvent("mousedown", hOpts));
                 await sleep(80);
-                btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1, pointerType: "mouse" }));
+                btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 btn1080.dispatchEvent(new MouseEvent("mouseup", hOpts));
                 btn1080.dispatchEvent(new MouseEvent("click", hOpts));
                 LOG("Clicked 1080p — upscaling started");
@@ -1606,10 +1867,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Click ดาวน์โหลด
             const dlRect = dlBtn.getBoundingClientRect();
             const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
-            dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
+            dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
             await sleep(80);
-            dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
+            dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
             LOG("Clicked ดาวน์โหลด button");
@@ -1622,10 +1883,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const clickEl = async (el: HTMLElement) => {
                 const r = el.getBoundingClientRect();
                 const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
-                el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, pointerType: "mouse" }));
+                el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mousedown", opts));
                 await sleep(80);
-                el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, pointerType: "mouse" }));
+                el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseup", opts));
                 el.dispatchEvent(new MouseEvent("click", opts));
             };
@@ -1634,9 +1895,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const hoverEl = async (el: HTMLElement) => {
                 const r = el.getBoundingClientRect();
                 const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
-                el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1, pointerType: "mouse" }));
+                el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseenter", opts));
-                el.dispatchEvent(new PointerEvent("pointermove", { ...opts, pointerId: 1, pointerType: "mouse" }));
+                el.dispatchEvent(new PointerEvent("pointermove", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseover", opts));
                 el.dispatchEvent(new MouseEvent("mousemove", opts));
             };
@@ -1854,10 +2115,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         const dlCx = dlRect.left + dlRect.width / 2;
                         const dlCy = dlRect.top + dlRect.height / 2;
                         const dlOpts = { bubbles: true, cancelable: true, clientX: dlCx, clientY: dlCy, button: 0 };
-                        dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
+                        dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                         dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
                         await sleep(80);
-                        dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
+                        dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                         dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
                         dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
                         LOG("Clicked ดาวน์โหลด button");
@@ -1898,10 +2159,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             const rCx = rRect.left + rRect.width / 2;
                             const rCy = rRect.top + rRect.height / 2;
                             const rOpts = { bubbles: true, cancelable: true, clientX: rCx, clientY: rCy, button: 0 };
-                            res1080.dispatchEvent(new PointerEvent("pointerdown", { ...rOpts, pointerId: 1, pointerType: "mouse" }));
+                            res1080.dispatchEvent(new PointerEvent("pointerdown", { ...rOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             res1080.dispatchEvent(new MouseEvent("mousedown", rOpts));
                             await sleep(80);
-                            res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1, pointerType: "mouse" }));
+                            res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             res1080.dispatchEvent(new MouseEvent("mouseup", rOpts));
                             res1080.dispatchEvent(new MouseEvent("click", rOpts));
                             LOG("Clicked 1080p — download starting");
@@ -2009,10 +2270,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             const sgCy = sgRect.top + sgRect.height / 2;
                             const sgOpts = { bubbles: true, cancelable: true, clientX: sgCx, clientY: sgCy, button: 0 };
 
-                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sgOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             sceneGenBtn.dispatchEvent(new MouseEvent("mousedown", sgOpts));
                             await sleep(80);
-                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             sceneGenBtn.dispatchEvent(new MouseEvent("mouseup", sgOpts));
                             sceneGenBtn.dispatchEvent(new MouseEvent("click", sgOpts));
                             LOG(`Clicked Generate for scene ${sn} (full event sequence)`);
@@ -2021,10 +2282,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                             // Safety retry after 500ms
                             await sleep(500);
-                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sgOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             sceneGenBtn.dispatchEvent(new MouseEvent("mousedown", sgOpts));
                             await sleep(80);
-                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             sceneGenBtn.dispatchEvent(new MouseEvent("mouseup", sgOpts));
                             sceneGenBtn.dispatchEvent(new MouseEvent("click", sgOpts));
                         } else {
@@ -2107,44 +2368,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "CLICK_FIRST_IMAGE") {
         sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
         (async () => {
-            LOG("CLICK_FIRST_IMAGE — finding first image card...");
+            LOG("CLICK_FIRST_IMAGE — finding first image card via <i>image</i> icon...");
             await sleep(500);
 
-            // Find all visible image cards — pick the one furthest top-left
-            const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
-            const visible = imgs.filter(img => {
-                const r = img.getBoundingClientRect();
-                return r.width > 100 && r.height > 80 && r.top > 30 && r.top < window.innerHeight * 0.8 && r.left >= 0;
-            });
-
-            if (visible.length === 0) {
-                WARN("No visible image cards found");
+            // Element-based detection: find card with <i>image</i> icon (works on any screen size)
+            const imageCard = findFirstImageCard();
+            if (!imageCard) {
+                WARN("No image card found via <i>image</i> icon");
                 return;
             }
 
-            // Sort by top then left — pick the first one
-            visible.sort((a, b) => {
-                const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-                return ra.top !== rb.top ? ra.top - rb.top : ra.left - rb.left;
-            });
-            const firstImg = visible[0];
-            const r = firstImg.getBoundingClientRect();
+            const r = imageCard.getBoundingClientRect();
             const cx = r.left + r.width / 2;
             const cy = r.top + r.height / 2;
-            LOG(`First image card at (${cx.toFixed(0)}, ${cy.toFixed(0)}) — clicking 2 times`);
+            LOG(`Image card at (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — clicking 2 times`);
 
             for (let i = 0; i < 2; i++) {
                 const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
                 if (target) {
-                    target.click();
+                    await robustClick(target);
                     LOG(`Click ${i + 1}/2 on <${target.tagName.toLowerCase()}>`);
                 } else {
-                    firstImg.click();
-                    LOG(`Click ${i + 1}/2 on img (fallback)`);
+                    await robustClick(imageCard);
+                    LOG(`Click ${i + 1}/2 on card (fallback)`);
                 }
                 await sleep(300);
             }
-            LOG("✅ 2 clicks on first image done");
+            LOG("✅ 2 clicks on image card done");
         })();
         return false;
     }

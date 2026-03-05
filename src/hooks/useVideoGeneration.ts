@@ -62,7 +62,7 @@ export const useVideoGeneration = () => {
                 toast({
                     title: "สร้างวิดีโอสำเร็จ! 🎉",
                     description: "วิดีโอถูกสร้างเรียบร้อยแล้ว",
-                    className: "bg-green-600 text-white"
+                    className: "toast-theme-bg"
                 });
             }
 

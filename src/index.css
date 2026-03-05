@@ -341,7 +341,7 @@
   border-radius: 1rem;
   background: conic-gradient(
     from var(--border-angle),
-    #ef4444 0%, #ff6b35 8%, #fbbf24 14%, #ff6b35 20%, #ef4444 28%,
+    hsl(var(--neon-red)) 0%, hsl(var(--neon-red-light)) 8%, hsl(var(--neon-red-light)) 14%, hsl(var(--neon-red-light)) 20%, hsl(var(--neon-red)) 28%,
     transparent 40%, transparent 100%
   );
   animation: border-spin 3s linear infinite;
@@ -349,14 +349,14 @@
 }
 
 .electric-border-wrap:hover {
-  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.5));
+  filter: drop-shadow(0 0 8px hsl(var(--neon-red) / 0.5));
 }
 
 .electric-border-wrap.is-active {
   animation: border-spin 1s linear infinite;
   filter:
-    drop-shadow(0 0 12px rgba(239, 68, 68, 0.6))
-    drop-shadow(0 0 30px rgba(239, 68, 68, 0.3));
+    drop-shadow(0 0 12px hsl(var(--neon-red) / 0.6))
+    drop-shadow(0 0 30px hsl(var(--neon-red) / 0.3));
 }
 
 .electric-border-wrap.is-disabled {
@@ -378,6 +378,7 @@
 @keyframes electric-text-glow {
   0%, 100% { text-shadow: 0 0 4px rgba(255,255,255,0.3); }
   50% { text-shadow: 0 0 12px rgba(255,255,255,0.6), 0 0 20px hsl(var(--neon-red) / 0.4); }
+
 }
 
 /* ═══ NETFLOW HUD Console ═══ */
@@ -387,20 +388,20 @@
   overflow: hidden;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.75);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid hsl(var(--neon-red) / 0.2);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow:
-    0 0 30px -10px rgba(220, 38, 38, 0.15),
-    inset 0 1px 0 rgba(220, 38, 38, 0.08);
+    0 0 30px -10px hsl(var(--neon-red) / 0.15),
+    inset 0 1px 0 hsl(var(--neon-red) / 0.08);
   transition: border-color 0.4s, box-shadow 0.4s;
 }
 
 .nf-console-wrap:hover {
-  border-color: rgba(220, 38, 38, 0.35);
+  border-color: hsl(var(--neon-red) / 0.35);
   box-shadow:
-    0 0 40px -8px rgba(220, 38, 38, 0.25),
-    inset 0 1px 0 rgba(220, 38, 38, 0.12);
+    0 0 40px -8px hsl(var(--neon-red) / 0.25),
+    inset 0 1px 0 hsl(var(--neon-red) / 0.12);
 }
 
 /* Scanlines (CRT feel) */
@@ -424,11 +425,11 @@
   background: transparent;
 }
 .nf-console-scroll::-webkit-scrollbar-thumb {
-  background: rgba(220, 38, 38, 0.25);
+  background: hsl(var(--neon-red) / 0.25);
   border-radius: 4px;
 }
 .nf-console-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(220, 38, 38, 0.5);
+  background: hsl(var(--neon-red) / 0.5);
 }
 
 /* Log rows */
@@ -442,7 +443,7 @@
   transition: background 0.2s;
 }
 .nf-log-row:hover {
-  background: rgba(220, 38, 38, 0.04);
+  background: hsl(var(--neon-red) / 0.04);
 }
 
 .nf-log-icon {
@@ -476,7 +477,7 @@
 .nf-log-info .nf-log-icon { color: #3b82f6; opacity: 0.7; }
 
 .nf-log-default { color: rgba(255, 255, 255, 0.45); }
-.nf-log-default .nf-log-icon { color: rgba(220, 38, 38, 0.3); }
+.nf-log-default .nf-log-icon { color: hsl(var(--neon-red) / 0.3); }
 
 /* Slide-in animation for new log entries */
 @keyframes nf-log-slide {
@@ -506,8 +507,8 @@
   display: inline-block;
   width: 5px;
   height: 12px;
-  background: #dc2626;
-  box-shadow: 0 0 6px rgba(220, 38, 38, 0.7);
+  background: hsl(var(--neon-red));
+  box-shadow: 0 0 6px hsl(var(--neon-red) / 0.7);
   animation: nf-cursor-blink 0.7s step-end infinite;
 }
 @keyframes nf-cursor-blink {
@@ -522,6 +523,12 @@
 @keyframes nf-live {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.7; }
+}
+
+/* Theme-aware toast */
+.toast-theme-bg {
+  background-color: var(--theme-hex, #dc2626) !important;
+  color: #fff !important;
 }
 
 /* Custom scrollbar */

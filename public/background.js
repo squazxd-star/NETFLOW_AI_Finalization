@@ -113,7 +113,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }
 
                 const openFileInChrome = (filePath, label) => {
-                    const url = "file:///" + filePath.replace(/\\/g, "/");
+                    // Normalize path for both Windows (C:\...) and Mac (/Users/...)
+                    const normalized = filePath.replace(/\\/g, "/");
+                    const url = normalized.startsWith("/")
+                        ? "file://" + normalized        // Mac: file:///Users/...  (2 slashes + leading /)
+                        : "file:///" + normalized;      // Win: file:///C:/Users/...
                     chrome.tabs.create({ url }, () => {
                         sendResponse({ success: true, message: label, filename: filePath });
                     });

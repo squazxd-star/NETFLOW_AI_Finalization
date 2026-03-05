@@ -1,13 +1,13 @@
 /**
- * NETFLOW AI — Engine Visualizer Overlay v2
+ * NETFLOW AI — Engine Visualizer Overlay v3
  * 
  * Injected into the Google Flow page during automation.
  * Pure DOM + CSS — no React, no Tailwind.
  * 
- * High-tech engine monitor with:
+ * Cross-pattern layout matching NETFLOW AI ENGINE design:
  *   - Central CORE STATUS monitor (terminal log + audio visualizer)
- *   - 4 Corner tech modules with glowing red borders
- *   - Dark theme (zinc-950) with red accent glow
+ *   - 4 modules in cross pattern (TL, TR, BL, BR) with glowing pipe connections
+ *   - Dark cyberpunk theme with red/crimson glow
  * 
  * 4 Tech Modules:
  *   1. ASSET_INGEST         — Configure + Upload images
@@ -93,16 +93,16 @@ function injectStyles() {
     styleEl.id = "netflow-overlay-styles";
     styleEl.textContent = `
 /* ─── Google Font ─── */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 
 /* ─── Overlay Container ─── */
 #netflow-engine-overlay {
     position: fixed;
     inset: 0;
     z-index: 999999;
-    background: rgba(9, 9, 11, 0.92);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: radial-gradient(ellipse at center, rgba(15,10,20,0.95) 0%, rgba(5,3,10,0.98) 70%);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     animation: nf-fade-in 0.6s ease-out;
     overflow: hidden;
@@ -113,7 +113,19 @@ function injectStyles() {
     to { opacity: 1; }
 }
 
-/* ─── Main Layout ─── */
+/* ─── Background grid pattern ─── */
+#netflow-engine-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(220,38,38,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(220,38,38,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+}
+
+/* ─── Main Layout: Cross Pattern ─── */
 .nf-layout {
     position: absolute;
     inset: 0;
@@ -122,20 +134,34 @@ function injectStyles() {
     justify-content: center;
 }
 
+/* ─── SVG Pipes Layer ─── */
+.nf-pipes-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
 /* ─── Central Core Monitor ─── */
 .nf-core-monitor {
-    position: relative;
-    width: 420px;
-    min-height: 280px;
-    background: rgba(15, 15, 20, 0.85);
-    border: 1.5px solid rgba(220, 38, 38, 0.45);
-    border-radius: 16px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    min-height: 250px;
+    background: rgba(12, 10, 18, 0.92);
+    border: 1.5px solid rgba(220, 38, 38, 0.5);
+    border-radius: 14px;
     padding: 0;
     overflow: hidden;
     box-shadow:
-        0 0 40px rgba(220, 38, 38, 0.15),
-        0 0 80px rgba(220, 38, 38, 0.08),
-        inset 0 0 30px rgba(220, 38, 38, 0.03);
+        0 0 50px rgba(220, 38, 38, 0.2),
+        0 0 100px rgba(220, 38, 38, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        inset 0 0 30px rgba(220, 38, 38, 0.04);
     animation: nf-core-breathe 4s ease-in-out infinite;
     z-index: 10;
 }
@@ -143,15 +169,17 @@ function injectStyles() {
 @keyframes nf-core-breathe {
     0%, 100% {
         box-shadow:
-            0 0 40px rgba(220, 38, 38, 0.15),
-            0 0 80px rgba(220, 38, 38, 0.08),
-            inset 0 0 30px rgba(220, 38, 38, 0.03);
+            0 0 50px rgba(220, 38, 38, 0.2),
+            0 0 100px rgba(220, 38, 38, 0.1),
+            inset 0 1px 0 rgba(255,255,255,0.05),
+            inset 0 0 30px rgba(220, 38, 38, 0.04);
     }
     50% {
         box-shadow:
-            0 0 60px rgba(220, 38, 38, 0.25),
-            0 0 120px rgba(220, 38, 38, 0.12),
-            inset 0 0 40px rgba(220, 38, 38, 0.05);
+            0 0 70px rgba(220, 38, 38, 0.3),
+            0 0 140px rgba(220, 38, 38, 0.15),
+            inset 0 1px 0 rgba(255,255,255,0.08),
+            inset 0 0 40px rgba(220, 38, 38, 0.06);
     }
 }
 
@@ -160,8 +188,9 @@ function injectStyles() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid rgba(220, 38, 38, 0.25);
+    background: linear-gradient(180deg, rgba(220,38,38,0.06) 0%, transparent 100%);
 }
 
 .nf-core-title {
@@ -169,10 +198,10 @@ function injectStyles() {
     align-items: center;
     gap: 10px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #fff;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
 }
 
 .nf-core-title-label {
@@ -183,6 +212,7 @@ function injectStyles() {
 .nf-core-title-val {
     color: #4ade80;
     font-weight: 700;
+    text-shadow: 0 0 10px rgba(74,222,128,0.5);
 }
 
 .nf-status-dot {
@@ -203,24 +233,24 @@ function injectStyles() {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 8px;
     background: rgba(220, 38, 38, 0.15);
-    border: 1px solid rgba(220, 38, 38, 0.3);
+    border: 1px solid rgba(220, 38, 38, 0.35);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #fff;
 }
 
 /* Terminal log */
 .nf-terminal {
-    padding: 14px 20px;
-    min-height: 100px;
+    padding: 12px 18px;
+    min-height: 85px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px;
-    line-height: 1.8;
+    font-size: 11px;
+    line-height: 1.9;
     color: rgba(255, 255, 255, 0.7);
 }
 
@@ -231,21 +261,10 @@ function injectStyles() {
     transition: color 0.3s, opacity 0.3s;
 }
 
-.nf-term-line.nf-term-active {
-    color: #fff;
-}
-
-.nf-term-line.nf-term-done {
-    color: rgba(34, 197, 94, 0.7);
-}
-
-.nf-term-line.nf-term-error {
-    color: rgba(239, 68, 68, 0.8);
-}
-
-.nf-term-line.nf-term-waiting {
-    color: rgba(255, 255, 255, 0.25);
-}
+.nf-term-line.nf-term-active { color: #fff; }
+.nf-term-line.nf-term-done { color: rgba(34, 197, 94, 0.7); }
+.nf-term-line.nf-term-error { color: rgba(239, 68, 68, 0.8); }
+.nf-term-line.nf-term-waiting { color: rgba(255, 255, 255, 0.25); }
 
 .nf-term-prefix {
     color: rgba(220, 38, 38, 0.7);
@@ -253,14 +272,12 @@ function injectStyles() {
     user-select: none;
 }
 
-.nf-term-active .nf-term-prefix {
-    color: #dc2626;
-}
+.nf-term-active .nf-term-prefix { color: #dc2626; }
 
 .nf-term-status {
     margin-left: auto;
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 9.5px;
+    font-weight: 600;
     padding: 1px 6px;
     border-radius: 4px;
     letter-spacing: 0.5px;
@@ -293,45 +310,49 @@ function injectStyles() {
     align-items: flex-end;
     justify-content: center;
     gap: 2px;
-    height: 40px;
-    padding: 8px 20px 14px;
+    height: 36px;
+    padding: 6px 18px 12px;
     border-top: 1px solid rgba(220, 38, 38, 0.15);
 }
 
 .nf-viz-bar {
-    width: 4px;
+    width: 3.5px;
     min-height: 3px;
-    background: linear-gradient(to top, rgba(220, 38, 38, 0.6), rgba(220, 38, 38, 0.9));
+    background: linear-gradient(to top, rgba(220, 38, 38, 0.5), rgba(220, 38, 38, 0.85));
     border-radius: 2px 2px 0 0;
     transition: height 0.15s ease;
 }
 
 .nf-viz-bar.nf-viz-accent {
-    background: linear-gradient(to top, rgba(251, 146, 60, 0.6), rgba(251, 146, 60, 0.9));
+    background: linear-gradient(to top, rgba(251, 146, 60, 0.5), rgba(251, 146, 60, 0.85));
 }
 
-/* ─── Corner Modules ─── */
+/* ─── Cross-Pattern Modules ─── */
 .nf-module {
     position: absolute;
-    width: 240px;
-    background: rgba(12, 12, 18, 0.75);
-    border: 1px solid rgba(220, 38, 38, 0.2);
-    border-radius: 12px;
-    padding: 14px 16px;
-    backdrop-filter: blur(8px);
+    width: 220px;
+    background: rgba(10, 8, 16, 0.9);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    border-radius: 10px;
+    padding: 12px 14px;
+    backdrop-filter: blur(12px);
     overflow: hidden;
     animation: nf-module-in 0.5s ease-out both;
     transition: border-color 0.4s, box-shadow 0.4s;
+    z-index: 5;
 }
 
 .nf-module.nf-active {
-    border-color: rgba(220, 38, 38, 0.5);
-    box-shadow: 0 0 25px rgba(220, 38, 38, 0.12), inset 0 0 20px rgba(220, 38, 38, 0.04);
+    border-color: rgba(220, 38, 38, 0.6);
+    box-shadow:
+        0 0 30px rgba(220, 38, 38, 0.15),
+        0 0 60px rgba(220, 38, 38, 0.08),
+        inset 0 0 20px rgba(220, 38, 38, 0.04);
 }
 
 .nf-module.nf-done {
-    border-color: rgba(34, 197, 94, 0.35);
-    box-shadow: 0 0 15px rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
 }
 
 .nf-module::before {
@@ -339,7 +360,7 @@ function injectStyles() {
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.5), transparent);
+    background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.6), transparent);
     animation: nf-scanline 3s ease-in-out infinite;
 }
 
@@ -353,33 +374,55 @@ function injectStyles() {
 }
 
 @keyframes nf-module-in {
-    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.nf-mod-tl { top: 40px; left: 40px; animation-delay: 0.1s; }
-.nf-mod-tr { top: 40px; right: 40px; animation-delay: 0.2s; }
-.nf-mod-bl { bottom: 70px; left: 40px; animation-delay: 0.3s; }
-.nf-mod-br { bottom: 70px; right: 40px; animation-delay: 0.4s; }
+/* Cross layout positions — tight around center (matching reference image) */
+.nf-mod-tl {
+    top: 50%;
+    left: 50%;
+    transform: translate(calc(-100% - 205px), calc(-100% - 12px));
+    animation-delay: 0.1s;
+}
+.nf-mod-tr {
+    top: 50%;
+    left: 50%;
+    transform: translate(205px, calc(-100% - 12px));
+    animation-delay: 0.2s;
+}
+.nf-mod-bl {
+    top: 50%;
+    left: 50%;
+    transform: translate(calc(-100% - 205px), 12px);
+    animation-delay: 0.3s;
+}
+.nf-mod-br {
+    top: 50%;
+    left: 50%;
+    transform: translate(205px, 12px);
+    animation-delay: 0.4s;
+}
 
 .nf-mod-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .nf-mod-title {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 1.2px;
     color: #dc2626;
     text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(220,38,38,0.4);
 }
 
 .nf-mod-pct {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     font-family: 'JetBrains Mono', monospace;
     color: rgba(255, 255, 255, 0.8);
@@ -389,9 +432,9 @@ function injectStyles() {
 .nf-step {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 3px 0;
-    font-size: 10.5px;
+    gap: 6px;
+    padding: 2.5px 0;
+    font-size: 10px;
     color: rgba(255, 255, 255, 0.3);
     transition: color 0.3s;
     font-family: 'Inter', sans-serif;
@@ -434,7 +477,7 @@ function injectStyles() {
     background: rgba(255, 255, 255, 0.06);
     border-radius: 2px;
     overflow: hidden;
-    max-width: 70px;
+    max-width: 60px;
 }
 
 .nf-progress-fill {
@@ -449,10 +492,10 @@ function injectStyles() {
 }
 
 .nf-mod-progress {
-    height: 3px;
+    height: 2.5px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 2px;
-    margin-top: 10px;
+    margin-top: 8px;
     overflow: hidden;
 }
 
@@ -468,29 +511,53 @@ function injectStyles() {
     background: linear-gradient(90deg, #22c55e, #4ade80);
 }
 
-/* ─── Footer ─── */
+/* ─── Footer with brand logo ─── */
 .nf-footer {
     position: absolute;
-    bottom: 18px;
+    bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
     text-align: center;
     z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
 .nf-brand {
-    font-size: 11px;
+    font-family: 'Orbitron', 'JetBrains Mono', monospace;
+    font-size: 16px;
     font-weight: 800;
-    letter-spacing: 4px;
-    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 6px;
+    color: rgba(255, 255, 255, 0.35);
     text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(220,38,38,0.15);
+}
+
+.nf-brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid rgba(220,38,38,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15,10,20,0.8);
+    box-shadow: 0 0 20px rgba(220,38,38,0.15);
+}
+
+.nf-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .nf-timer {
     font-size: 10px;
     color: rgba(255, 255, 255, 0.2);
     font-family: 'JetBrains Mono', monospace;
-    margin-top: 3px;
+    margin-top: 2px;
     letter-spacing: 1px;
 }
 
@@ -517,19 +584,48 @@ function injectStyles() {
     color: #fff;
 }
 
-/* ─── Decorative Lines ─── */
-.nf-hline {
-    position: absolute;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.12), transparent);
-    pointer-events: none;
+/* ─── Glowing Pipe Animations ─── */
+@keyframes nf-pipe-flow {
+    0% { stroke-dashoffset: 40; }
+    100% { stroke-dashoffset: 0; }
 }
 
-.nf-vline {
-    position: absolute;
-    width: 1px;
-    background: linear-gradient(180deg, transparent, rgba(220, 38, 38, 0.1), transparent);
-    pointer-events: none;
+@keyframes nf-pipe-glow-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+.nf-pipe-base {
+    fill: none;
+    stroke: rgba(220, 38, 38, 0.25);
+    stroke-width: 4px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.nf-pipe-glow {
+    fill: none;
+    stroke: rgba(220, 38, 38, 0.4);
+    stroke-width: 12px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    filter: blur(6px);
+    animation: nf-pipe-glow-pulse 3s ease-in-out infinite;
+}
+
+.nf-pipe-flow {
+    fill: none;
+    stroke: url(#nf-pipe-gradient);
+    stroke-width: 3px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 10 14;
+    animation: nf-pipe-flow 1.2s linear infinite;
+}
+
+.nf-pipe-dot {
+    fill: rgba(220, 38, 38, 0.9);
+    filter: drop-shadow(0 0 6px rgba(220,38,38,0.9));
 }
 
 /* ─── Particles ─── */
@@ -556,7 +652,7 @@ function injectStyles() {
     to { opacity: 0; }
 }
 
-/* ─── Hidden state (visibility toggle, keeps DOM alive) ─── */
+/* ─── Hidden state ─── */
 #netflow-engine-overlay.nf-hidden {
     opacity: 0;
     pointer-events: none;
@@ -569,7 +665,7 @@ function injectStyles() {
     transition: opacity 0.4s ease;
 }
 
-/* ─── Floating Toggle Button (shows when overlay is hidden) ─── */
+/* ─── Floating Toggle Button ─── */
 #nf-toggle-btn {
     position: fixed;
     bottom: 20px;
@@ -619,6 +715,22 @@ function injectStyles() {
     0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.3), 0 4px 12px rgba(0,0,0,0.5); }
     50% { box-shadow: 0 0 30px rgba(220, 38, 38, 0.5), 0 4px 16px rgba(0,0,0,0.5); }
 }
+
+/* ─── Corner decorative brackets ─── */
+.nf-corner-deco {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-color: rgba(220, 38, 38, 0.15);
+    border-style: solid;
+    border-width: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+.nf-corner-deco.nf-deco-tl { top: 8px; left: 8px; border-top-width: 1px; border-left-width: 1px; }
+.nf-corner-deco.nf-deco-tr { top: 8px; right: 8px; border-top-width: 1px; border-right-width: 1px; }
+.nf-corner-deco.nf-deco-bl { bottom: 8px; left: 8px; border-bottom-width: 1px; border-left-width: 1px; }
+.nf-corner-deco.nf-deco-br { bottom: 8px; right: 8px; border-bottom-width: 1px; border-right-width: 1px; }
     `;
     document.head.appendChild(styleEl);
 }
@@ -650,9 +762,126 @@ function getTerminalStatus(moduleId: string): { text: string; cls: string } {
 
 // ── DOM Builder ────────────────────────────────────────────────────────────
 
+/**
+ * Build SVG pipe connections between modules and center core.
+ * Creates curved glowing pipes like the reference image.
+ * Pipes use relative viewport coordinates (0-1000 viewBox).
+ */
+function buildPipesSVG(): SVGSVGElement {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "nf-pipes-svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+
+    // Gradient definition for flowing pipes
+    const defs = document.createElementNS(ns, "defs");
+    const grad = document.createElementNS(ns, "linearGradient");
+    grad.id = "nf-pipe-gradient";
+    const stop1 = document.createElementNS(ns, "stop");
+    stop1.setAttribute("offset", "0%");
+    stop1.setAttribute("stop-color", "rgba(220,38,38,0.9)");
+    const stop2 = document.createElementNS(ns, "stop");
+    stop2.setAttribute("offset", "50%");
+    stop2.setAttribute("stop-color", "rgba(251,146,60,0.8)");
+    const stop3 = document.createElementNS(ns, "stop");
+    stop3.setAttribute("offset", "100%");
+    stop3.setAttribute("stop-color", "rgba(220,38,38,0.9)");
+    grad.appendChild(stop1);
+    grad.appendChild(stop2);
+    grad.appendChild(stop3);
+    defs.appendChild(grad);
+
+    // Glow filter
+    const filter = document.createElementNS(ns, "filter");
+    filter.id = "nf-glow";
+    filter.setAttribute("x", "-50%");
+    filter.setAttribute("y", "-50%");
+    filter.setAttribute("width", "200%");
+    filter.setAttribute("height", "200%");
+    const blur = document.createElementNS(ns, "feGaussianBlur");
+    blur.setAttribute("stdDeviation", "3");
+    blur.setAttribute("result", "coloredBlur");
+    const merge = document.createElementNS(ns, "feMerge");
+    const m1 = document.createElementNS(ns, "feMergeNode");
+    m1.setAttribute("in", "coloredBlur");
+    const m2 = document.createElementNS(ns, "feMergeNode");
+    m2.setAttribute("in", "SourceGraphic");
+    merge.appendChild(m1);
+    merge.appendChild(m2);
+    filter.appendChild(blur);
+    filter.appendChild(merge);
+    defs.appendChild(filter);
+    svg.appendChild(defs);
+
+    // Helper to add a 3-layer pipe (glow + base + animated flow)
+    function addPipe(d: string, delay: number) {
+        const glow = document.createElementNS(ns, "path");
+        glow.setAttribute("d", d);
+        glow.setAttribute("class", "nf-pipe-glow");
+        glow.style.animationDelay = `${delay * 0.5}s`;
+        svg.appendChild(glow);
+
+        const base = document.createElementNS(ns, "path");
+        base.setAttribute("d", d);
+        base.setAttribute("class", "nf-pipe-base");
+        svg.appendChild(base);
+
+        const flow = document.createElementNS(ns, "path");
+        flow.setAttribute("d", d);
+        flow.setAttribute("class", "nf-pipe-flow");
+        flow.style.animationDelay = `${delay * 0.3}s`;
+        svg.appendChild(flow);
+    }
+
+    // Pipe paths using percentage coordinates (0-100 viewBox, preserveAspectRatio="none")
+    // Layout: modules at ±10.7% from center, core ±9.9% from center
+    // Module inner edges: ~39% and ~61%. Core edges: ~40% and ~60%
+    // Vertical: modules at ±1% from center, core at ±12% from center
+
+    // 4 diagonal pipes: module inner corner → core corner (dramatic curves like reference image)
+    addPipe("M 39 44 C 39 47, 40 48, 40.5 46", 0);    // TL → Core TL
+    addPipe("M 61 44 C 61 47, 60 48, 59.5 46", 1);    // TR → Core TR
+    addPipe("M 39 56 C 39 53, 40 52, 40.5 54", 2);    // BL → Core BL
+    addPipe("M 61 56 C 61 53, 60 52, 59.5 54", 3);    // BR → Core BR
+
+    // Horizontal cross-connections: TL↔TR top arc, BL↔BR bottom arc
+    addPipe("M 39 38 C 44 30, 56 30, 61 38", 4);      // Top arc connecting TL-TR
+    addPipe("M 39 62 C 44 70, 56 70, 61 62", 5);      // Bottom arc connecting BL-BR
+
+    // Vertical side connections: TL↔BL left, TR↔BR right
+    addPipe("M 28 46 C 23 50, 23 50, 28 54", 6);      // Left arc TL-BL
+    addPipe("M 72 46 C 77 50, 77 50, 72 54", 7);      // Right arc TR-BR
+
+    // Glowing junction dots at pipe endpoints (r set via CSS)
+    const junctions: [number, number][] = [
+        [40.5, 46], [59.5, 46], [40.5, 54], [59.5, 54],  // core corners
+        [39, 44], [61, 44], [39, 56], [61, 56],           // module inner corners
+        [39, 38], [61, 38], [39, 62], [61, 62],           // cross-arc endpoints
+        [28, 46], [72, 46], [28, 54], [72, 54],           // side-arc endpoints
+    ];
+    junctions.forEach(([cx, cy]) => {
+        const dot = document.createElementNS(ns, "circle");
+        dot.setAttribute("cx", String(cx));
+        dot.setAttribute("cy", String(cy));
+        dot.setAttribute("r", "0.35");
+        dot.setAttribute("class", "nf-pipe-dot");
+        svg.appendChild(dot);
+    });
+
+    return svg;
+}
+
 function buildOverlay(): HTMLDivElement {
     const root = document.createElement("div");
     root.id = "netflow-engine-overlay";
+
+    // Corner decorative brackets
+    ["nf-deco-tl", "nf-deco-tr", "nf-deco-bl", "nf-deco-br"].forEach(cls => {
+        const d = document.createElement("div");
+        d.className = `nf-corner-deco ${cls}`;
+        root.appendChild(d);
+    });
 
     // Close button (toggles overlay visibility, doesn't destroy)
     const closeBtn = document.createElement("button");
@@ -664,6 +893,9 @@ function buildOverlay(): HTMLDivElement {
     // Layout wrapper
     const layout = document.createElement("div");
     layout.className = "nf-layout";
+
+    // SVG Pipe connections (behind everything)
+    layout.appendChild(buildPipesSVG());
 
     // Central Core Monitor
     const core = document.createElement("div");
@@ -704,7 +936,7 @@ function buildOverlay(): HTMLDivElement {
     const viz = document.createElement("div");
     viz.className = "nf-visualizer";
     viz.id = "nf-visualizer";
-    const BAR_COUNT = 32;
+    const BAR_COUNT = 30;
     for (let i = 0; i < BAR_COUNT; i++) {
         const bar = document.createElement("div");
         bar.className = `nf-viz-bar${i % 5 === 0 ? " nf-viz-accent" : ""}`;
@@ -715,7 +947,7 @@ function buildOverlay(): HTMLDivElement {
 
     layout.appendChild(core);
 
-    // Corner modules
+    // Cross-pattern modules (TL, TR, BL, BR)
     const positions = ["nf-mod-tl", "nf-mod-tr", "nf-mod-bl", "nf-mod-br"];
     modules.forEach((mod, i) => {
         const el = buildModule(mod);
@@ -726,44 +958,32 @@ function buildOverlay(): HTMLDivElement {
 
     root.appendChild(layout);
 
-    // Decorative horizontal lines
-    [15, 35, 65, 85].forEach((top, i) => {
-        const line = document.createElement("div");
-        line.className = "nf-hline";
-        line.style.top = `${top}%`;
-        line.style.left = "0";
-        line.style.width = "100%";
-        line.style.opacity = `${0.3 + i * 0.1}`;
-        root.appendChild(line);
-    });
-
-    // Decorative vertical lines
-    [20, 80].forEach((left) => {
-        const line = document.createElement("div");
-        line.className = "nf-vline";
-        line.style.left = `${left}%`;
-        line.style.top = "0";
-        line.style.height = "100%";
-        root.appendChild(line);
-    });
-
     // Floating particles
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
         const p = document.createElement("div");
         p.className = "nf-particle";
-        p.style.left = `${5 + Math.random() * 90}%`;
-        p.style.bottom = `${Math.random() * 20}%`;
+        p.style.left = `${10 + Math.random() * 80}%`;
+        p.style.bottom = `${Math.random() * 30}%`;
         p.style.animationDuration = `${3 + Math.random() * 5}s`;
         p.style.animationDelay = `${Math.random() * 4}s`;
-        if (Math.random() > 0.6) p.style.background = "rgba(251, 146, 60, 0.4)";
+        if (Math.random() > 0.5) p.style.background = "rgba(251, 146, 60, 0.4)";
         root.appendChild(p);
     }
 
-    // Footer
+    // Footer with brand
     const footer = document.createElement("div");
     footer.className = "nf-footer";
     footer.innerHTML = `
-        <div class="nf-brand">NETFLOW AI ENGINE</div>
+        <div class="nf-brand-row">
+            <div class="nf-brand">NETFLOW AI ENGINE</div>
+            <div class="nf-brand-logo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(220,38,38,0.6)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 2 L12 22 M2 12 L22 12"/>
+                    <circle cx="12" cy="12" r="4" fill="rgba(220,38,38,0.2)"/>
+                </svg>
+            </div>
+        </div>
         <div class="nf-timer" id="nf-timer">00:00</div>
     `;
     root.appendChild(footer);

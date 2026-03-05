@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflow AI Engine - Overlay Test</title>
+    <style>
+        body { margin: 0; background: #111; color: #fff; font-family: sans-serif; }
+        .test-controls {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            z-index: 9999999; display: flex; gap: 8px; background: rgba(0,0,0,0.8);
+            padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .test-controls button {
+            padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(220,38,38,0.4);
+            background: rgba(220,38,38,0.1); color: #f87171; cursor: pointer; font-size: 12px;
+        }
+        .test-controls button:hover { background: rgba(220,38,38,0.25); }
+    </style>
+</head>
+<body>
+    <div class="test-controls">
+        <button onclick="testShow()">Show Overlay</button>
+        <button onclick="testStep1()">Step: ASSET_INGEST</button>
+        <button onclick="testStep2()">Step: AI_IMAGE</button>
+        <button onclick="testStep3()">Step: VIDEO</button>
+        <button onclick="testStep4()">Step: RENDER</button>
+        <button onclick="testComplete()">Complete All</button>
+        <button onclick="testHide()">Hide Overlay</button>
+    </div>
+    <script type="module">
+        // Inline the overlay module for testing
+        import { showOverlay, hideOverlay, updateStep, completeOverlay } from './src/netflow-overlay.ts';
+
+        window.testShow = () => showOverlay();
+        window.testHide = () => hideOverlay();
+
+        window.testStep1 = () => {
+            updateStep('settings', 'active');
+            setTimeout(() => { updateStep('settings', 'done'); updateStep('upload-char', 'active'); }, 800);
+            setTimeout(() => { updateStep('upload-char', 'done'); updateStep('upload-prod', 'active'); }, 1600);
+            setTimeout(() => { updateStep('upload-prod', 'done'); }, 2400);
+        };
+
+        window.testStep2 = () => {
+            updateStep('img-prompt', 'active');
+            setTimeout(() => { updateStep('img-prompt', 'done'); updateStep('img-generate', 'active'); }, 600);
+            setTimeout(() => { updateStep('img-generate', 'done'); updateStep('img-wait', 'active', 30); }, 1200);
+            setTimeout(() => { updateStep('img-wait', 'active', 70); }, 2000);
+            setTimeout(() => { updateStep('img-wait', 'done', 100); }, 2800);
+        };
+
+        window.testStep3 = () => {
+            updateStep('animate', 'active');
+            setTimeout(() => { updateStep('animate', 'done'); updateStep('vid-prompt', 'active'); }, 600);
+            setTimeout(() => { updateStep('vid-prompt', 'done'); updateStep('vid-generate', 'active'); }, 1200);
+            setTimeout(() => { updateStep('vid-generate', 'done'); updateStep('vid-wait', 'active', 20); }, 1800);
+            setTimeout(() => { updateStep('vid-wait', 'active', 60); }, 2600);
+            setTimeout(() => { updateStep('vid-wait', 'done', 100); }, 3400);
+        };
+
+        window.testStep4 = () => {
+            updateStep('download', 'active');
+            setTimeout(() => { updateStep('download', 'done'); updateStep('upscale', 'active', 40); }, 800);
+            setTimeout(() => { updateStep('upscale', 'active', 80); }, 1600);
+            setTimeout(() => { updateStep('upscale', 'done', 100); updateStep('open', 'active'); }, 2400);
+            setTimeout(() => { updateStep('open', 'done'); }, 3000);
+        };
+
+        window.testComplete = () => completeOverlay(5000);
+
+        // Auto-show on load
+        showOverlay();
+    </script>
+</body>
+</html>

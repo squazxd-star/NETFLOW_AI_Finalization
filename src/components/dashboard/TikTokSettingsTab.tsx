@@ -94,7 +94,7 @@ const TikTokSettingsTab = () => {
                     description: count > 1
                         ? `พบ ${count} สินค้า - "${result.product.name}" และอื่นๆ` 
                         : `สินค้า "${result.product.name}" ถูกบันทึกแล้ว`,
-                    className: "bg-green-600 text-white"
+                    className: "toast-theme-bg"
                 });
                 await loadSyncedProducts();
                 setActiveProductId(result.product.id);
@@ -136,7 +136,7 @@ const TikTokSettingsTab = () => {
         toast({
             title: "✅ เลือกสินค้าแล้ว",
             description: `"${product.name}" จะถูกใช้ในวิดีโอถัดไป`,
-            className: "bg-green-600 text-white"
+            className: "toast-theme-bg"
         });
     };
 
@@ -168,7 +168,7 @@ const TikTokSettingsTab = () => {
             toast({
                 title: "✅ บันทึกสำเร็จ",
                 description: "การตั้งค่า TikTok ถูกบันทึกแล้ว พร้อมใช้งานโพสต์อัตโนมัติ",
-                className: "bg-green-600 text-white"
+                className: "toast-theme-bg"
             });
         } catch {
             toast({

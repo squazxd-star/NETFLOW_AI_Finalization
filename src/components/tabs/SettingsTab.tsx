@@ -37,7 +37,7 @@ export function SettingsTab() {
                 title: "Settings Saved",
                 description: "Your API Key is saved locally.",
                 variant: "default",
-                className: "bg-green-600 text-white"
+                className: "toast-theme-bg"
             });
         } catch (error) {
             toast({

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Terminal, Activity, Shield } from "lucide-react";
 import { ConsoleLogSectionProps } from "./types";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
     const bottomRef = useRef<HTMLDivElement>(null);
     const [expanded, setExpanded] = useState(false);
+    const { config: themeConfig } = useTheme();
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,7 +37,7 @@ const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
                 className="absolute inset-0 opacity-[0.04] pointer-events-none rounded-xl"
                 style={{
                     backgroundImage:
-                        "linear-gradient(rgba(220,38,38,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(220,38,38,0.5) 1px, transparent 1px)",
+                        `linear-gradient(rgba(${themeConfig.hexRgb},0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(${themeConfig.hexRgb},0.5) 1px, transparent 1px)`,
                     backgroundSize: "16px 16px",
                 }}
             />
@@ -44,30 +46,30 @@ const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
             <div className="absolute inset-0 pointer-events-none rounded-xl nf-scanlines" />
 
             {/* Outer Glow Frame (hover) */}
-            <div className="absolute -inset-[1px] rounded-xl bg-gradient-to-r from-red-600/0 via-red-600/15 to-red-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="absolute -inset-[1px] rounded-xl bg-gradient-to-r from-neon-red/0 via-neon-red/15 to-neon-red/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
             {/* Header */}
-            <div className="relative z-10 flex items-center gap-2 px-3.5 py-2 border-b border-red-500/15">
+            <div className="relative z-10 flex items-center gap-2 px-3.5 py-2 border-b border-neon-red/15">
                 {/* Pulsing dot */}
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40" />
-                    <span className="relative rounded-full h-2.5 w-2.5 bg-red-600" style={{ boxShadow: "0 0 8px rgba(220,38,38,0.7)" }} />
+                    <span className="absolute inset-0 rounded-full bg-neon-red animate-ping opacity-40" />
+                    <span className="relative rounded-full h-2.5 w-2.5 bg-neon-red" style={{ boxShadow: `0 0 8px rgba(${themeConfig.hexRgb},0.7)` }} />
                 </span>
 
-                <Terminal className="w-3.5 h-3.5 text-red-500 shrink-0" style={{ filter: "drop-shadow(0 0 4px rgba(220,38,38,0.5))" }} />
-                <span className="text-red-500 font-bold tracking-[0.15em] text-[11px] uppercase" style={{ textShadow: "0 0 8px rgba(220,38,38,0.4)" }}>
+                <Terminal className="w-3.5 h-3.5 text-neon-red shrink-0" style={{ filter: `drop-shadow(0 0 4px rgba(${themeConfig.hexRgb},0.5))` }} />
+                <span className="text-neon-red font-bold tracking-[0.15em] text-[11px] uppercase" style={{ textShadow: `0 0 8px rgba(${themeConfig.hexRgb},0.4)` }}>
                     Netflow Console
                 </span>
 
                 <span className="ml-auto flex items-center gap-2">
-                    <span className="text-red-500/30 text-[9px] font-mono tracking-wider hidden group-hover:inline">EN-PROC_v2.0</span>
+                    <span className="text-neon-red/30 text-[9px] font-mono tracking-wider hidden group-hover:inline">EN-PROC_v2.0</span>
                     <button
                         onClick={() => setExpanded(!expanded)}
-                        className="text-[9px] text-red-500/40 hover:text-red-500 transition-colors font-mono"
+                        className="text-[9px] text-neon-red/40 hover:text-neon-red transition-colors font-mono"
                     >
                         {expanded ? "▾ Collapse" : "▸ Expand"}
                     </button>
-                    <span className="text-red-500/30 text-[9px] font-mono">{logs.length}</span>
+                    <span className="text-neon-red/30 text-[9px] font-mono">{logs.length}</span>
                 </span>
             </div>
 
@@ -85,21 +87,21 @@ const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
                         <span className="nf-log-text">{log}</span>
                         {/* Underline glow for latest entry */}
                         {index === logs.length - 1 && (
-                            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-red-500/40 via-red-500/20 to-transparent nf-underline-sweep" />
+                            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-neon-red/40 via-neon-red/20 to-transparent nf-underline-sweep" />
                         )}
                     </div>
                 ))}
 
                 {/* Blinking cursor */}
                 <div className="flex items-center gap-1.5 pt-1">
-                    <span className="text-red-500/25 text-[10px] italic">Waiting for next node...</span>
+                    <span className="text-neon-red/25 text-[10px] italic">Waiting for next node...</span>
                     <span className="nf-cursor" />
                 </div>
                 <div ref={bottomRef} />
             </div>
 
             {/* Footer Status Bar */}
-            <div className="relative z-10 flex items-center justify-between px-3.5 py-1.5 border-t border-red-500/10 text-[8px] text-red-500/30 uppercase tracking-[0.2em] font-mono">
+            <div className="relative z-10 flex items-center justify-between px-3.5 py-1.5 border-t border-neon-red/10 text-[8px] text-neon-red/30 uppercase tracking-[0.2em] font-mono">
                 <span className="flex items-center gap-1">
                     <Activity className="w-2.5 h-2.5" />
                     Buffer: 1024kb

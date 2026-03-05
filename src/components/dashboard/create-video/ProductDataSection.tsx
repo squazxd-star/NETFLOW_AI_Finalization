@@ -54,7 +54,7 @@ const ProductDataSection = ({
         toast({
             title: "✅ เลือกสินค้าแล้ว",
             description: `"${product.name}" ถูกใช้เป็นข้อมูลสินค้า`,
-            className: "bg-green-600 text-white"
+            className: "toast-theme-bg"
         });
     };
 
