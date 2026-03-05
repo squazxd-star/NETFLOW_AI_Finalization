@@ -193,7 +193,7 @@ ${sceneCount === 3 ? "ฉาก 3: [คำพูด 15-25 คำ]" : ""}`;
 
             if (provider === 'gemini') {
                 const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
                 if (productImage) {
                     // Vision mode: send product image for smarter analysis

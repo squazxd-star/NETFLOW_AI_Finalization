@@ -588,10 +588,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     const sCx = sRect.left + sRect.width / 2;
     const sCy = sRect.top + sRect.height / 2;
     const sOpts = { bubbles: true, cancelable: true, clientX: sCx, clientY: sCy, button: 0 };
-    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
     await sleep(80);
-    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("Clicked settings button");
@@ -650,10 +650,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         } else {
             const bRect = imageTabBtn.getBoundingClientRect();
             const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
-            imageTabBtn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1 }));
+            imageTabBtn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1, pointerType: "mouse" }));
             imageTabBtn.dispatchEvent(new MouseEvent("mousedown", bOpts));
             await sleep(80);
-            imageTabBtn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1 }));
+            imageTabBtn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1, pointerType: "mouse" }));
             imageTabBtn.dispatchEvent(new MouseEvent("mouseup", bOpts));
             imageTabBtn.dispatchEvent(new MouseEvent("click", bOpts));
             selectedImage = true;
@@ -670,10 +670,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         if (txt === orientationText || txt.toLowerCase() === (orientation === "horizontal" ? "landscape" : "portrait")) {
             const oRect = btn.getBoundingClientRect();
             const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
-            btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1 }));
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mousedown", oOpts));
             await sleep(80);
-            btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1 }));
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
             btn.dispatchEvent(new MouseEvent("click", oOpts));
             LOG(`Selected orientation: ${orientationText}`);
@@ -689,10 +689,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         if (txt === countText) {
             const cRect = btn.getBoundingClientRect();
             const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
-            btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1 }));
+            btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mousedown", cOpts));
             await sleep(80);
-            btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1 }));
+            btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
             btn.dispatchEvent(new MouseEvent("click", cOpts));
             LOG(`Selected count: ${countText}`);
@@ -706,10 +706,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
     await sleep(300);
     // Also try clicking the settings button again to toggle it closed
-    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
     await sleep(80);
-    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1 }));
+    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("Closed settings panel");
@@ -757,14 +757,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     /** Check if any upload is still in progress (look for % text on thumbnails) */
     const isUploadInProgress = (): string | null => {
-        // Look for any element showing upload percentage like "40%", "100%"
         const allElements = document.querySelectorAll<HTMLElement>("span, div, p, label");
         for (const el of allElements) {
             const txt = (el.textContent || "").trim();
-            // Match patterns like "40%", "100%", "5%"
             if (/^\d{1,3}%$/.test(txt)) {
+                // 100% means upload finished — treat as complete
+                if (txt === "100%") return null;
                 const rect = el.getBoundingClientRect();
-                // Must be visible and in the content area (not some random UI element)
                 if (rect.width > 0 && rect.height > 0 && rect.top > 0 && rect.top < window.innerHeight) {
                     return txt;
                 }
@@ -779,9 +778,20 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         await sleep(2000); // initial wait for % to appear
         const start = Date.now();
         const timeout = 60000;
+        let lastPct = "";
+        let lastPctChangeTime = Date.now();
+        const staleTimeout = 15000; // if % unchanged for 15s, consider done
         while (Date.now() - start < timeout) {
             const pct = isUploadInProgress();
             if (pct) {
+                if (pct !== lastPct) {
+                    lastPct = pct;
+                    lastPctChangeTime = Date.now();
+                } else if (Date.now() - lastPctChangeTime > staleTimeout) {
+                    LOG(`✅ ${label} upload — % stuck at ${pct} for ${staleTimeout / 1000}s, treating as complete`);
+                    await sleep(1000);
+                    return;
+                }
                 LOG(`Upload in progress: ${pct} — waiting...`);
                 await sleep(1500);
             } else {
@@ -882,10 +892,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         const cy = rect.top + rect.height / 2;
         const evtOpts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
 
-        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
         await sleep(80);
-        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
         LOG("Dispatched full click sequence on Generate button");
@@ -893,10 +903,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
         // Safety: try again after 500ms if first didn't register
         await sleep(500);
-        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
         await sleep(80);
-        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1 }));
+        genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
         LOG("Dispatched safety retry click on Generate button");
@@ -1048,10 +1058,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const dotsCy = dotsRect.top + dotsRect.height / 2;
                 const dotsOpts = { bubbles: true, cancelable: true, clientX: dotsCx, clientY: dotsCy, button: 0 };
 
-                dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dotsOpts, pointerId: 1 }));
+                dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dotsOpts, pointerId: 1, pointerType: "mouse" }));
                 dotsBtn.dispatchEvent(new MouseEvent("mousedown", dotsOpts));
                 await sleep(80);
-                dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dotsOpts, pointerId: 1 }));
+                dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dotsOpts, pointerId: 1, pointerType: "mouse" }));
                 dotsBtn.dispatchEvent(new MouseEvent("mouseup", dotsOpts));
                 dotsBtn.dispatchEvent(new MouseEvent("click", dotsOpts));
                 LOG("Clicked 3-dots button");
@@ -1080,10 +1090,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const animCy = animRect.top + animRect.height / 2;
                     const animOpts = { bubbles: true, cancelable: true, clientX: animCx, clientY: animCy, button: 0 };
 
-                    animateBtn.dispatchEvent(new PointerEvent("pointerdown", { ...animOpts, pointerId: 1 }));
+                    animateBtn.dispatchEvent(new PointerEvent("pointerdown", { ...animOpts, pointerId: 1, pointerType: "mouse" }));
                     animateBtn.dispatchEvent(new MouseEvent("mousedown", animOpts));
                     await sleep(80);
-                    animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1 }));
+                    animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1, pointerType: "mouse" }));
                     animateBtn.dispatchEvent(new MouseEvent("mouseup", animOpts));
                     animateBtn.dispatchEvent(new MouseEvent("click", animOpts));
                     LOG("✅ Clicked 'ทำให้เป็นภาพเคลื่อนไหว' — switching to video mode");
@@ -1148,10 +1158,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const vCy = vRect.top + vRect.height / 2;
                 const vOpts = { bubbles: true, cancelable: true, clientX: vCx, clientY: vCy, button: 0 };
 
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mousedown", vOpts));
                 await sleep(80);
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
                 videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
                 LOG("✅ Clicked Generate for video — video generation started!");
@@ -1160,10 +1170,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 // Safety retry after 500ms
                 await sleep(500);
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mousedown", vOpts));
                 await sleep(80);
-                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
                 videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
                 LOG("Dispatched safety retry click on video Generate button");
@@ -1398,10 +1408,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const cy = rect.top + rect.height / 2;
             const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
 
-            card.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1 }));
+            card.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mousedown", opts));
             await sleep(80);
-            card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1 }));
+            card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mouseup", opts));
             card.dispatchEvent(new MouseEvent("click", opts));
             LOG("Clicked video card");
@@ -1454,10 +1464,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Click 3-dots
             const dRect = dotsBtn.getBoundingClientRect();
             const dOpts = { bubbles: true, cancelable: true, clientX: dRect.left + dRect.width / 2, clientY: dRect.top + dRect.height / 2, button: 0 };
-            dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1 }));
+            dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1, pointerType: "mouse" }));
             dotsBtn.dispatchEvent(new MouseEvent("mousedown", dOpts));
             await sleep(80);
-            dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1 }));
+            dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1, pointerType: "mouse" }));
             dotsBtn.dispatchEvent(new MouseEvent("mouseup", dOpts));
             dotsBtn.dispatchEvent(new MouseEvent("click", dOpts));
             LOG("Clicked 3-dots menu");
@@ -1481,10 +1491,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             const dlRect = downloadBtn.getBoundingClientRect();
             const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
-            downloadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1 }));
+            downloadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
             downloadBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
             await sleep(80);
-            downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1 }));
+            downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
             downloadBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             downloadBtn.dispatchEvent(new MouseEvent("click", dlOpts));
             LOG("Clicked ดาวน์โหลด");
@@ -1515,10 +1525,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             if (btn1080) {
                 const hRect = btn1080.getBoundingClientRect();
                 const hOpts = { bubbles: true, cancelable: true, clientX: hRect.left + hRect.width / 2, clientY: hRect.top + hRect.height / 2, button: 0 };
-                btn1080.dispatchEvent(new PointerEvent("pointerdown", { ...hOpts, pointerId: 1 }));
+                btn1080.dispatchEvent(new PointerEvent("pointerdown", { ...hOpts, pointerId: 1, pointerType: "mouse" }));
                 btn1080.dispatchEvent(new MouseEvent("mousedown", hOpts));
                 await sleep(80);
-                btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1 }));
+                btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1, pointerType: "mouse" }));
                 btn1080.dispatchEvent(new MouseEvent("mouseup", hOpts));
                 btn1080.dispatchEvent(new MouseEvent("click", hOpts));
                 LOG("Clicked 1080p — upscaling started");
@@ -1596,10 +1606,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Click ดาวน์โหลด
             const dlRect = dlBtn.getBoundingClientRect();
             const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
-            dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1 }));
+            dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
             dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
             await sleep(80);
-            dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1 }));
+            dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
             dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
             LOG("Clicked ดาวน์โหลด button");
@@ -1612,10 +1622,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const clickEl = async (el: HTMLElement) => {
                 const r = el.getBoundingClientRect();
                 const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
-                el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mousedown", opts));
                 await sleep(80);
-                el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseup", opts));
                 el.dispatchEvent(new MouseEvent("click", opts));
             };
@@ -1624,9 +1634,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const hoverEl = async (el: HTMLElement) => {
                 const r = el.getBoundingClientRect();
                 const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
-                el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseenter", opts));
-                el.dispatchEvent(new PointerEvent("pointermove", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new PointerEvent("pointermove", { ...opts, pointerId: 1, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseover", opts));
                 el.dispatchEvent(new MouseEvent("mousemove", opts));
             };
@@ -1844,10 +1854,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         const dlCx = dlRect.left + dlRect.width / 2;
                         const dlCy = dlRect.top + dlRect.height / 2;
                         const dlOpts = { bubbles: true, cancelable: true, clientX: dlCx, clientY: dlCy, button: 0 };
-                        dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1 }));
+                        dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
                         dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
                         await sleep(80);
-                        dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1 }));
+                        dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, pointerType: "mouse" }));
                         dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
                         dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
                         LOG("Clicked ดาวน์โหลด button");
@@ -1888,10 +1898,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             const rCx = rRect.left + rRect.width / 2;
                             const rCy = rRect.top + rRect.height / 2;
                             const rOpts = { bubbles: true, cancelable: true, clientX: rCx, clientY: rCy, button: 0 };
-                            res1080.dispatchEvent(new PointerEvent("pointerdown", { ...rOpts, pointerId: 1 }));
+                            res1080.dispatchEvent(new PointerEvent("pointerdown", { ...rOpts, pointerId: 1, pointerType: "mouse" }));
                             res1080.dispatchEvent(new MouseEvent("mousedown", rOpts));
                             await sleep(80);
-                            res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1 }));
+                            res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1, pointerType: "mouse" }));
                             res1080.dispatchEvent(new MouseEvent("mouseup", rOpts));
                             res1080.dispatchEvent(new MouseEvent("click", rOpts));
                             LOG("Clicked 1080p — download starting");
@@ -2054,6 +2064,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "GENERATE_IMAGE") {
+        (window as any).__NETFLOW_STOP__ = false;
         LOG("Received GENERATE_IMAGE request");
         // Respond immediately to prevent MV3 service-worker message-channel timeout
         sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
@@ -2061,6 +2072,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         handleGenerateImage(message as GenerateImageRequest)
             .then(result => LOG(`✅ Automation finished: ${result.message}`))
             .catch(err => console.error("[Netflow AI] Generate error:", err));
+        return false;
+    }
+
+    if (message?.action === "STOP_AUTOMATION") {
+        LOG("⛔ STOP_AUTOMATION received — setting stop flag");
+        (window as any).__NETFLOW_STOP__ = true;
+        sendResponse({ success: true, message: "Stop signal sent" });
         return false;
     }
 
@@ -2117,19 +2135,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 LOG("Google Flow content script ready — waiting for commands");
 
-// ─── Mouse / Click Tracker ───────────────────────────────────────────────────
-document.addEventListener("click", (e) => {
-    const t = e.target as HTMLElement | null;
-    if (!t) return;
-    const tag = t.tagName.toLowerCase();
-    const id = t.id ? `#${t.id}` : "";
-    const cls = t.className && typeof t.className === "string"
-        ? "." + t.className.trim().split(/\s+/).slice(0, 2).join(".")
-        : "";
-    const txt = (t.textContent || "").trim().slice(0, 30);
-    const x = Math.round(e.clientX), y = Math.round(e.clientY);
-    LOG(`🖱️ Click (${x},${y}) → <${tag}${id}${cls}> "${txt}"`);
-}, true);
 
 document.addEventListener("dblclick", (e) => {
     const t = e.target as HTMLElement | null;

@@ -103,17 +103,15 @@ Output ONLY the script dialogue. No metadata.
 };
 
 /**
- * Uses GPT-4o Vision to analyze the product image (and optional character) to generate a highly detailed prompt
+ * Uses Vision API to analyze the product image (and optional character) to generate a highly detailed prompt.
+ * Supports both OpenAI GPT-4o and Gemini based on selected provider.
  * @param totalDuration - Total video duration in seconds (default 8)
  */
 export const generateVisualPrompt = async (apiKey: string, imageBase64: string, productName: string, style: string, characterImage?: string, totalDuration: number = 8): Promise<string> => {
-    console.log(`👁️ Analyzing Product (and Character) with GPT-4o Vision... Duration: ${totalDuration}s`);
+    const aiProvider = localStorage.getItem("netflow_ai_provider") || "openai";
+    console.log(`👁️ Analyzing Product (and Character) with ${aiProvider.toUpperCase()} Vision... Duration: ${totalDuration}s`);
 
-    try {
-        const messagesContent: any[] = [
-            {
-                type: "text",
-                text: `Analyze these images to create a VIDEO GENERATION PROMPT.
+    const visionPromptText = `Analyze these images to create a VIDEO GENERATION PROMPT.
                 
                 GOAL: Create a prompt for a high-end video generator (like Haiper, Runway, or Google Veo) that will animate these specific subjects.
 
@@ -134,46 +132,67 @@ export const generateVisualPrompt = async (apiKey: string, imageBase64: string, 
                 STRICT CONSTRAINT:
                 - NO text overlays.
                 - NO cartoon effects (unless style specifies).
-                - Keep it photorealistic.`
-            },
-            {
-                type: "image_url",
-                image_url: { url: imageBase64 }
+                - Keep it photorealistic.`;
+
+    try {
+        let content = "";
+
+        if (aiProvider === "gemini") {
+            // ── Gemini Vision Path ──
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+            const extractBase64 = (b64: string) => {
+                const data = b64.includes(',') ? b64.split(',')[1] : b64;
+                const mimeType = b64.includes('png') ? 'image/png' : 'image/jpeg';
+                return { data, mimeType };
+            };
+
+            const parts: any[] = [visionPromptText];
+            const productImg = extractBase64(imageBase64);
+            parts.push({ inlineData: { data: productImg.data, mimeType: productImg.mimeType } });
+
+            if (characterImage) {
+                const charImg = extractBase64(characterImage);
+                parts.push({ inlineData: { data: charImg.data, mimeType: charImg.mimeType } });
             }
-        ];
 
-        if (characterImage) {
-            messagesContent.push({
-                type: "image_url",
-                image_url: { url: characterImage }
+            const result = await model.generateContent(parts);
+            content = result.response.text();
+        } else {
+            // ── OpenAI Vision Path ──
+            const messagesContent: any[] = [
+                { type: "text", text: visionPromptText },
+                { type: "image_url", image_url: { url: imageBase64 } }
+            ];
+
+            if (characterImage) {
+                messagesContent.push({
+                    type: "image_url",
+                    image_url: { url: characterImage }
+                });
+            }
+
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [{ role: "user", content: messagesContent }],
+                    max_tokens: 350
+                })
             });
+
+            const json = await response.json();
+            if (json.error || !json.choices) {
+                console.warn("Vision API Error:", json.error);
+                return `Cinematic shot of ${productName}, ${style} style, professional lighting, 8k resolution`;
+            }
+            content = json.choices[0].message.content;
         }
-
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o",
-                messages: [
-                    {
-                        role: "user",
-                        content: messagesContent
-                    }
-                ],
-                max_tokens: 350
-            })
-        });
-
-        const json = await response.json();
-        if (json.error || !json.choices) {
-            console.warn("Vision API Error:", json.error);
-            return `Cinematic shot of ${productName}, ${style} style, professional lighting, 8k resolution`;
-        }
-
-        let content = json.choices[0].message.content;
 
         // Cleanup: First remove Name line, THEN remove Prompt prefix
         content = content.replace(/^Name:.*?\n/i, "").trim();
@@ -266,7 +285,7 @@ export const generateVideoScript = async (
         };
 
         try {
-            return await tryGenerate("gemini-1.5-flash"); // Use 1.5 Flash (latest fast)
+            return await tryGenerate("gemini-2.0-flash"); // Use 2.0 Flash (latest fast)
         } catch (error: any) {
             console.warn("Gemini Flash failed, trying Pro...", error.message);
             try {
@@ -394,10 +413,9 @@ export const runFullWorkflow = async (data: ScriptRequest | AdvancedVideoRequest
 
         // 1. Vision Analysis (Brain 🧠)
         if (advData.userImage) {
-            console.log("🧠 Starting Smart Vision Analysis (GPT-4o Vision)...");
-            // Note: In real extension, we might need a persistent key or proxy. 
-            // Here we reuse getApiKey('openai') logic.
-            const apiKey = await getApiKey('openai');
+            const aiProvider = (localStorage.getItem("netflow_ai_provider") || "openai") as 'openai' | 'gemini';
+            console.log(`🧠 Starting Smart Vision Analysis (${aiProvider.toUpperCase()})...`);
+            const apiKey = await getApiKey(aiProvider);
             if (apiKey) {
                 const visionRes = await generateVisualPrompt(apiKey, advData.userImage, advData.productName, advData.style, advData.characterImage, totalDuration);
                 if (visionRes) {

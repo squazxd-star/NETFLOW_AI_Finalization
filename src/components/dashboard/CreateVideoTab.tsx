@@ -39,6 +39,7 @@ const CreateVideoTab = () => {
     const [generatedImagePrompt, setGeneratedImagePrompt] = useState<string | null>(null);
     const [videoScenePrompts, setVideoScenePrompts] = useState<string[]>([]);
     const [flowOpened, setFlowOpened] = useState(false);
+    const [flowConnected, setFlowConnected] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [promptPage, setPromptPage] = useState(0); // 0 = image, 1 = video
@@ -57,6 +58,26 @@ const CreateVideoTab = () => {
         chrome.runtime.onMessage.addListener(handler);
         return () => chrome.runtime.onMessage.removeListener(handler);
     }, []);
+
+    // Fix #3: Auto-PING content script to check connection
+    // Runs when prompt is generated or flowOpened changes
+    useEffect(() => {
+        if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+        if (!generatedImagePrompt || !flowOpened) return;
+        const pingFlow = () => {
+            chrome.runtime.sendMessage({ action: "PING" }, (res) => {
+                if (chrome.runtime.lastError) {
+                    setFlowConnected(false);
+                    return;
+                }
+                setFlowConnected(res?.status === "ready");
+            });
+        };
+        // Ping immediately + every 5s while panel is open
+        pingFlow();
+        const interval = setInterval(pingFlow, 5000);
+        return () => clearInterval(interval);
+    }, [generatedImagePrompt, flowOpened]);
 
     // Append local workflow status to logs
     useEffect(() => {
@@ -103,7 +124,7 @@ const CreateVideoTab = () => {
     };
 
     return (
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 relative">
             {/* 1. Product Data Section - ข้อมูลสินค้า */}
             <ProductDataSection
                 {...sectionProps}
@@ -348,20 +369,32 @@ const CreateVideoTab = () => {
                         onClick={() => {
                             window.open('https://labs.google/fx/tools/flow', '_blank');
                             setFlowOpened(true);
+                            // Auto-ping after a delay to check if content script loads
+                            setTimeout(() => {
+                                if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+                                    chrome.runtime.sendMessage({ action: "PING" }, (res) => {
+                                        if (!chrome.runtime.lastError && res?.status === "ready") {
+                                            setFlowConnected(true);
+                                        }
+                                    });
+                                }
+                            }, 3000);
                         }}
                         className={`w-full py-2.5 px-4 rounded-xl text-xs font-medium border transition-all flex items-center justify-center gap-2 ${
-                            flowOpened
-                                ? 'border-neon-red/40 text-neon-red bg-neon-red/10'
-                                : 'border-border text-muted-foreground hover:border-neon-red/40 hover:text-neon-red hover:bg-neon-red/5'
+                            flowConnected
+                                ? 'border-green-500/40 text-green-400 bg-green-500/10'
+                                : flowOpened
+                                    ? 'border-neon-red/40 text-neon-red bg-neon-red/10'
+                                    : 'border-border text-muted-foreground hover:border-neon-red/40 hover:text-neon-red hover:bg-neon-red/5'
                         }`}
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        {flowOpened ? "✓ เปิดแล้ว — เปิดอีกครั้ง" : "เปิด Google Flow"}
+                        {flowConnected ? "✓ เชื่อมต่อ Google Flow แล้ว" : flowOpened ? "⏳ รอเชื่อมต่อ... (กรุณา refresh หน้า Flow)" : "เปิด Google Flow"}
                     </button>
                 </div>
 
                 {/* Step 3: Automation — Electric Glow */}
-                <div className={`space-y-3 transition-opacity duration-200 ${!generatedImagePrompt || !flowOpened ? 'opacity-40 pointer-events-none' : ''}`}>
+                <div className={`space-y-3 transition-opacity duration-200 ${!generatedImagePrompt || !flowConnected ? 'opacity-40 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
                         <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
                         เริ่มสร้างคลิป (Automation)
@@ -371,56 +404,8 @@ const CreateVideoTab = () => {
                         อัพโหลดรูป → ใส่ prompt → สร้างภาพ + วิดีโอ อัตโนมัติทั้งหมด
                     </p>
 
-                    {/* Electric Glow Button Container */}
-                    <div className="relative group">
-                        {/* Lightning SVG Bolts — visible when generating */}
-                        {isUploading && (
-                            <>
-                                {/* Lightning Bolt Top-Left */}
-                                <svg
-                                    className="absolute -top-5 -left-3 w-16 h-16 text-red-500 pointer-events-none z-0"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-                                    style={{ animation: 'electric-flicker 0.8s ease-in-out infinite', filter: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.8))' }}
-                                >
-                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                </svg>
-
-                                {/* Lightning Bolt Top-Right */}
-                                <svg
-                                    className="absolute -top-5 -right-3 w-14 h-14 text-sky-400 pointer-events-none z-0 rotate-12"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-                                    style={{ animation: 'electric-flicker 0.6s ease-in-out 0.15s infinite', filter: 'drop-shadow(0 0 8px rgba(56, 189, 248, 0.8))' }}
-                                >
-                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                </svg>
-
-                                {/* Lightning Bolt Bottom-Left */}
-                                <svg
-                                    className="absolute -bottom-4 -left-2 w-12 h-12 text-sky-400 pointer-events-none z-0 -rotate-45"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-                                    style={{ animation: 'electric-flicker 0.7s ease-in-out 0.3s infinite', filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.7))' }}
-                                >
-                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                </svg>
-
-                                {/* Lightning Bolt Bottom-Right */}
-                                <svg
-                                    className="absolute -bottom-5 -right-2 w-16 h-16 text-red-400 pointer-events-none z-0 rotate-180"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-                                    style={{ animation: 'electric-flicker 0.5s ease-in-out 0.1s infinite', filter: 'drop-shadow(0 0 8px rgba(248, 113, 113, 0.8))' }}
-                                >
-                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                </svg>
-
-                                {/* Electric Aura Glow */}
-                                <div
-                                    className="absolute -inset-1 rounded-2xl pointer-events-none z-0"
-                                    style={{ animation: 'electric-aura 0.8s ease-in-out infinite' }}
-                                />
-                            </>
-                        )}
-
-                        {/* Main Button */}
+                    {/* Electric Lightning Border Button */}
+                    <div className={`electric-border-wrap ${isUploading ? 'is-active' : ''} ${!generatedImagePrompt || !flowConnected ? 'is-disabled' : ''}`}>
                         <button
                             type="button"
                             disabled={isUploading || !generatedImagePrompt}
@@ -459,35 +444,53 @@ const CreateVideoTab = () => {
                                     setIsUploading(false);
                                 }
                             }}
-                            className={`relative z-10 w-full py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:cursor-not-allowed ${
+                            className={`w-full py-4 px-6 rounded-[calc(1rem-2px)] font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:cursor-not-allowed ${
                                 isUploading
-                                    ? 'electric-btn cursor-wait'
+                                    ? 'bg-gradient-to-r from-red-900 via-red-700 to-red-900 cursor-wait'
                                     : !generatedImagePrompt
                                         ? 'bg-muted text-muted-foreground'
-                                        : 'electric-btn hover:scale-[1.02] active:scale-[0.96] shadow-lg shadow-neon-red/30'
+                                        : 'bg-gradient-to-r from-red-900 via-red-700 to-red-800 hover:brightness-110 active:scale-[0.98]'
                             }`}
                         >
                             {isUploading ? (
                                 <>
-                                    <Zap className="relative z-10 w-5 h-5" style={{ animation: 'electric-flicker 0.4s ease-in-out infinite' }} />
-                                    <span className="relative z-10 tracking-wider uppercase text-sm" style={{ animation: 'electric-text-glow 1s ease-in-out infinite' }}>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <span className="tracking-wider uppercase text-sm" style={{ animation: 'electric-text-glow 1s ease-in-out infinite' }}>
                                         AI กำลังทำงาน...
                                     </span>
-                                    <Sparkles className="relative z-10 w-4 h-4 animate-pulse" />
+                                    <Sparkles className="w-4 h-4 animate-pulse" />
                                 </>
                             ) : (
                                 <>
-                                    <Zap className="relative z-10 w-5 h-5" />
-                                    <span className="relative z-10 tracking-wider uppercase text-sm">
+                                    <Zap className="w-5 h-5" />
+                                    <span className="tracking-wider uppercase text-sm">
                                         AUTOMATION
                                     </span>
-                                    <span className="relative z-10 text-[10px] font-normal opacity-70">
+                                    <span className="text-[10px] font-normal opacity-70">
                                         สร้างคลิปอัตโนมัติ
                                     </span>
                                 </>
                             )}
                         </button>
                     </div>
+
+                    {/* Stop Button — visible while automation runs */}
+                    {isUploading && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsUploading(false);
+                                setUploadStatus("⚠️ หยุดการทำงานแล้ว");
+                                if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+                                    chrome.runtime.sendMessage({ action: "STOP_AUTOMATION" });
+                                }
+                            }}
+                            className="w-full py-2.5 rounded-xl text-xs font-bold border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:border-red-500 transition-all flex items-center justify-center gap-2"
+                        >
+                            <div className="w-2.5 h-2.5 rounded-sm bg-red-500" />
+                            หยุด AUTOMATION
+                        </button>
+                    )}
 
                     {uploadStatus && (
                         <p className="text-[10px] text-center text-muted-foreground">{uploadStatus}</p>

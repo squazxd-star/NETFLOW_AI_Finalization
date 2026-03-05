@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Electric border animation property (Chrome @property for conic-gradient) */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
 /* Elegant Tech Design System - Red & Dark Theme */
 @layer base {
   :root {
@@ -327,86 +334,45 @@
   }
 }
 
-/* Automation Button — Electric Glow */
-.electric-btn {
+/* ═══ Lightning Border — Conic Gradient Spinning ═══ */
+.electric-border-wrap {
   position: relative;
-  overflow: visible;
-  background: linear-gradient(135deg, #b91c1c, #dc2626, #ef4444, #dc2626);
-  background-size: 300% 100%;
-  animation: electric-btn-bg 4s ease infinite;
-}
-
-.electric-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  overflow: hidden;
-  z-index: 1;
-}
-
-.electric-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    105deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.12) 40%,
-    rgba(255, 255, 255, 0.25) 50%,
-    rgba(255, 255, 255, 0.12) 60%,
-    transparent 80%
+  padding: 2px;
+  border-radius: 1rem;
+  background: conic-gradient(
+    from var(--border-angle),
+    #ef4444 0%, #ff6b35 8%, #fbbf24 14%, #ff6b35 20%, #ef4444 28%,
+    transparent 40%, transparent 100%
   );
-  animation: shimmer-sweep 2.5s ease-in-out infinite;
-  transform: translateX(-100%);
-  pointer-events: none;
-  z-index: 2;
+  animation: border-spin 3s linear infinite;
+  transition: filter 0.3s, box-shadow 0.3s;
 }
 
-@keyframes electric-btn-bg {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+.electric-border-wrap:hover {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.5));
 }
 
-@keyframes electric-flicker {
-  0%, 100% { opacity: 0; transform: scale(0.8); }
-  10% { opacity: 0.9; transform: scale(1.05); }
-  20% { opacity: 0.2; transform: scale(0.95); }
-  30% { opacity: 1; transform: scale(1.1); }
-  40% { opacity: 0.1; transform: scale(0.9); }
-  50% { opacity: 0.8; transform: scale(1); }
-  60% { opacity: 0; }
+.electric-border-wrap.is-active {
+  animation: border-spin 1s linear infinite;
+  filter:
+    drop-shadow(0 0 12px rgba(239, 68, 68, 0.6))
+    drop-shadow(0 0 30px rgba(239, 68, 68, 0.3));
 }
 
-@keyframes electric-aura {
-  0%, 100% {
-    box-shadow:
-      0 0 15px hsl(var(--neon-red) / 0.4),
-      0 0 30px hsl(var(--neon-red) / 0.2),
-      inset 0 0 15px hsl(var(--neon-red) / 0.1);
-  }
-  25% {
-    box-shadow:
-      0 0 25px hsl(var(--neon-red) / 0.6),
-      0 0 50px hsl(var(--neon-red) / 0.3),
-      0 0 80px hsl(200 80% 60% / 0.15),
-      inset 0 0 20px hsl(var(--neon-red) / 0.15);
-  }
-  50% {
-    box-shadow:
-      0 0 20px hsl(var(--neon-red) / 0.5),
-      0 0 40px hsl(var(--neon-red) / 0.25),
-      0 0 60px hsl(200 80% 60% / 0.1),
-      inset 0 0 15px hsl(var(--neon-red) / 0.1);
-  }
-  75% {
-    box-shadow:
-      0 0 30px hsl(var(--neon-red) / 0.7),
-      0 0 60px hsl(var(--neon-red) / 0.35),
-      0 0 90px hsl(200 80% 60% / 0.2),
-      inset 0 0 25px hsl(var(--neon-red) / 0.2);
-  }
+.electric-border-wrap.is-disabled {
+  background: hsl(var(--muted));
+  animation: none;
+  filter: none;
+}
+
+@keyframes border-spin {
+  to { --border-angle: 360deg; }
+}
+
+/* Automation overlay — light blur */
+.automation-overlay {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 @keyframes electric-text-glow {

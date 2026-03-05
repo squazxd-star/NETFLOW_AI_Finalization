@@ -7,11 +7,16 @@
     "storage",
     "sidePanel",
     "activeTab",
+    "tabs",
+    "scripting",
     "clipboardWrite",
     "clipboardRead",
     "downloads",
     "downloads.open",
     "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://labs.google/*"
   ],
   "side_panel": {
     "default_path": "index.html"

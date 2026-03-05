@@ -1753,7 +1753,7 @@ const analyzeWithGemini = async (imageBase64: string, productName: string): Prom
     if (!apiKey) throw new Error("Gemini API Key ไม่พบ! กรุณาใส่ Key ใน Settings");
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     // Extract base64 data (remove prefix)
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;

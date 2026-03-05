@@ -1,28 +1,96 @@
 // Netflow AI — Background Service Worker (Manifest V3)
 // Opens the side panel when the extension icon is clicked.
+// Cross-platform: Windows + macOS compatible
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-// Relay messages from sidepanel to content script on active tab
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message?.action === "GENERATE_IMAGE" || message?.action === "UPLOAD_IMAGES" || message?.action === "PING") {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const tab = tabs[0];
-            if (!tab?.id) {
-                sendResponse({ success: false, message: "No active tab found" });
-                return;
-            }
-            chrome.tabs.sendMessage(tab.id, message, (response) => {
-                if (chrome.runtime.lastError) {
-                    sendResponse({
-                        success: false,
-                        message: "Content script not found on this page. Make sure Google Flow is open."
-                    });
-                } else {
-                    sendResponse(response);
-                }
-            });
+// ─── Fix #2: Smart tab finder — find Google Flow tab by URL, not just currentWindow ───
+async function findFlowTab() {
+    // Strategy 1: Find tab matching labs.google URL (most reliable, cross-platform)
+    const flowTabs = await chrome.tabs.query({ url: "https://labs.google/*" });
+    if (flowTabs.length > 0) {
+        // Prefer the active one if multiple are open
+        const active = flowTabs.find(t => t.active) || flowTabs[0];
+        return active;
+    }
+
+    // Strategy 2: Fallback to active tab in current window (original behavior)
+    const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTabs.length > 0) return activeTabs[0];
+
+    // Strategy 3: Last resort — active tab in any window (macOS multi-window)
+    const anyActive = await chrome.tabs.query({ active: true });
+    if (anyActive.length > 0) {
+        const flowish = anyActive.find(t => (t.url || "").includes("labs.google"));
+        if (flowish) return flowish;
+        return anyActive[0];
+    }
+
+    return null;
+}
+
+// ─── Fix #1: Programmatic content script injection ───
+// Ensures content script is present before sending messages.
+// If already injected, Chrome skips re-injection (idempotent).
+async function ensureContentScript(tabId) {
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ["src/content-flow.js"],
         });
+    } catch (e) {
+        console.warn("[Netflow] Injection failed:", e.message);
+        // Not fatal — content script may already be loaded via manifest
+    }
+}
+
+// ─── Fix #4: Send message with auto-injection retry ───
+// If first sendMessage fails (content script missing), inject and retry once.
+function sendToContentScript(tabId, message) {
+    return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, message, (response) => {
+            if (chrome.runtime.lastError) {
+                // Content script not found — inject programmatically and retry
+                console.log("[Netflow] First attempt failed, injecting content script...");
+                ensureContentScript(tabId).then(() => {
+                    // Wait a moment for script to initialize
+                    setTimeout(() => {
+                        chrome.tabs.sendMessage(tabId, message, (retryResponse) => {
+                            if (chrome.runtime.lastError) {
+                                resolve({
+                                    success: false,
+                                    message: "Content script not found. Please refresh the Google Flow page and try again."
+                                });
+                            } else {
+                                resolve(retryResponse || { success: false, message: "No response from content script" });
+                            }
+                        });
+                    }, 1500);
+                });
+            } else {
+                resolve(response || { success: false, message: "No response" });
+            }
+        });
+    });
+}
+
+// Relay messages from sidepanel to content script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.action === "GENERATE_IMAGE" || message?.action === "UPLOAD_IMAGES" ||
+        message?.action === "PING" || message?.action === "STOP_AUTOMATION" || message?.action === "CLICK_FIRST_IMAGE") {
+        (async () => {
+            try {
+                const tab = await findFlowTab();
+                if (!tab?.id) {
+                    sendResponse({ success: false, message: "ไม่พบแท็บ Google Flow — กรุณาเปิด labs.google ก่อน" });
+                    return;
+                }
+                const response = await sendToContentScript(tab.id, message);
+                sendResponse(response);
+            } catch (err) {
+                sendResponse({ success: false, message: "Error: " + (err.message || "unknown") });
+            }
+        })();
         return true; // async
     }
 

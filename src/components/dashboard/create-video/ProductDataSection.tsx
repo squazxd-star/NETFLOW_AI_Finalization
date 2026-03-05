@@ -238,7 +238,7 @@ const ProductDataSection = ({
                                 <span className="text-base">♀</span> เพศหญิง
                             </button>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5 ml-1">
+                        <p className="text-[10px] text-muted-foreground mt-1.5 ml-1 hidden">
                             {gender === "male" ? "🔊 เสียง: Somsak / Tawan / Prem / Arthit / Beam" : "🔊 เสียง: Fah / Namwan / Somying / Ploy / Minnie"}
                         </p>
                     </div>
