@@ -739,45 +739,57 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         LOG("Clicked '+' button");
         await sleep(1500);
 
-        // Step 5: Find and click upload menu option (precise: exclude drive_folder_upload)
+        // Step 5: Find and click upload menu option (poll up to 5s for menu to appear)
         LOG("Checking for upload menu...");
-        const menuElements = document.querySelectorAll<HTMLElement>(
-            "button, [role='menuitem'], [role='option'], li, div[role='button']"
-        );
         let clickedMenu = false;
-        for (const el of menuElements) {
-            if (el === addBtn) continue;
-            const icons = el.querySelectorAll("i");
-            for (const icon of icons) {
-                const it = icon.textContent?.trim() || "";
-                if (it === "upload" || it === "upload_file") {
-                    const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
-                    if (!allIconTexts.includes("drive_folder_upload")) {
-                        await robustClick(el);
-                        clickedMenu = true;
-                        LOG(`Clicked upload menu (icon: ${it})`);
-                        break;
-                    }
-                }
-            }
-            if (clickedMenu) break;
-        }
-
-        if (!clickedMenu) {
+        const menuPollStart = Date.now();
+        while (!clickedMenu && Date.now() - menuPollStart < 5000) {
+            const menuElements = document.querySelectorAll<HTMLElement>(
+                "button, [role='menuitem'], [role='option'], li, div[role='button']"
+            );
+            // Try icon-based detection first (works on both Mac English and Windows Thai)
             for (const el of menuElements) {
                 if (el === addBtn) continue;
-                const directText = el.childNodes.length <= 3 ? (el.textContent || "").trim() : "";
-                if (directText.length > 0 && directText.length < 30) {
-                    const lower = directText.toLowerCase();
-                    if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
-                        || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")) {
-                        await robustClick(el);
-                        clickedMenu = true;
-                        LOG(`Clicked upload menu (text: "${directText}")`);
-                        break;
+                const icons = el.querySelectorAll("i");
+                for (const icon of icons) {
+                    const it = icon.textContent?.trim() || "";
+                    if (it === "upload" || it === "upload_file") {
+                        const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
+                        if (!allIconTexts.includes("drive_folder_upload")) {
+                            await robustClick(el);
+                            clickedMenu = true;
+                            LOG(`Clicked upload menu (icon: ${it}) [${isMac ? 'Mac' : 'Win'}]`);
+                            break;
+                        }
+                    }
+                }
+                if (clickedMenu) break;
+            }
+            // Text fallback: check button text (Thai + English variants)
+            if (!clickedMenu) {
+                for (const el of menuElements) {
+                    if (el === addBtn) continue;
+                    const directText = el.childNodes.length <= 5 ? (el.textContent || "").trim() : "";
+                    if (directText.length > 0 && directText.length < 40) {
+                        const lower = directText.toLowerCase();
+                        if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
+                            || lower.includes("upload image") || lower.includes("upload photo")
+                            || lower.includes("อัปโหลดรูปภาพ") || lower.includes("อัพโหลดรูปภาพ")
+                            || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")) {
+                            await robustClick(el);
+                            clickedMenu = true;
+                            LOG(`Clicked upload menu (text: "${directText}") [${isMac ? 'Mac' : 'Win'}]`);
+                            break;
+                        }
                     }
                 }
             }
+            if (!clickedMenu) {
+                await sleep(500);
+            }
+        }
+        if (!clickedMenu) {
+            LOG("⚠️ Upload menu not found after 5s polling");
         }
 
         // Step 6: Wait a moment for Google Flow to call .click() (blocked by prototype override)
@@ -1849,12 +1861,29 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             LOG("Waiting for upscale to complete...");
             const upscaleStart = Date.now();
             while (Date.now() - upscaleStart < 300000) {
-                const allText = document.body.innerText || "";
+                // Check both innerText and element-level search
+                const allText = (document.body.innerText || "") + " " + (document.body.textContent || "");
                 if (allText.includes("Upscaling complete") || allText.includes("upscaling complete")) {
                     LOG("✅ Upscaling complete! Video downloaded.");
                     return true;
                 }
-                await sleep(5000);
+                // Element-level backup: scan visible divs/spans for the text
+                const allEls = document.querySelectorAll<HTMLElement>("div, span, p");
+                for (const el of allEls) {
+                    const t = (el.textContent || "").trim();
+                    if (t === "Upscaling complete!" || t === "Upscaling complete") {
+                        LOG("✅ Upscaling complete! (element-level detection)");
+                        return true;
+                    }
+                }
+                // Log progress if upscaling is in progress
+                if (allText.includes("Upscaling your video")) {
+                    const elapsed = Math.floor((Date.now() - upscaleStart) / 1000);
+                    LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                } else {
+                    LOG("⏳ Waiting for upscale status...");
+                }
+                await sleep(3000);
             }
             WARN("Upscale timeout — video may still be processing");
             return true; // Still return true, download might have started
@@ -2025,7 +2054,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const upStart = Date.now();
             let downloadDone = false;
             while (Date.now() - upStart < 300000) {
-                const bodyText = document.body.innerText || "";
+                const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
                 if (bodyText.includes("Download complete")) {
                     LOG("✅ Download complete!");
                     steps.push("✅ Downloaded");
@@ -2040,11 +2069,27 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     downloadDone = true;
                     break;
                 }
-                // Log progress for multi-scene
+                // Element-level backup: scan for completion text in specific elements
+                const allEls = document.querySelectorAll<HTMLElement>("div, span, p");
+                for (const el of allEls) {
+                    const t = (el.textContent || "").trim();
+                    if (t === "Upscaling complete!" || t === "Upscaling complete" || t === "Download complete!" || t === "Download complete") {
+                        LOG(`✅ ${t} (element-level detection)`);
+                        steps.push("✅ " + (t.includes("Upscal") ? "Upscaled" : "Downloaded"));
+                        updateStep("upscale", "done", 100);
+                        downloadDone = true;
+                        break;
+                    }
+                }
+                if (downloadDone) break;
+                // Log progress
+                const elapsed = Math.floor((Date.now() - upStart) / 1000);
                 if (bodyText.includes("Downloading your extended video")) {
-                    LOG("Downloading extended video...");
+                    LOG(`⏳ Downloading extended video... (${elapsed}s)`);
+                } else if (bodyText.includes("Upscaling your video")) {
+                    LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
                 } else {
-                    LOG("Waiting...");
+                    LOG(`⏳ Waiting... (${elapsed}s)`);
                 }
                 await sleep(3000);
             }
@@ -2224,7 +2269,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             const upStart = Date.now();
                             let upscaleDone = false;
                             while (Date.now() - upStart < 300000) {
-                                const bodyText = document.body.innerText || "";
+                                const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
                                 if (bodyText.includes("Upscaling complete") || bodyText.includes("upscaling complete")) {
                                     LOG("✅ Upscaling complete!");
                                     steps.push("✅ Upscaled");
@@ -2232,8 +2277,26 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                                     upscaleDone = true;
                                     break;
                                 }
-                                await sleep(5000);
-                                LOG("Upscaling...");
+                                // Element-level backup
+                                const upEls = document.querySelectorAll<HTMLElement>("div, span, p");
+                                for (const uel of upEls) {
+                                    const ut = (uel.textContent || "").trim();
+                                    if (ut === "Upscaling complete!" || ut === "Upscaling complete") {
+                                        LOG("✅ Upscaling complete! (element-level)");
+                                        steps.push("✅ Upscaled");
+                                        updateStep("upscale", "done", 100);
+                                        upscaleDone = true;
+                                        break;
+                                    }
+                                }
+                                if (upscaleDone) break;
+                                const elapsed = Math.floor((Date.now() - upStart) / 1000);
+                                if (bodyText.includes("Upscaling your video")) {
+                                    LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                                } else {
+                                    LOG(`⏳ Waiting for upscale... (${elapsed}s)`);
+                                }
+                                await sleep(3000);
                             }
 
                             // 6D-2: After upscale done, wait for download to finish then open
