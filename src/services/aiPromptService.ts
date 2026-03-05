@@ -2086,7 +2086,7 @@ const buildVideoPrompt = (
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
         // [Audio/Voiceover] — FIXED descriptor + script
         `${voiceoverDescriptor}`,
-        `${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
+        `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Constraints] — policy + technical
         `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} Same person identity and outfit throughout. Product must appear frontal, centered, symmetrical, zero lens distortion. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
@@ -2132,7 +2132,7 @@ export const buildSceneVideoPromptJSON = (
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
 
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.
-    const speakingDirective = `Character speaks directly to camera. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
+    const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
     const continuityDirective = [
@@ -2147,11 +2147,11 @@ export const buildSceneVideoPromptJSON = (
     return sanitizePromptForPolicy([
         continuityDirective,
         `${meta.template} commercial video. ${meta.product} — visible in every frame.`,
+        `${meta.voiceoverDescriptor}`,
         `${meta.gender}, ${meta.expression}, ${meta.style}. ${speakingDirective}`,
         `${meta.camera}. ${meta.lighting}.`,
         `${meta.pacing}. Fluid motion, high frame rate.`,
-        `${meta.voiceoverDescriptor}`,
-        `THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
         `${aspectDirective} ${meta.restrictions} Same person, outfit, product, environment from scene ${sceneNumber - 1}.`
     ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
 };

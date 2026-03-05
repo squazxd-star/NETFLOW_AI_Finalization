@@ -13,14 +13,16 @@
  *   PING           — health check
  */
 
-import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes } from "./netflow-overlay";
+import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes, addLog } from "./netflow-overlay";
 
 const LOG = (msg: string) => {
     console.log(`[Netflow AI] ${msg}`);
+    try { addLog(msg); } catch (_) { /* overlay not ready */ }
     try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "info", msg }); } catch (_) { /* popup closed */ }
 };
 const WARN = (msg: string) => {
     console.warn(`[Netflow AI] ${msg}`);
+    try { addLog(`⚠️ ${msg}`); } catch (_) { /* overlay not ready */ }
     try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "warn", msg: `⚠️ ${msg}` }); } catch (_) { /* popup closed */ }
 };
 

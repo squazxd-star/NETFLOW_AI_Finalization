@@ -45,6 +45,60 @@ let visualizerInterval: ReturnType<typeof setInterval> | null = null;
 let activeStepCount = 0;
 let overlayHidden = false;
 
+// ── Process Steps (Dynamic Center Terminal) ────────────────────────────────
+
+interface ProcessStep {
+    stepId: string;
+    label: string;
+    status: StepStatus;
+    progress?: number;
+}
+
+let currentSceneCount = 1;
+let processSteps: ProcessStep[] = [];
+const logBuffer: string[] = [];
+const MAX_LOG_LINES = 4;
+
+function generateProcessSteps(scenes: number): ProcessStep[] {
+    const steps: ProcessStep[] = [
+        { stepId: "upload-char", label: "Upload ตัวละคร", status: "waiting" },
+        { stepId: "upload-prod", label: "Upload สินค้า", status: "waiting" },
+        { stepId: "img-prompt", label: "Paste Image Prompt", status: "waiting" },
+        { stepId: "img-generate", label: "กด Generate →", status: "waiting" },
+        { stepId: "img-wait", label: "รอรูป Generate", status: "waiting", progress: 0 },
+        { stepId: "animate", label: "ทำให้เป็นภาพเคลื่อนไหว", status: "waiting" },
+    ];
+    if (scenes <= 1) {
+        steps.push(
+            { stepId: "vid-prompt", label: "Paste Video Prompt", status: "waiting" },
+            { stepId: "vid-generate", label: "กด Generate Video", status: "waiting" },
+            { stepId: "vid-wait", label: "รอ % วิดีโอ + คลิก", status: "waiting", progress: 0 },
+            { stepId: "download", label: "กด ⋮ → ดาวน์โหลด", status: "waiting" },
+            { stepId: "upscale", label: "1080p → Upscale", status: "waiting", progress: 0 },
+            { stepId: "open", label: "เปิดวิดีโอใน Chrome", status: "waiting" },
+        );
+    } else {
+        steps.push(
+            { stepId: "vid-prompt", label: "Scene 1 Prompt", status: "waiting" },
+            { stepId: "vid-generate", label: "Scene 1 Generate", status: "waiting" },
+            { stepId: "vid-wait", label: "Scene 1 รอ % + คลิก", status: "waiting", progress: 0 },
+        );
+        for (let i = 2; i <= scenes; i++) {
+            steps.push(
+                { stepId: `scene${i}-prompt`, label: `Scene ${i} Prompt`, status: "waiting" },
+                { stepId: `scene${i}-gen`, label: `Scene ${i} Generate`, status: "waiting" },
+                { stepId: `scene${i}-wait`, label: `Scene ${i} รอ %`, status: "waiting", progress: 0 },
+            );
+        }
+        steps.push(
+            { stepId: "download", label: "กด ⋮ → ดาวน์โหลด", status: "waiting" },
+            { stepId: "upscale", label: "Full Video → 720p", status: "waiting", progress: 0 },
+            { stepId: "open", label: "เปิดวิดีโอใน Chrome", status: "waiting" },
+        );
+    }
+    return steps;
+}
+
 const modules: Module[] = [
     {
         id: "ingest",
@@ -84,6 +138,8 @@ const modules: Module[] = [
         ],
     },
 ];
+
+processSteps = generateProcessSteps(1);
 
 // ── CSS Injection ──────────────────────────────────────────────────────────
 
@@ -150,8 +206,9 @@ function injectStyles() {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 380px;
-    min-height: 250px;
+    width: 420px;
+    min-height: 280px;
+    max-height: 80vh;
     background: rgba(12, 10, 18, 0.92);
     border: 1.5px solid rgba(220, 38, 38, 0.5);
     border-radius: 14px;
@@ -233,26 +290,35 @@ function injectStyles() {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    min-width: 48px;
+    height: 28px;
     border-radius: 8px;
+    padding: 0 6px;
     background: rgba(220, 38, 38, 0.15);
     border: 1px solid rgba(220, 38, 38, 0.35);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     color: #fff;
 }
 
 /* Terminal log */
 .nf-terminal {
-    padding: 12px 18px;
-    min-height: 85px;
+    padding: 8px 14px;
+    min-height: 60px;
+    max-height: 300px;
+    overflow-y: auto;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    line-height: 1.9;
+    font-size: 10px;
+    line-height: 1.6;
     color: rgba(255, 255, 255, 0.7);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(220,38,38,0.3) transparent;
 }
+
+.nf-terminal::-webkit-scrollbar { width: 4px; }
+.nf-terminal::-webkit-scrollbar-track { background: transparent; }
+.nf-terminal::-webkit-scrollbar-thumb { background: rgba(220,38,38,0.3); border-radius: 2px; }
 
 .nf-term-line {
     display: flex;
@@ -731,6 +797,112 @@ function injectStyles() {
 .nf-corner-deco.nf-deco-tr { top: 8px; right: 8px; border-top-width: 1px; border-right-width: 1px; }
 .nf-corner-deco.nf-deco-bl { bottom: 8px; left: 8px; border-bottom-width: 1px; border-left-width: 1px; }
 .nf-corner-deco.nf-deco-br { bottom: 8px; right: 8px; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* ─── Process Step Rows ─── */
+.nf-proc-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2.5px 0;
+    transition: all 0.3s;
+    color: rgba(255,255,255,0.25);
+}
+.nf-proc-num {
+    width: 16px;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: right;
+    flex-shrink: 0;
+    color: rgba(220,38,38,0.35);
+}
+.nf-proc-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    flex-shrink: 0;
+    transition: all 0.3s;
+}
+.nf-proc-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 10px;
+}
+.nf-proc-badge {
+    font-size: 8px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    color: rgba(255,255,255,0.2);
+}
+
+/* Process row states */
+.nf-proc-active {
+    color: #fff;
+}
+.nf-proc-active .nf-proc-num {
+    color: #dc2626;
+}
+.nf-proc-active .nf-proc-dot {
+    background: #dc2626;
+    box-shadow: 0 0 6px rgba(220,38,38,0.6);
+    animation: nf-dot-pulse 1s ease-in-out infinite;
+}
+.nf-proc-active .nf-proc-badge {
+    background: rgba(220,38,38,0.15);
+    color: #f87171;
+    animation: nf-status-pulse 1.5s ease-in-out infinite;
+}
+
+.nf-proc-done {
+    color: rgba(34,197,94,0.7);
+}
+.nf-proc-done .nf-proc-num { color: rgba(34,197,94,0.5); }
+.nf-proc-done .nf-proc-dot {
+    background: #22c55e;
+    box-shadow: 0 0 5px rgba(34,197,94,0.5);
+}
+.nf-proc-done .nf-proc-badge {
+    background: rgba(34,197,94,0.1);
+    color: #4ade80;
+}
+
+.nf-proc-error {
+    color: rgba(239,68,68,0.8);
+}
+.nf-proc-error .nf-proc-dot { background: #ef4444; }
+.nf-proc-error .nf-proc-badge {
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+}
+
+.nf-proc-skipped {
+    opacity: 0.15;
+}
+
+/* ─── Log Feed ─── */
+.nf-log-feed {
+    padding: 6px 14px 8px;
+    border-top: 1px solid rgba(220,38,38,0.15);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.3);
+    max-height: 65px;
+    overflow: hidden;
+}
+.nf-log-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.5px 0;
+}
+.nf-log-line:last-child {
+    color: rgba(255,255,255,0.55);
+}
     `;
     document.head.appendChild(styleEl);
 }
@@ -872,6 +1044,33 @@ function buildPipesSVG(): SVGSVGElement {
     return svg;
 }
 
+/** Build numbered process step rows inside a container */
+function buildProcessRows(container: HTMLElement): void {
+    container.innerHTML = "";
+    processSteps.forEach((step, i) => {
+        const row = document.createElement("div");
+        row.className = "nf-proc-row nf-proc-waiting";
+        row.id = `nf-proc-${step.stepId}`;
+        row.innerHTML = `
+            <span class="nf-proc-num">${i + 1}</span>
+            <span class="nf-proc-dot"></span>
+            <span class="nf-proc-label">${step.label}</span>
+            <span class="nf-proc-badge">(queued)</span>
+        `;
+        container.appendChild(row);
+    });
+}
+
+/** Rebuild the terminal process rows (after scene count changes) */
+function rebuildTerminalDom(): void {
+    const terminal = document.getElementById("nf-terminal");
+    if (!terminal) return;
+    buildProcessRows(terminal);
+    // Update counter total
+    const counter = document.getElementById("nf-step-counter");
+    if (counter) counter.textContent = `0/${processSteps.length}`;
+}
+
 function buildOverlay(): HTMLDivElement {
     const root = document.createElement("div");
     root.id = "netflow-engine-overlay";
@@ -911,26 +1110,23 @@ function buildOverlay(): HTMLDivElement {
             <span class="nf-core-title-val">ACTIVE</span>
             <span class="nf-status-dot"></span>
         </div>
-        <div class="nf-core-counter" id="nf-step-counter">0</div>
+        <div class="nf-core-counter" id="nf-step-counter">0/${processSteps.length}</div>
     `;
     core.appendChild(header);
 
-    // Terminal
+    // Process Steps Terminal
     const terminal = document.createElement("div");
     terminal.className = "nf-terminal";
     terminal.id = "nf-terminal";
-    TERMINAL_LINES.forEach((line) => {
-        const row = document.createElement("div");
-        row.className = "nf-term-line nf-term-waiting";
-        row.id = `nf-term-${line.moduleId}`;
-        row.innerHTML = `
-            <span class="nf-term-prefix">&gt;</span>
-            <span class="nf-term-label">${line.label}</span>
-            <span class="nf-term-status">(queued)</span>
-        `;
-        terminal.appendChild(row);
-    });
+    buildProcessRows(terminal);
     core.appendChild(terminal);
+
+    // Log Feed
+    const logFeed = document.createElement("div");
+    logFeed.className = "nf-log-feed";
+    logFeed.id = "nf-log-feed";
+    logFeed.innerHTML = '<div class="nf-log-line" style="color:rgba(220,38,38,0.4)">Waiting for automation...</div>';
+    core.appendChild(logFeed);
 
     // Visualizer
     const viz = document.createElement("div");
@@ -1080,32 +1276,66 @@ function stopVisualizer() {
 
 function refreshTerminal() {
     let doneCount = 0;
-    for (const tl of TERMINAL_LINES) {
-        const el = document.getElementById(`nf-term-${tl.moduleId}`);
-        if (!el) continue;
-        const info = getTerminalStatus(tl.moduleId);
-        el.className = `nf-term-line ${info.cls}`;
-        const statusSpan = el.querySelector(".nf-term-status");
-        if (statusSpan) statusSpan.textContent = info.text;
-        if (info.cls === "nf-term-done") doneCount++;
+    const nonSkipped = processSteps.filter(s => s.status !== "skipped").length;
+
+    for (const step of processSteps) {
+        const row = document.getElementById(`nf-proc-${step.stepId}`);
+        if (!row) continue;
+
+        row.className = "nf-proc-row";
+        const badge = row.querySelector(".nf-proc-badge") as HTMLElement | null;
+
+        switch (step.status) {
+            case "done":
+                row.classList.add("nf-proc-done");
+                if (badge) badge.textContent = "\u2705 done";
+                doneCount++;
+                break;
+            case "active":
+                row.classList.add("nf-proc-active");
+                if (badge) badge.textContent = step.progress !== undefined && step.progress > 0
+                    ? `\u23f3 ${step.progress}%` : "\u23f3 active";
+                break;
+            case "error":
+                row.classList.add("nf-proc-error");
+                if (badge) badge.textContent = "\u274c error";
+                break;
+            case "skipped":
+                row.classList.add("nf-proc-skipped");
+                if (badge) badge.textContent = "\u2014 skip";
+                break;
+            default:
+                row.classList.add("nf-proc-waiting");
+                if (badge) badge.textContent = "(queued)";
+        }
     }
+
     // Update counter
     activeStepCount = doneCount;
     const counter = document.getElementById("nf-step-counter");
-    if (counter) counter.textContent = String(doneCount);
+    if (counter) counter.textContent = `${doneCount}/${processSteps.length}`;
 
     // Update core title based on overall state
     const titleVal = document.querySelector(".nf-core-title-val") as HTMLElement | null;
     const statusDot = document.querySelector(".nf-status-dot") as HTMLElement | null;
-    if (doneCount >= TERMINAL_LINES.length) {
+    if (doneCount >= nonSkipped && nonSkipped > 0) {
         if (titleVal) { titleVal.textContent = "COMPLETE"; titleVal.style.color = "#4ade80"; }
         if (statusDot) { statusDot.style.background = "#4ade80"; statusDot.style.boxShadow = "0 0 8px rgba(74,222,128,0.7)"; }
     } else {
-        const hasError = TERMINAL_LINES.some((tl) => getTerminalStatus(tl.moduleId).cls === "nf-term-error");
+        const hasError = processSteps.some(s => s.status === "error");
         if (hasError) {
             if (titleVal) { titleVal.textContent = "ERROR"; titleVal.style.color = "#f87171"; }
             if (statusDot) { statusDot.style.background = "#ef4444"; statusDot.style.boxShadow = "0 0 8px rgba(239,68,68,0.7)"; }
+        } else if (processSteps.some(s => s.status === "active")) {
+            if (titleVal) { titleVal.textContent = "ACTIVE"; titleVal.style.color = "#4ade80"; titleVal.style.textShadow = "0 0 10px rgba(74,222,128,0.5)"; }
         }
+    }
+
+    // Auto-scroll terminal to active step
+    const terminal = document.getElementById("nf-terminal");
+    const activeRow = terminal?.querySelector(".nf-proc-active") as HTMLElement | null;
+    if (activeRow && terminal) {
+        activeRow.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 }
 
@@ -1161,6 +1391,10 @@ export function showOverlay(): void {
         return;
     }
     injectStyles();
+    // Reset process steps for fresh overlay
+    currentSceneCount = 1;
+    processSteps = generateProcessSteps(1);
+    logBuffer.length = 0;
     overlayRoot = buildOverlay();
     document.body.appendChild(overlayRoot);
     overlayHidden = false;
@@ -1192,13 +1426,21 @@ export function hideOverlay(): void {
 export function updateStep(stepId: string, status: StepStatus, progress?: number): void {
     if (!overlayRoot) return;
 
-    // Update internal state
+    // Update internal state (modules)
     for (const mod of modules) {
         for (const step of mod.steps) {
             if (step.id === stepId) {
                 step.status = status;
                 if (progress !== undefined) step.progress = progress;
             }
+        }
+    }
+
+    // Update process steps (center terminal)
+    for (const ps of processSteps) {
+        if (ps.stepId === stepId) {
+            ps.status = status;
+            if (progress !== undefined) ps.progress = progress;
         }
     }
 
@@ -1275,26 +1517,55 @@ function refreshModules(): void {
  * @param totalScenes — total number of scenes (e.g. 2 or 3)
  */
 export function configureScenes(totalScenes: number): void {
-    if (totalScenes <= 1) return;
+    currentSceneCount = totalScenes;
 
-    const videoMod = modules.find((m) => m.id === "video");
-    if (!videoMod) return;
+    // ★ Regenerate process steps for the new scene count
+    const oldStatuses = new Map<string, { status: StepStatus; progress?: number }>();
+    for (const ps of processSteps) {
+        oldStatuses.set(ps.stepId, { status: ps.status, progress: ps.progress });
+    }
+    processSteps = generateProcessSteps(totalScenes);
+    // Preserve existing statuses (e.g. upload steps already done)
+    for (const ps of processSteps) {
+        const old = oldStatuses.get(ps.stepId);
+        if (old) {
+            ps.status = old.status;
+            if (old.progress !== undefined) ps.progress = old.progress;
+        }
+    }
+    // Rebuild center terminal DOM
+    rebuildTerminalDom();
 
-    const newSteps: SubStep[] = [
-        { id: "animate", label: "สลับเป็นโหมดวิดีโอ", status: videoMod.steps.find(s => s.id === "animate")?.status || "waiting" },
-        { id: "vid-prompt", label: "Scene 1 Prompt", status: videoMod.steps.find(s => s.id === "vid-prompt")?.status || "waiting" },
-        { id: "vid-generate", label: "Scene 1 Generate", status: videoMod.steps.find(s => s.id === "vid-generate")?.status || "waiting" },
-        { id: "vid-wait", label: "Scene 1 รอผล", status: videoMod.steps.find(s => s.id === "vid-wait")?.status || "waiting", progress: 0 },
-    ];
-
-    for (let i = 2; i <= totalScenes; i++) {
-        newSteps.push({ id: `scene${i}-prompt`, label: `Scene ${i} Prompt`, status: "waiting" });
-        newSteps.push({ id: `scene${i}-gen`, label: `Scene ${i} Generate`, status: "waiting" });
-        newSteps.push({ id: `scene${i}-wait`, label: `Scene ${i} รอผล`, status: "waiting", progress: 0 });
+    // Also update video module (cross-pattern module)
+    if (totalScenes > 1) {
+        const videoMod = modules.find((m) => m.id === "video");
+        if (videoMod) {
+            const newSteps: SubStep[] = [
+                { id: "animate", label: "สลับเป็นโหมดวิดีโอ", status: videoMod.steps.find(s => s.id === "animate")?.status || "waiting" },
+                { id: "vid-prompt", label: "Scene 1 Prompt", status: videoMod.steps.find(s => s.id === "vid-prompt")?.status || "waiting" },
+                { id: "vid-generate", label: "Scene 1 Generate", status: videoMod.steps.find(s => s.id === "vid-generate")?.status || "waiting" },
+                { id: "vid-wait", label: "Scene 1 รอผล", status: videoMod.steps.find(s => s.id === "vid-wait")?.status || "waiting", progress: 0 },
+            ];
+            for (let i = 2; i <= totalScenes; i++) {
+                newSteps.push({ id: `scene${i}-prompt`, label: `Scene ${i} Prompt`, status: "waiting" });
+                newSteps.push({ id: `scene${i}-gen`, label: `Scene ${i} Generate`, status: "waiting" });
+                newSteps.push({ id: `scene${i}-wait`, label: `Scene ${i} รอผล`, status: "waiting", progress: 0 });
+            }
+            videoMod.steps = newSteps;
+            rebuildModuleDom(videoMod);
+        }
     }
 
-    videoMod.steps = newSteps;
-    rebuildModuleDom(videoMod);
+    // Also update FINAL_RENDER module label for multi-scene
+    const renderMod = modules.find((m) => m.id === "render");
+    if (renderMod && totalScenes > 1) {
+        const dlStep = renderMod.steps.find(s => s.id === "download");
+        if (dlStep) dlStep.label = "ดาวน์โหลด 720p";
+        const upStep = renderMod.steps.find(s => s.id === "upscale");
+        if (upStep) upStep.label = "Full Video";
+        rebuildModuleDom(renderMod);
+    }
+
     refreshModules();
     refreshTerminal();
 }
@@ -1343,6 +1614,28 @@ export function resetOverlay(): void {
             step.progress = step.progress !== undefined ? 0 : undefined;
         }
     }
+    // Reset process steps
+    currentSceneCount = 1;
+    processSteps = generateProcessSteps(1);
+    logBuffer.length = 0;
+    rebuildTerminalDom();
     refreshModules();
     refreshTerminal();
+    // Reset log feed
+    const feed = document.getElementById("nf-log-feed");
+    if (feed) feed.innerHTML = '<div class="nf-log-line" style="color:rgba(220,38,38,0.4)">Waiting for automation...</div>';
+}
+
+/** Add a real-time log line to the center terminal log feed */
+export function addLog(msg: string): void {
+    const clean = msg.replace(/^\[Netflow AI\]\s*/, "");
+    logBuffer.push(clean);
+    if (logBuffer.length > MAX_LOG_LINES) logBuffer.shift();
+
+    const feed = document.getElementById("nf-log-feed");
+    if (!feed) return;
+
+    feed.innerHTML = logBuffer
+        .map(line => `<div class="nf-log-line">&gt; ${line}</div>`)
+        .join("");
 }
