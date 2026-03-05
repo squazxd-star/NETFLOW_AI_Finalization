@@ -822,8 +822,10 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
 // Video Policy Safety — additional directives for video generation
 const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No deceptive health claims. No violence, gambling, or misleading product claims. No trademark logos in generated visuals. Photorealistic style only, no cartoon effects unless specified.";
 
-// Face Identity Lock — strong directive to preserve exact facial features from reference image
-const FACE_IDENTITY_LOCK = "IDENTITY LOCK: Identical likeness to the attached reference photo — preserve exact facial structure, eye shape, nose bridge, jawline, skin tone, and hair from the reference image. Same person in every frame. Do not average, blend, or reinterpret facial features. The face must be a direct match to the source photo, not a generic approximation.";
+// Face Identity Lock — preserve facial features while framing as anonymous/fictional character
+// CRITICAL: Avoid "identical likeness" or "direct match" phrasing that triggers Google's "famous person" policy.
+// Instead, frame as "original anonymous character inspired by reference style".
+const FACE_IDENTITY_LOCK = "CHARACTER REFERENCE: Use the attached reference photo ONLY as style inspiration for an ORIGINAL ANONYMOUS fictional character. Preserve the general facial aesthetic, hair style, and skin tone from the reference. This is NOT a real person — create a unique, original character that captures a similar visual style. Same consistent fictional character in every frame. Do not replicate any real celebrity or public figure.";
 
 // Anti-Text Directive — strongest possible anti-text/font rendering prevention
 const ANTI_TEXT_DIRECTIVE = "STRICTLY NO TEXT IN ANY FRAME: no subtitles, no captions, no watermarks, no typography, no floating text, no on-screen graphics, no Thai characters, no gibberish fonts, no signage, no banners, no logos, no UI elements. Every frame must be a clean visual with zero text of any kind. Shot on 85mm lens, shallow depth of field, natural environment.";
@@ -940,6 +942,40 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\binstagram\b/gi, "social media platform"],
     [/\bfacebook\b/gi, "social network"],
     [/\byoutube\b/gi, "video platform"],
+    // Celebrity/public figure references — replace with generic descriptions
+    [/\blisa\b(?!\s*(simpson|kudrow))/gi, "young woman"],
+    [/\bbambi?i?\b/gi, "young woman"],
+    [/\bblackpink\b/gi, "music group"],
+    [/\bbts\b/gi, "music group"],
+    [/\btwice\b(?!\s*(a|per|as))/gi, "music group"],
+    [/\bjungkook\b/gi, "young man"],
+    [/\bjennie\b/gi, "young woman"],
+    [/\brose\b(?=\s*(blackpink|bp))/gi, "young woman"],
+    [/\btaylor swift\b/gi, "female singer"],
+    [/\bariana grande\b/gi, "female singer"],
+    [/\bbeyonce\b/gi, "female singer"],
+    [/\brihanna\b/gi, "female singer"],
+    [/\bkim kardashian\b/gi, "celebrity"],
+    [/\bkardashian\b/gi, "celebrity"],
+    [/\belon musk\b/gi, "tech entrepreneur"],
+    [/\btrump\b/gi, "political figure"],
+    [/\bobama\b/gi, "political figure"],
+    [/\bmessi\b/gi, "football player"],
+    [/\bronaldo\b/gi, "football player"],
+    [/\bมิลลิ\b/gi, "นักร้องหญิง"],
+    [/\bลิซ่า\b/gi, "สาวเอเชีย"],
+    [/\bแบมแบม\b/gi, "หนุ่มเอเชีย"],
+    [/\bบิวกิ้น\b/gi, "หนุ่มไทย"],
+    [/\bพีพี\b/gi, "หนุ่มไทย"],
+    [/\bใบเฟิร์น\b/gi, "สาวไทย"],
+    [/\bญาญ่า\b/gi, "สาวไทย"],
+    [/\bมาริโอ้\b/gi, "หนุ่มไทย"],
+    [/\bณเดชน์\b/gi, "หนุ่มไทย"],
+    [/\bเบลล่า\b/gi, "สาวไทย"],
+    [/\bดาวิกา\b/gi, "สาวไทย"],
+    [/\bอั้ม\b(?!\s*พัชรา)/gi, "สาวไทย"],
+    [/\bอั้ม\s*พัชราภา\b/gi, "สาวไทย"],
+    [/\bมาร์กี้\b/gi, "สาวไทย"],
 ];
 
 // Policy-unsafe keywords that should be stripped
@@ -964,6 +1000,15 @@ const POLICY_UNSAFE_WORDS = [
     "unsupervised child", "leave baby alone", "not for children under",
     // Auto safety triggers
     "crash tested", "bulletproof", "indestructible",
+    // Celebrity/public figure policy triggers
+    "celebrity", "famous person", "public figure", "real person",
+    "looks like", "resembles", "lookalike", "look-alike", "doppelganger",
+    "identical to", "same as", "based on", "inspired by celebrity",
+    "k-pop idol", "k-pop star", "kpop idol", "kpop star",
+    "thai celebrity", "thai actress", "thai actor", "thai idol",
+    "idol", "superstar", "mega star", "ดารา", "คนดัง", "เซเลบ",
+    "นักร้องชื่อดัง", "ดาราชื่อดัง", "นางเอก", "พระเอก",
+    "influencer ชื่อดัง", "ไอดอล",
 ];
 
 /** Sanitize brand names and policy-unsafe keywords from a prompt.
@@ -981,9 +1026,14 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
         result = result.replace(pattern, replacement);
     }
     for (const word of POLICY_UNSAFE_WORDS) {
-        const re = new RegExp(`\\b${word}\\b`, 'gi');
+        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(escaped, 'gi');
         result = result.replace(re, '');
     }
+    // ★ Strip "looks like [Name]", "resembles [Name]", "similar to [Name]" patterns
+    result = result.replace(/(?:looks?\s+like|resembles?|similar\s+to|inspired\s+by|based\s+on|same\s+as|identical\s+to)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}/g, '');
+    // ★ Strip "[Name]-like" patterns (e.g., "Lisa-like", "Jennie-style")
+    result = result.replace(/[A-Z][a-z]+(?:-like|-style|-inspired|-esque)/g, '');
     // Restore product name
     if (productName) {
         result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), productName);
@@ -1932,9 +1982,9 @@ ${ANTI_DISTORTION_DIRECTIVE}
 ${FACE_IDENTITY_LOCK}
 
 Reference Images:
-- Image 1: Presenter face reference — MUST preserve identical facial structure, exact likeness, same person${hasProductImage ? `
+- Image 1: Character style reference — use as visual inspiration for an ORIGINAL ANONYMOUS fictional character with similar aesthetic${hasProductImage ? `
 - Image 2: Product reference (must preserve packaging and product type)` : ''}
-- If text conflicts with images, images win. Face from Image 1 is absolute priority.
+- If text conflicts with images, images win. Character style from Image 1 is the visual guide.
 
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
@@ -2088,7 +2138,7 @@ const buildVideoPrompt = (
         `${voiceoverDescriptor}`,
         `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Constraints] — policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} Same person identity and outfit throughout. Product must appear frontal, centered, symmetrical, zero lens distortion. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} Same fictional character and outfit throughout. Product must appear frontal, centered, symmetrical, zero lens distortion. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
@@ -2137,7 +2187,7 @@ export const buildSceneVideoPromptJSON = (
     // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
     const continuityDirective = [
         `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation.`,
-        `KEEP IDENTICAL: character face/body/clothing, product appearance, background, lighting, voice.`,
+        `KEEP CONSISTENT: same fictional character face/body/clothing, product appearance, background, lighting, voice.`,
         `MATCH CUT: character position and pose at start of this scene must match exactly where scene ${sceneNumber - 1} ended.`,
         `CAMERA CARRY-OVER: continue same camera motion from previous scene — ${meta.cameraMovement}. Do not reset camera.`,
         `ACTION OVERLAP: character has slight continuous movement (gestures, breathing) at scene boundary — no freeze frame.`,
@@ -2152,7 +2202,7 @@ export const buildSceneVideoPromptJSON = (
         `${meta.camera}. ${meta.lighting}.`,
         `${meta.pacing}. Fluid motion, high frame rate.`,
         `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
-        `${aspectDirective} ${meta.restrictions} Same person, outfit, product, environment from scene ${sceneNumber - 1}.`
+        `${aspectDirective} ${meta.restrictions} Same fictional character, outfit, product, environment from scene ${sceneNumber - 1}.`
     ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
 };
 

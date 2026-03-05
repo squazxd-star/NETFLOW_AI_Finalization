@@ -24,12 +24,12 @@ const qualityBoosters = "8k resolution, hyperrealistic, highly detailed texture,
 // --- 2. IDENTITY LOCK COMMANDS (CRITICAL) ---
 // This is recent best-practice for Vision-to-Video consistency
 const identityLockInstruction = `
-*** CRITICAL FACE & IDENTITY PRESERVATION ***
-- REFERENCE IMAGE IS THE SOURCE OF TRUTH.
-- YOU MUST TRANSFER THE EXACT FACE FROM THE IMAGE TO THE VIDEO.
-- Do NOT create a generic face. Use the specific facial features, bone structure, and skin texture from the input image.
+*** CHARACTER & PRODUCT VISUAL CONSISTENCY ***
+- REFERENCE IMAGE IS STYLE INSPIRATION ONLY.
+- Create an ORIGINAL ANONYMOUS FICTIONAL character inspired by the reference photo's general aesthetic (hair style, skin tone, clothing style).
+- This is NOT a real person — do NOT replicate any celebrity or public figure.
 - If the image contains a specific product, KEEP IT EXACT. Do not hallucinate different packaging.
-- CONSISTENCY LEVEL: 100%.
+- Same consistent fictional character in every frame. CONSISTENCY LEVEL: 100%.
 `;
 
 export interface PromptVariables {

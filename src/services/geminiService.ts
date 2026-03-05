@@ -121,18 +121,21 @@ export const generateVisualPrompt = async (apiKey: string, imageBase64: string, 
 
                 INSTRUCTIONS:
                 1. **Product**: Describe the product in Image 1 exactly (color, shape, packaging type).
-                ${characterImage ? `2. **Character**: Describe the person in Image 2 exactly (hair style, color, facial features, skin tone, clothing). THIS IS CRITICAL for consistency.` : ""}
+                ${characterImage ? `2. **Character**: Describe the person in Image 2 as an ORIGINAL ANONYMOUS FICTIONAL character. Describe ONLY generic visual traits: approximate hair style, hair color, skin tone, clothing style. Do NOT identify, name, or reference any real person, celebrity, public figure, or idol. Do NOT say "looks like", "resembles", or "similar to" anyone. Frame as: "an original fictional young woman/man with [visual traits]".` : ""}
                 3. **Action**: Create a ${totalDuration}-second continuous shot.
                    - Movement: ${style || "Cinematic, smooth camera movement"}.
                    - Lighting: Professional studio or natural cinematic.
-                   - Interaction: ${characterImage ? "The character is holding/presenting the product naturally." : "The product is showcased with elegant camera movement."}
+                   - Interaction: ${characterImage ? "The fictional character is holding/presenting the product naturally." : "The product is showcased with elegant camera movement."}
                 
                 4. **Format**: Return ONLY the raw English prompt text. Do not include "Name:" or "Prompt:" labels.
                 
-                STRICT CONSTRAINT:
+                STRICT CONSTRAINTS:
                 - NO text overlays.
                 - NO cartoon effects (unless style specifies).
-                - Keep it photorealistic.`;
+                - Keep it photorealistic.
+                - NEVER mention any real person's name, celebrity, public figure, idol, or K-pop star.
+                - NEVER use phrases like "looks like", "resembles", "inspired by", or "similar to" any real person.
+                - The character must ALWAYS be described as an original, anonymous, fictional person.`;
 
     try {
         let content = "";

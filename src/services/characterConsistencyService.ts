@@ -154,7 +154,7 @@ ${physicalAppearance}
 - Holding/displaying the product consistently
 
 [CONSISTENCY RULES:]
-- Same person, same face, same hair, same clothes in every scene
+- Same fictional character, same hair, same clothes in every scene
 - Same lighting and color grading throughout
 - Continuous story flow as if one uninterrupted video
 `.trim();
