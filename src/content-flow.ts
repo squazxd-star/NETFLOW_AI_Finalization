@@ -89,9 +89,10 @@ function findCardsByIcon(iconText: string): HTMLElement[] {
         const txt = (icon.textContent || "").trim();
         if (txt !== iconText) continue;
 
-        // Walk up the DOM to find the card container
+        // Walk up the DOM to find the card container (prefer smallest valid match)
         let el: HTMLElement | null = icon;
         let card: HTMLElement | null = null;
+        let cardArea = Infinity;
         for (let depth = 0; depth < 20 && el; depth++) {
             el = el.parentElement;
             if (!el || el === document.body) break;
@@ -100,8 +101,11 @@ function findCardsByIcon(iconText: string): HTMLElement[] {
             if (r.width > 100 && r.height > 80 &&
                 r.width < window.innerWidth * 0.6 &&
                 r.top >= -10 && r.bottom <= window.innerHeight + 10) {
-                card = el;
-                break;
+                const area = r.width * r.height;
+                if (area < cardArea) {
+                    card = el;
+                    cardArea = area;
+                }
             }
         }
         if (card && !results.includes(card)) {
@@ -1610,18 +1614,35 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 LOG("⚠️ Timeout — attempting to click video card anyway");
             }
 
-            // Compute center of the card for hover/click
+            // Find the actual visual element inside the card for precise clicking
             const cardRect = el.getBoundingClientRect();
-            const cx = cardRect.left + cardRect.width / 2;
-            const cy = cardRect.top + cardRect.height / 2;
+            let cx = cardRect.left + cardRect.width / 2;
+            let cy = cardRect.top + cardRect.height / 2;
+            let clickTarget: HTMLElement = el;
+
+            // Look for actual thumbnail element (video/img/canvas) inside the card
+            const thumb = el.querySelector("video, img, canvas") as HTMLElement | null;
+            if (thumb) {
+                const tr = thumb.getBoundingClientRect();
+                if (tr.width > 50 && tr.height > 50) {
+                    cx = tr.left + tr.width / 2;
+                    cy = tr.top + tr.height / 2;
+                    clickTarget = thumb;
+                    LOG(`🎯 Found thumbnail <${thumb.tagName.toLowerCase()}> inside card at (${cx.toFixed(0)},${cy.toFixed(0)}) ${tr.width.toFixed(0)}x${tr.height.toFixed(0)}`);
+                }
+            } else {
+                // No visual child — click top 1/3 of card where thumbnail typically is
+                cy = cardRect.top + cardRect.height * 0.3;
+                LOG(`🎯 No thumbnail child — clicking top 1/3 at (${cx.toFixed(0)},${cy.toFixed(0)})`);
+            }
 
             // Hover 4s (with PointerEvents for Mac Radix UI compatibility)
             LOG(`🖱️ Hovering video card 4s at (${cx.toFixed(0)}, ${cy.toFixed(0)})...`);
-            robustHover(el);
+            robustHover(clickTarget);
             for (let t = 0; t < 8; t++) {
                 const moveOpts = { bubbles: true, cancelable: true, clientX: cx + (t % 2), clientY: cy };
-                el.dispatchEvent(new PointerEvent("pointermove", { ...moveOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                el.dispatchEvent(new MouseEvent("mousemove", moveOpts));
+                clickTarget.dispatchEvent(new PointerEvent("pointermove", { ...moveOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                clickTarget.dispatchEvent(new MouseEvent("mousemove", moveOpts));
                 await sleep(500);
             }
 
@@ -1629,7 +1650,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             LOG("Clicking video card...");
             for (let i = 0; i < 2; i++) {
                 const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
-                if (target) await robustClick(target); else await robustClick(el);
+                if (target) await robustClick(target); else await robustClick(clickTarget);
                 await sleep(300);
             }
             LOG("✅ Video card clicks done");
