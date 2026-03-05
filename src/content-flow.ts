@@ -1482,9 +1482,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         LOG(`=== Step 6: Wait for video + ${totalScenes > 1 ? `continue ${totalScenes} scenes` : 'download'} ===`);
 
         // ── Shared: Scan for "X%" by querying ALL elements directly ──
+        const overlayEl = document.getElementById("netflow-engine-overlay");
         const scanForPct = (): number | null => {
             const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
             for (const el of els) {
+                // Skip elements inside our own overlay (they echo the % back, causing feedback loop)
+                if (overlayEl && overlayEl.contains(el)) continue;
                 const txt = (el.textContent || "").trim();
                 if (txt.length > 10) continue;
                 const m = txt.match(/(\d{1,3})\s*%/);
@@ -1513,6 +1516,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
                 let count = 0;
                 for (const el of els) {
+                    if (overlayEl && overlayEl.contains(el)) continue;
                     const txt = (el.textContent || "").trim();
                     if (txt.includes("%") && txt.length < 15) {
                         const tag = el.tagName.toLowerCase();
@@ -1575,6 +1579,17 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         LOG(`⏳ Waiting... (${elapsed}s) no % found`);
                     }
                 }
+
+                // Secondary completion signal: if a video card appeared, video is done
+                if (!completed && lastPct > 0) {
+                    const newCard = findFirstVideoCard();
+                    if (newCard && !earlyVideoCard) {
+                        LOG(`✅ Video card appeared while tracking at ${lastPct}% — video done!`);
+                        completed = true;
+                        break;
+                    }
+                }
+
                 await sleep(3000);
             }
 
