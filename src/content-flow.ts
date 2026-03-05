@@ -1024,6 +1024,20 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         sessionStorage.setItem("netflow_last_run", new Date().toISOString());
     } catch { /* ignore if blocked */ }
 
+    // ── System Info Check ──
+    const ua = navigator.userAgent;
+    const chromeMatch = ua.match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/);
+    const chromeVer = chromeMatch ? chromeMatch[1] : "unknown";
+    const osName = isMac ? "macOS" : isWindows ? "Windows" : /Linux/i.test(ua) ? "Linux" : /CrOS/i.test(ua) ? "ChromeOS" : "Unknown";
+    const osDetail = isMac ? (ua.match(/Mac OS X ([0-9_]+)/)?.[1]?.replace(/_/g, ".") || "") :
+                     isWindows ? (ua.match(/Windows NT ([0-9.]+)/)?.[1] || "") : "";
+    const lang = navigator.language || "unknown";
+    const screen = `${window.innerWidth}x${window.innerHeight}`;
+    LOG(`══════════════════════════════════════════`);
+    LOG(`🖥️ System: ${osName} ${osDetail} | Chrome ${chromeVer}`);
+    LOG(`🌐 Language: ${lang} | Screen: ${screen} | Platform: ${platformTag}`);
+    LOG(`══════════════════════════════════════════`);
+
     // ── Show Engine Overlay ──
     try { showOverlay(); } catch (e) { console.warn("Overlay show error:", e); }
 
