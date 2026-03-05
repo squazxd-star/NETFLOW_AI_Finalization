@@ -2000,16 +2000,33 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         }
                         await sleep(1000);
 
-                        // Click → generate button
+                        // Click → generate button (full pointer event sequence for React)
                         updateStep(`scene${sn}-gen`, "active");
                         const sceneGenBtn = findGenerateButton();
                         if (sceneGenBtn) {
-                            sceneGenBtn.click();
-                            LOG(`Clicked Generate for scene ${sn}`);
+                            const sgRect = sceneGenBtn.getBoundingClientRect();
+                            const sgCx = sgRect.left + sgRect.width / 2;
+                            const sgCy = sgRect.top + sgRect.height / 2;
+                            const sgOpts = { bubbles: true, cancelable: true, clientX: sgCx, clientY: sgCy, button: 0 };
+
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new MouseEvent("mousedown", sgOpts));
+                            await sleep(80);
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new MouseEvent("mouseup", sgOpts));
+                            sceneGenBtn.dispatchEvent(new MouseEvent("click", sgOpts));
+                            LOG(`Clicked Generate for scene ${sn} (full event sequence)`);
                             steps.push(`✅ Scene${sn} Gen`);
                             updateStep(`scene${sn}-gen`, "done");
+
+                            // Safety retry after 500ms
                             await sleep(500);
-                            sceneGenBtn.click(); // safety retry
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new MouseEvent("mousedown", sgOpts));
+                            await sleep(80);
+                            sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, pointerType: "mouse" }));
+                            sceneGenBtn.dispatchEvent(new MouseEvent("mouseup", sgOpts));
+                            sceneGenBtn.dispatchEvent(new MouseEvent("click", sgOpts));
                         } else {
                             WARN(`Could not find Generate button for scene ${sn}`);
                             steps.push(`❌ Scene${sn} Gen`);
