@@ -59,11 +59,9 @@ async function robustClick(el: HTMLElement) {
     el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     el.dispatchEvent(new MouseEvent("mouseup", opts));
     el.dispatchEvent(new MouseEvent("click", opts));
-    // Windows: also fire native .click() for trusted event (React may ignore synthetic on Windows)
-    if (isWindows) {
-        await sleep(50);
-        el.click();
-    }
+    // Also fire native .click() for trusted event — React may ignore synthetic events on BOTH platforms
+    await sleep(50);
+    el.click();
 }
 
 /** Cross-platform robust hover: pointer + mouse events for Radix UI menus */
@@ -389,7 +387,7 @@ async function setPromptText(el: HTMLElement, text: string) {
         await sleep(800);
 
         // Verify — check actual text, excluding placeholder
-        const content = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        const content = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content.length > 20) {
             LOG(`setPromptText: ✅ Strategy 1 worked (${content.length} chars)`);
             return;
@@ -421,7 +419,7 @@ async function setPromptText(el: HTMLElement, text: string) {
         el.dispatchEvent(inputEv2);
         await sleep(800);
 
-        const content2 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        const content2 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content2.length > 20) {
             LOG(`setPromptText: ✅ Strategy 2 worked (${content2.length} chars)`);
             return;
@@ -450,7 +448,7 @@ async function setPromptText(el: HTMLElement, text: string) {
         el.dispatchEvent(pasteEvent);
         await sleep(800);
 
-        const content3a = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        const content3a = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content3a.length > 20) {
             LOG(`setPromptText: ✅ Strategy 3 worked (${content3a.length} chars)`);
             return;
@@ -486,7 +484,7 @@ async function setPromptText(el: HTMLElement, text: string) {
         document.execCommand("paste");
         await sleep(500);
 
-        const content4 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร/g, "").trim();
+        const content4 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content4.length > 20) {
             LOG(`setPromptText: ✅ Strategy 4 worked (${content4.length} chars)`);
             return;
@@ -1744,7 +1742,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mouseup", opts));
             card.dispatchEvent(new MouseEvent("click", opts));
-            if (isWindows) { await sleep(50); card.click(); }
+            await sleep(50); card.click();
             LOG("Clicked video card");
             await sleep(2000);
         };
@@ -1801,7 +1799,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             dotsBtn.dispatchEvent(new MouseEvent("mouseup", dOpts));
             dotsBtn.dispatchEvent(new MouseEvent("click", dOpts));
-            if (isWindows) { await sleep(50); dotsBtn.click(); }
+            await sleep(50); dotsBtn.click();
             LOG("Clicked 3-dots menu");
             await sleep(1500);
 
@@ -1829,7 +1827,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             downloadBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             downloadBtn.dispatchEvent(new MouseEvent("click", dlOpts));
-            if (isWindows) { await sleep(50); downloadBtn.click(); }
+            await sleep(50); downloadBtn.click();
             LOG("Clicked ดาวน์โหลด");
             await sleep(2000);
 
@@ -1864,7 +1862,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 btn1080.dispatchEvent(new MouseEvent("mouseup", hOpts));
                 btn1080.dispatchEvent(new MouseEvent("click", hOpts));
-                if (isWindows) { await sleep(50); btn1080.click(); }
+                await sleep(50); btn1080.click();
                 LOG("Clicked 1080p — upscaling started");
             } else {
                 WARN("Could not find resolution option");
@@ -1907,12 +1905,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
          * Shared download flow: ดาวน์โหลด → 1080p → wait upscale → open in Chrome
          */
         const performDownloadAndOpen = async () => {
-            // Find ดาวน์โหลด button
+            // Find ดาวน์โหลด / Download button
             let dlBtn: HTMLElement | null = null;
             const allBtns = document.querySelectorAll<HTMLElement>("button");
             for (const btn of allBtns) {
                 const txt = (btn.textContent || "").trim();
-                if (txt.includes("ดาวน์โหลด") || txt.toLowerCase() === "download") {
+                if (txt.includes("ดาวน์โหลด") || txt.toLowerCase().includes("download")) {
                     dlBtn = btn;
                     LOG(`Found ดาวน์โหลด button via text: "${txt}"`);
                     break;
@@ -1963,7 +1961,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
-            if (isWindows) { await sleep(50); dlBtn.click(); }
+            await sleep(50); dlBtn.click();
             LOG("Clicked ดาวน์โหลด button");
             steps.push("✅ ดาวน์โหลด");
             updateStep("download", "done");
@@ -1980,7 +1978,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 el.dispatchEvent(new MouseEvent("mouseup", opts));
                 el.dispatchEvent(new MouseEvent("click", opts));
-                if (isWindows) { await sleep(50); el.click(); }
+                await sleep(50); el.click();
             };
 
             // Helper: hover an element (Radix menus open on hover/pointerenter)
@@ -2174,7 +2172,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const allBtns = document.querySelectorAll<HTMLElement>("button");
                     for (const btn of allBtns) {
                         const txt = (btn.textContent || "").trim();
-                        if (txt.includes("ดาวน์โหลด") || txt.toLowerCase() === "download") {
+                        if (txt.includes("ดาวน์โหลด") || txt.toLowerCase().includes("download")) {
                             dlBtn = btn;
                             LOG(`Found ดาวน์โหลด button via text: "${txt}"`);
                             break;
@@ -2229,6 +2227,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                         dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
                         dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
+                        await sleep(50); dlBtn.click();
                         LOG("Clicked ดาวน์โหลด button");
                         steps.push("✅ ดาวน์โหลด");
                         updateStep("download", "done");
@@ -2273,6 +2272,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             res1080.dispatchEvent(new MouseEvent("mouseup", rOpts));
                             res1080.dispatchEvent(new MouseEvent("click", rOpts));
+                            await sleep(50); res1080.click();
                             LOG("Clicked 1080p — download starting");
                             steps.push("✅ 1080p");
 
