@@ -39,9 +39,28 @@ const NetflowPanel = () => {
                                 }}
                             />
                         </div>
-                        <h1 className="text-lg font-black tracking-tight text-foreground">
-                            <span className="text-neon-red drop-shadow-[0_0_8px_hsl(var(--neon-red)/0.4)]">NETFLOW</span>{" "}
-                            <span className="text-white">AI</span>
+                        <h1 className="text-[17px] font-black tracking-[0.25em] uppercase text-foreground" style={{ fontFamily: "'Inter', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif" }}>
+                            <span
+                                className="bg-clip-text text-transparent"
+                                style={{
+                                    backgroundImage: "linear-gradient(135deg, #ff4444 0%, #dc2626 40%, #ff6b6b 100%)",
+                                    filter: "drop-shadow(0 0 12px rgba(220,38,38,0.6))",
+                                    letterSpacing: "0.2em",
+                                }}
+                            >
+                                NETFLOW
+                            </span>{" "}
+                            <span
+                                className="text-white/90"
+                                style={{
+                                    letterSpacing: "0.35em",
+                                    fontWeight: 300,
+                                    fontSize: "0.75em",
+                                    verticalAlign: "1px",
+                                }}
+                            >
+                                AI
+                            </span>
                         </h1>
                     </div>
 
