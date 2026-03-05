@@ -36,12 +36,14 @@ interface Module {
 // ── State ──────────────────────────────────────────────────────────────────
 
 let overlayRoot: HTMLDivElement | null = null;
+let toggleBtn: HTMLButtonElement | null = null;
 let styleEl: HTMLStyleElement | null = null;
 let startTime = 0;
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 let terminalInterval: ReturnType<typeof setInterval> | null = null;
 let visualizerInterval: ReturnType<typeof setInterval> | null = null;
 let activeStepCount = 0;
+let overlayHidden = false;
 
 const modules: Module[] = [
     {
@@ -553,6 +555,70 @@ function injectStyles() {
 @keyframes nf-fade-out {
     to { opacity: 0; }
 }
+
+/* ─── Hidden state (visibility toggle, keeps DOM alive) ─── */
+#netflow-engine-overlay.nf-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+#netflow-engine-overlay.nf-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.4s ease;
+}
+
+/* ─── Floating Toggle Button (shows when overlay is hidden) ─── */
+#nf-toggle-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999998;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid rgba(220, 38, 38, 0.5);
+    background: rgba(10, 10, 18, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #dc2626;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(220, 38, 38, 0.3), 0 4px 12px rgba(0,0,0,0.5);
+    transition: all 0.3s ease;
+    animation: nf-toggle-pulse 2.5s ease-in-out infinite;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+#nf-toggle-btn:hover {
+    transform: scale(1.1);
+    border-color: rgba(220, 38, 38, 0.8);
+    box-shadow: 0 0 30px rgba(220, 38, 38, 0.5), 0 4px 16px rgba(0,0,0,0.6);
+    background: rgba(220, 38, 38, 0.15);
+}
+
+#nf-toggle-btn.nf-toggle-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.5);
+    transition: all 0.3s ease;
+}
+
+#nf-toggle-btn.nf-toggle-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+    transition: all 0.3s ease;
+}
+
+@keyframes nf-toggle-pulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.3), 0 4px 12px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 0 30px rgba(220, 38, 38, 0.5), 0 4px 16px rgba(0,0,0,0.5); }
+}
     `;
     document.head.appendChild(styleEl);
 }
@@ -588,11 +654,11 @@ function buildOverlay(): HTMLDivElement {
     const root = document.createElement("div");
     root.id = "netflow-engine-overlay";
 
-    // Close button
+    // Close button (toggles overlay visibility, doesn't destroy)
     const closeBtn = document.createElement("button");
     closeBtn.className = "nf-close-btn";
     closeBtn.textContent = "✕ ซ่อน";
-    closeBtn.onclick = () => hideOverlay();
+    closeBtn.onclick = () => toggleOverlayVisibility();
     root.appendChild(closeBtn);
 
     // Layout wrapper
@@ -823,28 +889,82 @@ function refreshTerminal() {
     }
 }
 
+// ── Toggle Button Builder ──────────────────────────────────────────────────
+
+function ensureToggleButton(): void {
+    if (toggleBtn) return;
+    injectStyles();
+    toggleBtn = document.createElement("button");
+    toggleBtn.id = "nf-toggle-btn";
+    toggleBtn.className = "nf-toggle-hidden";
+    toggleBtn.innerHTML = "⚡";
+    toggleBtn.title = "เปิด Netflow Overlay";
+    toggleBtn.onclick = () => toggleOverlayVisibility();
+    document.body.appendChild(toggleBtn);
+}
+
+/** Toggle overlay: hide ↔ show */
+function toggleOverlayVisibility(): void {
+    if (!overlayRoot) return;
+    ensureToggleButton();
+
+    if (!overlayHidden) {
+        // Hide overlay → show toggle button
+        overlayRoot.classList.remove("nf-visible");
+        overlayRoot.classList.add("nf-hidden");
+        if (toggleBtn) {
+            toggleBtn.classList.remove("nf-toggle-hidden");
+            toggleBtn.classList.add("nf-toggle-visible");
+        }
+        overlayHidden = true;
+    } else {
+        // Show overlay → hide toggle button
+        overlayRoot.classList.remove("nf-hidden");
+        overlayRoot.classList.add("nf-visible");
+        if (toggleBtn) {
+            toggleBtn.classList.remove("nf-toggle-visible");
+            toggleBtn.classList.add("nf-toggle-hidden");
+        }
+        overlayHidden = false;
+    }
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /** Show the overlay on the page */
 export function showOverlay(): void {
-    if (overlayRoot) return;
+    if (overlayRoot) {
+        // If overlay exists but is hidden, show it
+        if (overlayHidden) {
+            toggleOverlayVisibility();
+        }
+        return;
+    }
     injectStyles();
     overlayRoot = buildOverlay();
     document.body.appendChild(overlayRoot);
+    overlayHidden = false;
+    ensureToggleButton();
     startTimer();
     startVisualizer();
 }
 
-/** Hide and remove the overlay */
+/** Hide and remove the overlay completely (called on automation finish) */
 export function hideOverlay(): void {
     stopTimer();
     stopVisualizer();
+    overlayHidden = false;
     if (overlayRoot) {
         overlayRoot.classList.add("nf-fade-out");
         setTimeout(() => {
             overlayRoot?.remove();
             overlayRoot = null;
         }, 500);
+    }
+    // Also remove toggle button
+    if (toggleBtn) {
+        toggleBtn.remove();
+        toggleBtn = null;
     }
 }
 
