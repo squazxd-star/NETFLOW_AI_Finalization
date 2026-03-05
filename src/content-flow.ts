@@ -1869,33 +1869,61 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 return false;
             }
 
-            // Wait for "Upscaling complete!" text to appear (poll for up to 5 minutes)
+            // Wait for upscaling to finish (poll for up to 5 minutes)
+            // Detection: (A) "Upscaling complete" text, (B) "Upscaling your video" disappears,
+            //            (C) element-level scan, (D) broad completion keywords
             LOG("Waiting for upscale to complete...");
             const upscaleStart = Date.now();
+            let sawUpscaling = false;        // true once we've seen "Upscaling your video"
+            let upscaleGoneAt = 0;           // timestamp when "Upscaling your video" first disappeared
+            const GONE_CONFIRM_MS = 8000;    // confirm disappearance for 8s before declaring done
             while (Date.now() - upscaleStart < 300000) {
-                // Check both innerText and element-level search
                 const allText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-                if (allText.includes("Upscaling complete") || allText.includes("upscaling complete")) {
-                    LOG("✅ Upscaling complete! Video downloaded.");
+                const lower = allText.toLowerCase();
+                // (A) Explicit completion text
+                if (lower.includes("upscaling complete") || lower.includes("upscale complete")
+                    || lower.includes("download complete") || lower.includes("video is ready")
+                    || lower.includes("video ready")) {
+                    LOG("✅ Upscaling complete! (text match)");
                     return true;
                 }
-                // Element-level backup: scan visible divs/spans for the text
-                const allEls = document.querySelectorAll<HTMLElement>("div, span, p");
+                // (C) Element-level scan for completion
+                const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3");
+                let foundComplete = false;
                 for (const el of allEls) {
-                    const t = (el.textContent || "").trim();
-                    if (t === "Upscaling complete!" || t === "Upscaling complete") {
-                        LOG("✅ Upscaling complete! (element-level detection)");
-                        return true;
+                    const t = (el.textContent || "").trim().toLowerCase();
+                    if (t.length < 60 && (t.includes("upscaling complete") || t.includes("upscale complete")
+                        || t.includes("download complete") || t.includes("video is ready"))) {
+                        LOG(`✅ Upscaling complete! (element: "${el.textContent?.trim()}")`);
+                        foundComplete = true;
+                        break;
                     }
                 }
-                // Log progress if upscaling is in progress
-                if (allText.includes("Upscaling your video")) {
+                if (foundComplete) return true;
+                // Track "Upscaling your video" presence
+                const isUpscaling = lower.includes("upscaling your video") || lower.includes("upscaling video");
+                if (isUpscaling) {
+                    sawUpscaling = true;
+                    upscaleGoneAt = 0; // reset disappearance timer
                     const elapsed = Math.floor((Date.now() - upscaleStart) / 1000);
                     LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                } else if (sawUpscaling) {
+                    // (B) "Upscaling your video" was visible but now gone → upscaling likely done
+                    if (upscaleGoneAt === 0) {
+                        upscaleGoneAt = Date.now();
+                        LOG("🔍 Upscaling text disappeared — confirming...");
+                    } else if (Date.now() - upscaleGoneAt >= GONE_CONFIRM_MS) {
+                        LOG(`✅ Upscaling text gone for ${GONE_CONFIRM_MS / 1000}s — upscale done!`);
+                        return true;
+                    } else {
+                        const remaining = Math.ceil((GONE_CONFIRM_MS - (Date.now() - upscaleGoneAt)) / 1000);
+                        LOG(`🔍 Confirming upscale done... (${remaining}s)`);
+                    }
                 } else {
-                    LOG("⏳ Waiting for upscale status...");
+                    const elapsed = Math.floor((Date.now() - upscaleStart) / 1000);
+                    LOG(`⏳ Waiting for upscale status... (${elapsed}s)`);
                 }
-                await sleep(3000);
+                await sleep(2000);
             }
             WARN("Upscale timeout — video may still be processing");
             return true; // Still return true, download might have started
@@ -2060,50 +2088,74 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
 
             // Wait for download to complete
-            // Single scene: "Upscaling complete" / "upscaling complete"
-            // Multi-scene: "Downloading your extended video." → "Download complete!"
+            // Detection: (A) explicit completion text, (B) "Upscaling/Downloading" text disappears,
+            //            (C) element-level scan, (D) broad completion keywords
             LOG("Waiting for download to complete...");
             const upStart = Date.now();
             let downloadDone = false;
+            let sawProcessing = false;      // seen "Upscaling your video" or "Downloading"
+            let processingGoneAt = 0;       // timestamp when processing text first disappeared
+            const GONE_CONFIRM = 8000;      // confirm disappearance for 8s
             while (Date.now() - upStart < 300000) {
                 const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-                if (bodyText.includes("Download complete")) {
-                    LOG("✅ Download complete!");
-                    steps.push("✅ Downloaded");
+                const lower = bodyText.toLowerCase();
+                // (A) Explicit completion text
+                if (lower.includes("download complete") || lower.includes("upscaling complete")
+                    || lower.includes("upscale complete") || lower.includes("video is ready")
+                    || lower.includes("video ready")) {
+                    const label = lower.includes("download") ? "Downloaded" : "Upscaled";
+                    LOG(`✅ ${label}! (text match)`);
+                    steps.push(`✅ ${label}`);
                     updateStep("upscale", "done", 100);
                     downloadDone = true;
                     break;
                 }
-                if (bodyText.includes("Upscaling complete") || bodyText.includes("upscaling complete")) {
-                    LOG("✅ Upscaling complete!");
-                    steps.push("✅ Upscaled");
-                    updateStep("upscale", "done", 100);
-                    downloadDone = true;
-                    break;
-                }
-                // Element-level backup: scan for completion text in specific elements
-                const allEls = document.querySelectorAll<HTMLElement>("div, span, p");
+                // (C) Element-level scan
+                const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3");
                 for (const el of allEls) {
-                    const t = (el.textContent || "").trim();
-                    if (t === "Upscaling complete!" || t === "Upscaling complete" || t === "Download complete!" || t === "Download complete") {
-                        LOG(`✅ ${t} (element-level detection)`);
-                        steps.push("✅ " + (t.includes("Upscal") ? "Upscaled" : "Downloaded"));
+                    const t = (el.textContent || "").trim().toLowerCase();
+                    if (t.length < 60 && (t.includes("upscaling complete") || t.includes("upscale complete")
+                        || t.includes("download complete") || t.includes("video is ready"))) {
+                        LOG(`✅ Complete! (element: "${el.textContent?.trim()}")`);
+                        steps.push("✅ Upscaled");
                         updateStep("upscale", "done", 100);
                         downloadDone = true;
                         break;
                     }
                 }
                 if (downloadDone) break;
-                // Log progress
-                const elapsed = Math.floor((Date.now() - upStart) / 1000);
-                if (bodyText.includes("Downloading your extended video")) {
-                    LOG(`⏳ Downloading extended video... (${elapsed}s)`);
-                } else if (bodyText.includes("Upscaling your video")) {
-                    LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                // Track processing text presence
+                const isProcessing = lower.includes("upscaling your video") || lower.includes("upscaling video")
+                    || lower.includes("downloading your extended video") || lower.includes("downloading video");
+                if (isProcessing) {
+                    sawProcessing = true;
+                    processingGoneAt = 0;
+                    const elapsed = Math.floor((Date.now() - upStart) / 1000);
+                    if (lower.includes("downloading")) {
+                        LOG(`⏳ Downloading extended video... (${elapsed}s)`);
+                    } else {
+                        LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                    }
+                } else if (sawProcessing) {
+                    // (B) Processing text disappeared → likely done
+                    if (processingGoneAt === 0) {
+                        processingGoneAt = Date.now();
+                        LOG("🔍 Processing text disappeared — confirming...");
+                    } else if (Date.now() - processingGoneAt >= GONE_CONFIRM) {
+                        LOG(`✅ Processing text gone for ${GONE_CONFIRM / 1000}s — done!`);
+                        steps.push("✅ Upscaled");
+                        updateStep("upscale", "done", 100);
+                        downloadDone = true;
+                        break;
+                    } else {
+                        const remaining = Math.ceil((GONE_CONFIRM - (Date.now() - processingGoneAt)) / 1000);
+                        LOG(`🔍 Confirming done... (${remaining}s)`);
+                    }
                 } else {
+                    const elapsed = Math.floor((Date.now() - upStart) / 1000);
                     LOG(`⏳ Waiting... (${elapsed}s)`);
                 }
-                await sleep(3000);
+                await sleep(2000);
             }
 
             if (!downloadDone) {
@@ -2279,24 +2331,33 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             // Step 6D: Wait for upscaling to complete (server-side), then download finishes
                             LOG("Waiting for upscaling + download...");
 
-                            // 6D-1: Poll page for "Upscaling complete!" (up to 5 min)
+                            // 6D-1: Poll for upscaling completion (up to 5 min)
+                            // Detection: (A) completion text, (B) processing text disappears, (C) element scan
                             const upStart = Date.now();
                             let upscaleDone = false;
+                            let sawUpscaling3 = false;
+                            let upscaleGoneAt3 = 0;
+                            const GONE3 = 8000;
                             while (Date.now() - upStart < 300000) {
                                 const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-                                if (bodyText.includes("Upscaling complete") || bodyText.includes("upscaling complete")) {
-                                    LOG("✅ Upscaling complete!");
+                                const lower3 = bodyText.toLowerCase();
+                                // (A) Explicit completion text
+                                if (lower3.includes("upscaling complete") || lower3.includes("upscale complete")
+                                    || lower3.includes("download complete") || lower3.includes("video is ready")
+                                    || lower3.includes("video ready")) {
+                                    LOG("✅ Upscaling complete! (text match)");
                                     steps.push("✅ Upscaled");
                                     updateStep("upscale", "done", 100);
                                     upscaleDone = true;
                                     break;
                                 }
-                                // Element-level backup
-                                const upEls = document.querySelectorAll<HTMLElement>("div, span, p");
+                                // (C) Element-level scan
+                                const upEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3");
                                 for (const uel of upEls) {
-                                    const ut = (uel.textContent || "").trim();
-                                    if (ut === "Upscaling complete!" || ut === "Upscaling complete") {
-                                        LOG("✅ Upscaling complete! (element-level)");
+                                    const ut = (uel.textContent || "").trim().toLowerCase();
+                                    if (ut.length < 60 && (ut.includes("upscaling complete") || ut.includes("upscale complete")
+                                        || ut.includes("download complete") || ut.includes("video is ready"))) {
+                                        LOG(`✅ Upscaling complete! (element: "${uel.textContent?.trim()}")`);
                                         steps.push("✅ Upscaled");
                                         updateStep("upscale", "done", 100);
                                         upscaleDone = true;
@@ -2304,13 +2365,33 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                                     }
                                 }
                                 if (upscaleDone) break;
-                                const elapsed = Math.floor((Date.now() - upStart) / 1000);
-                                if (bodyText.includes("Upscaling your video")) {
+                                // Track processing text
+                                const isUp3 = lower3.includes("upscaling your video") || lower3.includes("upscaling video");
+                                if (isUp3) {
+                                    sawUpscaling3 = true;
+                                    upscaleGoneAt3 = 0;
+                                    const elapsed = Math.floor((Date.now() - upStart) / 1000);
                                     LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                                } else if (sawUpscaling3) {
+                                    // (B) Processing text disappeared
+                                    if (upscaleGoneAt3 === 0) {
+                                        upscaleGoneAt3 = Date.now();
+                                        LOG("🔍 Upscaling text disappeared — confirming...");
+                                    } else if (Date.now() - upscaleGoneAt3 >= GONE3) {
+                                        LOG(`✅ Upscaling text gone for ${GONE3 / 1000}s — done!`);
+                                        steps.push("✅ Upscaled");
+                                        updateStep("upscale", "done", 100);
+                                        upscaleDone = true;
+                                        break;
+                                    } else {
+                                        const remaining = Math.ceil((GONE3 - (Date.now() - upscaleGoneAt3)) / 1000);
+                                        LOG(`🔍 Confirming upscale done... (${remaining}s)`);
+                                    }
                                 } else {
+                                    const elapsed = Math.floor((Date.now() - upStart) / 1000);
                                     LOG(`⏳ Waiting for upscale... (${elapsed}s)`);
                                 }
-                                await sleep(3000);
+                                await sleep(2000);
                             }
 
                             // 6D-2: After upscale done, wait for download to finish then open
