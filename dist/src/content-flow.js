@@ -57,8 +57,8 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 420px;
-    min-height: 280px;
+    width: 500px;
+    min-height: 300px;
     max-height: 80vh;
     background: rgba(12, 10, 18, 0.92);
     border: 1.5px solid rgba(220, 38, 38, 0.5);
@@ -106,7 +106,7 @@
     align-items: center;
     gap: 10px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12.5px;
+    font-size: 17.5px;
     font-weight: 700;
     color: #fff;
     letter-spacing: 1.5px;
@@ -148,7 +148,7 @@
     background: rgba(220, 38, 38, 0.15);
     border: 1px solid rgba(220, 38, 38, 0.35);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-size: 16px;
     font-weight: 700;
     color: #fff;
 }
@@ -160,7 +160,7 @@
     max-height: 300px;
     overflow-y: auto;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-size: 15px;
     line-height: 1.6;
     color: rgba(255, 255, 255, 0.7);
     scrollbar-width: thin;
@@ -193,7 +193,7 @@
 
 .nf-term-status {
     margin-left: auto;
-    font-size: 9.5px;
+    font-size: 14.5px;
     font-weight: 600;
     padding: 1px 6px;
     border-radius: 4px;
@@ -330,7 +330,7 @@
 
 .nf-mod-title {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: 1.2px;
     color: #dc2626;
@@ -339,7 +339,7 @@
 }
 
 .nf-mod-pct {
-    font-size: 10.5px;
+    font-size: 15.5px;
     font-weight: 700;
     font-family: 'JetBrains Mono', monospace;
     color: rgba(255, 255, 255, 0.8);
@@ -351,7 +351,7 @@
     align-items: center;
     gap: 6px;
     padding: 2.5px 0;
-    font-size: 10px;
+    font-size: 15px;
     color: rgba(255, 255, 255, 0.3);
     transition: color 0.3s;
     font-family: 'Inter', sans-serif;
@@ -444,7 +444,7 @@
 
 .nf-brand {
     font-family: 'Orbitron', 'JetBrains Mono', monospace;
-    font-size: 16px;
+    font-size: 21px;
     font-weight: 800;
     letter-spacing: 6px;
     color: rgba(255, 255, 255, 0.35);
@@ -471,7 +471,7 @@
 }
 
 .nf-timer {
-    font-size: 10px;
+    font-size: 15px;
     color: rgba(255, 255, 255, 0.2);
     font-family: 'JetBrains Mono', monospace;
     margin-top: 2px;
@@ -487,7 +487,7 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     color: rgba(255, 255, 255, 0.35);
-    font-size: 11px;
+    font-size: 16px;
     padding: 5px 12px;
     cursor: pointer;
     transition: all 0.2s;
@@ -596,7 +596,7 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     color: #dc2626;
-    font-size: 18px;
+    font-size: 23px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -659,8 +659,8 @@
     color: rgba(255,255,255,0.25);
 }
 .nf-proc-num {
-    width: 16px;
-    font-size: 9px;
+    width: 20px;
+    font-size: 14px;
     font-weight: 700;
     text-align: right;
     flex-shrink: 0;
@@ -678,10 +678,10 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 10px;
+    font-size: 15px;
 }
 .nf-proc-badge {
-    font-size: 8px;
+    font-size: 13px;
     font-weight: 600;
     padding: 1px 5px;
     border-radius: 3px;
@@ -739,7 +739,7 @@
     padding: 6px 14px 8px;
     border-top: 1px solid rgba(220,38,38,0.15);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
+    font-size: 14px;
     line-height: 1.5;
     color: rgba(255,255,255,0.3);
     max-height: 65px;
