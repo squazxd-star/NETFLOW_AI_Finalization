@@ -173,12 +173,12 @@ const PRODUCT_HIGHLIGHT: Record<ProductCategory, string> = {
     fashion: "premium fabric texture, clean stitching details, elegant draping, natural fabric movement",
     gadget: "sleek modern design, brushed metal or matte finish, clean product lines, sharp edges",
     beauty: "elegant glass or matte packaging, dewy product texture, premium cosmetic aesthetic",
-    supplement: "clean clinical packaging, visible capsule or tablet details, health-forward branding",
+    supplement: "clean clinical packaging, visible capsule or tablet details, health-forward branding, athletic fit presenter with toned physique holding product confidently",
     pet: "pet-safe materials, vibrant fun packaging, durable quality, animal-friendly design",
     baby: "soft pastel tones, BPA-free safe materials, gentle rounded edges, parent-trusted quality",
     home: "premium household material, clean modern design, functional elegance, lifestyle integration",
     kitchen: "durable cooking-grade material, heat-resistant finish, ergonomic design, professional look",
-    fitness: "sweat-resistant material, bold sporty design, durable construction, performance-ready finish",
+    fitness: "sweat-resistant material, bold sporty design, durable construction, performance-ready finish, athletic fit presenter with muscular toned physique",
     auto: "precision-engineered surface, metallic or carbon-fiber finish, rugged durability, automotive grade",
     jewelry: "brilliant gemstone sparkle, polished precious metal, intricate craftsmanship, luxury finish",
     watch: "precise dial details, premium strap material, polished case finish, sophisticated design",
@@ -299,12 +299,14 @@ const CATEGORY_ENVIRONMENTS: Record<ProductCategory, string[]> = {
         "art gallery interior, white walls with abstract art, sophisticated minimal space"
     ],
     supplement: [
-        "clean modern kitchen counter, bright morning light, healthy breakfast setting",
-        "gym locker room bench, post-workout scene, energetic sporty atmosphere",
-        "minimalist white desk with water bottle, clean clinical wellness feel",
-        "yoga studio floor, natural light, calm zen atmosphere, wellness backdrop",
-        "bright pharmacy counter, organized supplement shelf, professional health setting",
-        "modern dining table with fruits, healthy lifestyle scene, warm natural light"
+        "modern gym interior, dumbbells and weight racks in background, people exercising in the distance, bright motivational lighting, athletic atmosphere",
+        "gym floor with squat rack and bench press, fit people training in background, energetic sporty atmosphere, high-energy environment",
+        "professional fitness center, treadmills and exercise machines visible, athletic people working out behind, clean modern gym lighting",
+        "CrossFit-style gym, barbell plates and kettlebells, people doing exercises in background, raw industrial fitness energy",
+        "gym locker room bench, post-workout scene with gym equipment visible in background, energetic sporty atmosphere",
+        "modern supplement store inside gym, protein shelf display, gym-goers in background, fitness-forward environment",
+        "outdoor calisthenics park, pull-up bars and workout stations, athletic people exercising, bright natural sunlight",
+        "boxing gym with heavy bags, fit people sparring in background, intense focused atmosphere, motivational energy"
     ],
     pet: [
         "cozy living room floor with pet bed, warm ambient light, homey atmosphere",
@@ -342,12 +344,12 @@ const CATEGORY_ENVIRONMENTS: Record<ProductCategory, string[]> = {
         "Thai home kitchen with wok station, fresh herbs, traditional cooking ambiance"
     ],
     fitness: [
-        "modern gym floor with equipment in background, bright overhead lighting, motivational space",
-        "outdoor running track, morning sunlight, athletic sporty atmosphere",
-        "home workout corner with yoga mat, minimalist clean space, natural window light",
-        "CrossFit box gym, raw concrete walls, industrial fitness energy",
-        "park fitness area, green trees, fresh air, outdoor exercise vibe",
-        "boxing gym, heavy bags in background, intense focused atmosphere"
+        "modern gym floor with dumbbells and weight machines, fit people exercising in background, bright overhead lighting, motivational athletic space",
+        "professional fitness center, squat rack and bench press area, athletic people training in background, energetic gym atmosphere",
+        "CrossFit box gym, raw concrete walls, barbell plates visible, people doing WOD in background, industrial fitness energy",
+        "boxing gym with heavy bags, fit people sparring in background, intense focused atmosphere, motivational energy",
+        "outdoor running track with athletes, morning sunlight, sporty competitive atmosphere",
+        "gym free-weight area, mirror wall, muscular people lifting in background, high-energy fitness environment"
     ],
     auto: [
         "clean garage workshop, organized tools on wall, professional automotive setting",
@@ -474,7 +476,7 @@ const CATEGORY_LIGHTING: Record<ProductCategory, string> = {
     fashion: "fashion editorial lighting, directional key light with soft fill, fabric texture revealing light, stylish shadow play",
     gadget: "clean cool-toned lighting, subtle blue LED accent, sharp product-edge lighting, modern tech commercial illumination",
     beauty: "soft diffused beauty lighting, ring-light style even illumination, dewy skin-flattering light, soft shadows for premium cosmetic presentation",
-    supplement: "clean bright clinical lighting, trustworthy white illumination, sharp product detail light, health-professional atmosphere",
+    supplement: "high-energy bright gym lighting, dynamic contrast with warm tones, motivational bold illumination, fitness-commercial quality light, athletic atmosphere",
     pet: "warm cheerful daylight, playful bright tones, soft even illumination, pet-friendly cozy glow",
     baby: "ultra-soft diffused lighting, gentle pastel warm tones, no harsh shadows, nurturing safe atmosphere",
     home: "warm lifestyle ambient lighting, natural window light feel, cozy inviting tones, lived-in comfort glow",
@@ -1905,10 +1907,21 @@ const buildImagePrompt = (
     const lighting = getSmartLighting(config.voiceTone || 'friendly', category, ai.lighting);
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
 
+    // ── Fitness/Supplement body override ──
+    const isFitnessCategory = category === 'supplement' || category === 'fitness';
+    const fitnessBodyDesc = isFitnessCategory
+        ? (config.gender === 'male'
+            ? 'muscular athletic build, broad shoulders, toned arms and chest, confident gym-ready posture, wearing fitted gym tank top and athletic shorts'
+            : 'athletic toned fit body, slim waist, toned arms and shoulders, confident gym-ready posture, wearing fitted athletic sports bra and leggings')
+        : '';
+    const characterLine = isFitnessCategory
+        ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}`
+        : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}`;
+
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
 [PRODUCT] ${config.productName}: ${productDesc}.
-[CHARACTER] ${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}.
+[CHARACTER] ${characterLine}.
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
 [LIGHTING] ${lighting}.

@@ -25,6 +25,19 @@ export interface ProductSettings {
  * Build detailed character description for VideoFX prompts
  * This description is added to every scene to maintain consistency
  */
+// Detect if product is fitness/supplement related
+const isFitnessProduct = (productName: string, productDesc?: string): boolean => {
+    const t = `${productName} ${productDesc || ''}`.toLowerCase();
+    const keywords = [
+        'whey', 'protein', 'supplement', 'bcaa', 'creatine', 'pre-workout', 'preworkout',
+        'mass gainer', 'amino', 'casein', 'isolate', 'concentrate', 'fitness', 'gym',
+        'workout', 'exercise', 'muscle', 'bulking', 'cutting', 'bodybuilding',
+        'เวย์', 'โปรตีน', 'อาหารเสริม', 'ฟิตเนส', 'ออกกำลังกาย', 'กล้ามเนื้อ', 'ยิม',
+        'เพิ่มกล้าม', 'ลดไขมัน', 'สร้างกล้าม'
+    ];
+    return keywords.some(k => t.includes(k));
+};
+
 export const buildCharacterDescription = (settings: CharacterSettings, product: ProductSettings): string => {
     // Gender + Age mapping
     const genderText = settings.gender === 'male' ? 'Thai man' : 'Thai woman';
@@ -37,18 +50,35 @@ export const buildCharacterDescription = (settings: CharacterSettings, product: 
     };
     const ageText = ageMapping[settings.ageRange] || '25-30 years old';
 
-    // Physical appearance (fixed for each gender)
-    const physicalAppearance = settings.gender === 'female'
-        ? `
+    // Detect fitness/supplement product → force athletic body
+    const isFitness = isFitnessProduct(product.productName, product.productDescription);
+
+    // Physical appearance — athletic override for fitness/supplement products
+    const physicalAppearance = isFitness
+        ? (settings.gender === 'female'
+            ? `
+- Hair: shoulder-length straight black hair with side-swept bangs
+- Face: oval face shape, light honey-brown skin, natural makeup with red lipstick
+- Build: athletic toned fit body, visible muscle definition, slim waist, height approximately 168cm
+- Eyes: warm brown eyes, defined eyebrows
+- Physique: fit and healthy looking, toned arms and shoulders, flat stomach, athletic posture`
+            : `
+- Hair: short black hair, neatly styled
+- Face: angular face shape, light brown skin, clean-shaven
+- Build: muscular athletic build, broad shoulders, visible muscle definition, height approximately 178cm
+- Eyes: dark brown eyes, straight eyebrows
+- Physique: well-built gym body, toned arms and chest, six-pack visible through shirt, confident athletic posture`)
+        : (settings.gender === 'female'
+            ? `
 - Hair: shoulder-length straight black hair with side-swept bangs
 - Face: oval face shape, light honey-brown skin, natural makeup with red lipstick
 - Build: slim body, height approximately 165cm
 - Eyes: warm brown eyes, defined eyebrows`
-        : `
+            : `
 - Hair: short black hair, neatly styled
 - Face: angular face shape, light brown skin, clean-shaven
 - Build: average build, height approximately 175cm
-- Eyes: dark brown eyes, straight eyebrows`;
+- Eyes: dark brown eyes, straight eyebrows`);
 
     // Personality to behavior mapping
     const personalityMapping: Record<string, string> = {
@@ -60,7 +90,7 @@ export const buildCharacterDescription = (settings: CharacterSettings, product: 
     };
     const personalityText = personalityMapping[settings.personality] || personalityMapping['cheerful'];
 
-    // Clothing description
+    // Clothing description — fitness products auto-override to sporty athletic wear
     const clothingMapping: Record<string, string> = {
         'casual': settings.gender === 'female'
             ? 'white V-neck t-shirt, light blue jeans'
@@ -75,10 +105,14 @@ export const buildCharacterDescription = (settings: CharacterSettings, product: 
             ? 'athletic tank top, yoga pants'
             : 'sports jersey, athletic shorts'
     };
-    const mainStyle = settings.clothingStyles[0] || 'casual';
-    const clothingText = clothingMapping[mainStyle] || clothingMapping['casual'];
+    const mainStyle = isFitness ? 'sporty' : (settings.clothingStyles[0] || 'casual');
+    const clothingText = isFitness
+        ? (settings.gender === 'female'
+            ? 'fitted athletic sports bra and leggings, showing toned figure, gym-ready outfit'
+            : 'fitted gym tank top showing muscular arms, athletic shorts, gym-ready outfit')
+        : (clothingMapping[mainStyle] || clothingMapping['casual']);
 
-    // Background description
+    // Background description — fitness products auto-override to gym environment
     const backgroundMapping: Record<string, string> = {
         'studio': 'clean white/grey studio backdrop with soft diffused lighting',
         'outdoor': 'bright outdoor setting with natural sunlight and green nature',
@@ -86,7 +120,9 @@ export const buildCharacterDescription = (settings: CharacterSettings, product: 
         'office': 'professional office environment with neutral colors',
         'abstract': 'abstract gradient background with soft colors'
     };
-    const backgroundText = backgroundMapping[settings.background] || backgroundMapping['studio'];
+    const backgroundText = isFitness
+        ? 'modern gym interior with weight racks and exercise equipment, fit people working out in background, bright motivational lighting, athletic atmosphere'
+        : (backgroundMapping[settings.background] || backgroundMapping['studio']);
 
     // Expression description
     const expressionMapping: Record<string, string> = {
