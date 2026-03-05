@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +154,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md bg-[#0a0a0a] border border-white/10 text-white p-0 gap-0 max-h-[90vh] overflow-y-auto rounded-2xl">
                 {/* Header */}
+                <DialogDescription className="sr-only">ตั้งค่าระบบ Netflow AI</DialogDescription>
                 <DialogHeader className="p-4 pb-2 sticky top-0 bg-[#0a0a0a] z-10 border-b border-white/5">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">

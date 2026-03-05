@@ -22,7 +22,7 @@ export type TemplateOption =
     | "trending"
     | "mini-drama"
     | "before-after";
-export type VoiceToneOption = "energetic" | "calm" | "friendly" | "professional";
+export type VoiceToneOption = "energetic" | "calm" | "friendly" | "professional" | "cute";
 export type EmotionSyncOption = "natural" | "lively" | "calm";
 export type AgeRangeOption = "teen" | "young-adult" | "adult" | "middle-age" | "senior";
 export type PersonalityOption = "cheerful" | "calm" | "professional" | "playful" | "mysterious";
@@ -80,6 +80,7 @@ export const voiceToneOptions: { value: VoiceToneOption; label: string }[] = [
     { value: "calm", label: "สงบ/ผ่อนคลาย" },
     { value: "friendly", label: "เป็นกันเอง/อบอุ่น" },
     { value: "professional", label: "มืออาชีพ/น่าเชื่อถือ" },
+    { value: "cute", label: "น่ารัก/สดใส" },
 ];
 
 export interface VideoGenerationResponse {

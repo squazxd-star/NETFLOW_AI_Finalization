@@ -4,13 +4,23 @@ export const createVideoSchema = z.object({
     // Product Data
     productId: z.string().default(""),
     productName: z.string().default(""),
+    productDescription: z.string().default(""),
+
+    // Character & Style
+    gender: z.enum(["male", "female"]).default("female"),
+    ageRange: z.enum(["teen", "young-adult", "adult", "middle-age", "senior"]).default("young-adult"),
+    expression: z.enum(["neutral", "happy", "excited", "serious"]).default("happy"),
+    movement: z.enum(["static", "minimal", "active"]).default("minimal"),
+    clothingStyles: z.array(z.enum(["casual", "formal", "sporty", "fashion", "uniform"])).default(["casual"]),
+    touchLevel: z.enum(["none", "light", "medium", "heavy"]).default("light"),
+    cameraAngles: z.array(z.enum(["front", "side", "close-up", "full-body", "dynamic"])).default(["front", "close-up"]),
 
     // AI Scripting
     useAiScript: z.boolean().default(true),
     aiPrompt: z.string().default(""),
     saleStyle: z.enum(["hard", "soft", "educational", "storytelling"]).default("hard"),
     language: z.enum(["th-central", "th-north", "th-south", "th-isan"]).default("th-central"),
-    voiceTone: z.enum(["energetic", "calm", "friendly", "professional"]).default("energetic"),
+    voiceTone: z.enum(["energetic", "calm", "friendly", "professional", "cute"]).default("energetic"),
     template: z.enum([
         "product-review",
         "brainrot-product",
@@ -52,6 +62,14 @@ export type CreateVideoFormData = z.infer<typeof createVideoSchema>;
 export const createVideoDefaultValues: CreateVideoFormData = {
     productId: "",
     productName: "",
+    productDescription: "",
+    gender: "female",
+    ageRange: "young-adult",
+    expression: "happy",
+    movement: "minimal",
+    clothingStyles: ["casual"],
+    touchLevel: "light",
+    cameraAngles: ["front", "close-up"],
     useAiScript: true,
     aiPrompt: "",
     saleStyle: "storytelling",
@@ -63,7 +81,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     hookEnabled: true,
     ctaEnabled: true,
     outputType: "video",
-    orientation: "vertical",
+    orientation: "horizontal",
     outputCount: 1,
     sceneCount: 1,
     autoPostTikTok: true,

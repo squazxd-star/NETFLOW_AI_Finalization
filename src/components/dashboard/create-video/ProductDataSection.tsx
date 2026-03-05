@@ -1,4 +1,4 @@
-import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink } from "lucide-react";
+import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 const ProductDataSection = ({
     register,
     setValue,
+    watch,
     isOpen,
     onToggle,
     productImage,
@@ -21,6 +22,7 @@ const ProductDataSection = ({
     onCharacterImageUpload,
     onSyncedProductImageSelect
 }: ProductDataSectionProps) => {
+    const gender = watch("gender");
     const { toast } = useToast();
     const [syncedProducts, setSyncedProducts] = useState<TikTokProduct[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -188,12 +190,12 @@ const ProductDataSection = ({
                     {/* Character Image */}
                     <div>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <Image className="w-3 h-3 text-blue-400" />
+                            <Image className="w-3 h-3 text-neon-red" />
                             รูปตัวละคร
                         </label>
                         <button
                             onClick={() => onCharacterImageUpload()}
-                            className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-200 overflow-hidden"
+                            className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
                         >
                             {characterImage ? (
                                 <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
@@ -204,6 +206,41 @@ const ProductDataSection = ({
                                 </>
                             )}
                         </button>
+                    </div>
+
+                    {/* Gender Selection — affects Voice Persona (Fah/Somsak) */}
+                    <div>
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            <User className="w-3 h-3 text-neon-red" />
+                            เพศตัวละคร
+                        </label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setValue("gender", "male")}
+                                className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${
+                                    gender === "male"
+                                        ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                        : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30'
+                                }`}
+                            >
+                                <span className="text-base">♂</span> เพศชาย
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setValue("gender", "female")}
+                                className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${
+                                    gender === "female"
+                                        ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                        : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30'
+                                }`}
+                            >
+                                <span className="text-base">♀</span> เพศหญิง
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5 ml-1">
+                            {gender === "male" ? "🔊 เสียง: Somsak / Tawan / Prem / Arthit / Beam" : "🔊 เสียง: Fah / Namwan / Somying / Ploy / Minnie"}
+                        </p>
                     </div>
 
                     {/* Info Note */}

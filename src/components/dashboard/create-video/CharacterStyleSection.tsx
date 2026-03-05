@@ -68,8 +68,8 @@ const CharacterStyleSection = ({
                             <button
                                 onClick={() => setValue("gender", "male")}
                                 className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${gender === "male"
-                                    ? 'bg-muted border border-border text-foreground'
-                                    : 'bg-muted/50 text-muted-foreground border border-transparent'
+                                    ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                    : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30'
                                     }`}
                             >
                                 <span className="text-base">♂</span> ชาย
@@ -77,8 +77,8 @@ const CharacterStyleSection = ({
                             <button
                                 onClick={() => setValue("gender", "female")}
                                 className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${gender === "female"
-                                    ? 'bg-neon-red text-white'
-                                    : 'bg-muted/50 text-muted-foreground border border-transparent'
+                                    ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                    : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30'
                                     }`}
                             >
                                 <span className="text-base">♀</span> หญิง

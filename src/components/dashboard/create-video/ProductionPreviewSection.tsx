@@ -1,4 +1,4 @@
-import { Video, Image, Youtube, Save, Monitor, Smartphone } from "lucide-react";
+import { Share2, Youtube, Save } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 
@@ -18,8 +18,6 @@ const ProductionPreviewSection = ({
     isTikTokReady,
     onTikTokNotReady
 }: ProductionPreviewSectionProps) => {
-    const orientation = watch("orientation");
-    const outputCount = watch("outputCount");
     const autoPostTikTok = watch("autoPostTikTok");
     const autoPostYoutube = watch("autoPostYoutube");
 
@@ -35,8 +33,8 @@ const ProductionPreviewSection = ({
         <section className="glass-card overflow-hidden">
             <div className="px-4 pt-3">
                 <SectionHeader
-                    icon={Video}
-                    title="Google Flow Settings"
+                    icon={Share2}
+                    title="โพสต์อัตโนมัติ"
                     isOpen={isOpen}
                     onToggle={onToggle}
                 />
@@ -44,58 +42,9 @@ const ProductionPreviewSection = ({
 
             {isOpen && (
                 <div className="px-4 pb-4 space-y-4">
-                    {/* Orientation: Horizontal / Vertical */}
-                    <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">ทิศทาง</label>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setValue("orientation", "horizontal")}
-                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
-                                    orientation === "horizontal"
-                                        ? 'bg-white text-black'
-                                        : 'bg-muted border border-border text-muted-foreground'
-                                }`}
-                            >
-                                <Monitor className="w-4 h-4" />
-                                แนวนอน
-                            </button>
-                            <button
-                                onClick={() => setValue("orientation", "vertical")}
-                                className={`flex-1 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-medium transition-all ${
-                                    orientation === "vertical"
-                                        ? 'bg-white text-black'
-                                        : 'bg-muted border border-border text-muted-foreground'
-                                }`}
-                            >
-                                <Smartphone className="w-4 h-4" />
-                                แนวตั้ง
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Output Count: x1, x2, x3, x4 */}
-                    <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">จำนวน</label>
-                        <div className="flex gap-2">
-                            {([1, 2, 3, 4] as const).map((count) => (
-                                <button
-                                    key={count}
-                                    onClick={() => setValue("outputCount", count)}
-                                    className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                                        outputCount === count
-                                            ? 'bg-white text-black'
-                                            : 'bg-muted border border-border text-muted-foreground'
-                                    }`}
-                                >
-                                    x{count}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
                     {/* Platform Selection */}
                     <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">โพสต์อัตโนมัติ</label>
+                        <label className="text-xs text-muted-foreground mb-2 block">เลือกแพลตฟอร์ม</label>
                         <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
                             <button
                                 onClick={handleTikTokToggle}

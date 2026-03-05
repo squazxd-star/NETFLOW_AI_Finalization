@@ -85,12 +85,41 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "shimmer-sweep": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        "star-spin": {
+          "0%": { transform: "rotate(0deg) scale(1)" },
+          "50%": { transform: "rotate(180deg) scale(1.2)" },
+          "100%": { transform: "rotate(360deg) scale(1)" },
+        },
+        "ai-thinking": {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
+        "typing-dot": {
+          "0%, 80%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
+          "40%": { opacity: "1", transform: "scale(1)" },
+        },
+        "border-glow": {
+          "0%, 100%": { borderColor: "hsl(var(--neon-red) / 0.3)" },
+          "50%": { borderColor: "hsl(var(--neon-red) / 0.8)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
+        "shimmer-sweep": "shimmer-sweep 2s ease-in-out infinite",
+        "star-spin": "star-spin 0.6s ease-in-out",
+        "ai-thinking": "ai-thinking 3s ease infinite",
+        "typing-dot-1": "typing-dot 1.4s ease-in-out infinite",
+        "typing-dot-2": "typing-dot 1.4s ease-in-out 0.2s infinite",
+        "typing-dot-3": "typing-dot 1.4s ease-in-out 0.4s infinite",
+        "border-glow": "border-glow 2s ease-in-out infinite",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

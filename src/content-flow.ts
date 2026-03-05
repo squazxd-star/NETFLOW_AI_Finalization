@@ -13,8 +13,16 @@
  *   PING           — health check
  */
 
-const LOG = (msg: string) => console.log(`[Netflow AI] ${msg}`);
-const WARN = (msg: string) => console.warn(`[Netflow AI] ${msg}`);
+import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes } from "./netflow-overlay";
+
+const LOG = (msg: string) => {
+    console.log(`[Netflow AI] ${msg}`);
+    try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "info", msg }); } catch (_) { /* popup closed */ }
+};
+const WARN = (msg: string) => {
+    console.warn(`[Netflow AI] ${msg}`);
+    try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "warn", msg: `⚠️ ${msg}` }); } catch (_) { /* popup closed */ }
+};
 
 LOG("Content script loaded on Google Flow page");
 
@@ -521,6 +529,9 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
 interface GenerateImageRequest {
     action: "GENERATE_IMAGE";
     imagePrompt: string;
+    videoPrompt?: string;
+    videoScenePrompts?: string[];  // Pre-built prompts for each scene [scene1, scene2, scene3]
+    sceneCount?: number;           // 1, 2, or 3
     productImage?: string;
     characterImage?: string;
     orientation?: "horizontal" | "vertical";
@@ -588,24 +599,69 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
 
     // ALWAYS select Image mode (switch from Video if needed)
     let selectedImage = false;
-    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], [role='tab']")) {
-        const txt = (btn.textContent || "").trim();
-        if (txt === "Image" || txt === "รูปภาพ" || txt === "ภาพ") {
-            const bRect = btn.getBoundingClientRect();
-            const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
-            btn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1 }));
-            btn.dispatchEvent(new MouseEvent("mousedown", bOpts));
-            await sleep(80);
-            btn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1 }));
-            btn.dispatchEvent(new MouseEvent("mouseup", bOpts));
-            btn.dispatchEvent(new MouseEvent("click", bOpts));
-            selectedImage = true;
-            LOG("Selected Image mode");
-            await sleep(400);
+    let imageTabBtn: HTMLElement | null = null;
+
+    // Strategy 1: Radix tab with class flow_tab_slider_trigger + aria-controls containing IMAGE
+    const tabTriggers = document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"]');
+    for (const btn of tabTriggers) {
+        const ariaControls = btn.getAttribute("aria-controls") || "";
+        const btnId = btn.id || "";
+        if (ariaControls.toUpperCase().includes("IMAGE") || btnId.toUpperCase().includes("IMAGE")) {
+            imageTabBtn = btn;
+            LOG(`Found Image tab via flow_tab_slider_trigger (aria-controls: ${ariaControls})`);
             break;
         }
     }
-    if (!selectedImage) LOG("Could not find Image mode button — may already be in Image mode");
+
+    // Strategy 2: role=tab with id containing trigger-IMAGE
+    if (!imageTabBtn) {
+        for (const btn of document.querySelectorAll<HTMLElement>('[role="tab"]')) {
+            const btnId = btn.id || "";
+            if (btnId.toUpperCase().includes("TRIGGER-IMAGE")) {
+                imageTabBtn = btn;
+                LOG(`Found Image tab via id: ${btnId}`);
+                break;
+            }
+        }
+    }
+
+    // Strategy 3: fuzzy text match — textContent ends with "Image" or contains Thai equivalents
+    if (!imageTabBtn) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], [role='tab']")) {
+            const txt = (btn.textContent || "").trim();
+            if (txt === "Image" || txt.endsWith("Image") || txt === "รูปภาพ" || txt === "ภาพ") {
+                // Exclude buttons that also contain "Video" text
+                if (!txt.includes("Video") && !txt.includes("วิดีโอ")) {
+                    imageTabBtn = btn;
+                    LOG(`Found Image tab via text match: "${txt}"`);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (imageTabBtn) {
+        // Check if already active
+        const state = imageTabBtn.getAttribute("data-state") || "";
+        const ariaSelected = imageTabBtn.getAttribute("aria-selected") || "";
+        if (state === "active" || ariaSelected === "true") {
+            selectedImage = true;
+            LOG("Image tab already active — no click needed");
+        } else {
+            const bRect = imageTabBtn.getBoundingClientRect();
+            const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
+            imageTabBtn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1 }));
+            imageTabBtn.dispatchEvent(new MouseEvent("mousedown", bOpts));
+            await sleep(80);
+            imageTabBtn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1 }));
+            imageTabBtn.dispatchEvent(new MouseEvent("mouseup", bOpts));
+            imageTabBtn.dispatchEvent(new MouseEvent("click", bOpts));
+            selectedImage = true;
+            LOG("✅ Clicked Image tab — switched to Image mode");
+            await sleep(400);
+        }
+    }
+    if (!selectedImage) LOG("⚠️ Could not find Image mode button — may already be in Image mode");
 
     // Select orientation
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
@@ -667,68 +723,143 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
  * IMPORTANT: Never abort early — always try to paste prompt and click generate
  */
 async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success: boolean; message: string; step: string }> {
+    // ── Pre-flight: Clear console + stale cache to prevent extension conflicts ──
+    try {
+        console.clear();
+        console.log("%c[Netflow AI] 🚀 Automation started — console cleared", "color:#00e676;font-weight:bold;font-size:14px");
+        // Clear any stale Netflow session data (NOT localStorage — that belongs to Google Flow)
+        sessionStorage.removeItem("netflow_last_run");
+        sessionStorage.setItem("netflow_last_run", new Date().toISOString());
+    } catch { /* ignore if blocked */ }
+
+    // ── Show Engine Overlay ──
+    try { showOverlay(); } catch (e) { console.warn("Overlay show error:", e); }
+
     const steps: string[] = [];
     const errors: string[] = [];
 
     // ── Step 0: Configure settings ──
     try {
+        updateStep("settings", "active");
         const orientation = req.orientation || "horizontal";
         const outputCount = req.outputCount || 1;
         const ok = await configureFlowSettings(orientation, outputCount);
         steps.push(ok ? "✅ Settings" : "⚠️ Settings");
+        updateStep("settings", ok ? "done" : "error");
     } catch (e: any) {
         WARN(`Settings error: ${e.message}`);
         steps.push("⚠️ Settings");
+        updateStep("settings", "error");
     }
 
     // ── Step 1: Upload reference images ──
     LOG("=== Step 1: Upload reference images ===");
 
+    /** Check if any upload is still in progress (look for % text on thumbnails) */
+    const isUploadInProgress = (): string | null => {
+        // Look for any element showing upload percentage like "40%", "100%"
+        const allElements = document.querySelectorAll<HTMLElement>("span, div, p, label");
+        for (const el of allElements) {
+            const txt = (el.textContent || "").trim();
+            // Match patterns like "40%", "100%", "5%"
+            if (/^\d{1,3}%$/.test(txt)) {
+                const rect = el.getBoundingClientRect();
+                // Must be visible and in the content area (not some random UI element)
+                if (rect.width > 0 && rect.height > 0 && rect.top > 0 && rect.top < window.innerHeight) {
+                    return txt;
+                }
+            }
+        }
+        return null;
+    };
+
+    /** Wait until all uploads finish (no more % indicators visible), timeout 60s */
+    const waitForUploadsComplete = async (label: string): Promise<void> => {
+        LOG(`Waiting for ${label} upload to complete...`);
+        await sleep(2000); // initial wait for % to appear
+        const start = Date.now();
+        const timeout = 60000;
+        while (Date.now() - start < timeout) {
+            const pct = isUploadInProgress();
+            if (pct) {
+                LOG(`Upload in progress: ${pct} — waiting...`);
+                await sleep(1500);
+            } else {
+                LOG(`✅ ${label} upload complete — no % indicator found`);
+                await sleep(1000); // extra settle time after upload finishes
+                return;
+            }
+        }
+        WARN(`⚠️ ${label} upload timeout after ${timeout / 1000}s — proceeding anyway`);
+    };
+
     if (req.characterImage) {
+        updateStep("upload-char", "active");
         try {
             const ok = await uploadImageToPromptBar(req.characterImage, "character.png");
             steps.push(ok ? "✅ ตัวละคร" : "⚠️ ตัวละคร");
             if (!ok) errors.push("character upload failed");
+            updateStep("upload-char", ok ? "done" : "error");
         } catch (e: any) {
             WARN(`Character upload error: ${e.message}`);
             steps.push("❌ ตัวละคร");
             errors.push("character upload error");
+            updateStep("upload-char", "error");
         }
-        await sleep(1500);
+        await waitForUploadsComplete("character");
+    } else {
+        skipStep("upload-char");
     }
 
     if (req.productImage) {
+        updateStep("upload-prod", "active");
         try {
             const ok = await uploadImageToPromptBar(req.productImage, "product.png");
             steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
             if (!ok) errors.push("product upload failed");
+            updateStep("upload-prod", ok ? "done" : "error");
         } catch (e: any) {
             WARN(`Product upload error: ${e.message}`);
             steps.push("❌ สินค้า");
             errors.push("product upload error");
+            updateStep("upload-prod", "error");
         }
-        await sleep(1500);
+        await waitForUploadsComplete("product");
+    } else {
+        skipStep("upload-prod");
     }
 
     // ── Step 1c: Close any open dialog/modal (Escape key) ──
     LOG("Closing any open dialogs...");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-    await sleep(500);
+    await sleep(800);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-    await sleep(500);
+    await sleep(800);
+
+    // ── Step 1d: Final check — make sure no uploads are still running ──
+    const finalPct = isUploadInProgress();
+    if (finalPct) {
+        LOG(`⚠️ Upload still showing ${finalPct} after all uploads — waiting extra...`);
+        await waitForUploadsComplete("final");
+    }
+    LOG("All uploads complete — proceeding to prompt");
+    await sleep(1000);
 
     // ── Step 2: ALWAYS paste prompt (even if uploads failed) ──
     LOG("=== Step 2: Paste image prompt ===");
-    await sleep(500);
+    updateStep("img-prompt", "active");
+    await sleep(1000);
     const promptInput = findPromptTextInput();
     if (promptInput) {
         await setPromptText(promptInput, req.imagePrompt);
         LOG(`Pasted prompt (${req.imagePrompt.length} chars)`);
         steps.push("✅ Prompt");
+        updateStep("img-prompt", "done");
     } else {
         WARN("Could not find prompt text input");
         steps.push("❌ Prompt");
         errors.push("prompt input not found");
+        updateStep("img-prompt", "error");
     }
     await sleep(800);
 
@@ -741,6 +872,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     // ── Step 3: ALWAYS click Generate → (even if some steps failed) ──
     LOG("=== Step 3: Click Generate → ===");
+    updateStep("img-generate", "active");
     await sleep(500);
     const genBtn = findGenerateButton();
     if (genBtn) {
@@ -768,14 +900,17 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
         LOG("Dispatched safety retry click on Generate button");
+        updateStep("img-generate", "done");
     } else {
         WARN("Could not find → Generate button");
         steps.push("❌ Generate");
         errors.push("generate button not found");
+        updateStep("img-generate", "error");
     }
 
     // ── Step 4: Wait for NEW image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
     LOG("=== Step 4: Wait for generated image + Animate ===");
+    updateStep("img-wait", "active");
     try {
         // Step 4a: Wait minimum 15s for generation to start, then poll for NEW images
         LOG("Waiting 15s for generation to start...");
@@ -786,21 +921,50 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         const imgWaitStart = Date.now();
         while (!generatedImg && Date.now() - imgWaitStart < 180000) { // 3 min timeout
             const imgs = document.querySelectorAll<HTMLImageElement>("img");
+
+            // Priority 1: find image with alt text containing "generated" (AI-generated images)
             for (const img of imgs) {
-                // Skip images that existed before Generate
                 if (existingImageSrcs.has(img.src)) continue;
+                const alt = (img.alt || "").toLowerCase();
+                if (!alt.includes("generated")) continue;
 
                 const rect = img.getBoundingClientRect();
-                // New generated images: large (>200px), visible, in content area
                 if (rect.width > 200 && rect.height > 200 && rect.top > 0 && rect.top < window.innerHeight * 0.8) {
                     const parent = img.closest("div") as HTMLElement;
                     if (parent) {
                         generatedImg = parent;
-                        LOG(`Found NEW image: ${img.src.substring(0, 80)}...`);
+                        LOG(`Found AI-generated image via alt="${img.alt}": ${img.src.substring(0, 80)}...`);
                         break;
                     }
                 }
             }
+
+            // Priority 2: fallback — any new large image, but skip reference/uploaded images
+            if (!generatedImg) {
+                for (const img of imgs) {
+                    if (existingImageSrcs.has(img.src)) continue;
+
+                    // Skip uploaded reference images (their container has filename labels)
+                    const container = img.closest("div");
+                    const containerText = container?.textContent || "";
+                    if (containerText.includes("product.png") || containerText.includes("character.png") ||
+                        containerText.includes(".png") || containerText.includes(".jpg")) {
+                        LOG(`Skipping reference image (container has filename): ${containerText.substring(0, 40)}`);
+                        continue;
+                    }
+
+                    const rect = img.getBoundingClientRect();
+                    if (rect.width > 200 && rect.height > 200 && rect.top > 0 && rect.top < window.innerHeight * 0.8) {
+                        const parent = img.closest("div") as HTMLElement;
+                        if (parent) {
+                            generatedImg = parent;
+                            LOG(`Found NEW image (fallback): ${img.src.substring(0, 80)}...`);
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (!generatedImg) {
                 await sleep(5000);
                 LOG("Still waiting for new generated image...");
@@ -810,9 +974,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         if (!generatedImg) {
             WARN("Timeout waiting for generated image");
             steps.push("⚠️ Wait Image");
+            updateStep("img-wait", "error");
         } else {
             LOG(`Found generated image element`);
             steps.push("✅ Image Found");
+            updateStep("img-wait", "done", 100);
 
             // Step 4b: Hover over the image to reveal the 3 overlay icons
             const imgRect = generatedImg.getBoundingClientRect();
@@ -920,9 +1086,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1 }));
                     animateBtn.dispatchEvent(new MouseEvent("mouseup", animOpts));
                     animateBtn.dispatchEvent(new MouseEvent("click", animOpts));
-                    LOG("✅ Clicked 'ทำให้เป็นภาพเคลื่อนไหว' — image ready for video gen");
+                    LOG("✅ Clicked 'ทำให้เป็นภาพเคลื่อนไหว' — switching to video mode");
                     steps.push("✅ Animate");
-                    await sleep(2000);
+                    updateStep("animate", "done");
+                    await sleep(3000);
                 }
             }
         }
@@ -931,7 +1098,949 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         steps.push("⚠️ Animate");
     }
 
+    // ── Step 5: Paste video prompt + Generate video ──
+    if (req.videoPrompt) {
+        LOG("=== Step 5: Paste video prompt + Generate video ===");
+        updateStep("vid-prompt", "active");
+        try {
+            // Wait for video mode UI to load (image becomes thumbnail in prompt bar)
+            LOG("Waiting for video mode UI...");
+            await sleep(3000);
+
+            // Verify we're in video mode — look for "วิดีโอ" or "Video" indicator
+            let inVideoMode = false;
+            const allElements = document.querySelectorAll<HTMLElement>("button, span, div");
+            for (const el of allElements) {
+                const txt = (el.textContent || "").trim();
+                const rect = el.getBoundingClientRect();
+                if ((txt === "วิดีโอ" || txt === "Video" || txt.includes("วิดีโอ")) && rect.bottom > window.innerHeight * 0.7) {
+                    inVideoMode = true;
+                    LOG("Confirmed: now in Video mode");
+                    break;
+                }
+            }
+            if (!inVideoMode) {
+                LOG("Video mode indicator not found — proceeding anyway (may already be in video mode after Animate)");
+            }
+
+            // Find prompt input and paste video prompt
+            await sleep(1000);
+            const videoPromptInput = findPromptTextInput();
+            if (videoPromptInput) {
+                await setPromptText(videoPromptInput, req.videoPrompt);
+                LOG(`Pasted video prompt (${req.videoPrompt.length} chars)`);
+                steps.push("✅ Video Prompt");
+                updateStep("vid-prompt", "done");
+            } else {
+                WARN("Could not find prompt text input for video prompt");
+                steps.push("❌ Video Prompt");
+                errors.push("video prompt input not found");
+                updateStep("vid-prompt", "error");
+            }
+            await sleep(1000);
+
+            // Click Generate button for video
+            updateStep("vid-generate", "active");
+            const videoGenBtn = findGenerateButton();
+            if (videoGenBtn) {
+                const vRect = videoGenBtn.getBoundingClientRect();
+                const vCx = vRect.left + vRect.width / 2;
+                const vCy = vRect.top + vRect.height / 2;
+                const vOpts = { bubbles: true, cancelable: true, clientX: vCx, clientY: vCy, button: 0 };
+
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new MouseEvent("mousedown", vOpts));
+                await sleep(80);
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
+                videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
+                LOG("✅ Clicked Generate for video — video generation started!");
+                steps.push("✅ Video Generate");
+                updateStep("vid-generate", "done");
+
+                // Safety retry after 500ms
+                await sleep(500);
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerdown", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new MouseEvent("mousedown", vOpts));
+                await sleep(80);
+                videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1 }));
+                videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
+                videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
+                LOG("Dispatched safety retry click on video Generate button");
+            } else {
+                WARN("Could not find Generate button for video");
+                steps.push("❌ Video Generate");
+                errors.push("video generate button not found");
+                updateStep("vid-generate", "error");
+            }
+        } catch (e: any) {
+            WARN(`Step 5 error: ${e.message}`);
+            steps.push("⚠️ Video Gen");
+            errors.push(`video gen error: ${e.message}`);
+        }
+    } else {
+        LOG("No video prompt provided — skipping video generation step");
+        skipStep("animate"); skipStep("vid-prompt"); skipStep("vid-generate"); skipStep("vid-wait");
+    }
+
+    // ── Step 6: Wait for video generation complete + handle scenes/download ──
+    if (req.videoPrompt) {
+        updateStep("vid-wait", "active");
+        const totalScenes = req.sceneCount || 1;
+        const scenePrompts = req.videoScenePrompts || [req.videoPrompt];
+
+        // Configure overlay for multi-scene (adds per-scene steps dynamically)
+        if (totalScenes > 1) {
+            try { configureScenes(totalScenes); } catch (_) { /* overlay may not be visible */ }
+        }
+
+        LOG(`=== Step 6: Wait for video + ${totalScenes > 1 ? `continue ${totalScenes} scenes` : 'download'} ===`);
+
+        // ── Shared: Scan for "X%" by querying ALL elements directly ──
+        const scanForPct = (): number | null => {
+            const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
+            for (const el of els) {
+                const txt = (el.textContent || "").trim();
+                if (txt.length > 10) continue;
+                const m = txt.match(/(\d{1,3})\s*%/);
+                if (!m) continue;
+                const pct = parseInt(m[1], 10);
+                if (pct < 1 || pct > 100) continue;
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 || rect.width > 150) continue;
+                if (rect.top < 0 || rect.top > window.innerHeight) continue;
+                return pct;
+            }
+            return null;
+        };
+
+        /**
+         * Wait for a NEW video to appear (play icon ▶ on thumbnail).
+         * Returns the video card element or null on timeout.
+         */
+        const waitForVideoComplete = async (timeoutMs = 600000): Promise<HTMLElement | null> => {
+            LOG("Waiting for video generation...");
+            updateStep("vid-wait", "active");
+            await sleep(5000);
+
+            // ── Strategy B: Find the first <img> card by position (top-left in grid) ──
+            const findFirstCard = (): { el: HTMLElement; cx: number; cy: number } | null => {
+                const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
+                const visible = imgs.filter(img => {
+                    const r = img.getBoundingClientRect();
+                    return r.width > 100 && r.height > 80 && r.top > 30 && r.top < window.innerHeight * 0.8;
+                });
+                if (visible.length === 0) return null;
+                visible.sort((a, b) => {
+                    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+                    return ra.top !== rb.top ? ra.top - rb.top : ra.left - rb.left;
+                });
+                const first = visible[0];
+                const r = first.getBoundingClientRect();
+                return { el: first, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+            };
+
+            // ── Debug: dump all elements containing "%" text ──
+            const debugDumpPct = () => {
+                const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
+                let count = 0;
+                for (const el of els) {
+                    const txt = (el.textContent || "").trim();
+                    if (txt.includes("%") && txt.length < 15) {
+                        const tag = el.tagName.toLowerCase();
+                        const cls = el.className && typeof el.className === "string"
+                            ? el.className.split(/\s+/).slice(0, 2).join(" ")
+                            : "";
+                        const rect = el.getBoundingClientRect();
+                        LOG(`  🔍 "${txt}" in <${tag}.${cls}> at (${rect.left.toFixed(0)},${rect.top.toFixed(0)}) w=${rect.width.toFixed(0)}`);
+                        count++;
+                        if (count >= 5) break;
+                    }
+                }
+                if (count === 0) LOG("  🔍 No element with '%' text found");
+            };
+
+            // Find the first card immediately
+            const firstCard = findFirstCard();
+            if (firstCard) {
+                const r = firstCard.el.getBoundingClientRect();
+                LOG(`📍 First card: <${firstCard.el.tagName.toLowerCase()}> at (${r.left.toFixed(0)},${r.top.toFixed(0)}) size ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+            } else {
+                LOG("⚠️ No visible card found yet");
+            }
+
+            // Debug: dump % text once
+            LOG("🔍 Debug scan for % text nodes:");
+            debugDumpPct();
+
+            const start = Date.now();
+            let lastPct = -1;
+            let lastPctTime = 0;
+            let completed = false;
+
+            // Poll until completion
+            while (Date.now() - start < timeoutMs) {
+                const pct = scanForPct();
+                if (pct !== null) {
+                    if (pct !== lastPct) {
+                        LOG(`Video progress: ${pct}%`);
+                        lastPct = pct;
+                        updateStep("vid-wait", "active", pct);
+                    }
+                    lastPctTime = Date.now();
+                    if (pct >= 100) {
+                        LOG("✅ 100% detected!");
+                        completed = true;
+                        break;
+                    }
+                } else if (lastPct > 30) {
+                    // % disappeared = video generation finished
+                    const lostFor = Math.floor((Date.now() - lastPctTime) / 1000);
+                    if (lostFor >= 5) {
+                        LOG(`✅ % disappeared at ${lastPct}% (lost for ${lostFor}s) — video done!`);
+                        completed = true;
+                        break;
+                    }
+                    LOG(`⏳ % lost at ${lastPct}% — confirming in ${5 - lostFor}s...`);
+                } else {
+                    const elapsed = Math.floor((Date.now() - start) / 1000);
+                    if (elapsed % 15 < 3) {
+                        LOG(`⏳ Waiting... (${elapsed}s) no % found`);
+                    }
+                }
+                await sleep(3000);
+            }
+
+            // Now find the card to click — refresh position
+            const card = findFirstCard();
+            if (!card) {
+                LOG("❌ No card found to click");
+                updateStep("vid-wait", "error");
+                return null;
+            }
+
+            const { el, cx, cy } = card;
+            if (completed) {
+                updateStep("vid-wait", "done", 100);
+                LOG("Cool-down 4s before clicking...");
+                await sleep(4000);
+            } else {
+                LOG("⚠️ Timeout — attempting to click first card anyway");
+            }
+
+            // Hover 4s
+            LOG(`🖱️ Hovering 4s at (${cx.toFixed(0)}, ${cy.toFixed(0)})...`);
+            el.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: cx, clientY: cy }));
+            el.dispatchEvent(new MouseEvent("mouseover",  { bubbles: true, clientX: cx, clientY: cy }));
+            for (let t = 0; t < 8; t++) {
+                el.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: cx + (t % 2), clientY: cy }));
+                await sleep(500);
+            }
+
+            // Click 2 times using native .click() via elementFromPoint
+            LOG("Clicking card...");
+            for (let i = 0; i < 2; i++) {
+                const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
+                if (target) target.click(); else el.click();
+                await sleep(300);
+            }
+            LOG("✅ Clicks done");
+            return el;
+        };
+
+        /**
+         * Wait for scene N video progress in detail view (% tracking only, no clicking).
+         */
+        const waitForSceneProgress = async (sceneNum: number, timeoutMs = 600000): Promise<boolean> => {
+            LOG(`Waiting for scene ${sceneNum} video generation...`);
+            await sleep(5000);
+
+            const start = Date.now();
+            let lastPct = -1;
+            let lastPctTime = 0;
+
+            while (Date.now() - start < timeoutMs) {
+                const pct = scanForPct();
+                if (pct !== null) {
+                    if (pct !== lastPct) {
+                        LOG(`Scene ${sceneNum} progress: ${pct}%`);
+                        lastPct = pct;
+                    }
+                    lastPctTime = Date.now();
+                    if (pct >= 100) {
+                        LOG(`✅ Scene ${sceneNum} — 100%!`);
+                        return true;
+                    }
+                } else if (lastPct > 30) {
+                    const lostFor = Math.floor((Date.now() - lastPctTime) / 1000);
+                    if (lostFor >= 5) {
+                        LOG(`✅ Scene ${sceneNum} — % disappeared at ${lastPct}% (${lostFor}s) — done!`);
+                        return true;
+                    }
+                    LOG(`⏳ Scene ${sceneNum} % lost at ${lastPct}% — confirming in ${5 - lostFor}s...`);
+                } else {
+                    const elapsed = Math.floor((Date.now() - start) / 1000);
+                    if (elapsed % 15 < 3) {
+                        LOG(`⏳ Scene ${sceneNum} waiting... (${elapsed}s)`);
+                    }
+                }
+                await sleep(3000);
+            }
+            return false;
+        };
+
+        /**
+         * Click a video card to open the detail view.
+         */
+        const clickVideoCard = async (card: HTMLElement) => {
+            const rect = card.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+
+            card.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1 }));
+            card.dispatchEvent(new MouseEvent("mousedown", opts));
+            await sleep(80);
+            card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1 }));
+            card.dispatchEvent(new MouseEvent("mouseup", opts));
+            card.dispatchEvent(new MouseEvent("click", opts));
+            LOG("Clicked video card");
+            await sleep(2000);
+        };
+
+        /**
+         * Download the video: 3-dots → ดาวน์โหลด → 1080p → wait upscale
+         */
+        const downloadVideo1080p = async (): Promise<boolean> => {
+            // Find and click 3-dots (เพิ่มเติม) button in the detail view
+            let dotsBtn: HTMLElement | null = null;
+            const allBtns = document.querySelectorAll<HTMLElement>("button");
+            for (const btn of allBtns) {
+                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                const icons = btn.querySelectorAll("i, span");
+                let hasMore = aria.includes("เพิ่มเติม") || aria.includes("more");
+                for (const icon of icons) {
+                    const t = icon.textContent?.trim() || "";
+                    if (t === "more_vert" || t === "more_horiz") hasMore = true;
+                }
+                if (hasMore) {
+                    const rect = btn.getBoundingClientRect();
+                    if (rect.top > 0 && rect.width < 60) {
+                        dotsBtn = btn;
+                        break;
+                    }
+                }
+            }
+
+            if (!dotsBtn) {
+                // Fallback: look for small button at top-right
+                for (const btn of allBtns) {
+                    const rect = btn.getBoundingClientRect();
+                    if (rect.width < 50 && rect.height < 50 && rect.top < 100 && rect.right > window.innerWidth * 0.8) {
+                        const txt = btn.textContent?.trim() || "";
+                        if (txt.includes("more") || txt.includes("⋮")) {
+                            dotsBtn = btn;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!dotsBtn) {
+                WARN("Could not find 3-dots button for download");
+                return false;
+            }
+
+            // Click 3-dots
+            const dRect = dotsBtn.getBoundingClientRect();
+            const dOpts = { bubbles: true, cancelable: true, clientX: dRect.left + dRect.width / 2, clientY: dRect.top + dRect.height / 2, button: 0 };
+            dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1 }));
+            dotsBtn.dispatchEvent(new MouseEvent("mousedown", dOpts));
+            await sleep(80);
+            dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1 }));
+            dotsBtn.dispatchEvent(new MouseEvent("mouseup", dOpts));
+            dotsBtn.dispatchEvent(new MouseEvent("click", dOpts));
+            LOG("Clicked 3-dots menu");
+            await sleep(1500);
+
+            // Find and click "ดาวน์โหลด" menu item
+            let downloadBtn: HTMLElement | null = null;
+            const menuItems = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], li, div[role='button']");
+            for (const item of menuItems) {
+                const txt = (item.textContent || "").trim();
+                if (txt.includes("ดาวน์โหลด") || txt.toLowerCase().includes("download")) {
+                    downloadBtn = item;
+                    break;
+                }
+            }
+
+            if (!downloadBtn) {
+                WARN("Could not find 'ดาวน์โหลด' menu item");
+                return false;
+            }
+
+            const dlRect = downloadBtn.getBoundingClientRect();
+            const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
+            downloadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1 }));
+            downloadBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
+            await sleep(80);
+            downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1 }));
+            downloadBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
+            downloadBtn.dispatchEvent(new MouseEvent("click", dlOpts));
+            LOG("Clicked ดาวน์โหลด");
+            await sleep(2000);
+
+            // Find and click "1080p" option
+            let btn1080: HTMLElement | null = null;
+            const options = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], li, div[role='button']");
+            for (const opt of options) {
+                const txt = (opt.textContent || "").trim();
+                if (txt.includes("1080p") || txt.includes("1080")) {
+                    btn1080 = opt;
+                    break;
+                }
+            }
+
+            if (!btn1080) {
+                WARN("Could not find 1080p option — trying 720p");
+                for (const opt of options) {
+                    const txt = (opt.textContent || "").trim();
+                    if (txt.includes("720p") || txt.includes("720")) {
+                        btn1080 = opt;
+                        break;
+                    }
+                }
+            }
+
+            if (btn1080) {
+                const hRect = btn1080.getBoundingClientRect();
+                const hOpts = { bubbles: true, cancelable: true, clientX: hRect.left + hRect.width / 2, clientY: hRect.top + hRect.height / 2, button: 0 };
+                btn1080.dispatchEvent(new PointerEvent("pointerdown", { ...hOpts, pointerId: 1 }));
+                btn1080.dispatchEvent(new MouseEvent("mousedown", hOpts));
+                await sleep(80);
+                btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1 }));
+                btn1080.dispatchEvent(new MouseEvent("mouseup", hOpts));
+                btn1080.dispatchEvent(new MouseEvent("click", hOpts));
+                LOG("Clicked 1080p — upscaling started");
+            } else {
+                WARN("Could not find resolution option");
+                return false;
+            }
+
+            // Wait for "Upscaling complete!" text to appear (poll for up to 5 minutes)
+            LOG("Waiting for upscale to complete...");
+            const upscaleStart = Date.now();
+            while (Date.now() - upscaleStart < 300000) {
+                const allText = document.body.innerText || "";
+                if (allText.includes("Upscaling complete") || allText.includes("upscaling complete")) {
+                    LOG("✅ Upscaling complete! Video downloaded.");
+                    return true;
+                }
+                await sleep(5000);
+            }
+            WARN("Upscale timeout — video may still be processing");
+            return true; // Still return true, download might have started
+        };
+
+        /**
+         * Shared download flow: ดาวน์โหลด → 1080p → wait upscale → open in Chrome
+         */
+        const performDownloadAndOpen = async () => {
+            // Find ดาวน์โหลด button
+            let dlBtn: HTMLElement | null = null;
+            const allBtns = document.querySelectorAll<HTMLElement>("button");
+            for (const btn of allBtns) {
+                const txt = (btn.textContent || "").trim();
+                if (txt.includes("ดาวน์โหลด") || txt.toLowerCase() === "download") {
+                    dlBtn = btn;
+                    LOG(`Found ดาวน์โหลด button via text: "${txt}"`);
+                    break;
+                }
+            }
+            if (!dlBtn) {
+                for (const btn of allBtns) {
+                    const rect = btn.getBoundingClientRect();
+                    if (rect.top < 80 && rect.right > window.innerWidth - 300) {
+                        const txt = (btn.textContent || "").trim().toLowerCase();
+                        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                        if (txt.includes("ดาวน์") || txt.includes("download") ||
+                            aria.includes("ดาวน์") || aria.includes("download")) {
+                            dlBtn = btn;
+                            LOG("Found ดาวน์โหลด button via position+text");
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!dlBtn) {
+                const overlays = document.querySelectorAll<HTMLElement>('[data-type="button-overlay"]');
+                for (const overlay of overlays) {
+                    const parent = overlay.closest("button") || overlay.parentElement;
+                    if (parent) {
+                        const ptxt = (parent.textContent || "").trim();
+                        if (ptxt.includes("ดาวน์โหลด") || ptxt.toLowerCase().includes("download")) {
+                            dlBtn = parent as HTMLElement;
+                            LOG("Found ดาวน์โหลด via button-overlay parent");
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!dlBtn) {
+                WARN("Could not find ดาวน์โหลด button in detail view");
+                steps.push("⚠️ Download btn");
+                return;
+            }
+
+            // Click ดาวน์โหลด
+            const dlRect = dlBtn.getBoundingClientRect();
+            const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
+            dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1 }));
+            dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
+            await sleep(80);
+            dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1 }));
+            dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
+            dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
+            LOG("Clicked ดาวน์โหลด button");
+            steps.push("✅ ดาวน์โหลด");
+            updateStep("download", "done");
+            updateStep("upscale", "active");
+            await sleep(1500);
+
+            // Helper: click any HTMLElement with full pointer events
+            const clickEl = async (el: HTMLElement) => {
+                const r = el.getBoundingClientRect();
+                const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+                el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new MouseEvent("mousedown", opts));
+                await sleep(80);
+                el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new MouseEvent("mouseup", opts));
+                el.dispatchEvent(new MouseEvent("click", opts));
+            };
+
+            // Helper: hover an element (Radix menus open on hover/pointerenter)
+            const hoverEl = async (el: HTMLElement) => {
+                const r = el.getBoundingClientRect();
+                const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+                el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new MouseEvent("mouseenter", opts));
+                el.dispatchEvent(new PointerEvent("pointermove", { ...opts, pointerId: 1 }));
+                el.dispatchEvent(new MouseEvent("mouseover", opts));
+                el.dispatchEvent(new MouseEvent("mousemove", opts));
+            };
+
+            // Helper: find visible menuitem by text (Radix uses role="menuitem")
+            const findMenuItem = (text: string): HTMLElement | null => {
+                const items = document.querySelectorAll<HTMLElement>('[role="menuitem"]');
+                for (const item of items) {
+                    const txt = (item.textContent || "").trim();
+                    if (txt.includes(text)) {
+                        const r = item.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return item;
+                    }
+                }
+                return null;
+            };
+
+            // Detect menu type: "Full Video" = multi-scene submenu
+            const fullVideoBtn = findMenuItem("Full Video");
+            if (fullVideoBtn) {
+                // ── Multi-scene: hover Full Video → submenu → click 720p ──
+                LOG("Multi-scene menu detected — hovering Full Video...");
+                await hoverEl(fullVideoBtn);
+                await sleep(500);
+                await clickEl(fullVideoBtn);
+                LOG("Clicked Full Video");
+                steps.push("✅ Full Video");
+                await sleep(1500);
+
+                // Wait for 720p submenu to appear (poll up to 5s)
+                let res720: HTMLElement | null = null;
+                const subStart = Date.now();
+                while (Date.now() - subStart < 5000) {
+                    res720 = findMenuItem("720p");
+                    if (res720) break;
+                    LOG("Waiting for 720p submenu...");
+                    await sleep(500);
+                }
+                if (!res720) {
+                    WARN("Could not find 720p option in submenu");
+                    steps.push("⚠️ 720p");
+                    return;
+                }
+                await clickEl(res720);
+                LOG("Clicked 720p — download starting");
+                steps.push("✅ 720p");
+                updateStep("upscale", "active");
+            } else {
+                // ── Single scene: 1080p directly ──
+                let res1080 = findMenuItem("1080p");
+                if (!res1080) {
+                    const allEls = document.querySelectorAll<HTMLElement>("button, div[role='button'], span");
+                    for (const el of allEls) {
+                        const txt = (el.textContent || "").trim();
+                        if (txt.includes("1080p") && el.offsetParent !== null) {
+                            res1080 = el.closest("button") as HTMLElement || el;
+                            break;
+                        }
+                    }
+                }
+                if (!res1080) {
+                    WARN("Could not find 1080p option");
+                    steps.push("⚠️ 1080p");
+                    return;
+                }
+                await clickEl(res1080);
+                LOG("Clicked 1080p — download starting");
+                steps.push("✅ 1080p");
+                updateStep("upscale", "active");
+            }
+
+            // Wait for download to complete
+            // Single scene: "Upscaling complete" / "upscaling complete"
+            // Multi-scene: "Downloading your extended video." → "Download complete!"
+            LOG("Waiting for download to complete...");
+            const upStart = Date.now();
+            let downloadDone = false;
+            while (Date.now() - upStart < 300000) {
+                const bodyText = document.body.innerText || "";
+                if (bodyText.includes("Download complete")) {
+                    LOG("✅ Download complete!");
+                    steps.push("✅ Downloaded");
+                    updateStep("upscale", "done", 100);
+                    downloadDone = true;
+                    break;
+                }
+                if (bodyText.includes("Upscaling complete") || bodyText.includes("upscaling complete")) {
+                    LOG("✅ Upscaling complete!");
+                    steps.push("✅ Upscaled");
+                    updateStep("upscale", "done", 100);
+                    downloadDone = true;
+                    break;
+                }
+                // Log progress for multi-scene
+                if (bodyText.includes("Downloading your extended video")) {
+                    LOG("Downloading extended video...");
+                } else {
+                    LOG("Waiting...");
+                }
+                await sleep(3000);
+            }
+
+            if (!downloadDone) {
+                WARN("Download timeout — file may still be downloading");
+                steps.push("⚠️ Download timeout");
+                updateStep("upscale", "error");
+                return;
+            }
+
+            // Open file in Chrome
+            updateStep("open", "active");
+            LOG("Waiting for download file to be ready...");
+            await sleep(5000);
+            let opened = false;
+            const dlPollStart = Date.now();
+            while (Date.now() - dlPollStart < 60000 && !opened) {
+                try {
+                    await new Promise<void>((resolve) => {
+                        chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO" }, (res) => {
+                            if (chrome.runtime.lastError) {
+                                WARN(`Download poll error: ${chrome.runtime.lastError.message}`);
+                            } else if (res?.success) {
+                                LOG(`✅ Opened video: ${res.message}`);
+                                steps.push("✅ Opened");
+                                updateStep("open", "done");
+                                opened = true;
+                            } else {
+                                LOG(`Download not ready: ${res?.message}`);
+                            }
+                            resolve();
+                        });
+                    });
+                } catch (e: any) {
+                    WARN(`Poll exception: ${e.message}`);
+                }
+                if (!opened) await sleep(3000);
+            }
+            if (!opened) {
+                WARN("Could not find/open downloaded video");
+                steps.push("⚠️ Open");
+            }
+        };
+
+        try {
+            // Wait for the first video to complete
+            const videoCard = await waitForVideoComplete();
+            if (!videoCard) {
+                WARN("Timeout waiting for video generation");
+                steps.push("⚠️ Video Wait");
+                updateStep("vid-wait", "error");
+            } else {
+                steps.push("✅ Video Complete");
+                updateStep("vid-wait", "done", 100);
+                updateStep("download", "active");
+
+                if (totalScenes <= 1) {
+                    // ── Single scene: hover+click already done in waitForVideoComplete ──
+                    LOG("Single scene — waiting 3s for detail view to load...");
+                    steps.push("✅ Clicked");
+                    await sleep(3000);
+
+                    // Step 6B: Find and click "ดาวน์โหลด" button in detail view (top-right area)
+                    let dlBtn: HTMLElement | null = null;
+
+                    // Strategy 1: button containing text "ดาวน์โหลด" / "Download"
+                    const allBtns = document.querySelectorAll<HTMLElement>("button");
+                    for (const btn of allBtns) {
+                        const txt = (btn.textContent || "").trim();
+                        if (txt.includes("ดาวน์โหลด") || txt.toLowerCase() === "download") {
+                            dlBtn = btn;
+                            LOG(`Found ดาวน์โหลด button via text: "${txt}"`);
+                            break;
+                        }
+                    }
+
+                    // Strategy 2: look for button with download icon near top-right
+                    if (!dlBtn) {
+                        for (const btn of allBtns) {
+                            const rect = btn.getBoundingClientRect();
+                            if (rect.top < 80 && rect.right > window.innerWidth - 300) {
+                                const txt = (btn.textContent || "").trim().toLowerCase();
+                                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                                if (txt.includes("ดาวน์") || txt.includes("download") ||
+                                    aria.includes("ดาวน์") || aria.includes("download")) {
+                                    dlBtn = btn;
+                                    LOG("Found ดาวน์โหลด button via position+text");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Strategy 3: div with data-type="button-overlay" inside a download-like container
+                    if (!dlBtn) {
+                        const overlays = document.querySelectorAll<HTMLElement>('[data-type="button-overlay"]');
+                        for (const overlay of overlays) {
+                            const parent = overlay.closest("button") || overlay.parentElement;
+                            if (parent) {
+                                const ptxt = (parent.textContent || "").trim();
+                                if (ptxt.includes("ดาวน์โหลด") || ptxt.toLowerCase().includes("download")) {
+                                    dlBtn = parent as HTMLElement;
+                                    LOG("Found ดาวน์โหลด via button-overlay parent");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!dlBtn) {
+                        WARN("Could not find ดาวน์โหลด button in detail view");
+                        steps.push("⚠️ Download btn");
+                    } else {
+                        // Click ดาวน์โหลด
+                        const dlRect = dlBtn.getBoundingClientRect();
+                        const dlCx = dlRect.left + dlRect.width / 2;
+                        const dlCy = dlRect.top + dlRect.height / 2;
+                        const dlOpts = { bubbles: true, cancelable: true, clientX: dlCx, clientY: dlCy, button: 0 };
+                        dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1 }));
+                        dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
+                        await sleep(80);
+                        dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1 }));
+                        dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
+                        dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
+                        LOG("Clicked ดาวน์โหลด button");
+                        steps.push("✅ ดาวน์โหลด");
+                        updateStep("download", "done");
+                        updateStep("upscale", "active");
+                        await sleep(1500);
+
+                        // Step 6C: Find and click "1080p" from the dropdown
+                        let res1080: HTMLElement | null = null;
+                        const menuItems = document.querySelectorAll<HTMLElement>(
+                            'button[role="menuitem"], [role="menuitem"], [role="option"], li'
+                        );
+                        for (const item of menuItems) {
+                            const txt = (item.textContent || "").trim();
+                            if (txt.includes("1080p")) {
+                                res1080 = item;
+                                break;
+                            }
+                        }
+                        // Broader fallback
+                        if (!res1080) {
+                            const allEls = document.querySelectorAll<HTMLElement>("button, div[role='button'], span");
+                            for (const el of allEls) {
+                                const txt = (el.textContent || "").trim();
+                                if (txt.includes("1080p") && el.offsetParent !== null) {
+                                    res1080 = el.closest("button") as HTMLElement || el;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!res1080) {
+                            WARN("Could not find 1080p option in dropdown");
+                            steps.push("⚠️ 1080p");
+                        } else {
+                            const rRect = res1080.getBoundingClientRect();
+                            const rCx = rRect.left + rRect.width / 2;
+                            const rCy = rRect.top + rRect.height / 2;
+                            const rOpts = { bubbles: true, cancelable: true, clientX: rCx, clientY: rCy, button: 0 };
+                            res1080.dispatchEvent(new PointerEvent("pointerdown", { ...rOpts, pointerId: 1 }));
+                            res1080.dispatchEvent(new MouseEvent("mousedown", rOpts));
+                            await sleep(80);
+                            res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1 }));
+                            res1080.dispatchEvent(new MouseEvent("mouseup", rOpts));
+                            res1080.dispatchEvent(new MouseEvent("click", rOpts));
+                            LOG("Clicked 1080p — download starting");
+                            steps.push("✅ 1080p");
+
+                            // Step 6D: Wait for upscaling to complete (server-side), then download finishes
+                            LOG("Waiting for upscaling + download...");
+
+                            // 6D-1: Poll page for "Upscaling complete!" (up to 5 min)
+                            const upStart = Date.now();
+                            let upscaleDone = false;
+                            while (Date.now() - upStart < 300000) {
+                                const bodyText = document.body.innerText || "";
+                                if (bodyText.includes("Upscaling complete") || bodyText.includes("upscaling complete")) {
+                                    LOG("✅ Upscaling complete!");
+                                    steps.push("✅ Upscaled");
+                                    updateStep("upscale", "done", 100);
+                                    upscaleDone = true;
+                                    break;
+                                }
+                                await sleep(5000);
+                                LOG("Upscaling...");
+                            }
+
+                            // 6D-2: After upscale done, wait for download to finish then open
+                            if (upscaleDone) {
+                                updateStep("open", "active");
+                                LOG("Waiting for download file to be ready...");
+                                await sleep(5000); // give Chrome time to finish saving
+
+                                // Poll chrome.downloads for the completed video file
+                                let opened = false;
+                                const dlPollStart = Date.now();
+                                while (Date.now() - dlPollStart < 60000 && !opened) {
+                                    try {
+                                        await new Promise<void>((resolve) => {
+                                            chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO" }, (res) => {
+                                                if (chrome.runtime.lastError) {
+                                                    WARN(`Download poll error: ${chrome.runtime.lastError.message}`);
+                                                } else if (res?.success) {
+                                                    LOG(`✅ Opened video: ${res.message}`);
+                                                    steps.push("✅ Opened");
+                                                    updateStep("open", "done");
+                                                    opened = true;
+                                                } else {
+                                                    LOG(`Download not ready: ${res?.message}`);
+                                                }
+                                                resolve();
+                                            });
+                                        });
+                                    } catch (e: any) {
+                                        WARN(`Poll exception: ${e.message}`);
+                                    }
+                                    if (!opened) await sleep(3000);
+                                }
+
+                                if (!opened) {
+                                    WARN("Could not find/open downloaded video");
+                                    steps.push("⚠️ Open");
+                                }
+                            } else {
+                                WARN("Upscaling timeout — download may still complete");
+                                steps.push("⚠️ Upscale timeout");
+                            }
+                        }
+                    }
+                } else {
+                    // ── Multi-scene: paste next scene prompt → generate → track % → repeat ──
+                    LOG(`Multi-scene mode: ${totalScenes} scenes`);
+
+                    for (let sceneIdx = 1; sceneIdx < totalScenes; sceneIdx++) {
+                        const scenePrompt = scenePrompts[sceneIdx];
+                        if (!scenePrompt) {
+                            LOG(`No prompt for scene ${sceneIdx + 1} — skipping`);
+                            continue;
+                        }
+
+                        const sn = sceneIdx + 1; // scene number (2, 3, ...)
+                        LOG(`--- Scene ${sn}/${totalScenes} ---`);
+                        await sleep(2000);
+
+                        // Already in detail view — "ขยาย" is selected, paste prompt
+                        updateStep(`scene${sn}-prompt`, "active");
+                        const detailPromptInput = findPromptTextInput();
+                        if (detailPromptInput) {
+                            await setPromptText(detailPromptInput, scenePrompt);
+                            LOG(`Pasted scene ${sn} prompt (${scenePrompt.length} chars)`);
+                            steps.push(`✅ Scene${sn} Prompt`);
+                            updateStep(`scene${sn}-prompt`, "done");
+                        } else {
+                            WARN(`Could not find prompt input for scene ${sn}`);
+                            steps.push(`❌ Scene${sn}`);
+                            errors.push(`scene ${sn} prompt input not found`);
+                            updateStep(`scene${sn}-prompt`, "error");
+                            break;
+                        }
+                        await sleep(1000);
+
+                        // Click → generate button
+                        updateStep(`scene${sn}-gen`, "active");
+                        const sceneGenBtn = findGenerateButton();
+                        if (sceneGenBtn) {
+                            sceneGenBtn.click();
+                            LOG(`Clicked Generate for scene ${sn}`);
+                            steps.push(`✅ Scene${sn} Gen`);
+                            updateStep(`scene${sn}-gen`, "done");
+                            await sleep(500);
+                            sceneGenBtn.click(); // safety retry
+                        } else {
+                            WARN(`Could not find Generate button for scene ${sn}`);
+                            steps.push(`❌ Scene${sn} Gen`);
+                            errors.push(`scene ${sn} generate button not found`);
+                            updateStep(`scene${sn}-gen`, "error");
+                            break;
+                        }
+
+                        // Wait for scene % progress (in detail view)
+                        updateStep(`scene${sn}-wait`, "active");
+                        const sceneDone = await waitForSceneProgress(sn);
+                        if (sceneDone) {
+                            steps.push(`✅ Scene${sn}`);
+                            updateStep(`scene${sn}-wait`, "done", 100);
+                        } else {
+                            WARN(`Timeout on scene ${sn}`);
+                            steps.push(`⚠️ Scene${sn}`);
+                            updateStep(`scene${sn}-wait`, "error");
+                        }
+                    }
+
+                    LOG("All scenes generated!");
+                    steps.push("✅ All Scenes");
+
+                    // Download after all scenes
+                    await sleep(3000);
+                    await performDownloadAndOpen();
+                }
+            }
+        } catch (e: any) {
+            WARN(`Step 6 error: ${e.message}`);
+            steps.push("⚠️ Step6");
+            errors.push(`step 6: ${e.message}`);
+        }
+    }
+
     const success = errors.length === 0;
+
+    // ── Complete Overlay ──
+    try { completeOverlay(success ? 5000 : 8000); } catch (e) { console.warn("Overlay complete error:", e); }
+
     return {
         success,
         message: success
@@ -946,19 +2055,87 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "GENERATE_IMAGE") {
         LOG("Received GENERATE_IMAGE request");
+        // Respond immediately to prevent MV3 service-worker message-channel timeout
+        sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
+        // Fire-and-forget: run the long automation in the background
         handleGenerateImage(message as GenerateImageRequest)
-            .then(sendResponse)
-            .catch(err => {
-                console.error("[Netflow AI] Generate error:", err);
-                sendResponse({ success: false, message: `Error: ${err.message}`, step: "error" });
-            });
-        return true;
+            .then(result => LOG(`✅ Automation finished: ${result.message}`))
+            .catch(err => console.error("[Netflow AI] Generate error:", err));
+        return false;
     }
 
     if (message?.action === "PING") {
         sendResponse({ status: "ready" });
-        return true;
+        return false;
+    }
+
+    if (message?.action === "CLICK_FIRST_IMAGE") {
+        sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
+        (async () => {
+            LOG("CLICK_FIRST_IMAGE — finding first image card...");
+            await sleep(500);
+
+            // Find all visible image cards — pick the one furthest top-left
+            const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
+            const visible = imgs.filter(img => {
+                const r = img.getBoundingClientRect();
+                return r.width > 100 && r.height > 80 && r.top > 30 && r.top < window.innerHeight * 0.8 && r.left >= 0;
+            });
+
+            if (visible.length === 0) {
+                WARN("No visible image cards found");
+                return;
+            }
+
+            // Sort by top then left — pick the first one
+            visible.sort((a, b) => {
+                const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+                return ra.top !== rb.top ? ra.top - rb.top : ra.left - rb.left;
+            });
+            const firstImg = visible[0];
+            const r = firstImg.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            LOG(`First image card at (${cx.toFixed(0)}, ${cy.toFixed(0)}) — clicking 2 times`);
+
+            for (let i = 0; i < 2; i++) {
+                const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
+                if (target) {
+                    target.click();
+                    LOG(`Click ${i + 1}/2 on <${target.tagName.toLowerCase()}>`);
+                } else {
+                    firstImg.click();
+                    LOG(`Click ${i + 1}/2 on img (fallback)`);
+                }
+                await sleep(300);
+            }
+            LOG("✅ 2 clicks on first image done");
+        })();
+        return false;
     }
 });
 
 LOG("Google Flow content script ready — waiting for commands");
+
+// ─── Mouse / Click Tracker ───────────────────────────────────────────────────
+document.addEventListener("click", (e) => {
+    const t = e.target as HTMLElement | null;
+    if (!t) return;
+    const tag = t.tagName.toLowerCase();
+    const id = t.id ? `#${t.id}` : "";
+    const cls = t.className && typeof t.className === "string"
+        ? "." + t.className.trim().split(/\s+/).slice(0, 2).join(".")
+        : "";
+    const txt = (t.textContent || "").trim().slice(0, 30);
+    const x = Math.round(e.clientX), y = Math.round(e.clientY);
+    LOG(`🖱️ Click (${x},${y}) → <${tag}${id}${cls}> "${txt}"`);
+}, true);
+
+document.addEventListener("dblclick", (e) => {
+    const t = e.target as HTMLElement | null;
+    if (!t) return;
+    const tag = t.tagName.toLowerCase();
+    const x = Math.round(e.clientX), y = Math.round(e.clientY);
+    const txt = (t.textContent || "").trim().slice(0, 30);
+    LOG(`🖱️🖱️ DblClick (${x},${y}) → <${tag}> "${txt}"`);
+}, true);

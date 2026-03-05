@@ -218,6 +218,82 @@
   }
 }
 
+/* AI Button - Galactic Glow */
+.ai-btn-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, hsl(var(--neon-red-dark)), hsl(var(--neon-red)), hsl(var(--neon-red-light)), hsl(var(--neon-red)));
+  background-size: 300% 100%;
+  animation: ai-btn-bg 4s ease infinite;
+}
+
+.ai-btn-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.15) 40%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.15) 60%,
+    transparent 80%
+  );
+  animation: shimmer-sweep 2.5s ease-in-out infinite;
+  transform: translateX(-100%);
+}
+
+.ai-btn-shimmer:hover {
+  box-shadow:
+    0 0 20px hsl(var(--neon-red) / 0.5),
+    0 0 40px hsl(var(--neon-red) / 0.3),
+    0 0 60px hsl(var(--neon-red) / 0.15);
+}
+
+.ai-btn-shimmer:active::before {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes ai-btn-bg {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* AI Thinking - Scene Card Loading */
+.ai-thinking-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-thinking-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--neon-red) / 0.06),
+    hsl(var(--neon-red) / 0.12),
+    hsl(var(--neon-red) / 0.06),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: ai-thinking-wave 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ai-thinking-wave {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 @keyframes pulse-glow {
   0%, 100% {
     box-shadow: 
@@ -249,6 +325,237 @@
   50% {
     transform: translateY(-5px);
   }
+}
+
+/* Automation Button — Electric Glow */
+.electric-btn {
+  position: relative;
+  overflow: visible;
+  background: linear-gradient(135deg, #b91c1c, #dc2626, #ef4444, #dc2626);
+  background-size: 300% 100%;
+  animation: electric-btn-bg 4s ease infinite;
+}
+
+.electric-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.electric-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.12) 40%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.12) 60%,
+    transparent 80%
+  );
+  animation: shimmer-sweep 2.5s ease-in-out infinite;
+  transform: translateX(-100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes electric-btn-bg {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes electric-flicker {
+  0%, 100% { opacity: 0; transform: scale(0.8); }
+  10% { opacity: 0.9; transform: scale(1.05); }
+  20% { opacity: 0.2; transform: scale(0.95); }
+  30% { opacity: 1; transform: scale(1.1); }
+  40% { opacity: 0.1; transform: scale(0.9); }
+  50% { opacity: 0.8; transform: scale(1); }
+  60% { opacity: 0; }
+}
+
+@keyframes electric-aura {
+  0%, 100% {
+    box-shadow:
+      0 0 15px hsl(var(--neon-red) / 0.4),
+      0 0 30px hsl(var(--neon-red) / 0.2),
+      inset 0 0 15px hsl(var(--neon-red) / 0.1);
+  }
+  25% {
+    box-shadow:
+      0 0 25px hsl(var(--neon-red) / 0.6),
+      0 0 50px hsl(var(--neon-red) / 0.3),
+      0 0 80px hsl(200 80% 60% / 0.15),
+      inset 0 0 20px hsl(var(--neon-red) / 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 20px hsl(var(--neon-red) / 0.5),
+      0 0 40px hsl(var(--neon-red) / 0.25),
+      0 0 60px hsl(200 80% 60% / 0.1),
+      inset 0 0 15px hsl(var(--neon-red) / 0.1);
+  }
+  75% {
+    box-shadow:
+      0 0 30px hsl(var(--neon-red) / 0.7),
+      0 0 60px hsl(var(--neon-red) / 0.35),
+      0 0 90px hsl(200 80% 60% / 0.2),
+      inset 0 0 25px hsl(var(--neon-red) / 0.2);
+  }
+}
+
+@keyframes electric-text-glow {
+  0%, 100% { text-shadow: 0 0 4px rgba(255,255,255,0.3); }
+  50% { text-shadow: 0 0 12px rgba(255,255,255,0.6), 0 0 20px hsl(var(--neon-red) / 0.4); }
+}
+
+/* ═══ NETFLOW HUD Console ═══ */
+
+.nf-console-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 30px -10px rgba(220, 38, 38, 0.15),
+    inset 0 1px 0 rgba(220, 38, 38, 0.08);
+  transition: border-color 0.4s, box-shadow 0.4s;
+}
+
+.nf-console-wrap:hover {
+  border-color: rgba(220, 38, 38, 0.35);
+  box-shadow:
+    0 0 40px -8px rgba(220, 38, 38, 0.25),
+    inset 0 1px 0 rgba(220, 38, 38, 0.12);
+}
+
+/* Scanlines (CRT feel) */
+.nf-scanlines {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.08) 2px,
+      rgba(0, 0, 0, 0.08) 4px
+    );
+  z-index: 1;
+}
+
+/* Console custom scrollbar */
+.nf-console-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.nf-console-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.nf-console-scroll::-webkit-scrollbar-thumb {
+  background: rgba(220, 38, 38, 0.25);
+  border-radius: 4px;
+}
+.nf-console-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(220, 38, 38, 0.5);
+}
+
+/* Log rows */
+.nf-log-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+.nf-log-row:hover {
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.nf-log-icon {
+  flex-shrink: 0;
+  width: 10px;
+  text-align: center;
+  opacity: 0.5;
+  font-size: 9px;
+  line-height: 16px;
+}
+
+.nf-log-text {
+  word-break: break-all;
+  line-height: 15px;
+}
+
+/* Log color classes */
+.nf-log-success { color: #4ade80; }
+.nf-log-success .nf-log-icon { color: #22c55e; opacity: 0.9; text-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+
+.nf-log-warn { color: #fbbf24; }
+.nf-log-warn .nf-log-icon { color: #f59e0b; opacity: 0.8; }
+
+.nf-log-error { color: #f87171; }
+.nf-log-error .nf-log-icon { color: #ef4444; opacity: 0.9; text-shadow: 0 0 6px rgba(239, 68, 68, 0.5); }
+
+.nf-log-click { color: #c084fc; }
+.nf-log-click .nf-log-icon { color: #a855f7; opacity: 0.7; }
+
+.nf-log-info { color: #60a5fa; }
+.nf-log-info .nf-log-icon { color: #3b82f6; opacity: 0.7; }
+
+.nf-log-default { color: rgba(255, 255, 255, 0.45); }
+.nf-log-default .nf-log-icon { color: rgba(220, 38, 38, 0.3); }
+
+/* Slide-in animation for new log entries */
+@keyframes nf-log-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+/* Underline sweep for latest entry */
+.nf-underline-sweep {
+  animation: nf-sweep 1.5s ease-out forwards;
+}
+@keyframes nf-sweep {
+  from { transform: scaleX(0); transform-origin: left; opacity: 0.8; }
+  to { transform: scaleX(1); transform-origin: left; opacity: 0; }
+}
+
+/* Blinking cursor */
+.nf-cursor {
+  display: inline-block;
+  width: 5px;
+  height: 12px;
+  background: #dc2626;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.7);
+  animation: nf-cursor-blink 0.7s step-end infinite;
+}
+@keyframes nf-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Live pulse text */
+.nf-live-pulse {
+  animation: nf-live 2s ease-in-out infinite;
+}
+@keyframes nf-live {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
 }
 
 /* Custom scrollbar */

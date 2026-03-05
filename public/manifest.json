@@ -8,7 +8,10 @@
     "sidePanel",
     "activeTab",
     "clipboardWrite",
-    "clipboardRead"
+    "clipboardRead",
+    "downloads",
+    "downloads.open",
+    "nativeMessaging"
   ],
   "side_panel": {
     "default_path": "index.html"

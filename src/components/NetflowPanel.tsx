@@ -12,59 +12,83 @@ const NetflowPanel = () => {
     // Tab state for smooth transitions
     const [activeTab, setActiveTab] = useState("create");
 
+    // Reset key — incrementing remounts CreateVideoTab, resetting all state to defaults
+    const [resetKey, setResetKey] = useState(0);
+
     // Settings Dialog state
     const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
     return (
         <div className="min-h-screen w-full max-w-[417px] mx-auto bg-background overflow-y-auto">
-            {/* Header */}
-            <header className="flex items-center justify-between px-4 py-3 border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-                <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-neon-red" />
-                    <h1 className="text-lg font-bold text-foreground">
-                        <span className="text-neon-red">NETFLOW</span> AI
-                    </h1>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className="w-2 h-2 rounded-full bg-green-500 status-dot"></span>
-                        <span>ระบบพร้อมทำงาน</span>
+            {/* Header — Cyber-Pulse Premium */}
+            <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-background/80 backdrop-blur-xl">
+                <div className="flex items-center justify-between px-5 py-3.5">
+                    {/* Logo with Glow */}
+                    <div className="flex items-center gap-2.5 group cursor-pointer">
+                        <div className="relative">
+                            <div className="absolute -inset-1.5 bg-neon-red rounded-full blur-md opacity-20 group-hover:opacity-45 transition-opacity duration-500" />
+                            <Zap className="relative w-5 h-5 text-neon-red drop-shadow-[0_0_6px_hsl(var(--neon-red)/0.6)]" />
+                        </div>
+                        <h1 className="text-lg font-black tracking-tight text-foreground">
+                            <span className="text-neon-red drop-shadow-[0_0_8px_hsl(var(--neon-red)/0.4)]">NETFLOW</span>{" "}
+                            <span className="text-white">AI</span>
+                        </h1>
                     </div>
-                    <button className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                        <RefreshCw className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                    <button
-                        onClick={() => setSettingsDialogOpen(true)}
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                    >
-                        <Settings className="w-4 h-4 text-muted-foreground" />
-                    </button>
 
-                    {/* Settings Dialog */}
-                    <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+                    {/* Right: Status + Actions */}
+                    <div className="flex items-center gap-3">
+                        {/* Status Pulse Badge */}
+                        <div className="flex items-center gap-2 px-2.5 py-1 bg-white/[0.04] rounded-full border border-white/[0.06]">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-medium">ระบบพร้อมทำงาน</span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setResetKey((k) => k + 1)}
+                                title="รีเซ็ตฟอร์มทั้งหมด"
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-200"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setSettingsDialogOpen(true)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06] hover:rotate-90 transition-all duration-300"
+                            >
+                                <Settings className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Settings Dialog */}
+                        <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+                    </div>
                 </div>
             </header>
 
             {/* Main Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full h-auto p-0 bg-transparent rounded-none border-b border-border">
+                <TabsList className="w-full h-auto p-0 px-2 bg-white/[0.02] rounded-none border-b border-white/[0.06]">
                     <TabsTrigger
                         value="create"
-                        className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-transparent data-[state=active]:text-neon-red data-[state=active]:shadow-none text-muted-foreground text-xs font-medium transition-all duration-200"
+                        className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-neon-red/[0.06] data-[state=active]:text-neon-red data-[state=active]:shadow-none data-[state=active]:font-bold text-muted-foreground text-xs font-medium transition-all duration-300 hover:text-foreground hover:bg-white/[0.03]"
                     >
                         <Wand2 className="w-3 h-3 mr-1.5" />
                         สร้างวิดีโอ
                     </TabsTrigger>
                     <TabsTrigger
                         value="netcast"
-                        className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-transparent data-[state=active]:text-neon-red data-[state=active]:shadow-none text-muted-foreground text-xs font-medium transition-all duration-200"
+                        className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-neon-red/[0.06] data-[state=active]:text-neon-red data-[state=active]:shadow-none data-[state=active]:font-bold text-muted-foreground text-xs font-medium transition-all duration-300 hover:text-foreground hover:bg-white/[0.03]"
                     >
                         <Radio className="w-3 h-3 mr-1.5" />
                         NetCast Pro
                     </TabsTrigger>
                     <TabsTrigger
                         value="tiktok"
-                        className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-transparent data-[state=active]:text-neon-red data-[state=active]:shadow-none text-muted-foreground text-xs font-medium transition-all duration-200"
+                        className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-neon-red/[0.06] data-[state=active]:text-neon-red data-[state=active]:shadow-none data-[state=active]:font-bold text-muted-foreground text-xs font-medium transition-all duration-300 hover:text-foreground hover:bg-white/[0.03]"
                     >
                         <ShoppingBag className="w-3 h-3 mr-1.5" />
                         ตั้งค่า TikTok
@@ -78,7 +102,7 @@ const NetflowPanel = () => {
                     className="mt-0 data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-left-2 duration-200"
                 >
                     <ErrorBoundary>
-                        <CreateVideoTab />
+                        <CreateVideoTab key={resetKey} />
                     </ErrorBoundary>
                 </TabsContent>
 
