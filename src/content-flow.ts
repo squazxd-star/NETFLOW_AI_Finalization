@@ -648,10 +648,37 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
         }
     }
 
-    // ★ Dispatch multiple event types for React/Radix compatibility
-    // React listens on 'change'; some frameworks also listen on 'input'
+    // ★ React _valueTracker reset — CRITICAL for React to detect the change
+    // React tracks input values internally. If the cached value matches current,
+    // React skips the onChange handler. We must reset the tracker first.
+    const tracker = (target as any)._valueTracker;
+    if (tracker) {
+        tracker.setValue('');
+        LOG(`Reset React _valueTracker on file input`);
+    }
+
+    // ★ Dispatch 'change' event — React's delegated listener at root should pick this up
     target.dispatchEvent(new Event('change', { bubbles: true }));
     target.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // ★ React fiber direct onChange call (bypasses event system entirely)
+    try {
+        const reactPropsKey = Object.keys(target).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEvents$'));
+        if (reactPropsKey) {
+            const props = (target as any)[reactPropsKey];
+            if (props && typeof props.onChange === 'function') {
+                const fakeEvent = { target, currentTarget: target, type: 'change', bubbles: true, isTrusted: true };
+                props.onChange(fakeEvent);
+                LOG(`Triggered React fiber onChange directly`);
+            } else {
+                LOG(`React fiber found but no onChange handler`);
+            }
+        } else {
+            LOG(`No React fiber props found on file input`);
+        }
+    } catch (fiberErr: any) {
+        LOG(`React fiber onChange attempt: ${fiberErr.message}`);
+    }
 
     // ★ Also dispatch a synthetic 'drop' event (some Mac React builds listen for drag-drop)
     try {
@@ -673,12 +700,149 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
 }
 
 /**
+ * Check if a thumbnail/image reference appeared in the prompt bar area.
+ * Looks for <img> tags or thumbnail containers in the bottom prompt bar region.
+ */
+function checkPromptBarThumbnail(): boolean {
+    // Look for image thumbnails in the bottom portion of the page (prompt bar area)
+    const images = document.querySelectorAll<HTMLImageElement>("img");
+    for (const img of images) {
+        const rect = img.getBoundingClientRect();
+        // Thumbnail should be in the bottom 40% of the screen, small-ish, and visible
+        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
+            && rect.height > 20 && rect.height < 200 && img.src && img.offsetParent !== null) {
+            LOG(`Found thumbnail: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} at y=${rect.top.toFixed(0)}`);
+            return true;
+        }
+    }
+    // Also check for div/span with background-image in prompt bar area
+    const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
+    for (const div of thumbDivs) {
+        const rect = div.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
+            && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
+            LOG(`Found thumbnail div: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} at y=${rect.top.toFixed(0)}`);
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Drop a file onto the prompt bar via drag-and-drop events.
+ * Bypasses file input entirely — Google Flow's drop handler processes the file directly.
+ */
+async function dropFileOnPromptBar(file: File): Promise<boolean> {
+    LOG("Attempting drag-and-drop fallback on prompt bar...");
+
+    // Find the prompt bar container — the area with contenteditable or the form/wrapper
+    const targets: HTMLElement[] = [];
+
+    // Priority 1: contenteditable in bottom area
+    const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
+    for (const el of editables) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.5) targets.push(el);
+    }
+
+    // Priority 2: form or wrapper in bottom area
+    const wrappers = document.querySelectorAll<HTMLElement>('form, [role="textbox"], [data-slate-editor]');
+    for (const el of wrappers) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.5 && !targets.includes(el)) targets.push(el);
+    }
+
+    // Priority 3: any div in bottom area that looks like a prompt container
+    if (targets.length === 0) {
+        const bottomDivs = document.querySelectorAll<HTMLElement>("div");
+        for (const div of bottomDivs) {
+            const rect = div.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight * 0.8 && rect.width > 300 && rect.height > 30 && rect.height < 200) {
+                targets.push(div);
+                if (targets.length >= 3) break;
+            }
+        }
+    }
+
+    if (targets.length === 0) {
+        LOG("No prompt bar target found for drag-and-drop");
+        return false;
+    }
+
+    LOG(`Found ${targets.length} drag-and-drop targets`);
+
+    for (const target of targets) {
+        try {
+            const rect = target.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const commonOpts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy };
+
+            // Create DataTransfer with our file
+            const dt = new DataTransfer();
+            dt.items.add(file);
+
+            // Dispatch drag sequence: dragenter → dragover → drop
+            target.dispatchEvent(new DragEvent('dragenter', { ...commonOpts, dataTransfer: dt }));
+            await sleep(100);
+            target.dispatchEvent(new DragEvent('dragover', { ...commonOpts, dataTransfer: dt }));
+            await sleep(100);
+            target.dispatchEvent(new DragEvent('drop', { ...commonOpts, dataTransfer: dt }));
+            LOG(`Dispatched drag-and-drop on <${target.tagName.toLowerCase()}> at (${cx.toFixed(0)}, ${cy.toFixed(0)})`);
+
+            await sleep(500);
+            // Check if this worked immediately
+            if (checkPromptBarThumbnail()) return true;
+        } catch (err: any) {
+            LOG(`Drag-and-drop error on target: ${err.message}`);
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Paste an image file into the prompt bar via clipboard events.
+ */
+async function pasteImageIntoPromptBar(file: File): Promise<boolean> {
+    LOG("Attempting clipboard paste fallback...");
+
+    // Find the prompt bar text element
+    const promptEl = findPromptTextInput();
+    if (!promptEl) {
+        LOG("No prompt element found for paste");
+        return false;
+    }
+
+    try {
+        promptEl.focus();
+        await sleep(200);
+
+        const dt = new DataTransfer();
+        dt.items.add(file);
+
+        const pasteEvent = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+        });
+        promptEl.dispatchEvent(pasteEvent);
+        LOG("Dispatched paste event with image file on prompt bar");
+        return true;
+    } catch (err: any) {
+        LOG(`Paste fallback error: ${err.message}`);
+        return false;
+    }
+}
+
+/**
  * Upload a single image into the prompt bar.
  *
  * Key trick: NEUTRALIZE all file inputs (type="text") BEFORE clicking upload menu.
  * When Google Flow calls .click() on the input, it won't open the native dialog
  * because type="text" inputs don't trigger file chooser.
  * Then we restore type="file", inject our file, and dispatch change.
+ * Fallbacks: drag-and-drop onto prompt bar, clipboard paste.
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── Uploading ${fileName} into prompt bar ──`);
@@ -796,12 +960,51 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         // Step 7: Restore file inputs and inject our file (prefer NEW inputs over stale ones)
         const ok = restoreAndInject(neutralized, file, preExistingInputs);
         if (ok) {
-            LOG(`✅ Injected ${fileName} — no dialog opened`);
+            LOG(`✅ Injected ${fileName} via file input — waiting for thumbnail...`);
             await sleep(2500);
+
+            // Step 7b: Verify thumbnail appeared in prompt bar
+            const hasThumbnail = checkPromptBarThumbnail();
+            if (hasThumbnail) {
+                LOG(`✅ Thumbnail confirmed in prompt bar!`);
+                return true;
+            }
+            LOG(`⚠️ No thumbnail detected after file input injection — trying drag-and-drop fallback`);
+        } else {
+            LOG(`⚠️ File input injection failed — trying drag-and-drop fallback`);
+        }
+
+        // ═══ Fallback: Drag-and-drop onto prompt bar ═══
+        // Bypasses file input entirely — dispatches drop event on the prompt area
+        const dropOk = await dropFileOnPromptBar(file);
+        if (dropOk) {
+            await sleep(2500);
+            const hasThumbnail2 = checkPromptBarThumbnail();
+            if (hasThumbnail2) {
+                LOG(`✅ Thumbnail confirmed via drag-and-drop!`);
+                return true;
+            }
+            LOG(`⚠️ Drag-and-drop dispatched but no thumbnail detected`);
+        }
+
+        // ═══ Fallback 2: Paste image via clipboard ═══
+        const pasteOk = await pasteImageIntoPromptBar(file);
+        if (pasteOk) {
+            await sleep(2500);
+            if (checkPromptBarThumbnail()) {
+                LOG(`✅ Thumbnail confirmed via clipboard paste!`);
+                return true;
+            }
+        }
+
+        // Even if no thumbnail detected, return true if file injection worked
+        // (thumbnail detection may have false negatives)
+        if (ok) {
+            LOG(`File injection completed — thumbnail check may have false negative, proceeding`);
             return true;
         }
 
-        WARN(`No file input found for ${fileName}`);
+        WARN(`All upload strategies failed for ${fileName}`);
         return false;
 
     } finally {
