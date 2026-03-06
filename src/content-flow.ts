@@ -2491,6 +2491,19 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                 }
             }
             if (!sendBtn) { WARN("ไม่พบปุ่ม Generate/Send"); return; }
+
+            // Save pending action BEFORE clicking Generate — Google Flow may navigate to new page
+            await new Promise<void>((resolve) => {
+                chrome.storage.local.set({
+                    netflow_pending_action: {
+                        timestamp: Date.now(),
+                        action: "wait_scene2_gen_and_download",
+                        theme: theme
+                    }
+                }, () => resolve());
+            });
+            LOG(`💾 บันทึก pending action: wait_scene2_gen_and_download (ป้องกันหน้า reload)`);
+
             await robustClick(sendBtn);
             LOG(`คลิก Generate ฉาก ${scene} ✅`);
 
@@ -2542,6 +2555,10 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             }
             if (!sceneGenDone) { WARN(`ฉาก ${scene} หมดเวลา`); }
             LOG(`✅ ฉาก ${scene} เสร็จแล้ว`);
+
+            // Clear pending action — page didn't navigate, we completed tracking here
+            chrome.storage.local.remove("netflow_pending_action");
+            LOG("🗑️ ลบ pending action (tracking เสร็จแล้วบนหน้านี้)");
             await sleep(2000);
         }
 
@@ -2828,9 +2845,242 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 }
 
 /**
- * Check for pending action in chrome.storage.local and auto-run.
- * Called on content script init to continue automation after page navigation.
+ * Called when page navigated during scene 2 generation.
+ * Tracks generation % on the new page, then downloads Full Video 720p.
  */
+async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
+    LOG("═══ Pending: รอ scene 2 gen เสร็จ + ดาวน์โหลด ═══");
+
+    // Re-show overlay with correct theme
+    try { if (theme) setOverlayTheme(theme); } catch (_) {}
+    try { showOverlay(); } catch (_) {}
+
+    // Try to mute video
+    await sleep(2000);
+    const muteBtn = (() => {
+        for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+            const icons = btn.querySelectorAll("i");
+            for (const icon of icons) {
+                const txt = (icon.textContent || "").trim();
+                if (txt === "volume_up" || txt === "volume_off" || txt === "volume_mute") {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) return btn;
+                }
+            }
+        }
+        return null;
+    })();
+    if (muteBtn) {
+        muteBtn.click();
+        LOG("🔇 คลิกปิดเสียงวิดีโอแล้ว ✅");
+    } else {
+        LOG("⚠️ ไม่พบปุ่มปิดเสียง — ข้าม");
+    }
+
+    // ── Track generation % ──
+    LOG("── รอวิดีโอ scene 2 gen เสร็จ (หลัง page navigate) ──");
+    const overlayEl = document.getElementById("netflow-engine-overlay");
+    let lastPct = 0;
+    let pctGoneAt = 0;
+    const scenePollStart = Date.now();
+    const SCENE_TIMEOUT = 600000; // 10 min
+    const PCT_GONE_CONFIRM = 5000;
+    let sceneGenDone = false;
+    let noPctCount = 0;
+
+    while (Date.now() - scenePollStart < SCENE_TIMEOUT) {
+        let foundPct: number | null = null;
+        const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
+        for (const el of els) {
+            if (overlayEl && overlayEl.contains(el)) continue;
+            const txt = (el.textContent || "").trim();
+            const m = txt.match(/^(\d{1,3})%$/);
+            if (m) {
+                const r = el.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0 && r.width < 120 && r.height < 60) {
+                    foundPct = parseInt(m[1], 10);
+                    break;
+                }
+            }
+        }
+        if (foundPct !== null) {
+            noPctCount = 0;
+            if (foundPct !== lastPct) {
+                LOG(`🎬 scene 2 ความคืบหน้า: ${foundPct}%`);
+                lastPct = foundPct;
+            }
+            pctGoneAt = 0;
+        } else if (lastPct > 0) {
+            if (pctGoneAt === 0) {
+                pctGoneAt = Date.now();
+                LOG(`🔍 scene 2: % หายไป (จาก ${lastPct}%) — กำลังยืนยัน...`);
+            } else if (Date.now() - pctGoneAt >= PCT_GONE_CONFIRM) {
+                LOG(`✅ scene 2: % หายไป ${PCT_GONE_CONFIRM / 1000} วินาที — เจนเสร็จ!`);
+                sceneGenDone = true;
+                break;
+            }
+        } else {
+            // No % found yet — page might still be loading or gen already done
+            noPctCount++;
+            if (noPctCount >= 15) {
+                // 30 seconds with no % — check if video is already playing (gen completed during navigation)
+                const videoEls = document.querySelectorAll<HTMLVideoElement>("video");
+                let hasPlayingVideo = false;
+                for (const v of videoEls) {
+                    if (v.readyState >= 2 && !v.paused && v.getBoundingClientRect().width > 200) {
+                        hasPlayingVideo = true;
+                        break;
+                    }
+                }
+                if (hasPlayingVideo) {
+                    LOG("✅ scene 2: พบวิดีโอกำลังเล่น — ถือว่า gen เสร็จแล้ว");
+                    sceneGenDone = true;
+                    break;
+                }
+                if (noPctCount >= 30) {
+                    LOG("✅ scene 2: ไม่พบ % มานาน 60 วินาที — ถือว่าเสร็จ");
+                    sceneGenDone = true;
+                    break;
+                }
+            }
+        }
+        await sleep(2000);
+    }
+    if (!sceneGenDone) { LOG("⚠️ scene 2 หมดเวลา — ลองดาวน์โหลดต่อ"); }
+    LOG("✅ scene 2 เสร็จ — เริ่มดาวน์โหลด");
+    await sleep(3000);
+
+    // ── Helper: find visible element by text ──
+    const findByText = (text: string, sel = "button, [role='menuitem'], [role='option'], li, span, div[role='button'], div"): HTMLElement | null => {
+        for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+            const t = (el.textContent || "").trim();
+            if (t.includes(text) && t.length < 100) {
+                const r = el.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0 && r.top >= 0) return el;
+            }
+        }
+        return null;
+    };
+
+    // ── Download: Full Video → 720p ──
+    LOG("── เริ่มดาวน์โหลด Full Video (หลัง page navigate) ──");
+
+    // Click ดาวน์โหลด
+    let dlBtn: HTMLElement | null = null;
+    const dlPoll = Date.now();
+    while (!dlBtn && Date.now() - dlPoll < 10000) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
+            const txt = (btn.textContent || "").trim().toLowerCase();
+            if ((txt.includes("download") || txt.includes("ดาวน์โหลด")) && txt.length < 80) {
+                const r = btn.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+            }
+        }
+        if (!dlBtn) await sleep(1000);
+    }
+    if (!dlBtn) { WARN("ไม่พบปุ่มดาวน์โหลด"); return; }
+    await robustClick(dlBtn);
+    LOG("คลิกดาวน์โหลดแล้ว ✅");
+    await sleep(1500);
+
+    // Click "Full Video"
+    let fullVideoBtn: HTMLElement | null = null;
+    const fvStart = Date.now();
+    while (!fullVideoBtn && Date.now() - fvStart < 5000) {
+        fullVideoBtn = findByText("Full Video");
+        if (!fullVideoBtn) await sleep(500);
+    }
+    if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
+    await robustClick(fullVideoBtn);
+    LOG("คลิก Full Video ✅");
+    await sleep(1500);
+
+    // Click "720p"
+    const downloadStartedAt = Date.now();
+    let res720: HTMLElement | null = null;
+    const r720Start = Date.now();
+    while (!res720 && Date.now() - r720Start < 5000) {
+        res720 = findByText("720p");
+        if (!res720) await sleep(500);
+    }
+    if (!res720) { WARN("ไม่พบ 720p"); return; }
+    await robustClick(res720);
+    LOG("คลิก 720p ✅");
+
+    // Wait for download complete
+    LOG("รอดาวน์โหลดเสร็จ...");
+    const dlWaitStart = Date.now();
+    let dlDone = false;
+    let sawDownloading = false;
+    let dlGoneAt = 0;
+    while (Date.now() - dlWaitStart < 300000) {
+        const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
+        const lower = bodyText.toLowerCase();
+
+        if (lower.includes("download complete") || lower.includes("ดาวน์โหลดเสร็จ")) {
+            LOG("✅ Download complete!");
+            dlDone = true;
+            break;
+        }
+        for (const el of document.querySelectorAll<HTMLElement>("div, span, p")) {
+            const t = (el.textContent || "").trim().toLowerCase();
+            if (t.length < 60 && (t.includes("download complete") || t.includes("ดาวน์โหลดเสร็จ"))) {
+                LOG("✅ Download complete! (element)");
+                dlDone = true;
+                break;
+            }
+        }
+        if (dlDone) break;
+
+        const isDownloading = lower.includes("downloading your extended video") || lower.includes("กำลังดาวน์โหลด");
+        if (isDownloading) {
+            sawDownloading = true;
+            dlGoneAt = 0;
+            const elapsed = Math.floor((Date.now() - dlWaitStart) / 1000);
+            LOG(`⏳ กำลังดาวน์โหลด... (${elapsed} วินาที)`);
+        } else if (sawDownloading) {
+            if (dlGoneAt === 0) {
+                dlGoneAt = Date.now();
+                LOG("🔍 ข้อความดาวน์โหลดหายไป — กำลังยืนยัน...");
+            } else if (Date.now() - dlGoneAt >= 3000) {
+                LOG("✅ ดาวน์โหลดเสร็จ (ข้อความหายไป 3 วินาที)");
+                dlDone = true;
+                break;
+            }
+        }
+        await sleep(2000);
+    }
+    if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
+
+    // Open in Chrome
+    LOG("รอไฟล์ดาวน์โหลดพร้อม...");
+    await sleep(5000);
+    let opened = false;
+    const openPoll = Date.now();
+    while (Date.now() - openPoll < 60000 && !opened) {
+        try {
+            await new Promise<void>((resolve) => {
+                chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt }, (res) => {
+                    if (chrome.runtime.lastError) {
+                        WARN(`ตรวจสอบดาวน์โหลดผิดพลาด: ${chrome.runtime.lastError.message}`);
+                    } else if (res?.success) {
+                        LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
+                        opened = true;
+                    } else {
+                        LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
+                    }
+                    resolve();
+                });
+            });
+        } catch (e: any) {
+            WARN(`ตรวจสอบผิดพลาด: ${e.message}`);
+        }
+        if (!opened) await sleep(3000);
+    }
+    if (!opened) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
+    LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
+}
+
 async function checkAndRunPendingAction(): Promise<void> {
     try {
         // Step 1: Read the pending action
@@ -2891,6 +3141,8 @@ async function checkAndRunPendingAction(): Promise<void> {
 
         if (result.action === "mute_video") {
             await standaloneMuteAndDownload(result.sceneCount || 1, result.scenePrompts || [], result.theme);
+        } else if (result.action === "wait_scene2_gen_and_download") {
+            await waitForScene2GenAndDownload(result.theme);
         } else {
             LOG(`⚠️ ไม่รู้จัก pending action: ${result.action}`);
         }
