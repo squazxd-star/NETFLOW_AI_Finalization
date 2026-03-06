@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-export type ThemeKey = "red" | "blue" | "yellow" | "purple";
+export type ThemeKey = "red" | "blue" | "yellow" | "purple" | "green";
 
 export interface ThemeConfig {
   key: ThemeKey;
@@ -77,6 +77,20 @@ export const THEMES: Record<ThemeKey, ThemeConfig> = {
     gradientVia: "#8b5cf6",
     gradientTo: "#c4b5fd",
     conicStops: "#8b5cf6 0%, #a855f7 8%, #d8b4fe 14%, #a855f7 20%, #8b5cf6 28%",
+  },
+  green: {
+    key: "green",
+    label: "Neon Lime",
+    labelTh: "เขียวนีออน",
+    primary: "150 100% 50%",
+    primaryLight: "150 100% 65%",
+    primaryDark: "150 90% 36%",
+    hex: "#00ff88",
+    hexRgb: "0, 255, 136",
+    gradientFrom: "#00ff88",
+    gradientVia: "#00e676",
+    gradientTo: "#69ffb4",
+    conicStops: "#00ff88 0%, #00e676 8%, #69ffb4 14%, #00e676 20%, #00ff88 28%",
   },
 };
 

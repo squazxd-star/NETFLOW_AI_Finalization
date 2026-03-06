@@ -1017,6 +1017,21 @@ const POLICY_UNSAFE_WORDS = [
  */
 const sanitizePromptForPolicy = (text: string, productName?: string): string => {
     let result = text;
+
+    // ★ Protect directive constants from sanitization — they intentionally use
+    //   words like "real person", "celebrity", "signage" in negative/instructive contexts
+    const DIRECTIVE_PLACEHOLDERS: [string, string][] = [
+        [FACE_IDENTITY_LOCK, "___DIRECTIVE_FACE_LOCK___"],
+        [ANTI_TEXT_DIRECTIVE, "___DIRECTIVE_ANTI_TEXT___"],
+        [ANTI_DISTORTION_DIRECTIVE, "___DIRECTIVE_ANTI_DISTORT___"],
+        [VIDEO_POLICY_DIRECTIVE, "___DIRECTIVE_VIDEO_POLICY___"],
+    ];
+    for (const [directive, ph] of DIRECTIVE_PLACEHOLDERS) {
+        if (result.includes(directive)) {
+            result = result.replace(directive, ph);
+        }
+    }
+
     // Protect user's product name from brand replacement
     const placeholder = "___PRODUCT_NAME_PRESERVE___";
     if (productName) {
@@ -1027,13 +1042,20 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
     }
     for (const word of POLICY_UNSAFE_WORDS) {
         const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const re = new RegExp(escaped, 'gi');
+        const re = new RegExp(`\\b${escaped}\\b`, 'gi');
         result = result.replace(re, '');
     }
     // ★ Strip "looks like [Name]", "resembles [Name]", "similar to [Name]" patterns
     result = result.replace(/(?:looks?\s+like|resembles?|similar\s+to|inspired\s+by|based\s+on|same\s+as|identical\s+to)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}/g, '');
     // ★ Strip "[Name]-like" patterns (e.g., "Lisa-like", "Jennie-style")
     result = result.replace(/[A-Z][a-z]+(?:-like|-style|-inspired|-esque)/g, '');
+
+    // Restore directive constants
+    for (const [directive, ph] of DIRECTIVE_PLACEHOLDERS) {
+        if (result.includes(ph)) {
+            result = result.replace(ph, directive);
+        }
+    }
     // Restore product name
     if (productName) {
         result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), productName);

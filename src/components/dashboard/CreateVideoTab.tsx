@@ -180,10 +180,19 @@ const CreateVideoTab = () => {
                         <button
                             type="button"
                             onClick={async () => {
+                                console.log("[Prompt Button] Clicked — starting validation...");
                                 const isValid = await form.trigger();
-                                if (!isValid) return;
+                                console.log("[Prompt Button] Validation result:", isValid);
+                                
+                                if (!isValid) {
+                                    const errors = form.formState.errors;
+                                    console.error("[Prompt Button] Validation failed:", errors);
+                                    alert("กรุณากรอกข้อมูลให้ครบถ้วน:\n" + Object.keys(errors).join("\n"));
+                                    return;
+                                }
 
                                 const data = getValues();
+                                console.log("[Prompt Button] Form data:", data);
                                 const { generatePrompts, generateQuickPrompts } = await import("@/services/aiPromptService");
 
                                 // Build config for AI prompt service — ALL form fields
@@ -216,14 +225,19 @@ const CreateVideoTab = () => {
                                 setGeneratedVideoPrompt("⏳ กำลังวิเคราะห์ด้วย AI...");
 
                                 try {
+                                    console.log("[Prompt Button] Importing aiPromptService...");
+                                    const { generatePrompts, generateQuickPrompts } = await import("@/services/aiPromptService");
+                                    console.log("[Prompt Button] Imported successfully");
+                                    
                                     let prompts;
                                     if (data.useAiScript && productImage) {
-                                        // Use AI Vision to analyze and generate
+                                        console.log("[Prompt Button] Using AI mode with vision...");
                                         prompts = await generatePrompts(promptConfig);
                                     } else {
-                                        // Quick mode without AI
+                                        console.log("[Prompt Button] Using quick mode...");
                                         prompts = generateQuickPrompts(promptConfig);
                                     }
+                                    console.log("[Prompt Button] Prompts generated:", prompts);
                                     
                                     setGeneratedImagePrompt(prompts.imagePrompt);
                                     setGeneratedVideoPrompt(prompts.videoPrompt);
@@ -240,12 +254,18 @@ const CreateVideoTab = () => {
                                         setVideoScenePrompts([prompts.videoPrompt]);
                                     }
                                 } catch (err: any) {
-                                    console.error("Prompt generation failed:", err);
+                                    console.error("[Prompt Button] Prompt generation failed:", err);
+                                    alert("สร้าง Prompt ไม่สำเร็จ: " + (err.message || "Unknown error"));
                                     // Fallback to quick mode
-                                    const prompts = generateQuickPrompts(promptConfig);
-                                    setGeneratedImagePrompt(prompts.imagePrompt);
-                                    setGeneratedVideoPrompt(prompts.videoPrompt);
-                                    setVideoScenePrompts([prompts.videoPrompt]);
+                                    try {
+                                        const { generateQuickPrompts } = await import("@/services/aiPromptService");
+                                        const prompts = generateQuickPrompts(promptConfig);
+                                        setGeneratedImagePrompt(prompts.imagePrompt);
+                                        setGeneratedVideoPrompt(prompts.videoPrompt);
+                                        setVideoScenePrompts([prompts.videoPrompt]);
+                                    } catch (fallbackErr) {
+                                        console.error("[Prompt Button] Fallback also failed:", fallbackErr);
+                                    }
                                 } finally {
                                     setIsGeneratingPrompt(false);
                                 }
@@ -427,6 +447,7 @@ const CreateVideoTab = () => {
                                                 characterImage: characterImage || undefined,
                                                 orientation: formData.orientation || "horizontal",
                                                 outputCount: formData.outputCount || 1,
+                                                theme: localStorage.getItem("netflow_app_theme") || "red",
                                             },
                                             (res) => {
                                                 if (chrome.runtime.lastError) {

@@ -13,7 +13,7 @@
  *   PING           — health check
  */
 
-import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes, addLog } from "./netflow-overlay";
+import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes, addLog, setOverlayTheme } from "./netflow-overlay";
 
 const LOG = (msg: string) => {
     console.log(`[Netflow AI] ${msg}`);
@@ -31,7 +31,7 @@ const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isWindows = /Win/i.test(navigator.userAgent);
 const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
-LOG(`Content script loaded on Google Flow page ${platformTag}`);
+LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
 
 // ─── Mouse Position Tracker (Debug) ─────────────────────────────────────────
 document.addEventListener("click", (e) => {
@@ -40,12 +40,43 @@ document.addEventListener("click", (e) => {
     const tag = t.tagName.toLowerCase();
     const x = Math.round(e.clientX), y = Math.round(e.clientY);
     const txt = (t.textContent || "").trim().slice(0, 30);
-    LOG(`🖱️ Click (${x},${y}) → <${tag}> "${txt}"`);
+    LOG(`🖱️ คลิก (${x},${y}) → <${tag}> "${txt}"`);
 }, true);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** Check if automation should stop (user clicked stop button) */
+function checkStop(): boolean {
+    return !!(window as any).__NETFLOW_STOP__;
+}
+
+/** Check if Google Flow is showing a generation failure message (Thai + English) */
+function isGenerationFailed(): string | null {
+    const failurePatterns = [
+        "couldn't generate", "could not generate", "failed to generate",
+        "generation failed", "ไม่สามารถสร้าง", "สร้างไม่สำเร็จ",
+        "try again later", "ลองอีกครั้งภายหลัง", "ลองใหม่อีกครั้ง",
+        "something went wrong", "เกิดข้อผิดพลาด",
+        "safety filter", "policy violation", "content policy",
+        "unable to generate", "ไม่สามารถสร้างวิดีโอ",
+        "couldn't generate video", "couldn't generate image",
+    ];
+    const overlayEl = document.getElementById("netflow-engine-overlay");
+    const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3, li");
+    for (const el of allEls) {
+        if (overlayEl && overlayEl.contains(el)) continue;
+        const txt = (el.textContent || "").trim().toLowerCase();
+        if (txt.length > 200 || txt.length < 5) continue;
+        for (const pattern of failurePatterns) {
+            if (txt.includes(pattern)) {
+                return el.textContent?.trim() || pattern;
+            }
+        }
+    }
+    return null;
+}
 
 /** Cross-platform robust click: full pointer→mouse→click sequence for React/Radix */
 async function robustClick(el: HTMLElement) {
@@ -131,7 +162,7 @@ function findFirstVideoCard(): HTMLElement | null {
     const cards = findCardsByIcon("videocam");
     if (cards.length > 0) {
         const r = cards[0].getBoundingClientRect();
-        LOG(`🎬 Found ${cards.length} video card(s) via <i>videocam</i> — first at (${r.left.toFixed(0)},${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+        LOG(`🎬 พบการ์ดวิดีโอ ${cards.length} ใบ — ใบแรกที่ (${r.left.toFixed(0)},${r.top.toFixed(0)}) ขนาด ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
         return cards[0];
     }
     // Fallback: look for elements with <video> tag
@@ -141,13 +172,13 @@ function findFirstVideoCard(): HTMLElement | null {
         for (let i = 0; i < 10 && container; i++) {
             const r = container.getBoundingClientRect();
             if (r.width > 100 && r.height > 80 && r.width < window.innerWidth * 0.6) {
-                LOG(`🎬 Found video card via <video> fallback at (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
+                LOG(`🎬 พบการ์ดวิดีโอจาก <video> สำรองที่ (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
                 return container;
             }
             container = container.parentElement;
         }
     }
-    LOG("🎬 No video card found");
+    LOG("🎬 ไม่พบการ์ดวิดีโอ");
     return null;
 }
 
@@ -159,7 +190,7 @@ function findFirstImageCard(): HTMLElement | null {
     const cards = findCardsByIcon("image");
     if (cards.length > 0) {
         const r = cards[0].getBoundingClientRect();
-        LOG(`🖼️ Found ${cards.length} image card(s) via <i>image</i> — first at (${r.left.toFixed(0)},${r.top.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+        LOG(`🖼️ พบการ์ดรูปภาพ ${cards.length} ใบ — ใบแรกที่ (${r.left.toFixed(0)},${r.top.toFixed(0)}) ขนาด ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
         return cards[0];
     }
     // Fallback: look for <canvas> elements
@@ -169,13 +200,13 @@ function findFirstImageCard(): HTMLElement | null {
         for (let i = 0; i < 10 && container; i++) {
             const r = container.getBoundingClientRect();
             if (r.width > 100 && r.height > 80 && r.width < window.innerWidth * 0.6) {
-                LOG(`🖼️ Found image card via <canvas> fallback at (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
+                LOG(`🖼️ พบการ์ดรูปภาพจาก <canvas> สำรองที่ (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
                 return container;
             }
             container = container.parentElement;
         }
     }
-    LOG("🖼️ No image card found");
+    LOG("🖼️ ไม่พบการ์ดรูปภาพ");
     return null;
 }
 
@@ -231,7 +262,7 @@ function findPromptBarAddButton(): HTMLElement | null {
     const addButtons = [...findAllButtonsByIcon("add"), ...findAllButtonsByIcon("add_2")];
 
     if (addButtons.length === 0) {
-        LOG("No add buttons found by icon — trying text search");
+        LOG("ไม่พบปุ่มเพิ่มจากไอคอน — ลองค้นหาจากข้อความ");
         // Fallback: look for buttons with just "+" text at the bottom
         const allBtns = document.querySelectorAll<HTMLElement>("button");
         for (const btn of allBtns) {
@@ -256,7 +287,7 @@ function findPromptBarAddButton(): HTMLElement | null {
     }
 
     if (bestBtn) {
-        LOG(`Found prompt bar "+" button at y=${bestY.toFixed(0)}`);
+        LOG(`พบปุ่ม "+" ของ Prompt Bar ที่ y=${bestY.toFixed(0)}`);
     }
     return bestBtn;
 }
@@ -278,7 +309,7 @@ function findGenerateButton(): HTMLElement | null {
             }
         }
         if (best) {
-            LOG(`Found generate button via icon "${icon}" at y=${bestY.toFixed(0)}`);
+            LOG(`พบปุ่ม Generate จากไอคอน "${icon}" ที่ y=${bestY.toFixed(0)}`);
             return best;
         }
     }
@@ -299,7 +330,7 @@ function findGenerateButton(): HTMLElement | null {
         }
     }
     if (candidate) {
-        LOG("Found generate button via bottom-right heuristic");
+        LOG("พบปุ่ม Generate จากตำแหน่งขวาล่าง");
         return candidate;
     }
 
@@ -360,7 +391,7 @@ async function setPromptText(el: HTMLElement, text: string) {
     await sleep(300);
 
     // ═══ Strategy 1: Slate beforeinput with insertFromPaste ═══
-    LOG("setPromptText: Strategy 1 — Slate beforeinput insertFromPaste");
+    LOG("วางข้อความ: วิธี 1 — Slate beforeinput insertFromPaste");
     try {
         // Create DataTransfer with our text
         const dt = new DataTransfer();
@@ -375,7 +406,7 @@ async function setPromptText(el: HTMLElement, text: string) {
             dataTransfer: dt,
         });
         el.dispatchEvent(beforeInput);
-        LOG("setPromptText: Dispatched beforeinput insertFromPaste");
+        LOG("วางข้อความ: ส่ง beforeinput insertFromPaste แล้ว");
 
         // Dispatch input event (Slate's cleanup handler)
         const inputEv = new InputEvent("input", {
@@ -389,16 +420,16 @@ async function setPromptText(el: HTMLElement, text: string) {
         // Verify — check actual text, excluding placeholder
         const content = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content.length > 20) {
-            LOG(`setPromptText: ✅ Strategy 1 worked (${content.length} chars)`);
+            LOG(`วางข้อความ: ✅ วิธี 1 สำเร็จ (${content.length} ตัวอักษร)`);
             return;
         }
-        LOG(`setPromptText: Strategy 1 — text not detected (got ${content.length} chars)`);
+        LOG(`วางข้อความ: วิธี 1 — ไม่พบข้อความ (ได้ ${content.length} ตัวอักษร)`);
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 1 failed: ${e.message}`);
+        LOG(`วางข้อความ: วิธี 1 ล้มเหลว: ${e.message}`);
     }
 
     // ═══ Strategy 2: Slate beforeinput with insertText (character-level, but batched) ═══
-    LOG("setPromptText: Strategy 2 — Slate beforeinput insertText");
+    LOG("วางข้อความ: วิธี 2 — Slate beforeinput insertText");
     try {
         el.focus();
         await sleep(100);
@@ -421,16 +452,16 @@ async function setPromptText(el: HTMLElement, text: string) {
 
         const content2 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content2.length > 20) {
-            LOG(`setPromptText: ✅ Strategy 2 worked (${content2.length} chars)`);
+            LOG(`วางข้อความ: ✅ วิธี 2 สำเร็จ (${content2.length} ตัวอักษร)`);
             return;
         }
-        LOG(`setPromptText: Strategy 2 — text not detected`);
+        LOG(`วางข้อความ: วิธี 2 — ไม่พบข้อความ`);
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 2 failed: ${e.message}`);
+        LOG(`วางข้อความ: วิธี 2 ล้มเหลว: ${e.message}`);
     }
 
     // ═══ Strategy 3: ClipboardEvent paste (Mac-compatible — Slate intercepts paste events) ═══
-    LOG("setPromptText: Strategy 3 — ClipboardEvent paste (Mac-safe)");
+    LOG("วางข้อความ: วิธี 3 — ClipboardEvent paste");
     try {
         el.focus();
         await sleep(200);
@@ -450,21 +481,21 @@ async function setPromptText(el: HTMLElement, text: string) {
 
         const content3a = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content3a.length > 20) {
-            LOG(`setPromptText: ✅ Strategy 3 worked (${content3a.length} chars)`);
+            LOG(`วางข้อความ: ✅ วิธี 3 สำเร็จ (${content3a.length} ตัวอักษร)`);
             return;
         }
-        LOG("setPromptText: Strategy 3 — ClipboardEvent text not detected");
+        LOG("วางข้อความ: วิธี 3 — ไม่พบข้อความ");
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 3 failed: ${e.message}`);
+        LOG(`วางข้อความ: วิธี 3 ล้มเหลว: ${e.message}`);
     }
 
     // ═══ Strategy 4: navigator.clipboard + execCommand('paste') ═══
-    LOG("setPromptText: Strategy 4 — navigator.clipboard + execCommand paste");
+    LOG("วางข้อความ: วิธี 4 — navigator.clipboard + execCommand paste");
     try {
         // Use modern clipboard API (works on Mac without user gesture in extensions with clipboardWrite)
         if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
-            LOG("setPromptText: Copied to clipboard via navigator.clipboard");
+            LOG("วางข้อความ: คัดลอกไปคลิปบอร์ดผ่าน navigator.clipboard");
         } else {
             // Fallback: old-school copy
             const ta = document.createElement("textarea");
@@ -475,7 +506,7 @@ async function setPromptText(el: HTMLElement, text: string) {
             ta.select();
             document.execCommand("copy");
             document.body.removeChild(ta);
-            LOG("setPromptText: Copied to clipboard via execCommand");
+            LOG("วางข้อความ: คัดลอกไปคลิปบอร์ดผ่าน execCommand");
         }
 
         // Paste into Slate
@@ -486,15 +517,15 @@ async function setPromptText(el: HTMLElement, text: string) {
 
         const content4 = (el.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
         if (content4.length > 20) {
-            LOG(`setPromptText: ✅ Strategy 4 worked (${content4.length} chars)`);
+            LOG(`วางข้อความ: ✅ วิธี 4 สำเร็จ (${content4.length} ตัวอักษร)`);
             return;
         }
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 4 failed: ${e.message}`);
+        LOG(`วางข้อความ: วิธี 4 ล้มเหลว: ${e.message}`);
     }
 
     // ═══ Strategy 5: React fiber — find Slate editor and call insertText ═══
-    LOG("setPromptText: Strategy 5 — React fiber Slate editor");
+    LOG("วางข้อความ: วิธี 5 — React fiber Slate editor");
     try {
         // Find React fiber key on the contenteditable element
         const fiberKey = Object.keys(el).find(k =>
@@ -509,36 +540,36 @@ async function setPromptText(el: HTMLElement, text: string) {
 
                 // Check for editor in props
                 if (props?.editor?.insertText) {
-                    LOG("setPromptText: Found Slate editor via fiber props");
+                    LOG("วางข้อความ: พบ Slate editor ผ่าน fiber props");
                     const editor = props.editor;
                     // Select all and delete, then insert
                     if (editor.selection) {
                         // Move to end
                     }
                     editor.insertText(text);
-                    LOG(`setPromptText: ✅ Strategy 5 — inserted via editor.insertText`);
+                    LOG(`วางข้อความ: ✅ วิธี 5 — แทรกผ่าน editor.insertText`);
                     return;
                 }
 
                 // Check stateRef
                 if (state?.memoizedState?.editor?.insertText) {
-                    LOG("setPromptText: Found Slate editor via fiber state");
+                    LOG("วางข้อความ: พบ Slate editor ผ่าน fiber state");
                     state.memoizedState.editor.insertText(text);
-                    LOG(`setPromptText: ✅ Strategy 5 — inserted via state editor`);
+                    LOG(`วางข้อความ: ✅ วิธี 5 — แทรกผ่าน state editor`);
                     return;
                 }
 
                 fiber = fiber.return;
             }
-            LOG("setPromptText: Fiber found but no Slate editor in tree");
+            LOG("วางข้อความ: พบ Fiber แต่ไม่พบ Slate editor ใน tree");
         } else {
-            LOG("setPromptText: No React fiber found on element");
+            LOG("วางข้อความ: ไม่พบ React fiber บน element");
         }
     } catch (e: any) {
-        LOG(`setPromptText: Strategy 5 failed: ${e.message}`);
+        LOG(`วางข้อความ: วิธี 5 ล้มเหลว: ${e.message}`);
     }
 
-    LOG("setPromptText: ⚠️ All 5 strategies attempted — check console for results");
+    LOG("วางข้อความ: ⚠️ ลองครบทั้ง 5 วิธีแล้ว — ตรวจสอบผลใน Console");
 }
 
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
@@ -555,7 +586,7 @@ function neutralizeFileInputs(): { input: HTMLInputElement; origType: string }[]
         inp.type = "text";
     }
     if (neutralized.length > 0) {
-        LOG(`Neutralized ${neutralized.length} file inputs (type → text)`);
+        LOG(`ปิดกั้น file input ${neutralized.length} ตัว (type → text)`);
     }
     return neutralized;
 }
@@ -569,15 +600,15 @@ function blockFileDialogs(): () => void {
     const origClick = HTMLInputElement.prototype.click;
     HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
         if (this.type === "file") {
-            LOG(`🚫 Blocked file dialog open (${platformTag})`);
+            LOG(`🚫 บล็อกการเปิด file dialog (${platformTag})`);
             return; // suppress native file chooser
         }
         return origClick.call(this);
     };
-    LOG(`🔒 File dialog blocker installed (${platformTag})`);
+    LOG(`🔒 ติดตั้งตัวบล็อก file dialog แล้ว (${platformTag})`);
     return () => {
         HTMLInputElement.prototype.click = origClick;
-        LOG(`🔓 File dialog blocker removed`);
+        LOG(`🔓 ถอดตัวบล็อก file dialog แล้ว`);
     };
 }
 
@@ -600,12 +631,12 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     for (const inp of candidates) {
         inp.type = "file";
     }
-    LOG(`Restored ${candidates.length} inputs to type=file`);
+    LOG(`คืนค่า input ${candidates.length} ตัวเป็น type=file`);
 
     // Find the best file input to inject into
     const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
     if (fileInputs.length === 0) {
-        LOG(`⚠️ No file inputs found after restore (${platformTag})`);
+        LOG(`⚠️ ไม่พบ file input หลังคืนค่า (${platformTag})`);
         return false;
     }
 
@@ -615,10 +646,10 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
         const newInputs = Array.from(fileInputs).filter(inp => !preExistingInputs.has(inp));
         if (newInputs.length > 0) {
             target = newInputs[newInputs.length - 1];
-            LOG(`Targeting NEW file input (${newInputs.length} new, ${fileInputs.length} total)`);
+            LOG(`เล็งเป้า file input ใหม่ (${newInputs.length} ใหม่, ${fileInputs.length} ทั้งหมด)`);
         } else {
             target = fileInputs[fileInputs.length - 1];
-            LOG(`No new file inputs found — using last of ${fileInputs.length}`);
+            LOG(`ไม่พบ file input ใหม่ — ใช้ตัวสุดท้ายจาก ${fileInputs.length} ตัว`);
         }
     } else {
         target = fileInputs[fileInputs.length - 1];
@@ -631,9 +662,9 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     // Method 1: Direct assignment (works on most Chrome)
     try {
         target.files = dt.files;
-        LOG(`Injected file via target.files (${target.files?.length ?? 0} files)`);
+        LOG(`ฉีดไฟล์ผ่าน target.files (${target.files?.length ?? 0} ไฟล์)`);
     } catch (e: any) {
-        LOG(`target.files assignment failed: ${e.message} — trying defineProperty`);
+        LOG(`กำหนด target.files ล้มเหลว: ${e.message} — ลอง defineProperty`);
         // Method 2: defineProperty override (Mac fallback)
         try {
             Object.defineProperty(target, 'files', {
@@ -641,9 +672,9 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
                 writable: true,
                 configurable: true,
             });
-            LOG(`Injected file via Object.defineProperty`);
+            LOG(`ฉีดไฟล์ผ่าน Object.defineProperty`);
         } catch (e2: any) {
-            WARN(`Both file injection methods failed: ${e2.message}`);
+            WARN(`การฉีดไฟล์ล้มเหลวทั้ง 2 วิธี: ${e2.message}`);
             return false;
         }
     }
@@ -654,31 +685,12 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     const tracker = (target as any)._valueTracker;
     if (tracker) {
         tracker.setValue('');
-        LOG(`Reset React _valueTracker on file input`);
+        LOG(`รีเซ็ต React _valueTracker บน file input`);
     }
 
     // ★ Dispatch 'change' event — React's delegated listener at root should pick this up
     target.dispatchEvent(new Event('change', { bubbles: true }));
     target.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // ★ React fiber direct onChange call (bypasses event system entirely)
-    try {
-        const reactPropsKey = Object.keys(target).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEvents$'));
-        if (reactPropsKey) {
-            const props = (target as any)[reactPropsKey];
-            if (props && typeof props.onChange === 'function') {
-                const fakeEvent = { target, currentTarget: target, type: 'change', bubbles: true, isTrusted: true };
-                props.onChange(fakeEvent);
-                LOG(`Triggered React fiber onChange directly`);
-            } else {
-                LOG(`React fiber found but no onChange handler`);
-            }
-        } else {
-            LOG(`No React fiber props found on file input`);
-        }
-    } catch (fiberErr: any) {
-        LOG(`React fiber onChange attempt: ${fiberErr.message}`);
-    }
 
     // ★ Also dispatch a synthetic 'drop' event (some Mac React builds listen for drag-drop)
     try {
@@ -690,13 +702,40 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
             dataTransfer: dropDt,
         });
         target.dispatchEvent(dropEvent);
-        LOG(`Also dispatched drop event on file input`);
+        LOG(`ส่ง drop event บน file input ด้วย`);
     } catch (_) {
         // drop event dispatch is optional — ignore errors
     }
 
-    LOG(`✅ File injection complete: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → <input> ${platformTag}`);
+    LOG(`✅ ฉีดไฟล์เสร็จ: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → <input> ${platformTag}`);
     return true;
+}
+
+/**
+ * Count how many reference thumbnails are in the prompt bar area.
+ */
+function countPromptBarThumbnails(): number {
+    let count = 0;
+    const overlayEl = document.getElementById("netflow-engine-overlay");
+    const images = document.querySelectorAll<HTMLImageElement>("img");
+    for (const img of images) {
+        if (overlayEl && overlayEl.contains(img)) continue;
+        const rect = img.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
+            && rect.height > 20 && rect.height < 200 && img.src && img.offsetParent !== null) {
+            count++;
+        }
+    }
+    const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
+    for (const div of thumbDivs) {
+        if (overlayEl && overlayEl.contains(div)) continue;
+        const rect = div.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
+            && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
+            count++;
+        }
+    }
+    return count;
 }
 
 /**
@@ -711,7 +750,7 @@ function checkPromptBarThumbnail(): boolean {
         // Thumbnail should be in the bottom 40% of the screen, small-ish, and visible
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
             && rect.height > 20 && rect.height < 200 && img.src && img.offsetParent !== null) {
-            LOG(`Found thumbnail: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} at y=${rect.top.toFixed(0)}`);
+            LOG(`พบรูปย่อ: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} ที่ y=${rect.top.toFixed(0)}`);
             return true;
         }
     }
@@ -721,7 +760,7 @@ function checkPromptBarThumbnail(): boolean {
         const rect = div.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
             && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
-            LOG(`Found thumbnail div: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} at y=${rect.top.toFixed(0)}`);
+            LOG(`พบรูปย่อ div: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} ที่ y=${rect.top.toFixed(0)}`);
             return true;
         }
     }
@@ -733,7 +772,7 @@ function checkPromptBarThumbnail(): boolean {
  * Bypasses file input entirely — Google Flow's drop handler processes the file directly.
  */
 async function dropFileOnPromptBar(file: File): Promise<boolean> {
-    LOG("Attempting drag-and-drop fallback on prompt bar...");
+    LOG("ลองลากวางไฟล์บน Prompt Bar (drag-and-drop)...");
 
     // Find the prompt bar container — the area with contenteditable or the form/wrapper
     const targets: HTMLElement[] = [];
@@ -765,11 +804,11 @@ async function dropFileOnPromptBar(file: File): Promise<boolean> {
     }
 
     if (targets.length === 0) {
-        LOG("No prompt bar target found for drag-and-drop");
+        LOG("ไม่พบเป้าหมายบน Prompt Bar สำหรับ drag-and-drop");
         return false;
     }
 
-    LOG(`Found ${targets.length} drag-and-drop targets`);
+    LOG(`พบเป้าหมาย drag-and-drop ${targets.length} ตัว`);
 
     for (const target of targets) {
         try {
@@ -788,13 +827,13 @@ async function dropFileOnPromptBar(file: File): Promise<boolean> {
             target.dispatchEvent(new DragEvent('dragover', { ...commonOpts, dataTransfer: dt }));
             await sleep(100);
             target.dispatchEvent(new DragEvent('drop', { ...commonOpts, dataTransfer: dt }));
-            LOG(`Dispatched drag-and-drop on <${target.tagName.toLowerCase()}> at (${cx.toFixed(0)}, ${cy.toFixed(0)})`);
+            LOG(`ส่ง drag-and-drop บน <${target.tagName.toLowerCase()}> ที่ (${cx.toFixed(0)}, ${cy.toFixed(0)})`);
 
             await sleep(500);
             // Check if this worked immediately
             if (checkPromptBarThumbnail()) return true;
         } catch (err: any) {
-            LOG(`Drag-and-drop error on target: ${err.message}`);
+            LOG(`drag-and-drop ผิดพลาด: ${err.message}`);
         }
     }
 
@@ -805,12 +844,12 @@ async function dropFileOnPromptBar(file: File): Promise<boolean> {
  * Paste an image file into the prompt bar via clipboard events.
  */
 async function pasteImageIntoPromptBar(file: File): Promise<boolean> {
-    LOG("Attempting clipboard paste fallback...");
+    LOG("ลองวางไฟล์ผ่านคลิปบอร์ด (clipboard paste)...");
 
     // Find the prompt bar text element
     const promptEl = findPromptTextInput();
     if (!promptEl) {
-        LOG("No prompt element found for paste");
+        LOG("ไม่พบช่อง prompt สำหรับวางไฟล์");
         return false;
     }
 
@@ -827,10 +866,10 @@ async function pasteImageIntoPromptBar(file: File): Promise<boolean> {
             clipboardData: dt,
         });
         promptEl.dispatchEvent(pasteEvent);
-        LOG("Dispatched paste event with image file on prompt bar");
+        LOG("ส่ง paste event พร้อมไฟล์รูปบน Prompt Bar แล้ว");
         return true;
     } catch (err: any) {
-        LOG(`Paste fallback error: ${err.message}`);
+        LOG(`วางผ่านคลิปบอร์ดผิดพลาด: ${err.message}`);
         return false;
     }
 }
@@ -845,15 +884,15 @@ async function pasteImageIntoPromptBar(file: File): Promise<boolean> {
  * Fallbacks: drag-and-drop onto prompt bar, clipboard paste.
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
-    LOG(`── Uploading ${fileName} into prompt bar ──`);
+    LOG(`── กำลังอัพโหลด ${fileName} ไปยัง Prompt Bar ──`);
 
     const file = base64ToFile(dataUrl, fileName);
-    LOG(`File size: ${(file.size / 1024).toFixed(1)} KB`);
+    LOG(`ขนาดไฟล์: ${(file.size / 1024).toFixed(1)} KB`);
 
     // Find and click the "+" button
     const addBtn = findPromptBarAddButton();
     if (!addBtn) {
-        WARN("Could not find prompt bar '+' button");
+        WARN("ไม่พบปุ่ม '+' บน Prompt Bar");
         return false;
     }
 
@@ -862,7 +901,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     const preExistingInputs = new Set(
         document.querySelectorAll<HTMLInputElement>('input[type="file"]')
     );
-    LOG(`Pre-existing file inputs: ${preExistingInputs.size}`);
+    LOG(`file input ที่มีอยู่เดิม: ${preExistingInputs.size} ตัว`);
 
     // Step 1: Block ALL file dialog opens at prototype level (Mac race-condition fix)
     //   On Mac, MutationObserver can't reliably beat Google Flow's synchronous
@@ -880,14 +919,14 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                 if (node instanceof HTMLInputElement && node.type === "file") {
                     node.type = "text";
                     neutralized.push({ input: node, origType: "file" });
-                    LOG(`🎯 Observer neutralized new file input`);
+                    LOG(`🎯 Observer ปิดกั้น file input ใหม่`);
                 }
                 if (node instanceof HTMLElement) {
                     const fis = node.querySelectorAll<HTMLInputElement>('input[type="file"]');
                     for (const fi of fis) {
                         fi.type = "text";
                         neutralized.push({ input: fi, origType: "file" });
-                        LOG(`🎯 Observer neutralized nested file input`);
+                        LOG(`🎯 Observer ปิดกั้น file input ซ้อน`);
                     }
                 }
             }
@@ -898,11 +937,11 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     try {
         // Step 4: Click "+" to open menu (full event sequence for Mac React compatibility)
         await robustClick(addBtn);
-        LOG("Clicked '+' button");
+        LOG("คลิกปุ่ม '+' แล้ว");
         await sleep(1500);
 
         // Step 5: Find and click upload menu option (poll up to 5s for menu to appear)
-        LOG("Checking for upload menu...");
+        LOG("กำลังค้นหาเมนูอัพโหลด...");
         let clickedMenu = false;
         const menuPollStart = Date.now();
         while (!clickedMenu && Date.now() - menuPollStart < 5000) {
@@ -920,7 +959,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                         if (!allIconTexts.includes("drive_folder_upload")) {
                             await robustClick(el);
                             clickedMenu = true;
-                            LOG(`Clicked upload menu (icon: ${it}) [${isMac ? 'Mac' : 'Win'}]`);
+                            LOG(`คลิกเมนูอัพโหลด (ไอคอน: ${it}) [${isMac ? 'Mac' : 'Win'}]`);
                             break;
                         }
                     }
@@ -940,7 +979,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                             || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")) {
                             await robustClick(el);
                             clickedMenu = true;
-                            LOG(`Clicked upload menu (text: "${directText}") [${isMac ? 'Mac' : 'Win'}]`);
+                            LOG(`คลิกเมนูอัพโหลด (ข้อความ: "${directText}") [${isMac ? 'Mac' : 'Win'}]`);
                             break;
                         }
                     }
@@ -951,7 +990,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             }
         }
         if (!clickedMenu) {
-            LOG("⚠️ Upload menu not found after 5s polling");
+            LOG("⚠️ ไม่พบเมนูอัพโหลดหลังรอ 5 วินาที");
         }
 
         // Step 6: Wait a moment for Google Flow to call .click() (blocked by prototype override)
@@ -960,31 +999,20 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         // Step 7: Restore file inputs and inject our file (prefer NEW inputs over stale ones)
         const ok = restoreAndInject(neutralized, file, preExistingInputs);
         if (ok) {
-            LOG(`✅ Injected ${fileName} via file input — waiting for thumbnail...`);
+            LOG(`✅ ฉีดไฟล์ ${fileName} สำเร็จ — ไม่มี dialog เปิด`);
             await sleep(2500);
-
-            // Step 7b: Verify thumbnail appeared in prompt bar
-            const hasThumbnail = checkPromptBarThumbnail();
-            if (hasThumbnail) {
-                LOG(`✅ Thumbnail confirmed in prompt bar!`);
-                return true;
-            }
-            LOG(`⚠️ No thumbnail detected after file input injection — trying drag-and-drop fallback`);
-        } else {
-            LOG(`⚠️ File input injection failed — trying drag-and-drop fallback`);
+            return true;
         }
 
-        // ═══ Fallback: Drag-and-drop onto prompt bar ═══
-        // Bypasses file input entirely — dispatches drop event on the prompt area
+        // ═══ Fallback: Drag-and-drop onto prompt bar (only if file input injection failed) ═══
+        LOG(`⚠️ การฉีดไฟล์ล้มเหลว — ลองวิธี drag-and-drop`);
         const dropOk = await dropFileOnPromptBar(file);
         if (dropOk) {
             await sleep(2500);
-            const hasThumbnail2 = checkPromptBarThumbnail();
-            if (hasThumbnail2) {
-                LOG(`✅ Thumbnail confirmed via drag-and-drop!`);
+            if (checkPromptBarThumbnail()) {
+                LOG(`✅ ยืนยันรูปย่อผ่าน drag-and-drop!`);
                 return true;
             }
-            LOG(`⚠️ Drag-and-drop dispatched but no thumbnail detected`);
         }
 
         // ═══ Fallback 2: Paste image via clipboard ═══
@@ -992,19 +1020,12 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         if (pasteOk) {
             await sleep(2500);
             if (checkPromptBarThumbnail()) {
-                LOG(`✅ Thumbnail confirmed via clipboard paste!`);
+                LOG(`✅ ยืนยันรูปย่อผ่าน clipboard paste!`);
                 return true;
             }
         }
 
-        // Even if no thumbnail detected, return true if file injection worked
-        // (thumbnail detection may have false negatives)
-        if (ok) {
-            LOG(`File injection completed — thumbnail check may have false negative, proceeding`);
-            return true;
-        }
-
-        WARN(`All upload strategies failed for ${fileName}`);
+        WARN(`การอัพโหลดล้มเหลวทุกวิธีสำหรับ ${fileName}`);
         return false;
 
     } finally {
@@ -1029,13 +1050,14 @@ interface GenerateImageRequest {
     characterImage?: string;
     orientation?: "horizontal" | "vertical";
     outputCount?: 1 | 2 | 3 | 4;
+    theme?: string;                // UI theme key from sidepanel (e.g. "red", "blue", "green")
 }
 
 /**
  * Configure Flow settings: Image mode, orientation, count
  */
 async function configureFlowSettings(orientation: string, outputCount: number): Promise<boolean> {
-    LOG("=== Step 0: Configure Flow settings ===");
+    LOG("=== ขั้น 0: ตั้งค่า Flow ===");
 
     // Find the settings button — it shows current mode like "วิดีโอ crop_16_9 x1" or "Nano Banana 2"
     const allBtns = document.querySelectorAll<HTMLElement>("button");
@@ -1049,7 +1071,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             const rect = btn.getBoundingClientRect();
             if (rect.bottom > window.innerHeight * 0.7) {
                 settingsBtn = btn;
-                LOG(`Found settings button by text: "${txt.substring(0, 30).trim()}"`);
+                LOG(`พบปุ่มตั้งค่าจากข้อความ: "${txt.substring(0, 30).trim()}"`);
                 break;
             }
         }
@@ -1063,7 +1085,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
                 const rect = btn.getBoundingClientRect();
                 if (rect.bottom > window.innerHeight * 0.7) {
                     settingsBtn = btn;
-                    LOG(`Found settings button by icon: ${icon}`);
+                    LOG(`พบปุ่มตั้งค่าจากไอคอน: ${icon}`);
                     break;
                 }
             }
@@ -1072,7 +1094,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     }
 
     if (!settingsBtn) {
-        WARN("Could not find settings button");
+        WARN("ไม่พบปุ่มตั้งค่า");
         return false;
     }
 
@@ -1087,7 +1109,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
-    LOG("Clicked settings button");
+    LOG("คลิกปุ่มตั้งค่าแล้ว");
     await sleep(1500);
 
     // ALWAYS select Image mode (switch from Video if needed)
@@ -1101,7 +1123,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         const btnId = btn.id || "";
         if (ariaControls.toUpperCase().includes("IMAGE") || btnId.toUpperCase().includes("IMAGE")) {
             imageTabBtn = btn;
-            LOG(`Found Image tab via flow_tab_slider_trigger (aria-controls: ${ariaControls})`);
+            LOG(`พบแท็บ Image ผ่าน flow_tab_slider_trigger (aria-controls: ${ariaControls})`);
             break;
         }
     }
@@ -1112,7 +1134,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             const btnId = btn.id || "";
             if (btnId.toUpperCase().includes("TRIGGER-IMAGE")) {
                 imageTabBtn = btn;
-                LOG(`Found Image tab via id: ${btnId}`);
+                LOG(`พบแท็บ Image ผ่าน id: ${btnId}`);
                 break;
             }
         }
@@ -1126,7 +1148,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
                 // Exclude buttons that also contain "Video" text
                 if (!txt.includes("Video") && !txt.includes("วิดีโอ")) {
                     imageTabBtn = btn;
-                    LOG(`Found Image tab via text match: "${txt}"`);
+                    LOG(`พบแท็บ Image ผ่านข้อความ: "${txt}"`);
                     break;
                 }
             }
@@ -1139,7 +1161,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         const ariaSelected = imageTabBtn.getAttribute("aria-selected") || "";
         if (state === "active" || ariaSelected === "true") {
             selectedImage = true;
-            LOG("Image tab already active — no click needed");
+            LOG("แท็บ Image เปิดอยู่แล้ว — ไม่ต้องคลิก");
         } else {
             const bRect = imageTabBtn.getBoundingClientRect();
             const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
@@ -1150,11 +1172,11 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             imageTabBtn.dispatchEvent(new MouseEvent("mouseup", bOpts));
             imageTabBtn.dispatchEvent(new MouseEvent("click", bOpts));
             selectedImage = true;
-            LOG("✅ Clicked Image tab — switched to Image mode");
+            LOG("✅ คลิกแท็บ Image — สลับเป็นโหมดรูปภาพแล้ว");
             await sleep(400);
         }
     }
-    if (!selectedImage) LOG("⚠️ Could not find Image mode button — may already be in Image mode");
+    if (!selectedImage) LOG("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว");
 
     // Select orientation
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
@@ -1169,7 +1191,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
             btn.dispatchEvent(new MouseEvent("click", oOpts));
-            LOG(`Selected orientation: ${orientationText}`);
+            LOG(`เลือกทิศทาง: ${orientationText}`);
             await sleep(400);
             break;
         }
@@ -1188,7 +1210,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
             btn.dispatchEvent(new MouseEvent("click", cOpts));
-            LOG(`Selected count: ${countText}`);
+            LOG(`เลือกจำนวน: ${countText}`);
             await sleep(400);
             break;
         }
@@ -1205,7 +1227,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
-    LOG("Closed settings panel");
+    LOG("ปิดหน้าตั้งค่าแล้ว");
     await sleep(600);
 
     return true;
@@ -1235,11 +1257,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     const lang = navigator.language || "unknown";
     const screen = `${window.innerWidth}x${window.innerHeight}`;
     LOG(`══════════════════════════════════════════`);
-    LOG(`🖥️ System: ${osName} ${osDetail} | Chrome ${chromeVer}`);
-    LOG(`🌐 Language: ${lang} | Screen: ${screen} | Platform: ${platformTag}`);
+    LOG(`🖥️ ระบบ: ${osName} ${osDetail} | Chrome ${chromeVer}`);
+    LOG(`🌐 ภาษา: ${lang} | หน้าจอ: ${screen} | แพลตฟอร์ม: ${platformTag}`);
     LOG(`══════════════════════════════════════════`);
 
-    // ── Show Engine Overlay ──
+    // ── Apply theme from sidepanel + Show Engine Overlay ──
+    try { setOverlayTheme(req.theme); } catch (_) {}
     try { showOverlay(); } catch (e) { console.warn("Overlay show error:", e); }
 
     const steps: string[] = [];
@@ -1254,13 +1277,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         steps.push(ok ? "✅ Settings" : "⚠️ Settings");
         updateStep("settings", ok ? "done" : "error");
     } catch (e: any) {
-        WARN(`Settings error: ${e.message}`);
+        WARN(`ตั้งค่าผิดพลาด: ${e.message}`);
         steps.push("⚠️ Settings");
         updateStep("settings", "error");
     }
 
     // ── Step 1: Upload reference images ──
-    LOG("=== Step 1: Upload reference images ===");
+    LOG("=== ขั้น 1: อัพโหลดรูปอ้างอิง ===");
 
     /** Check if any upload is still in progress (look for % text on thumbnails) */
     const isUploadInProgress = (): string | null => {
@@ -1281,7 +1304,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     /** Wait until all uploads finish (no more % indicators visible), timeout 60s */
     const waitForUploadsComplete = async (label: string): Promise<void> => {
-        LOG(`Waiting for ${label} upload to complete...`);
+        LOG(`รอการอัพโหลด ${label} เสร็จ...`);
         await sleep(2000); // initial wait for % to appear
         const start = Date.now();
         const timeout = 60000;
@@ -1295,19 +1318,19 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     lastPct = pct;
                     lastPctChangeTime = Date.now();
                 } else if (Date.now() - lastPctChangeTime > staleTimeout) {
-                    LOG(`✅ ${label} upload — % stuck at ${pct} for ${staleTimeout / 1000}s, treating as complete`);
+                    LOG(`✅ อัพโหลด ${label} — % ค้างที่ ${pct} นาน ${staleTimeout / 1000} วินาที ถือว่าเสร็จ`);
                     await sleep(1000);
                     return;
                 }
-                LOG(`Upload in progress: ${pct} — waiting...`);
+                LOG(`กำลังอัพโหลด: ${pct} — รอ...`);
                 await sleep(1500);
             } else {
-                LOG(`✅ ${label} upload complete — no % indicator found`);
+                LOG(`✅ อัพโหลด ${label} เสร็จ — ไม่พบตัวบอก %`);
                 await sleep(1000); // extra settle time after upload finishes
                 return;
             }
         }
-        WARN(`⚠️ ${label} upload timeout after ${timeout / 1000}s — proceeding anyway`);
+        WARN(`⚠️ อัพโหลด ${label} หมดเวลาหลัง ${timeout / 1000} วินาที — ดำเนินการต่อ`);
     };
 
     if (req.characterImage) {
@@ -1318,7 +1341,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             if (!ok) errors.push("character upload failed");
             updateStep("upload-char", ok ? "done" : "error");
         } catch (e: any) {
-            WARN(`Character upload error: ${e.message}`);
+            WARN(`อัพโหลดตัวละครผิดพลาด: ${e.message}`);
             steps.push("❌ ตัวละคร");
             errors.push("character upload error");
             updateStep("upload-char", "error");
@@ -1336,7 +1359,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             if (!ok) errors.push("product upload failed");
             updateStep("upload-prod", ok ? "done" : "error");
         } catch (e: any) {
-            WARN(`Product upload error: ${e.message}`);
+            WARN(`อัพโหลดสินค้าผิดพลาด: ${e.message}`);
             steps.push("❌ สินค้า");
             errors.push("product upload error");
             updateStep("upload-prod", "error");
@@ -1347,7 +1370,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     }
 
     // ── Step 1c: Close any open dialog/modal (Escape key) ──
-    LOG("Closing any open dialogs...");
+    LOG("ปิด dialog ที่เปิดอยู่...");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
     await sleep(800);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
@@ -1356,24 +1379,48 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 1d: Final check — make sure no uploads are still running ──
     const finalPct = isUploadInProgress();
     if (finalPct) {
-        LOG(`⚠️ Upload still showing ${finalPct} after all uploads — waiting extra...`);
+        LOG(`⚠️ อัพโหลดยังแสดง ${finalPct} — รอเพิ่มเติม...`);
         await waitForUploadsComplete("final");
     }
-    LOG("All uploads complete — proceeding to prompt");
+    LOG("อัพโหลดทั้งหมดเสร็จ — ไปต่อที่ Prompt");
     await sleep(1000);
 
+    // ── Step 1e: Verify reference thumbnails appeared in prompt bar ──
+    const expectedThumbs = (req.characterImage ? 1 : 0) + (req.productImage ? 1 : 0);
+    if (expectedThumbs > 0) {
+        let thumbCount = countPromptBarThumbnails();
+        if (thumbCount < expectedThumbs) {
+            LOG(`⏳ เห็นรูปย่อแค่ ${thumbCount}/${expectedThumbs} — รอ 3 วินาที...`);
+            await sleep(3000);
+            thumbCount = countPromptBarThumbnails();
+        }
+        if (thumbCount >= expectedThumbs) {
+            LOG(`✅ ยืนยันรูปย่ออ้างอิง: ${thumbCount}/${expectedThumbs}`);
+        } else {
+            WARN(`⚠️ คาดว่าจะมี ${expectedThumbs} รูปย่อ แต่พบ ${thumbCount} — ดำเนินการต่อ`);
+        }
+    }
+
+    // ── Stop gate ──
+    if (checkStop()) {
+        LOG("⛔ ผู้ใช้สั่งหยุด — ยกเลิกก่อนวาง Prompt");
+        errors.push("stopped by user");
+        try { completeOverlay(3000); } catch (_) {}
+        return { success: false, message: "⛔ หยุดโดยผู้ใช้", step: "stopped" };
+    }
+
     // ── Step 2: ALWAYS paste prompt (even if uploads failed) ──
-    LOG("=== Step 2: Paste image prompt ===");
+    LOG("=== ขั้น 2: วาง Image Prompt ===");
     updateStep("img-prompt", "active");
     await sleep(1000);
     const promptInput = findPromptTextInput();
     if (promptInput) {
         await setPromptText(promptInput, req.imagePrompt);
-        LOG(`Pasted prompt (${req.imagePrompt.length} chars)`);
+        LOG(`วาง Prompt แล้ว (${req.imagePrompt.length} ตัวอักษร)`);
         steps.push("✅ Prompt");
         updateStep("img-prompt", "done");
     } else {
-        WARN("Could not find prompt text input");
+        WARN("ไม่พบช่องป้อนข้อความ Prompt");
         steps.push("❌ Prompt");
         errors.push("prompt input not found");
         updateStep("img-prompt", "error");
@@ -1385,10 +1432,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     document.querySelectorAll<HTMLImageElement>("img").forEach(img => {
         if (img.src) existingImageSrcs.add(img.src);
     });
-    LOG(`Snapshot: ${existingImageSrcs.size} existing images before Generate`);
+    LOG(`บันทึกรูปเดิม: ${existingImageSrcs.size} รูปก่อน Generate`);
 
     // ── Step 3: ALWAYS click Generate → (even if some steps failed) ──
-    LOG("=== Step 3: Click Generate → ===");
+    LOG("=== ขั้น 3: คลิก Generate → ===");
     updateStep("img-generate", "active");
     await sleep(500);
     const genBtn = findGenerateButton();
@@ -1405,7 +1452,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
-        LOG("Dispatched full click sequence on Generate button");
+        LOG("ส่งชุดคลิกเต็มรูปแบบบนปุ่ม Generate แล้ว");
         steps.push("✅ Generate");
 
         // Safety: try again after 500ms if first didn't register
@@ -1416,24 +1463,24 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         genBtn.dispatchEvent(new PointerEvent("pointerup", { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         genBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
         genBtn.dispatchEvent(new MouseEvent("click", evtOpts));
-        LOG("Dispatched safety retry click on Generate button");
+        LOG("ส่งคลิกซ้ำเพื่อความปลอดภัยบนปุ่ม Generate");
         updateStep("img-generate", "done");
     } else {
-        WARN("Could not find → Generate button");
+        WARN("ไม่พบปุ่ม → Generate");
         steps.push("❌ Generate");
         errors.push("generate button not found");
         updateStep("img-generate", "error");
     }
 
     // ── Step 4: Wait for NEW image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
-    LOG("=== Step 4: Wait for generated image + Animate ===");
+    LOG("=== ขั้น 4: รอรูปที่สร้าง + ทำเป็นวิดีโอ ===");
     updateStep("img-wait", "active");
     try {
         // Step 4a: Wait minimum 15s for generation to start, then poll for NEW images
-        LOG("Waiting 15s for generation to start...");
+        LOG("รอ 15 วินาทีเพื่อเริ่มการสร้าง...");
         await sleep(15000);
 
-        LOG("Polling for NEW generated image (not in snapshot)...");
+        LOG("ค้นหารูปที่สร้างใหม่ (ไม่ใช่รูปเดิม)...");
         let generatedImg: HTMLElement | null = null;
         const imgWaitStart = Date.now();
         while (!generatedImg && Date.now() - imgWaitStart < 180000) { // 3 min timeout
@@ -1450,7 +1497,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const parent = img.closest("div") as HTMLElement;
                     if (parent) {
                         generatedImg = parent;
-                        LOG(`Found AI-generated image via alt="${img.alt}": ${img.src.substring(0, 80)}...`);
+                        LOG(`พบรูป AI จาก alt="${img.alt}": ${img.src.substring(0, 80)}...`);
                         break;
                     }
                 }
@@ -1466,7 +1513,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const containerText = container?.textContent || "";
                     if (containerText.includes("product.png") || containerText.includes("character.png") ||
                         containerText.includes(".png") || containerText.includes(".jpg")) {
-                        LOG(`Skipping reference image (container has filename): ${containerText.substring(0, 40)}`);
+                        LOG(`ข้ามรูปอ้างอิง (มีชื่อไฟล์): ${containerText.substring(0, 40)}`);
                         continue;
                     }
 
@@ -1475,7 +1522,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         const parent = img.closest("div") as HTMLElement;
                         if (parent) {
                             generatedImg = parent;
-                            LOG(`Found NEW image (fallback): ${img.src.substring(0, 80)}...`);
+                            LOG(`พบรูปใหม่ (สำรอง): ${img.src.substring(0, 80)}...`);
                             break;
                         }
                     }
@@ -1483,17 +1530,30 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
 
             if (!generatedImg) {
+                // Check for stop request
+                if (checkStop()) {
+                    LOG("⛔ ผู้ใช้สั่งหยุดระหว่างรอรูป");
+                    break;
+                }
+                // Check for generation failure (Thai + English)
+                const failMsg = isGenerationFailed();
+                if (failMsg) {
+                    WARN(`❌ สร้างรูปล้มเหลว: ${failMsg}`);
+                    errors.push(`image gen failed: ${failMsg}`);
+                    updateStep("img-wait", "error");
+                    break;
+                }
                 await sleep(5000);
-                LOG("Still waiting for new generated image...");
+                LOG("ยังรอรูปที่สร้างใหม่...");
             }
         }
 
         if (!generatedImg) {
-            WARN("Timeout waiting for generated image");
+            WARN("หมดเวลารอรูปที่สร้าง");
             steps.push("⚠️ Wait Image");
             updateStep("img-wait", "error");
         } else {
-            LOG(`Found generated image element`);
+            LOG(`พบรูปที่สร้างแล้ว`);
             steps.push("✅ Image Found");
             updateStep("img-wait", "done", 100);
 
@@ -1509,7 +1569,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             generatedImg.dispatchEvent(new MouseEvent("mouseover", imgHoverOpts));
             generatedImg.dispatchEvent(new PointerEvent("pointermove", { ...imgHoverOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             generatedImg.dispatchEvent(new MouseEvent("mousemove", imgHoverOpts));
-            LOG("Dispatched hover events on image (pointer + mouse)");
+            LOG("ส่งเหตุการณ์ hover บนรูปแล้ว");
             await sleep(1500);
 
             // Step 4c: Find and click the 3-dots (more_vert / more_horiz) icon
@@ -1560,7 +1620,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
 
             if (!dotsBtn) {
-                WARN("Could not find 3-dots button on generated image");
+                WARN("ไม่พบปุ่ม 3 จุดบนรูปที่สร้าง");
                 steps.push("⚠️ 3-dots");
             } else {
                 // Click the 3-dots button with full mouse sequence
@@ -1575,7 +1635,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dotsOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 dotsBtn.dispatchEvent(new MouseEvent("mouseup", dotsOpts));
                 dotsBtn.dispatchEvent(new MouseEvent("click", dotsOpts));
-                LOG("Clicked 3-dots button");
+                LOG("คลิกปุ่ม 3 จุดแล้ว");
                 await sleep(1500);
 
                 // Step 4d: Find and click "ทำให้เป็นภาพเคลื่อนไหว" in the dropdown
@@ -1592,7 +1652,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 }
 
                 if (!animateBtn) {
-                    WARN("Could not find 'ทำให้เป็นภาพเคลื่อนไหว' menu item");
+                    WARN("ไม่พบเมนู 'ทำให้เป็นภาพเคลื่อนไหว'");
                     steps.push("⚠️ Animate");
                 } else {
                     // Click Animate with full mouse sequence
@@ -1607,7 +1667,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     animateBtn.dispatchEvent(new PointerEvent("pointerup", { ...animOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                     animateBtn.dispatchEvent(new MouseEvent("mouseup", animOpts));
                     animateBtn.dispatchEvent(new MouseEvent("click", animOpts));
-                    LOG("✅ Clicked 'ทำให้เป็นภาพเคลื่อนไหว' — switching to video mode");
+                    LOG("✅ คลิก 'ทำให้เป็นภาพเคลื่อนไหว' — สลับเป็นโหมดวิดีโอแล้ว");
                     steps.push("✅ Animate");
                     updateStep("animate", "done");
                     await sleep(3000);
@@ -1615,17 +1675,25 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
         }
     } catch (e: any) {
-        WARN(`Step 4 error: ${e.message}`);
+        WARN(`ขั้น 4 ผิดพลาด: ${e.message}`);
         steps.push("⚠️ Animate");
+    }
+
+    // ── Stop gate ──
+    if (checkStop()) {
+        LOG("⛔ ผู้ใช้สั่งหยุด — ยกเลิกก่อนขั้นวิดีโอ");
+        errors.push("stopped by user");
+        try { completeOverlay(3000); } catch (_) {}
+        return { success: false, message: "⛔ หยุดโดยผู้ใช้", step: "stopped" };
     }
 
     // ── Step 5: Paste video prompt + Generate video ──
     if (req.videoPrompt) {
-        LOG("=== Step 5: Paste video prompt + Generate video ===");
+        LOG("=== ขั้น 5: วาง Video Prompt + สร้างวิดีโอ ===");
         updateStep("vid-prompt", "active");
         try {
             // Wait for video mode UI to load (image becomes thumbnail in prompt bar)
-            LOG("Waiting for video mode UI...");
+            LOG("รอ UI โหมดวิดีโอ...");
             await sleep(3000);
 
             // Verify we're in video mode — look for "วิดีโอ" or "Video" indicator
@@ -1636,12 +1704,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const rect = el.getBoundingClientRect();
                 if ((txt === "วิดีโอ" || txt === "Video" || txt.includes("วิดีโอ")) && rect.bottom > window.innerHeight * 0.7) {
                     inVideoMode = true;
-                    LOG("Confirmed: now in Video mode");
+                    LOG("ยืนยัน: อยู่ในโหมดวิดีโอแล้ว");
                     break;
                 }
             }
             if (!inVideoMode) {
-                LOG("Video mode indicator not found — proceeding anyway (may already be in video mode after Animate)");
+                LOG("ไม่พบตัวบอกโหมดวิดีโอ — ดำเนินการต่อ (อาจอยู่ในโหมดวิดีโอหลัง Animate)");
             }
 
             // Find prompt input and paste video prompt
@@ -1649,11 +1717,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const videoPromptInput = findPromptTextInput();
             if (videoPromptInput) {
                 await setPromptText(videoPromptInput, req.videoPrompt);
-                LOG(`Pasted video prompt (${req.videoPrompt.length} chars)`);
+                LOG(`วาง Video Prompt แล้ว (${req.videoPrompt.length} ตัวอักษร)`);
                 steps.push("✅ Video Prompt");
                 updateStep("vid-prompt", "done");
             } else {
-                WARN("Could not find prompt text input for video prompt");
+                WARN("ไม่พบช่อง Prompt สำหรับ Video Prompt");
                 steps.push("❌ Video Prompt");
                 errors.push("video prompt input not found");
                 updateStep("vid-prompt", "error");
@@ -1675,7 +1743,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
                 videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
-                LOG("✅ Clicked Generate for video — video generation started!");
+                LOG("✅ คลิก Generate สำหรับวิดีโอ — เริ่มสร้างวิดีโอ!");
                 steps.push("✅ Video Generate");
                 updateStep("vid-generate", "done");
 
@@ -1687,20 +1755,20 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 videoGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...vOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                 videoGenBtn.dispatchEvent(new MouseEvent("mouseup", vOpts));
                 videoGenBtn.dispatchEvent(new MouseEvent("click", vOpts));
-                LOG("Dispatched safety retry click on video Generate button");
+                LOG("ส่งคลิกซ้ำเพื่อความปลอดภัยบนปุ่ม Generate วิดีโอ");
             } else {
-                WARN("Could not find Generate button for video");
+                WARN("ไม่พบปุ่ม Generate สำหรับวิดีโอ");
                 steps.push("❌ Video Generate");
                 errors.push("video generate button not found");
                 updateStep("vid-generate", "error");
             }
         } catch (e: any) {
-            WARN(`Step 5 error: ${e.message}`);
+            WARN(`ขั้น 5 ผิดพลาด: ${e.message}`);
             steps.push("⚠️ Video Gen");
             errors.push(`video gen error: ${e.message}`);
         }
     } else {
-        LOG("No video prompt provided — skipping video generation step");
+        LOG("ไม่มี Video Prompt — ข้ามขั้นสร้างวิดีโอ");
         skipStep("animate"); skipStep("vid-prompt"); skipStep("vid-generate"); skipStep("vid-wait");
     }
 
@@ -1715,7 +1783,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             try { configureScenes(totalScenes); } catch (_) { /* overlay may not be visible */ }
         }
 
-        LOG(`=== Step 6: Wait for video + ${totalScenes > 1 ? `continue ${totalScenes} scenes` : 'download'} ===`);
+        LOG(`=== ขั้น 6: รอวิดีโอ + ${totalScenes > 1 ? `ต่อ ${totalScenes} ฉาก` : 'ดาวน์โหลด'} ===`);
 
         // ── Shared: Scan for "X%" by querying ALL elements directly ──
         const overlayEl = document.getElementById("netflow-engine-overlay");
@@ -1743,7 +1811,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
          * Returns the video card element or null on timeout.
          */
         const waitForVideoComplete = async (timeoutMs = 600000): Promise<HTMLElement | null> => {
-            LOG("Waiting for video generation...");
+            LOG("รอการสร้างวิดีโอ...");
             updateStep("vid-wait", "active");
             await sleep(5000);
 
@@ -1760,24 +1828,24 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             ? el.className.split(/\s+/).slice(0, 2).join(" ")
                             : "";
                         const rect = el.getBoundingClientRect();
-                        LOG(`  🔍 "${txt}" in <${tag}.${cls}> at (${rect.left.toFixed(0)},${rect.top.toFixed(0)}) w=${rect.width.toFixed(0)}`);
+                        LOG(`  🔍 "${txt}" ใน <${tag}.${cls}> ที่ (${rect.left.toFixed(0)},${rect.top.toFixed(0)}) w=${rect.width.toFixed(0)}`);
                         count++;
                         if (count >= 5) break;
                     }
                 }
-                if (count === 0) LOG("  🔍 No element with '%' text found");
+                if (count === 0) LOG("  🔍 ไม่พบ element ที่มีข้อความ '%'");
             };
 
             // Debug: scan for existing cards at start
             const earlyVideoCard = findFirstVideoCard();
             if (earlyVideoCard) {
-                LOG(`📍 Video card already present at start`);
+                LOG(`📍 การ์ดวิดีโอมีอยู่แล้วตั้งแต่เริ่ม`);
             } else {
-                LOG("⏳ No video card yet — will poll for % progress");
+                LOG("⏳ ยังไม่มีการ์ดวิดีโอ — จะติดตามความคืบหน้า %");
             }
 
             // Debug: dump % text once
-            LOG("🔍 Debug scan for % text nodes:");
+            LOG("🔍 สแกนข้อความ % เพื่อตรวจสอบ:");
             debugDumpPct();
 
             const start = Date.now();
@@ -1790,13 +1858,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const pct = scanForPct();
                 if (pct !== null) {
                     if (pct !== lastPct) {
-                        LOG(`Video progress: ${pct}%`);
+                        LOG(`ความคืบหน้าวิดีโอ: ${pct}%`);
                         lastPct = pct;
                         updateStep("vid-wait", "active", pct);
                     }
                     lastPctTime = Date.now();
                     if (pct >= 100) {
-                        LOG("✅ 100% detected!");
+                        LOG("✅ ตรวจพบ 100%!");
                         completed = true;
                         break;
                     }
@@ -1804,15 +1872,15 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     // % disappeared = video generation finished
                     const lostFor = Math.floor((Date.now() - lastPctTime) / 1000);
                     if (lostFor >= 5) {
-                        LOG(`✅ % disappeared at ${lastPct}% (lost for ${lostFor}s) — video done!`);
+                        LOG(`✅ % หายไปที่ ${lastPct}% (หาย ${lostFor} วินาที) — วิดีโอเสร็จ!`);
                         completed = true;
                         break;
                     }
-                    LOG(`⏳ % lost at ${lastPct}% — confirming in ${5 - lostFor}s...`);
+                    LOG(`⏳ % หายที่ ${lastPct}% — ยืนยันใน ${5 - lostFor} วินาที...`);
                 } else {
                     const elapsed = Math.floor((Date.now() - start) / 1000);
                     if (elapsed % 15 < 3) {
-                        LOG(`⏳ Waiting... (${elapsed}s) no % found`);
+                        LOG(`⏳ รอ... (${elapsed} วินาที) ไม่พบ %`);
                     }
                 }
 
@@ -1820,19 +1888,31 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (!completed && lastPct > 0) {
                     const newCard = findFirstVideoCard();
                     if (newCard && !earlyVideoCard) {
-                        LOG(`✅ Video card appeared while tracking at ${lastPct}% — video done!`);
+                        LOG(`✅ การ์ดวิดีโอปรากฏขึ้นที่ ${lastPct}% — วิดีโอเสร็จ!`);
                         completed = true;
                         break;
                     }
                 }
 
+                // Stop + failure checks inside video wait loop
+                if (checkStop()) {
+                    LOG("⛔ ผู้ใช้สั่งหยุดระหว่างรอวิดีโอ");
+                    return null;
+                }
+                if (lastPct < 1) {
+                    const failMsg = isGenerationFailed();
+                    if (failMsg) {
+                        WARN(`❌ สร้างวิดีโอล้มเหลว: ${failMsg}`);
+                        return null;
+                    }
+                }
                 await sleep(3000);
             }
 
             // Now find the VIDEO card to click — using <i>videocam</i> icon (screen-size independent)
             const videoCard = findFirstVideoCard();
             if (!videoCard) {
-                LOG("❌ No video card found to click");
+                LOG("❌ ไม่พบการ์ดวิดีโอที่จะคลิก");
                 updateStep("vid-wait", "error");
                 return null;
             }
@@ -1840,10 +1920,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             const el = videoCard;
             if (completed) {
                 updateStep("vid-wait", "done", 100);
-                LOG("Cool-down 4s before clicking...");
+                LOG("รอ 4 วินาทีก่อนคลิก...");
                 await sleep(4000);
             } else {
-                LOG("⚠️ Timeout — attempting to click video card anyway");
+                LOG("⚠️ หมดเวลา — ลองคลิกการ์ดวิดีโอต่อ");
             }
 
             // Find the actual visual element inside the card for precise clicking
@@ -1860,16 +1940,16 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     cx = tr.left + tr.width / 2;
                     cy = tr.top + tr.height / 2;
                     clickTarget = thumb;
-                    LOG(`🎯 Found thumbnail <${thumb.tagName.toLowerCase()}> inside card at (${cx.toFixed(0)},${cy.toFixed(0)}) ${tr.width.toFixed(0)}x${tr.height.toFixed(0)}`);
+                    LOG(`🎯 พบรูปย่อ <${thumb.tagName.toLowerCase()}> ในการ์ดที่ (${cx.toFixed(0)},${cy.toFixed(0)}) ${tr.width.toFixed(0)}x${tr.height.toFixed(0)}`);
                 }
             } else {
                 // No visual child — click top 1/3 of card where thumbnail typically is
                 cy = cardRect.top + cardRect.height * 0.3;
-                LOG(`🎯 No thumbnail child — clicking top 1/3 at (${cx.toFixed(0)},${cy.toFixed(0)})`);
+                LOG(`🎯 ไม่พบรูปย่อย่อย — คลิกส่วนบน 1/3 ที่ (${cx.toFixed(0)},${cy.toFixed(0)})`);
             }
 
             // Hover 4s (with PointerEvents for Mac Radix UI compatibility)
-            LOG(`🖱️ Hovering video card 4s at (${cx.toFixed(0)}, ${cy.toFixed(0)})...`);
+            LOG(`🖱️ ชี้เมาส์การ์ดวิดีโอ 4 วินาที ที่ (${cx.toFixed(0)}, ${cy.toFixed(0)})...`);
             robustHover(clickTarget);
             for (let t = 0; t < 8; t++) {
                 const moveOpts = { bubbles: true, cancelable: true, clientX: cx + (t % 2), clientY: cy };
@@ -1879,13 +1959,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
 
             // Click 2 times with full pointer event sequence (cross-platform)
-            LOG("Clicking video card...");
+            LOG("คลิกการ์ดวิดีโอ...");
             for (let i = 0; i < 2; i++) {
                 const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
                 if (target) await robustClick(target); else await robustClick(clickTarget);
                 await sleep(300);
             }
-            LOG("✅ Video card clicks done");
+            LOG("✅ คลิกการ์ดวิดีโอเสร็จ");
             return el;
         };
 
@@ -1893,7 +1973,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
          * Wait for scene N video progress in detail view (% tracking only, no clicking).
          */
         const waitForSceneProgress = async (sceneNum: number, timeoutMs = 600000): Promise<boolean> => {
-            LOG(`Waiting for scene ${sceneNum} video generation...`);
+            LOG(`รอการสร้างวิดีโอฉาก ${sceneNum}...`);
             await sleep(5000);
 
             const start = Date.now();
@@ -1904,25 +1984,37 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const pct = scanForPct();
                 if (pct !== null) {
                     if (pct !== lastPct) {
-                        LOG(`Scene ${sceneNum} progress: ${pct}%`);
+                        LOG(`ความคืบหน้าฉาก ${sceneNum}: ${pct}%`);
                         lastPct = pct;
                     }
                     lastPctTime = Date.now();
                     if (pct >= 100) {
-                        LOG(`✅ Scene ${sceneNum} — 100%!`);
+                        LOG(`✅ ฉาก ${sceneNum} — 100%!`);
                         return true;
                     }
                 } else if (lastPct > 30) {
                     const lostFor = Math.floor((Date.now() - lastPctTime) / 1000);
                     if (lostFor >= 5) {
-                        LOG(`✅ Scene ${sceneNum} — % disappeared at ${lastPct}% (${lostFor}s) — done!`);
+                        LOG(`✅ ฉาก ${sceneNum} — % หายที่ ${lastPct}% (${lostFor} วินาที) — เสร็จ!`);
                         return true;
                     }
-                    LOG(`⏳ Scene ${sceneNum} % lost at ${lastPct}% — confirming in ${5 - lostFor}s...`);
+                    LOG(`⏳ ฉาก ${sceneNum} % หายที่ ${lastPct}% — ยืนยันใน ${5 - lostFor} วินาที...`);
                 } else {
                     const elapsed = Math.floor((Date.now() - start) / 1000);
                     if (elapsed % 15 < 3) {
-                        LOG(`⏳ Scene ${sceneNum} waiting... (${elapsed}s)`);
+                        LOG(`⏳ ฉาก ${sceneNum} รอ... (${elapsed} วินาที)`);
+                    }
+                }
+                // Stop + failure checks inside scene wait loop
+                if (checkStop()) {
+                    LOG(`⛔ ผู้ใช้สั่งหยุดระหว่างรอฉาก ${sceneNum}`);
+                    return false;
+                }
+                if (lastPct < 1) {
+                    const failMsg = isGenerationFailed();
+                    if (failMsg) {
+                        WARN(`❌ สร้างฉาก ${sceneNum} ล้มเหลว: ${failMsg}`);
+                        return false;
                     }
                 }
                 await sleep(3000);
@@ -1946,190 +2038,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             card.dispatchEvent(new MouseEvent("mouseup", opts));
             card.dispatchEvent(new MouseEvent("click", opts));
             await sleep(50); card.click();
-            LOG("Clicked video card");
+            LOG("คลิกการ์ดวิดีโอแล้ว");
             await sleep(2000);
-        };
-
-        /**
-         * Download the video: 3-dots → ดาวน์โหลด → 1080p → wait upscale
-         */
-        const downloadVideo1080p = async (): Promise<boolean> => {
-            // Find and click 3-dots (เพิ่มเติม) button in the detail view
-            let dotsBtn: HTMLElement | null = null;
-            const allBtns = document.querySelectorAll<HTMLElement>("button");
-            for (const btn of allBtns) {
-                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
-                const icons = btn.querySelectorAll("i, span");
-                let hasMore = aria.includes("เพิ่มเติม") || aria.includes("more");
-                for (const icon of icons) {
-                    const t = icon.textContent?.trim() || "";
-                    if (t === "more_vert" || t === "more_horiz") hasMore = true;
-                }
-                if (hasMore) {
-                    const rect = btn.getBoundingClientRect();
-                    if (rect.top > 0 && rect.width < 60) {
-                        dotsBtn = btn;
-                        break;
-                    }
-                }
-            }
-
-            if (!dotsBtn) {
-                // Fallback: look for small button at top-right
-                for (const btn of allBtns) {
-                    const rect = btn.getBoundingClientRect();
-                    if (rect.width < 50 && rect.height < 50 && rect.top < 100 && rect.right > window.innerWidth * 0.8) {
-                        const txt = btn.textContent?.trim() || "";
-                        if (txt.includes("more") || txt.includes("⋮")) {
-                            dotsBtn = btn;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (!dotsBtn) {
-                WARN("Could not find 3-dots button for download");
-                return false;
-            }
-
-            // Click 3-dots
-            const dRect = dotsBtn.getBoundingClientRect();
-            const dOpts = { bubbles: true, cancelable: true, clientX: dRect.left + dRect.width / 2, clientY: dRect.top + dRect.height / 2, button: 0 };
-            dotsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            dotsBtn.dispatchEvent(new MouseEvent("mousedown", dOpts));
-            await sleep(80);
-            dotsBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            dotsBtn.dispatchEvent(new MouseEvent("mouseup", dOpts));
-            dotsBtn.dispatchEvent(new MouseEvent("click", dOpts));
-            await sleep(50); dotsBtn.click();
-            LOG("Clicked 3-dots menu");
-            await sleep(1500);
-
-            // Find and click "ดาวน์โหลด" menu item
-            let downloadBtn: HTMLElement | null = null;
-            const menuItems = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], li, div[role='button']");
-            for (const item of menuItems) {
-                const txt = (item.textContent || "").trim();
-                if (txt.includes("ดาวน์โหลด") || txt.toLowerCase().includes("download")) {
-                    downloadBtn = item;
-                    break;
-                }
-            }
-
-            if (!downloadBtn) {
-                WARN("Could not find 'ดาวน์โหลด' menu item");
-                return false;
-            }
-
-            const dlRect = downloadBtn.getBoundingClientRect();
-            const dlOpts = { bubbles: true, cancelable: true, clientX: dlRect.left + dlRect.width / 2, clientY: dlRect.top + dlRect.height / 2, button: 0 };
-            downloadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            downloadBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
-            await sleep(80);
-            downloadBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            downloadBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
-            downloadBtn.dispatchEvent(new MouseEvent("click", dlOpts));
-            await sleep(50); downloadBtn.click();
-            LOG("Clicked ดาวน์โหลด");
-            await sleep(2000);
-
-            // Find and click "1080p" option
-            let btn1080: HTMLElement | null = null;
-            const options = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], li, div[role='button']");
-            for (const opt of options) {
-                const txt = (opt.textContent || "").trim();
-                if (txt.includes("1080p") || txt.includes("1080")) {
-                    btn1080 = opt;
-                    break;
-                }
-            }
-
-            if (!btn1080) {
-                WARN("Could not find 1080p option — trying 720p");
-                for (const opt of options) {
-                    const txt = (opt.textContent || "").trim();
-                    if (txt.includes("720p") || txt.includes("720")) {
-                        btn1080 = opt;
-                        break;
-                    }
-                }
-            }
-
-            if (btn1080) {
-                const hRect = btn1080.getBoundingClientRect();
-                const hOpts = { bubbles: true, cancelable: true, clientX: hRect.left + hRect.width / 2, clientY: hRect.top + hRect.height / 2, button: 0 };
-                btn1080.dispatchEvent(new PointerEvent("pointerdown", { ...hOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                btn1080.dispatchEvent(new MouseEvent("mousedown", hOpts));
-                await sleep(80);
-                btn1080.dispatchEvent(new PointerEvent("pointerup", { ...hOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                btn1080.dispatchEvent(new MouseEvent("mouseup", hOpts));
-                btn1080.dispatchEvent(new MouseEvent("click", hOpts));
-                await sleep(50); btn1080.click();
-                LOG("Clicked 1080p — upscaling started");
-            } else {
-                WARN("Could not find resolution option");
-                return false;
-            }
-
-            // Wait for upscaling to finish (poll for up to 5 minutes)
-            // Detection: (A) "Upscaling complete" text, (B) "Upscaling your video" disappears,
-            //            (C) element-level scan, (D) broad completion keywords
-            LOG("Waiting for upscale to complete...");
-            const upscaleStart = Date.now();
-            let sawUpscaling = false;        // true once we've seen "Upscaling your video"
-            let upscaleGoneAt = 0;           // timestamp when "Upscaling your video" first disappeared
-            const GONE_CONFIRM_MS = 8000;    // confirm disappearance for 8s before declaring done
-            while (Date.now() - upscaleStart < 300000) {
-                const allText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-                const lower = allText.toLowerCase();
-                // (A) Explicit completion text
-                if (lower.includes("upscaling complete") || lower.includes("upscale complete")
-                    || lower.includes("download complete") || lower.includes("video is ready")
-                    || lower.includes("video ready")) {
-                    LOG("✅ Upscaling complete! (text match)");
-                    return true;
-                }
-                // (C) Element-level scan for completion
-                const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3");
-                let foundComplete = false;
-                for (const el of allEls) {
-                    const t = (el.textContent || "").trim().toLowerCase();
-                    if (t.length < 60 && (t.includes("upscaling complete") || t.includes("upscale complete")
-                        || t.includes("download complete") || t.includes("video is ready"))) {
-                        LOG(`✅ Upscaling complete! (element: "${el.textContent?.trim()}")`);
-                        foundComplete = true;
-                        break;
-                    }
-                }
-                if (foundComplete) return true;
-                // Track "Upscaling your video" presence
-                const isUpscaling = lower.includes("upscaling your video") || lower.includes("upscaling video");
-                if (isUpscaling) {
-                    sawUpscaling = true;
-                    upscaleGoneAt = 0; // reset disappearance timer
-                    const elapsed = Math.floor((Date.now() - upscaleStart) / 1000);
-                    LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
-                } else if (sawUpscaling) {
-                    // (B) "Upscaling your video" was visible but now gone → upscaling likely done
-                    if (upscaleGoneAt === 0) {
-                        upscaleGoneAt = Date.now();
-                        LOG("🔍 Upscaling text disappeared — confirming...");
-                    } else if (Date.now() - upscaleGoneAt >= GONE_CONFIRM_MS) {
-                        LOG(`✅ Upscaling text gone for ${GONE_CONFIRM_MS / 1000}s — upscale done!`);
-                        return true;
-                    } else {
-                        const remaining = Math.ceil((GONE_CONFIRM_MS - (Date.now() - upscaleGoneAt)) / 1000);
-                        LOG(`🔍 Confirming upscale done... (${remaining}s)`);
-                    }
-                } else {
-                    const elapsed = Math.floor((Date.now() - upscaleStart) / 1000);
-                    LOG(`⏳ Waiting for upscale status... (${elapsed}s)`);
-                }
-                await sleep(2000);
-            }
-            WARN("Upscale timeout — video may still be processing");
-            return true; // Still return true, download might have started
         };
 
         /**
@@ -2143,7 +2053,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const txt = (btn.textContent || "").trim();
                 if (txt.includes("ดาวน์โหลด") || txt.toLowerCase().includes("download")) {
                     dlBtn = btn;
-                    LOG(`Found ดาวน์โหลด button via text: "${txt}"`);
+                    LOG(`พบปุ่มดาวน์โหลดจากข้อความ: "${txt}"`);
                     break;
                 }
             }
@@ -2156,7 +2066,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         if (txt.includes("ดาวน์") || txt.includes("download") ||
                             aria.includes("ดาวน์") || aria.includes("download")) {
                             dlBtn = btn;
-                            LOG("Found ดาวน์โหลด button via position+text");
+                            LOG("พบปุ่มดาวน์โหลดจากตำแหน่ง+ข้อความ");
                             break;
                         }
                     }
@@ -2170,7 +2080,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         const ptxt = (parent.textContent || "").trim();
                         if (ptxt.includes("ดาวน์โหลด") || ptxt.toLowerCase().includes("download")) {
                             dlBtn = parent as HTMLElement;
-                            LOG("Found ดาวน์โหลด via button-overlay parent");
+                            LOG("พบปุ่มดาวน์โหลดผ่าน button-overlay parent");
                             break;
                         }
                     }
@@ -2178,7 +2088,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
 
             if (!dlBtn) {
-                WARN("Could not find ดาวน์โหลด button in detail view");
+                WARN("ไม่พบปุ่มดาวน์โหลดในหน้ารายละเอียด");
                 steps.push("⚠️ Download btn");
                 return;
             }
@@ -2193,7 +2103,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
             dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
             await sleep(50); dlBtn.click();
-            LOG("Clicked ดาวน์โหลด button");
+            LOG("คลิกปุ่มดาวน์โหลดแล้ว");
             steps.push("✅ ดาวน์โหลด");
             updateStep("download", "done");
             updateStep("upscale", "active");
@@ -2237,14 +2147,20 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             };
 
             // Detect menu type: "Full Video" = multi-scene submenu
-            const fullVideoBtn = findMenuItem("Full Video");
+            let fullVideoBtn: HTMLElement | null = null;
+            const fullVideoKeywords = ["Full Video", "วิดีโอเต็ม", "ฉบับเต็ม", "คลิปเต็ม", "ทั้งหมด"];
+            for (const kw of fullVideoKeywords) {
+                fullVideoBtn = findMenuItem(kw);
+                if (fullVideoBtn) break;
+            }
+
             if (fullVideoBtn) {
                 // ── Multi-scene: hover Full Video → submenu → click 720p ──
-                LOG("Multi-scene menu detected — hovering Full Video...");
+                LOG("พบเมนูหลายฉาก — ชี้ไปที่ Full Video...");
                 await hoverEl(fullVideoBtn);
                 await sleep(500);
                 await clickEl(fullVideoBtn);
-                LOG("Clicked Full Video");
+                LOG("คลิก Full Video แล้ว");
                 steps.push("✅ Full Video");
                 await sleep(1500);
 
@@ -2254,16 +2170,16 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 while (Date.now() - subStart < 5000) {
                     res720 = findMenuItem("720p");
                     if (res720) break;
-                    LOG("Waiting for 720p submenu...");
+                    LOG("รอเมนูย่อย 720p...");
                     await sleep(500);
                 }
                 if (!res720) {
-                    WARN("Could not find 720p option in submenu");
+                    WARN("ไม่พบตัวเลือก 720p ในเมนูย่อย");
                     steps.push("⚠️ 720p");
                     return;
                 }
                 await clickEl(res720);
-                LOG("Clicked 720p — download starting");
+                LOG("คลิก 720p — เริ่มดาวน์โหลด");
                 steps.push("✅ 720p");
                 updateStep("upscale", "active");
             } else {
@@ -2280,12 +2196,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     }
                 }
                 if (!res1080) {
-                    WARN("Could not find 1080p option");
+                    WARN("ไม่พบตัวเลือก 1080p");
                     steps.push("⚠️ 1080p");
                     return;
                 }
                 await clickEl(res1080);
-                LOG("Clicked 1080p — download starting");
+                LOG("คลิก 1080p — เริ่มดาวน์โหลด");
                 steps.push("✅ 1080p");
                 updateStep("upscale", "active");
             }
@@ -2293,7 +2209,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Wait for download to complete
             // Detection: (A) explicit completion text, (B) "Upscaling/Downloading" text disappears,
             //            (C) element-level scan, (D) broad completion keywords
-            LOG("Waiting for download to complete...");
+            LOG("รอการดาวน์โหลดเสร็จ...");
             const upStart = Date.now();
             let downloadDone = false;
             let sawProcessing = false;      // seen "Upscaling your video" or "Downloading"
@@ -2302,12 +2218,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             while (Date.now() - upStart < 300000) {
                 const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
                 const lower = bodyText.toLowerCase();
-                // (A) Explicit completion text
+                // (A) Explicit completion text (English + Thai)
                 if (lower.includes("download complete") || lower.includes("upscaling complete")
-                    || lower.includes("upscale complete") || lower.includes("video is ready")
-                    || lower.includes("video ready")) {
+                    || lower.includes("upscale complete") || lower.includes("scaling complete")
+                    || lower.includes("video is ready") || lower.includes("video ready")
+                    || lower.includes("อัปสเกลเสร็จ") || lower.includes("ดาวน์โหลดเสร็จ")
+                    || lower.includes("วิดีโอพร้อม")) {
                     const label = lower.includes("download") ? "Downloaded" : "Upscaled";
-                    LOG(`✅ ${label}! (text match)`);
+                    LOG(`✅ ${label}! (จับคู่ข้อความ)`);
                     steps.push(`✅ ${label}`);
                     updateStep("upscale", "done", 100);
                     downloadDone = true;
@@ -2318,8 +2236,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 for (const el of allEls) {
                     const t = (el.textContent || "").trim().toLowerCase();
                     if (t.length < 60 && (t.includes("upscaling complete") || t.includes("upscale complete")
-                        || t.includes("download complete") || t.includes("video is ready"))) {
-                        LOG(`✅ Complete! (element: "${el.textContent?.trim()}")`);
+                        || t.includes("scaling complete") || t.includes("download complete")
+                        || t.includes("video is ready") || t.includes("อัปสเกลเสร็จ")
+                        || t.includes("ดาวน์โหลดเสร็จ") || t.includes("วิดีโอพร้อม"))) {
+                        LOG(`✅ เสร็จ! (element: "${el.textContent?.trim()}")`);
                         steps.push("✅ Upscaled");
                         updateStep("upscale", "done", 100);
                         downloadDone = true;
@@ -2329,40 +2249,48 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (downloadDone) break;
                 // Track processing text presence
                 const isProcessing = lower.includes("upscaling your video") || lower.includes("upscaling video")
-                    || lower.includes("downloading your extended video") || lower.includes("downloading video");
+                    || lower.includes("downloading your extended video") || lower.includes("downloading video")
+                    || lower.includes("กำลังอัปสเกล") || lower.includes("กำลังดาวน์โหลด");
                 if (isProcessing) {
                     sawProcessing = true;
                     processingGoneAt = 0;
                     const elapsed = Math.floor((Date.now() - upStart) / 1000);
                     if (lower.includes("downloading")) {
-                        LOG(`⏳ Downloading extended video... (${elapsed}s)`);
+                        LOG(`⏳ กำลังดาวน์โหลดวิดีโอ... (${elapsed} วินาที)`);
                     } else {
-                        LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
+                        LOG(`⏳ กำลังอัปสเกล... (${elapsed} วินาที)`);
                     }
                 } else if (sawProcessing) {
                     // (B) Processing text disappeared → likely done
                     if (processingGoneAt === 0) {
                         processingGoneAt = Date.now();
-                        LOG("🔍 Processing text disappeared — confirming...");
+                        LOG("🔍 ข้อความประมวลผลหายไป — กำลังยืนยัน...");
                     } else if (Date.now() - processingGoneAt >= GONE_CONFIRM) {
-                        LOG(`✅ Processing text gone for ${GONE_CONFIRM / 1000}s — done!`);
+                        LOG(`✅ ข้อความประมวลผลหายไป ${GONE_CONFIRM / 1000} วินาที — เสร็จ!`);
                         steps.push("✅ Upscaled");
                         updateStep("upscale", "done", 100);
                         downloadDone = true;
                         break;
                     } else {
                         const remaining = Math.ceil((GONE_CONFIRM - (Date.now() - processingGoneAt)) / 1000);
-                        LOG(`🔍 Confirming done... (${remaining}s)`);
+                        LOG(`🔍 กำลังยืนยัน... (อีก ${remaining} วินาที)`);
                     }
                 } else {
                     const elapsed = Math.floor((Date.now() - upStart) / 1000);
-                    LOG(`⏳ Waiting... (${elapsed}s)`);
+                    LOG(`⏳ รอ... (${elapsed} วินาที)`);
+                }
+                // Stop check inside download/upscale wait loop
+                if (checkStop()) {
+                    LOG("⛔ ผู้ใช้สั่งหยุดระหว่างรอดาวน์โหลด");
+                    steps.push("⛔ Stopped");
+                    updateStep("upscale", "error");
+                    return;
                 }
                 await sleep(2000);
             }
 
             if (!downloadDone) {
-                WARN("Download timeout — file may still be downloading");
+                WARN("ดาวน์โหลดหมดเวลา — ไฟล์อาจยังดาวน์โหลดอยู่");
                 steps.push("⚠️ Download timeout");
                 updateStep("upscale", "error");
                 return;
@@ -2370,7 +2298,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             // Open file in Chrome
             updateStep("open", "active");
-            LOG("Waiting for download file to be ready...");
+            LOG("รอไฟล์ดาวน์โหลดพร้อม...");
             await sleep(5000);
             let opened = false;
             const dlPollStart = Date.now();
@@ -2379,25 +2307,25 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     await new Promise<void>((resolve) => {
                         chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO" }, (res) => {
                             if (chrome.runtime.lastError) {
-                                WARN(`Download poll error: ${chrome.runtime.lastError.message}`);
+                                WARN(`ตรวจสอบดาวน์โหลดผิดพลาด: ${chrome.runtime.lastError.message}`);
                             } else if (res?.success) {
-                                LOG(`✅ Opened video: ${res.message}`);
+                                LOG(`✅ เปิดวิดีโอแล้ว: ${res.message}`);
                                 steps.push("✅ Opened");
                                 updateStep("open", "done");
                                 opened = true;
                             } else {
-                                LOG(`Download not ready: ${res?.message}`);
+                                LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                             }
                             resolve();
                         });
                     });
                 } catch (e: any) {
-                    WARN(`Poll exception: ${e.message}`);
+                    WARN(`ตรวจสอบผิดพลาด: ${e.message}`);
                 }
                 if (!opened) await sleep(3000);
             }
             if (!opened) {
-                WARN("Could not find/open downloaded video");
+                WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้");
                 steps.push("⚠️ Open");
             }
         };
@@ -2406,7 +2334,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Wait for the first video to complete
             const videoCard = await waitForVideoComplete();
             if (!videoCard) {
-                WARN("Timeout waiting for video generation");
+                WARN("หมดเวลารอการสร้างวิดีโอ");
                 steps.push("⚠️ Video Wait");
                 updateStep("vid-wait", "error");
             } else {
@@ -2416,242 +2344,32 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 if (totalScenes <= 1) {
                     // ── Single scene: hover+click already done in waitForVideoComplete ──
-                    LOG("Single scene — waiting 3s for detail view to load...");
+                    LOG("ฉากเดียว — รอ 3 วินาทีเพื่อโหลดหน้ารายละเอียด...");
                     steps.push("✅ Clicked");
                     await sleep(3000);
 
-                    // Step 6B: Find and click "ดาวน์โหลด" button in detail view (top-right area)
-                    let dlBtn: HTMLElement | null = null;
-
-                    // Strategy 1: button containing text "ดาวน์โหลด" / "Download"
-                    const allBtns = document.querySelectorAll<HTMLElement>("button");
-                    for (const btn of allBtns) {
-                        const txt = (btn.textContent || "").trim();
-                        if (txt.includes("ดาวน์โหลด") || txt.toLowerCase().includes("download")) {
-                            dlBtn = btn;
-                            LOG(`Found ดาวน์โหลด button via text: "${txt}"`);
-                            break;
-                        }
-                    }
-
-                    // Strategy 2: look for button with download icon near top-right
-                    if (!dlBtn) {
-                        for (const btn of allBtns) {
-                            const rect = btn.getBoundingClientRect();
-                            if (rect.top < 80 && rect.right > window.innerWidth - 300) {
-                                const txt = (btn.textContent || "").trim().toLowerCase();
-                                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
-                                if (txt.includes("ดาวน์") || txt.includes("download") ||
-                                    aria.includes("ดาวน์") || aria.includes("download")) {
-                                    dlBtn = btn;
-                                    LOG("Found ดาวน์โหลด button via position+text");
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Strategy 3: div with data-type="button-overlay" inside a download-like container
-                    if (!dlBtn) {
-                        const overlays = document.querySelectorAll<HTMLElement>('[data-type="button-overlay"]');
-                        for (const overlay of overlays) {
-                            const parent = overlay.closest("button") || overlay.parentElement;
-                            if (parent) {
-                                const ptxt = (parent.textContent || "").trim();
-                                if (ptxt.includes("ดาวน์โหลด") || ptxt.toLowerCase().includes("download")) {
-                                    dlBtn = parent as HTMLElement;
-                                    LOG("Found ดาวน์โหลด via button-overlay parent");
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!dlBtn) {
-                        WARN("Could not find ดาวน์โหลด button in detail view");
-                        steps.push("⚠️ Download btn");
-                    } else {
-                        // Click ดาวน์โหลด
-                        const dlRect = dlBtn.getBoundingClientRect();
-                        const dlCx = dlRect.left + dlRect.width / 2;
-                        const dlCy = dlRect.top + dlRect.height / 2;
-                        const dlOpts = { bubbles: true, cancelable: true, clientX: dlCx, clientY: dlCy, button: 0 };
-                        dlBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                        dlBtn.dispatchEvent(new MouseEvent("mousedown", dlOpts));
-                        await sleep(80);
-                        dlBtn.dispatchEvent(new PointerEvent("pointerup", { ...dlOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                        dlBtn.dispatchEvent(new MouseEvent("mouseup", dlOpts));
-                        dlBtn.dispatchEvent(new MouseEvent("click", dlOpts));
-                        await sleep(50); dlBtn.click();
-                        LOG("Clicked ดาวน์โหลด button");
-                        steps.push("✅ ดาวน์โหลด");
-                        updateStep("download", "done");
-                        updateStep("upscale", "active");
-                        await sleep(1500);
-
-                        // Step 6C: Find and click "1080p" from the dropdown
-                        let res1080: HTMLElement | null = null;
-                        const menuItems = document.querySelectorAll<HTMLElement>(
-                            'button[role="menuitem"], [role="menuitem"], [role="option"], li'
-                        );
-                        for (const item of menuItems) {
-                            const txt = (item.textContent || "").trim();
-                            if (txt.includes("1080p")) {
-                                res1080 = item;
-                                break;
-                            }
-                        }
-                        // Broader fallback
-                        if (!res1080) {
-                            const allEls = document.querySelectorAll<HTMLElement>("button, div[role='button'], span");
-                            for (const el of allEls) {
-                                const txt = (el.textContent || "").trim();
-                                if (txt.includes("1080p") && el.offsetParent !== null) {
-                                    res1080 = el.closest("button") as HTMLElement || el;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (!res1080) {
-                            WARN("Could not find 1080p option in dropdown");
-                            steps.push("⚠️ 1080p");
-                        } else {
-                            const rRect = res1080.getBoundingClientRect();
-                            const rCx = rRect.left + rRect.width / 2;
-                            const rCy = rRect.top + rRect.height / 2;
-                            const rOpts = { bubbles: true, cancelable: true, clientX: rCx, clientY: rCy, button: 0 };
-                            res1080.dispatchEvent(new PointerEvent("pointerdown", { ...rOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                            res1080.dispatchEvent(new MouseEvent("mousedown", rOpts));
-                            await sleep(80);
-                            res1080.dispatchEvent(new PointerEvent("pointerup", { ...rOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                            res1080.dispatchEvent(new MouseEvent("mouseup", rOpts));
-                            res1080.dispatchEvent(new MouseEvent("click", rOpts));
-                            await sleep(50); res1080.click();
-                            LOG("Clicked 1080p — download starting");
-                            steps.push("✅ 1080p");
-
-                            // Step 6D: Wait for upscaling to complete (server-side), then download finishes
-                            LOG("Waiting for upscaling + download...");
-
-                            // 6D-1: Poll for upscaling completion (up to 5 min)
-                            // Detection: (A) completion text, (B) processing text disappears, (C) element scan
-                            const upStart = Date.now();
-                            let upscaleDone = false;
-                            let sawUpscaling3 = false;
-                            let upscaleGoneAt3 = 0;
-                            const GONE3 = 8000;
-                            while (Date.now() - upStart < 300000) {
-                                const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-                                const lower3 = bodyText.toLowerCase();
-                                // (A) Explicit completion text
-                                if (lower3.includes("upscaling complete") || lower3.includes("upscale complete")
-                                    || lower3.includes("download complete") || lower3.includes("video is ready")
-                                    || lower3.includes("video ready")) {
-                                    LOG("✅ Upscaling complete! (text match)");
-                                    steps.push("✅ Upscaled");
-                                    updateStep("upscale", "done", 100);
-                                    upscaleDone = true;
-                                    break;
-                                }
-                                // (C) Element-level scan
-                                const upEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3");
-                                for (const uel of upEls) {
-                                    const ut = (uel.textContent || "").trim().toLowerCase();
-                                    if (ut.length < 60 && (ut.includes("upscaling complete") || ut.includes("upscale complete")
-                                        || ut.includes("download complete") || ut.includes("video is ready"))) {
-                                        LOG(`✅ Upscaling complete! (element: "${uel.textContent?.trim()}")`);
-                                        steps.push("✅ Upscaled");
-                                        updateStep("upscale", "done", 100);
-                                        upscaleDone = true;
-                                        break;
-                                    }
-                                }
-                                if (upscaleDone) break;
-                                // Track processing text
-                                const isUp3 = lower3.includes("upscaling your video") || lower3.includes("upscaling video");
-                                if (isUp3) {
-                                    sawUpscaling3 = true;
-                                    upscaleGoneAt3 = 0;
-                                    const elapsed = Math.floor((Date.now() - upStart) / 1000);
-                                    LOG(`⏳ Upscaling in progress... (${elapsed}s)`);
-                                } else if (sawUpscaling3) {
-                                    // (B) Processing text disappeared
-                                    if (upscaleGoneAt3 === 0) {
-                                        upscaleGoneAt3 = Date.now();
-                                        LOG("🔍 Upscaling text disappeared — confirming...");
-                                    } else if (Date.now() - upscaleGoneAt3 >= GONE3) {
-                                        LOG(`✅ Upscaling text gone for ${GONE3 / 1000}s — done!`);
-                                        steps.push("✅ Upscaled");
-                                        updateStep("upscale", "done", 100);
-                                        upscaleDone = true;
-                                        break;
-                                    } else {
-                                        const remaining = Math.ceil((GONE3 - (Date.now() - upscaleGoneAt3)) / 1000);
-                                        LOG(`🔍 Confirming upscale done... (${remaining}s)`);
-                                    }
-                                } else {
-                                    const elapsed = Math.floor((Date.now() - upStart) / 1000);
-                                    LOG(`⏳ Waiting for upscale... (${elapsed}s)`);
-                                }
-                                await sleep(2000);
-                            }
-
-                            // 6D-2: After upscale done, wait for download to finish then open
-                            if (upscaleDone) {
-                                updateStep("open", "active");
-                                LOG("Waiting for download file to be ready...");
-                                await sleep(5000); // give Chrome time to finish saving
-
-                                // Poll chrome.downloads for the completed video file
-                                let opened = false;
-                                const dlPollStart = Date.now();
-                                while (Date.now() - dlPollStart < 60000 && !opened) {
-                                    try {
-                                        await new Promise<void>((resolve) => {
-                                            chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO" }, (res) => {
-                                                if (chrome.runtime.lastError) {
-                                                    WARN(`Download poll error: ${chrome.runtime.lastError.message}`);
-                                                } else if (res?.success) {
-                                                    LOG(`✅ Opened video: ${res.message}`);
-                                                    steps.push("✅ Opened");
-                                                    updateStep("open", "done");
-                                                    opened = true;
-                                                } else {
-                                                    LOG(`Download not ready: ${res?.message}`);
-                                                }
-                                                resolve();
-                                            });
-                                        });
-                                    } catch (e: any) {
-                                        WARN(`Poll exception: ${e.message}`);
-                                    }
-                                    if (!opened) await sleep(3000);
-                                }
-
-                                if (!opened) {
-                                    WARN("Could not find/open downloaded video");
-                                    steps.push("⚠️ Open");
-                                }
-                            } else {
-                                WARN("Upscaling timeout — download may still complete");
-                                steps.push("⚠️ Upscale timeout");
-                            }
-                        }
-                    }
+                    // Download: ดาวน์โหลด → 1080p → upscale → open in Chrome
+                    await performDownloadAndOpen();
                 } else {
                     // ── Multi-scene: paste next scene prompt → generate → track % → repeat ──
-                    LOG(`Multi-scene mode: ${totalScenes} scenes`);
+                    LOG(`โหมดหลายฉาก: ${totalScenes} ฉาก`);
 
                     for (let sceneIdx = 1; sceneIdx < totalScenes; sceneIdx++) {
                         const scenePrompt = scenePrompts[sceneIdx];
                         if (!scenePrompt) {
-                            LOG(`No prompt for scene ${sceneIdx + 1} — skipping`);
+                            LOG(`ไม่มี Prompt สำหรับฉาก ${sceneIdx + 1} — ข้าม`);
                             continue;
                         }
 
+                        // Stop check at top of each scene iteration
+                        if (checkStop()) {
+                            LOG(`⛔ ผู้ใช้สั่งหยุดก่อนฉาก ${sceneIdx + 1}`);
+                            errors.push("stopped by user");
+                            break;
+                        }
+
                         const sn = sceneIdx + 1; // scene number (2, 3, ...)
-                        LOG(`--- Scene ${sn}/${totalScenes} ---`);
+                        LOG(`--- ฉาก ${sn}/${totalScenes} ---`);
                         await sleep(2000);
 
                         // Already in detail view — "ขยาย" is selected, paste prompt
@@ -2659,11 +2377,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         const detailPromptInput = findPromptTextInput();
                         if (detailPromptInput) {
                             await setPromptText(detailPromptInput, scenePrompt);
-                            LOG(`Pasted scene ${sn} prompt (${scenePrompt.length} chars)`);
+                            LOG(`วาง Prompt ฉาก ${sn} แล้ว (${scenePrompt.length} ตัวอักษร)`);
                             steps.push(`✅ Scene${sn} Prompt`);
                             updateStep(`scene${sn}-prompt`, "done");
                         } else {
-                            WARN(`Could not find prompt input for scene ${sn}`);
+                            WARN(`ไม่พบช่อง Prompt สำหรับฉาก ${sn}`);
                             steps.push(`❌ Scene${sn}`);
                             errors.push(`scene ${sn} prompt input not found`);
                             updateStep(`scene${sn}-prompt`, "error");
@@ -2686,7 +2404,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             sceneGenBtn.dispatchEvent(new PointerEvent("pointerup", { ...sgOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
                             sceneGenBtn.dispatchEvent(new MouseEvent("mouseup", sgOpts));
                             sceneGenBtn.dispatchEvent(new MouseEvent("click", sgOpts));
-                            LOG(`Clicked Generate for scene ${sn} (full event sequence)`);
+                            LOG(`คลิก Generate สำหรับฉาก ${sn} แล้ว`);
                             steps.push(`✅ Scene${sn} Gen`);
                             updateStep(`scene${sn}-gen`, "done");
 
@@ -2699,7 +2417,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             sceneGenBtn.dispatchEvent(new MouseEvent("mouseup", sgOpts));
                             sceneGenBtn.dispatchEvent(new MouseEvent("click", sgOpts));
                         } else {
-                            WARN(`Could not find Generate button for scene ${sn}`);
+                            WARN(`ไม่พบปุ่ม Generate สำหรับฉาก ${sn}`);
                             steps.push(`❌ Scene${sn} Gen`);
                             errors.push(`scene ${sn} generate button not found`);
                             updateStep(`scene${sn}-gen`, "error");
@@ -2713,13 +2431,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             steps.push(`✅ Scene${sn}`);
                             updateStep(`scene${sn}-wait`, "done", 100);
                         } else {
-                            WARN(`Timeout on scene ${sn}`);
+                            WARN(`ฉาก ${sn} หมดเวลา`);
                             steps.push(`⚠️ Scene${sn}`);
                             updateStep(`scene${sn}-wait`, "error");
                         }
                     }
 
-                    LOG("All scenes generated!");
+                    LOG("สร้างครบทุกฉากแล้ว!");
                     steps.push("✅ All Scenes");
 
                     // Download after all scenes
@@ -2728,7 +2446,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 }
             }
         } catch (e: any) {
-            WARN(`Step 6 error: ${e.message}`);
+            WARN(`ขั้น 6 ผิดพลาด: ${e.message}`);
             steps.push("⚠️ Step6");
             errors.push(`step 6: ${e.message}`);
         }
@@ -2753,18 +2471,18 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "GENERATE_IMAGE") {
         (window as any).__NETFLOW_STOP__ = false;
-        LOG("Received GENERATE_IMAGE request");
+        LOG("ได้รับคำสั่ง GENERATE_IMAGE");
         // Respond immediately to prevent MV3 service-worker message-channel timeout
         sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
         // Fire-and-forget: run the long automation in the background
         handleGenerateImage(message as GenerateImageRequest)
-            .then(result => LOG(`✅ Automation finished: ${result.message}`))
+            .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
             .catch(err => console.error("[Netflow AI] Generate error:", err));
         return false;
     }
 
     if (message?.action === "STOP_AUTOMATION") {
-        LOG("⛔ STOP_AUTOMATION received — setting stop flag");
+        LOG("⛔ ได้รับ STOP_AUTOMATION — ตั้งค่าสถานะหยุด");
         (window as any).__NETFLOW_STOP__ = true;
         sendResponse({ success: true, message: "Stop signal sent" });
         return false;
@@ -2778,39 +2496,39 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "CLICK_FIRST_IMAGE") {
         sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
         (async () => {
-            LOG("CLICK_FIRST_IMAGE — finding first image card via <i>image</i> icon...");
+            LOG("CLICK_FIRST_IMAGE — ค้นหาการ์ดรูปแรกผ่านไอคอน <i>image</i>...");
             await sleep(500);
 
             // Element-based detection: find card with <i>image</i> icon (works on any screen size)
             const imageCard = findFirstImageCard();
             if (!imageCard) {
-                WARN("No image card found via <i>image</i> icon");
+                WARN("ไม่พบการ์ดรูปผ่านไอคอน <i>image</i>");
                 return;
             }
 
             const r = imageCard.getBoundingClientRect();
             const cx = r.left + r.width / 2;
             const cy = r.top + r.height / 2;
-            LOG(`Image card at (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — clicking 2 times`);
+            LOG(`การ์ดรูปที่ (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — คลิก 2 ครั้ง`);
 
             for (let i = 0; i < 2; i++) {
                 const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
                 if (target) {
                     await robustClick(target);
-                    LOG(`Click ${i + 1}/2 on <${target.tagName.toLowerCase()}>`);
+                    LOG(`คลิก ${i + 1}/2 บน <${target.tagName.toLowerCase()}>`);
                 } else {
                     await robustClick(imageCard);
-                    LOG(`Click ${i + 1}/2 on card (fallback)`);
+                    LOG(`คลิก ${i + 1}/2 บนการ์ด (สำรอง)`);
                 }
                 await sleep(300);
             }
-            LOG("✅ 2 clicks on image card done");
+            LOG("✅ คลิกการ์ดรูป 2 ครั้งเสร็จ");
         })();
         return false;
     }
 });
 
-LOG("Google Flow content script ready — waiting for commands");
+LOG("สคริปต์ Google Flow พร้อมแล้ว — รอคำสั่ง");
 
 
 document.addEventListener("dblclick", (e) => {
@@ -2819,5 +2537,5 @@ document.addEventListener("dblclick", (e) => {
     const tag = t.tagName.toLowerCase();
     const x = Math.round(e.clientX), y = Math.round(e.clientY);
     const txt = (t.textContent || "").trim().slice(0, 30);
-    LOG(`🖱️🖱️ DblClick (${x},${y}) → <${tag}> "${txt}"`);
+    LOG(`🖱️🖱️ ดับเบิลคลิก (${x},${y}) → <${tag}> "${txt}"`);
 }, true);

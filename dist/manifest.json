@@ -47,6 +47,12 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["themes/*.jpg", "themes/*.png", "themes/*.webp"],
+      "matches": ["https://labs.google/*"]
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }

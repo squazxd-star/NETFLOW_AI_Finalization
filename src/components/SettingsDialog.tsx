@@ -191,7 +191,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                             <h3 className="text-[13px] font-semibold text-white">ธีมสีแอป</h3>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-5 gap-2">
                             {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
                                 const t = THEMES[key];
                                 const isActive = theme === key;
