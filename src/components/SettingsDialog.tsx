@@ -37,6 +37,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
     const [isTestingOpenAI, setIsTestingOpenAI] = useState(false);
+    const [isGeminiVerified, setIsGeminiVerified] = useState(false);
+    const [isOpenAIVerified, setIsOpenAIVerified] = useState(false);
     const { toast } = useToast();
     const { theme, config: themeConfig, setTheme } = useTheme();
 
@@ -54,9 +56,17 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         if (openAi) setOpenaiKey(openAi);
     };
 
+    useEffect(() => {
+        setIsGeminiVerified(false);
+    }, [apiKey]);
+
+    useEffect(() => {
+        setIsOpenAIVerified(false);
+    }, [openaiKey]);
+
     const handleTestConnection = async () => {
         if (!apiKey.trim()) {
-            toast({ title: "Error", description: "Please enter an API Key first", variant: "destructive" });
+            toast({ title: "ผิดพลาด", description: "กรุณากรอก API Key ก่อน", variant: "destructive" });
             return;
         }
 
@@ -66,9 +76,11 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
             await model.generateContent("Test");
 
+            setIsGeminiVerified(true);
+
             toast({
-                title: "Gemini Connection Successful! 🎉",
-                description: "Your Google API Key is valid.",
+                title: "เชื่อมต่อ Gemini สำเร็จ ✅",
+                description: "API Key ของคุณใช้งานได้",
                 variant: "default",
                 className: "toast-theme-bg"
             });
@@ -78,7 +90,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             if (msg.includes("429")) msg = "Quota Exceeded (429)";
 
             toast({
-                title: "Gemini Connection Failed ❌",
+                title: "เชื่อมต่อ Gemini ล้มเหลว ❌",
                 description: msg,
                 variant: "destructive"
             });
@@ -89,7 +101,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
     const handleTestOpenAI = async () => {
         if (!openaiKey.trim()) {
-            toast({ title: "Error", description: "Please enter an OpenAI Key first", variant: "destructive" });
+            toast({ title: "ผิดพลาด", description: "กรุณากรอก OpenAI Key ก่อน", variant: "destructive" });
             return;
         }
 
@@ -102,9 +114,10 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             });
 
             if (response.ok) {
+                setIsOpenAIVerified(true);
                 toast({
-                    title: "OpenAI Connection Successful! 🎉",
-                    description: "Your OpenAI Key is valid.",
+                    title: "เชื่อมต่อ OpenAI สำเร็จ ✅",
+                    description: "API Key ของคุณใช้งานได้",
                     variant: "default",
                     className: "toast-theme-bg"
                 });
@@ -113,7 +126,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             }
         } catch (error: any) {
             toast({
-                title: "OpenAI Connection Failed ❌",
+                title: "เชื่อมต่อ OpenAI ล้มเหลว ❌",
                 description: error.message,
                 variant: "destructive"
             });
@@ -383,21 +396,33 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         <div className="space-y-2">
                             {/* Gemini API */}
                             <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06] space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${apiKey ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                                        <span className="text-xs font-medium text-white">Gemini API</span>
-                                        <span className="text-[9px] text-white/20">(Google Ultra/Veo)</span>
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-[15px] font-bold drop-shadow-sm" style={{ color: themeConfig.hex }}>Gemini API</span>
+                                        <span className="text-[10px] text-white/30">(Google Ultra/Veo)</span>
                                     </div>
                                     <button
                                         onClick={handleTestConnection}
-                                        disabled={isTesting || !apiKey}
-                                        className={`flex items-center gap-1 h-5 text-[9px] px-2 rounded-md transition-colors ${
-                                            apiKey ? 'text-blue-400 hover:bg-blue-500/10' : 'text-white/20 cursor-not-allowed'
+                                        disabled={isTesting || !apiKey || isGeminiVerified}
+                                        className={`flex items-center gap-1.5 h-7 text-[11px] px-3 rounded-lg font-medium transition-all duration-300 ${
+                                            isGeminiVerified
+                                                ? 'bg-green-500/20 text-green-400 border border-green-500/30 scale-105 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                                                : apiKey 
+                                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:scale-[1.02] active:scale-95' 
+                                                    : 'bg-white/5 text-white/20 border border-white/5 cursor-not-allowed'
                                         }`}
                                     >
-                                        {isTesting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
-                                        Test
+                                        {isTesting ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : isGeminiVerified ? (
+                                            <div className="flex items-center gap-1 animate-in zoom-in duration-300">
+                                                <Key className="w-3 h-3" />
+                                                <Check className="w-3 h-3" />
+                                            </div>
+                                        ) : (
+                                            <CheckCircle2 className="w-3 h-3" />
+                                        )}
+                                        {isGeminiVerified ? "Verified" : "Test"}
                                     </button>
                                 </div>
                                 <Input
@@ -414,21 +439,33 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
                             {/* OpenAI API */}
                             <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06] space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${openaiKey ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]' : 'bg-white/20'}`} />
-                                        <span className="text-xs font-medium text-white">OpenAI API</span>
-                                        <span className="text-[9px] text-white/20">(GPT-4)</span>
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-[15px] font-bold drop-shadow-sm" style={{ color: themeConfig.hex }}>OpenAI API</span>
+                                        <span className="text-[10px] text-white/30">(GPT-4)</span>
                                     </div>
                                     <button
                                         onClick={handleTestOpenAI}
-                                        disabled={isTestingOpenAI || !openaiKey}
-                                        className={`flex items-center gap-1 h-5 text-[9px] px-2 rounded-md transition-colors ${
-                                            openaiKey ? 'text-blue-400 hover:bg-blue-500/10' : 'text-white/20 cursor-not-allowed'
+                                        disabled={isTestingOpenAI || !openaiKey || isOpenAIVerified}
+                                        className={`flex items-center gap-1.5 h-7 text-[11px] px-3 rounded-lg font-medium transition-all duration-300 ${
+                                            isOpenAIVerified
+                                                ? 'bg-green-500/20 text-green-400 border border-green-500/30 scale-105 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                                                : openaiKey 
+                                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:scale-[1.02] active:scale-95' 
+                                                    : 'bg-white/5 text-white/20 border border-white/5 cursor-not-allowed'
                                         }`}
                                     >
-                                        {isTestingOpenAI ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
-                                        Test
+                                        {isTestingOpenAI ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : isOpenAIVerified ? (
+                                            <div className="flex items-center gap-1 animate-in zoom-in duration-300">
+                                                <Key className="w-3 h-3" />
+                                                <Check className="w-3 h-3" />
+                                            </div>
+                                        ) : (
+                                            <CheckCircle2 className="w-3 h-3" />
+                                        )}
+                                        {isOpenAIVerified ? "Verified" : "Test"}
                                     </button>
                                 </div>
                                 <Input

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflow Overlay Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #111; overflow: hidden; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+<script type="module">
+    import { showOverlay, updateStep, addLog } from './src/netflow-overlay.ts';
+
+    showOverlay();
+
+    // Simulate automation steps
+    const simulate = [
+        { delay: 1500, id: "upload-char", status: "done" },
+        { delay: 3000, id: "upload-prod", status: "done" },
+        { delay: 4500, id: "img-prompt", status: "active" },
+        { delay: 6500, id: "img-prompt", status: "done" },
+        { delay: 7000, id: "img-generate", status: "active" },
+        { delay: 9000, id: "img-generate", status: "done" },
+        { delay: 9500, id: "img-wait", status: "active", progress: 10 },
+        { delay: 11000, id: "img-wait", status: "active", progress: 45 },
+        { delay: 13000, id: "img-wait", status: "active", progress: 78 },
+        { delay: 15000, id: "img-wait", status: "done", progress: 100 },
+        { delay: 16000, id: "animate", status: "active" },
+        { delay: 18000, id: "animate", status: "done" },
+        { delay: 19000, id: "vid-prompt", status: "active" },
+    ];
+
+    for (const s of simulate) {
+        setTimeout(() => updateStep(s.id, s.status, s.progress), s.delay);
+    }
+
+    setTimeout(() => addLog("เริ่มต้น Automation..."), 500);
+    setTimeout(() => addLog("Upload ตัวละครเสร็จ"), 2000);
+    setTimeout(() => addLog("Upload สินค้าเสร็จ"), 3500);
+    setTimeout(() => addLog("กำลัง Generate รูปภาพ..."), 7500);
+    setTimeout(() => addLog("รอ Generate 45%..."), 11500);
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
     templateOptions,
     voiceToneOptions,
@@ -20,6 +21,7 @@ const AiScriptSection = ({
     onToggle,
     productImage
 }: AiScriptSectionProps) => {
+    const { config: themeConfig } = useTheme();
     const useAiScript = watch("useAiScript");
     const template = watch("template");
     const hookEnabled = watch("hookEnabled");
@@ -142,7 +144,10 @@ const AiScriptSection = ({
                                     }
                                 }}
                                 id="analyze-btn"
-                                className="text-[10px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                                className="text-[10px] px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                                style={{ background: `rgba(${themeConfig.hexRgb},0.2)`, color: themeConfig.hex }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.4)`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.2)`)}
                             >
                                 <Sparkles className="w-3 h-3" />
                                 วิเคราะห์ภาพด้วย AI

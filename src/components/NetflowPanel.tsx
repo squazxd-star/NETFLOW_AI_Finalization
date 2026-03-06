@@ -31,17 +31,20 @@ const NetflowPanel = () => {
                     {/* Logo with Glow */}
                     <div className="flex items-center gap-2.5 group cursor-pointer">
                         <div className="relative w-8 h-8 flex-shrink-0">
-                            <div className="absolute -inset-2 bg-neon-red rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
-                            <img
-                                src={logoIcon}
-                                alt="Netflow"
-                                className="relative w-8 h-8 object-cover rounded-md"
-                                style={{
-                                    filter: `drop-shadow(0 0 8px rgba(${themeConfig.hexRgb},0.7))`,
-                                    maskImage: "radial-gradient(circle, black 55%, transparent 100%)",
-                                    WebkitMaskImage: "radial-gradient(circle, black 55%, transparent 100%)",
-                                }}
-                            />
+                            <div className="absolute -inset-2 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" style={{ background: themeConfig.hex }} />
+                            <div className="relative w-8 h-8 rounded-md overflow-hidden">
+                                <img
+                                    src={logoIcon}
+                                    alt="Netflow"
+                                    className="w-8 h-8 object-cover"
+                                    style={{
+                                        filter: `brightness(0.7) saturate(0)`,
+                                    }}
+                                />
+                                <div className="absolute inset-0" style={{ background: themeConfig.hex, mixBlendMode: "color", opacity: 0.9 }} />
+                                <div className="absolute inset-0" style={{ background: themeConfig.hex, mixBlendMode: "soft-light", opacity: 0.5 }} />
+                                <div className="absolute inset-0" style={{ boxShadow: `inset 0 0 10px rgba(${themeConfig.hexRgb},0.4)` }} />
+                            </div>
                         </div>
                         <h1 className="text-[17px] font-black tracking-[0.25em] uppercase text-foreground" style={{ fontFamily: "'Inter', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif" }}>
                             <span

@@ -567,9 +567,12 @@ function buildCss(t: OverlayTheme): string {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 740px;
-    min-height: 365px;
-    max-height: 85vh;
+    width: 62vw;
+    max-width: 750px;
+    min-height: 380px;
+    max-height: 72vh;
+    display: flex;
+    flex-direction: column;
     background: rgba(${bgt(8)}, 0.85);
     border: 1.5px solid rgba(${P},0.35);
     border-radius: 17px;
@@ -751,8 +754,9 @@ function buildCss(t: OverlayTheme): string {
 /* Terminal log */
 .nf-terminal {
     padding: 10px 17px;
-    min-height: 72px;
-    max-height: 360px;
+    min-height: 100px;
+    max-height: 55vh;
+    flex: 1;
     overflow-y: auto;
     font-family: 'Rajdhani', 'Share Tech Mono', monospace;
     font-size: 19px;
@@ -893,8 +897,8 @@ function buildCss(t: OverlayTheme): string {
 /* 3D Gear container */
 .nf-gear-wrap {
     position: absolute;
-    left: 50%;
-    top: 44%;
+    left: 14%;
+    top: 55%;
     transform: translate(-50%, -50%);
     width: 92px;
     height: 92px;
@@ -917,8 +921,8 @@ function buildCss(t: OverlayTheme): string {
 /* Gear glow aura */
 .nf-gear-aura {
     position: absolute;
-    left: 50%;
-    top: 44%;
+    left: 14%;
+    top: 55%;
     transform: translate(-50%, -50%);
     width: 110px;
     height: 110px;
@@ -945,16 +949,33 @@ function buildCss(t: OverlayTheme): string {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    padding-left: 38px;
+    padding-left: 0;
     z-index: 3;
     pointer-events: none;
 }
 
+.nf-brand-gear-icon {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter:
+        drop-shadow(0 0 4px rgba(${P},1))
+        drop-shadow(0 0 12px rgba(${P},0.7))
+        drop-shadow(0 0 28px rgba(${P},0.35));
+}
+
 .nf-brand-inner-text {
     font-family: 'Orbitron', 'JetBrains Mono', monospace;
-    font-size: 28px;
+    font-size: 18px;
     font-weight: 900;
-    letter-spacing: 12px;
+    letter-spacing: 8px;
+    white-space: nowrap;
     text-transform: uppercase;
     background: linear-gradient(135deg, rgba(${P},1) 0%, rgba(255,255,255,0.95) 45%, rgba(${P},0.9) 70%, rgba(255,255,255,0.85) 100%);
     -webkit-background-clip: text;
@@ -967,20 +988,6 @@ function buildCss(t: OverlayTheme): string {
         drop-shadow(0 0 30px rgba(${P},0.45))
         drop-shadow(0 0 60px rgba(${P},0.2));
     text-align: center;
-}
-
-.nf-brand-gear-icon {
-    flex-shrink: 0;
-    width: 80px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    filter:
-        drop-shadow(0 0 4px rgba(${P},1))
-        drop-shadow(0 0 12px rgba(${P},0.7))
-        drop-shadow(0 0 28px rgba(${P},0.35));
 }
 
 .nf-brand-gear-icon svg { overflow: visible; }
@@ -1570,27 +1577,6 @@ function buildCss(t: OverlayTheme): string {
     opacity: 0.15;
 }
 
-/* ─── Log Feed ─── */
-.nf-log-feed {
-    padding: 7px 17px 10px;
-    border-top: 1px solid rgba(${P},0.12);
-    font-family: 'Share Tech Mono', 'JetBrains Mono', monospace;
-    font-size: 17px;
-    line-height: 1.5;
-    color: rgba(${P},0.4);
-    max-height: 78px;
-    overflow: hidden;
-}
-.nf-log-line:last-child {
-    color: rgba(${P},0.7);
-    text-shadow: 0 0 6px rgba(${P},0.3);
-}
-.nf-log-line {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0.5px 0;
-}
     `;
 }
 
@@ -2423,13 +2409,6 @@ function buildOverlay(): HTMLDivElement {
     buildProcessRows(terminal);
     core.appendChild(terminal);
 
-    // Log Feed
-    const logFeed = document.createElement("div");
-    logFeed.className = "nf-log-feed";
-    logFeed.id = "nf-log-feed";
-    logFeed.innerHTML = `<div class="nf-log-line" style="color:rgba(${currentTheme.rgb},0.4)">Waiting for automation...</div>`;
-    core.appendChild(logFeed);
-
     // Engine Core Visualizer — 3D gear + waves + HUD frame + stats
     const engineCore = document.createElement("div");
     engineCore.className = "nf-engine-core";
@@ -2521,12 +2500,6 @@ function buildOverlay(): HTMLDivElement {
         root.appendChild(p);
     }
 
-    // Footer — timer only
-    const footer = document.createElement("div");
-    footer.className = "nf-footer";
-    footer.innerHTML = `<div class="nf-timer" id="nf-timer">00:00</div>`;
-    root.appendChild(footer);
-
     return root;
 }
 
@@ -2615,9 +2588,9 @@ interface PlexusNode {
     oSpeed: number; // angular speed (rad/frame)
 }
 
-const PLEXUS_COUNT = 144;
-const PLEXUS_LINK_DIST = 192;
-const PLEXUS_SPEED = 0.35;
+const PLEXUS_COUNT = 220;
+const PLEXUS_LINK_DIST = 210;
+const PLEXUS_SPEED = 0.4;
 let plexusNodes: PlexusNode[] = [];
 
 function _initPlexusNodes(w: number, h: number): void {
@@ -2625,14 +2598,16 @@ function _initPlexusNodes(w: number, h: number): void {
     for (let i = 0; i < PLEXUS_COUNT; i++) {
         const roll = Math.random();
         let motion: number;
-        if (roll < 0.35) motion = 0;      // 35% drift (linear float)
-        else if (roll < 0.60) motion = 1;  // 25% orbit (circle)
-        else if (roll < 0.82) motion = 2;  // 22% swirl (ellipse)
-        else motion = 3;                    // 18% figure-8
+        if (roll < 0.22) motion = 0;      // 22% drift (linear float)
+        else if (roll < 0.40) motion = 1;  // 18% orbit (circle)
+        else if (roll < 0.55) motion = 2;  // 15% swirl (ellipse)
+        else if (roll < 0.68) motion = 3;  // 13% figure-8
+        else if (roll < 0.84) motion = 4;  // 16% spiral-inward
+        else motion = 5;                    // 16% sine-wave drift
 
         const cx = Math.random() * w;
         const cy = Math.random() * h;
-        const oRadius = 40 + Math.random() * 180;
+        const oRadius = 50 + Math.random() * 220;
         const oAngle = Math.random() * Math.PI * 2;
         const oSpeed = (0.003 + Math.random() * 0.008) * (Math.random() > 0.5 ? 1 : -1);
 
@@ -2725,7 +2700,8 @@ function initMatrixRain() {
                 n.y = n.oCy + Math.sin(n.oAngle) * n.oRadius * 0.5;
                 n.oCx += Math.sin(n.oAngle * 0.2) * 0.1;
                 n.oCy += Math.cos(n.oAngle * 0.2) * 0.1;
-            } else {
+            } else if (n.motion === 3) {
+                // Figure-8 (lemniscate)
                 n.oAngle += n.oSpeed;
                 const a = n.oAngle;
                 const r8 = n.oRadius * 0.7;
@@ -2733,6 +2709,23 @@ function initMatrixRain() {
                 n.y = n.oCy + r8 * Math.sin(a) * Math.cos(a);
                 n.oCx += Math.sin(a * 0.15) * 0.12;
                 n.oCy += Math.cos(a * 0.15) * 0.12;
+            } else if (n.motion === 4) {
+                // Spiral-inward: shrinking orbit then reset outward
+                n.oAngle += n.oSpeed * 1.2;
+                const shrink = n.oRadius * (0.5 + 0.5 * Math.abs(Math.sin(n.oAngle * 0.15)));
+                n.x = n.oCx + Math.cos(n.oAngle) * shrink;
+                n.y = n.oCy + Math.sin(n.oAngle) * shrink;
+                n.oCx += Math.sin(n.oAngle * 0.1) * 0.18;
+                n.oCy += Math.cos(n.oAngle * 0.1) * 0.18;
+            } else {
+                // Sine-wave drift: horizontal flow with vertical wave
+                n.oAngle += n.oSpeed;
+                n.x += n.vx * 0.8;
+                n.y = n.oCy + Math.sin(n.oAngle + n.x * 0.008) * n.oRadius * 0.35;
+                // Wrap horizontally
+                if (n.x < -30) n.x = w + 30;
+                else if (n.x > w + 30) n.x = -30;
+                n.oCy += Math.sin(n.oAngle * 0.1) * 0.08;
             }
 
             if (n.motion > 0) {
@@ -2775,7 +2768,7 @@ function initMatrixRain() {
         // ── Draw particles: use shadowBlur for glow (GPU-accelerated) ──
         ctx.save();
         ctx.shadowColor = `rgba(${_themeR},${_themeG},${_themeB},0.8)`;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 25;
 
         // Glow layer (theme-colored particles)
         for (let i = 0; i < len; i++) {
@@ -2996,9 +2989,13 @@ const THEME_IMAGES: Record<string, string> = {
 function applyCoreBg(): void {
     const monitor = document.getElementById("nf-core-monitor");
     if (!monitor) return;
-    const key = _themeKeyOverride || "red";
-    const file = THEME_IMAGES[key];
-    if (!file) return; // green theme: keep CSS gradient
+    // Resolve correct theme key (try override → localStorage → default)
+    let key = _themeKeyOverride;
+    if (!key) {
+        try { key = localStorage.getItem("netflow_app_theme") || "red"; } catch { key = "red"; }
+    }
+    const file = THEME_IMAGES[key] || THEME_IMAGES["red"];
+    if (!file) return;
     let imgUrl: string;
     try {
         imgUrl = (chrome as any).runtime.getURL(file);
@@ -3006,11 +3003,15 @@ function applyCoreBg(): void {
         imgUrl = `/${file}`; // dev preview fallback
     }
     const P = currentTheme.rgb;
-    monitor.style.backgroundImage =
-        `linear-gradient(180deg, rgba(0,0,0,0.93) 0%, rgba(0,0,0,0.82) 45%, rgba(0,0,0,0.92) 100%), url('${imgUrl}')`;
-    monitor.style.backgroundSize = "auto, cover";
-    monitor.style.backgroundPosition = "center, center";
-    monitor.style.backgroundRepeat = "no-repeat, no-repeat";
+    // 3-layer stack: dark overlay → theme color tint → background image
+    monitor.style.backgroundImage = [
+        `linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 45%, rgba(0,0,0,0.90) 100%)`,
+        `linear-gradient(180deg, rgba(${P},0.25) 0%, rgba(${P},0.12) 50%, rgba(${P},0.20) 100%)`,
+        `url('${imgUrl}')`,
+    ].join(", ");
+    monitor.style.backgroundSize = "auto, auto, cover";
+    monitor.style.backgroundPosition = "center, center, center";
+    monitor.style.backgroundRepeat = "no-repeat, no-repeat, no-repeat";
     monitor.style.setProperty("--nf-bg-set", "1");
     // Enhance border glow for image bg
     monitor.style.border = `1.5px solid rgba(${P},0.45)`;
@@ -3325,21 +3326,11 @@ export function resetOverlay(): void {
     rebuildTerminalDom();
     refreshModules();
     refreshTerminal();
-    // Reset log feed
-    const feed = document.getElementById("nf-log-feed");
-    if (feed) feed.innerHTML = `<div class="nf-log-line" style="color:rgba(${currentTheme.rgb},0.4)">Waiting for automation...</div>`;
 }
 
-/** Add a real-time log line to the center terminal log feed */
+/** Add a real-time log line (buffered, no UI feed) */
 export function addLog(msg: string): void {
     const clean = msg.replace(/^\[Netflow AI\]\s*/, "");
     logBuffer.push(clean);
     if (logBuffer.length > MAX_LOG_LINES) logBuffer.shift();
-
-    const feed = document.getElementById("nf-log-feed");
-    if (!feed) return;
-
-    feed.innerHTML = logBuffer
-        .map(line => `<div class="nf-log-line">&gt; ${line}</div>`)
-        .join("");
 }

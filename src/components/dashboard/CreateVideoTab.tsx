@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Play, Loader2, ExternalLink, Wand2, Rocket, Eye, Zap, ArrowRight, ChevronLeft, ChevronRight, MousePointerClick, Sparkles } from "lucide-react";
 import { createVideoSchema, CreateVideoFormData, createVideoDefaultValues } from "@/schemas";
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
+import { useTheme } from "@/contexts/ThemeContext";
+import { playAutomationSound } from "@/utils/soundEffects";
 import {
     AiScriptSection,
     ProductDataSection,
@@ -25,6 +27,7 @@ const CreateVideoTab = () => {
     const hasImage = !!result?.data?.imageUrl;
 
     const { register, control, watch, setValue, getValues } = form;
+    const { theme, config: themeConfig } = useTheme();
 
     // UI State — single image per slot (base64)
     const [productImage, setProductImage] = useState<string | null>(null);
@@ -431,6 +434,7 @@ const CreateVideoTab = () => {
                             disabled={isUploading || !generatedImagePrompt}
                             onClick={async () => {
                                 if (!generatedImagePrompt) return;
+                                playAutomationSound();
                                 setIsUploading(true);
                                 setUploadStatus("⏳ กำลังอัพโหลดรูป + สร้างภาพ...");
                                 try {
@@ -467,11 +471,18 @@ const CreateVideoTab = () => {
                             }}
                             className={`w-full py-4 px-6 rounded-[calc(1rem-2px)] font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:cursor-not-allowed ${
                                 isUploading
-                                    ? 'bg-gradient-to-r from-red-900 via-red-700 to-red-900 cursor-wait'
+                                    ? 'opacity-80 cursor-wait'
                                     : !generatedImagePrompt
                                         ? 'bg-muted text-muted-foreground'
-                                        : 'bg-gradient-to-r from-red-900 via-red-700 to-red-800 hover:brightness-110 active:scale-[0.98]'
+                                        : 'hover:brightness-110 active:scale-[0.98]'
                             }`}
+                            style={
+                                generatedImagePrompt && !isUploading
+                                    ? { background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})` }
+                                    : isUploading 
+                                        ? { background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})` }
+                                        : {}
+                            }
                         >
                             {isUploading ? (
                                 <>

@@ -96,8 +96,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // After upscaling: find the latest downloaded video, trim last 1s, open in Chrome
     if (message?.action === "OPEN_LATEST_VIDEO") {
+        const afterTs = message.afterTimestamp || 0;
         chrome.downloads.search(
-            { orderBy: ["-startTime"], limit: 5, state: "complete" },
+            { orderBy: ["-startTime"], limit: 10, state: "complete" },
             (downloads) => {
                 if (chrome.runtime.lastError) {
                     sendResponse({ success: false, message: chrome.runtime.lastError.message });
@@ -105,7 +106,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }
                 const videoFile = downloads.find((d) => {
                     const name = (d.filename || "").toLowerCase();
-                    return name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mov");
+                    const isVideo = name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mov");
+                    if (!isVideo) return false;
+                    // Filter: only downloads started after the given timestamp
+                    if (afterTs && d.startTime) {
+                        const dlTime = new Date(d.startTime).getTime();
+                        if (dlTime < afterTs) return false;
+                    }
+                    return true;
                 });
                 if (!videoFile) {
                     sendResponse({ success: false, message: "ไม่พบไฟล์วิดีโอที่ดาวน์โหลดล่าสุด" });
