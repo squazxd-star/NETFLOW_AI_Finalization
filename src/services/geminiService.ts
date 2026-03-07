@@ -89,14 +89,18 @@ ${data.avoidKeywords ? `- Avoid These Words: ${data.avoidKeywords}` : ""}
 - Language: ${data.language === "th-central" ? "Thai (Central) - Use modern, natural Thai slang where appropriate" : "English"}
 
 ## OUTPUT REQUIREMENTS
-Generate a complete TikTok script with:
-1. [HOOK]
-2. [PROBLEM]
-3. [SOLUTION]
-4. [PROOF]
-5. [CTA]
+Follow this structure in your head to write the script:
+1. Hook
+2. Problem
+3. Solution
+4. Proof
+5. CTA
 
-Output ONLY the script dialogue. No metadata.
+CRITICAL FINAL INSTRUCTION:
+Output ONLY the raw script dialogue. 
+Do NOT output the structural labels like [HOOK], [PROBLEM], [BODY], or [CTA]. 
+Do NOT use markdown bolding (**) or quotation marks around the dialogue.
+Just write the raw spoken words seamlessly.
 `;
 
     return prompt;
