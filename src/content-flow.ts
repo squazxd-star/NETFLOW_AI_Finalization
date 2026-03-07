@@ -63,10 +63,9 @@ function isGenerationFailed(): string | null {
         "unable to generate", "ไม่สามารถสร้างวิดีโอ",
         "couldn't generate video", "couldn't generate image",
     ];
-    const overlayEl = document.getElementById("netflow-engine-overlay");
     const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3, li");
     for (const el of allEls) {
-        if (overlayEl && overlayEl.contains(el)) continue;
+        if (el.closest("#netflow-engine-overlay")) continue;
         const txt = (el.textContent || "").trim().toLowerCase();
         if (txt.length > 200 || txt.length < 5) continue;
         for (const pattern of failurePatterns) {
@@ -768,10 +767,9 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
  */
 function countPromptBarThumbnails(): number {
     let count = 0;
-    const overlayEl = document.getElementById("netflow-engine-overlay");
     const images = document.querySelectorAll<HTMLImageElement>("img");
     for (const img of images) {
-        if (overlayEl && overlayEl.contains(img)) continue;
+        if (img.closest("#netflow-engine-overlay")) continue;
         const rect = img.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
             && rect.height > 20 && rect.height < 200 && img.src && img.offsetParent !== null) {
@@ -780,7 +778,7 @@ function countPromptBarThumbnails(): number {
     }
     const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
     for (const div of thumbDivs) {
-        if (overlayEl && overlayEl.contains(div)) continue;
+        if (div.closest("#netflow-engine-overlay")) continue;
         const rect = div.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
             && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
@@ -1774,11 +1772,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         await sleep(15000);
 
         // ── Helper: scan for image generation % on page ──
-        const imgOverlayEl = document.getElementById("netflow-engine-overlay");
         const scanImagePct = (): number | null => {
             const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
             for (const el of els) {
-                if (imgOverlayEl && imgOverlayEl.contains(el)) continue;
+                if (el.closest("#netflow-engine-overlay")) continue;
                 const txt = (el.textContent || "").trim();
                 if (txt.length > 10) continue;
                 const m = txt.match(/(\d{1,3})\s*%/);
@@ -2117,12 +2114,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         LOG(`=== ขั้น 6: รอวิดีโอ + ${totalScenes > 1 ? `ต่อ ${totalScenes} ฉาก` : 'ดาวน์โหลด'} ===`);
 
         // ── Shared: Scan for "X%" by querying ALL elements directly ──
-        const overlayEl = document.getElementById("netflow-engine-overlay");
         const scanForPct = (): number | null => {
             const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
             for (const el of els) {
                 // Skip elements inside our own overlay (they echo the % back, causing feedback loop)
-                if (overlayEl && overlayEl.contains(el)) continue;
+                if (el.closest("#netflow-engine-overlay")) continue;
                 const txt = (el.textContent || "").trim();
                 if (txt.length > 10) continue;
                 const m = txt.match(/(\d{1,3})\s*%/);
@@ -2151,7 +2147,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
                 let count = 0;
                 for (const el of els) {
-                    if (overlayEl && overlayEl.contains(el)) continue;
+                    if (el.closest("#netflow-engine-overlay")) continue;
                     const txt = (el.textContent || "").trim();
                     if (txt.includes("%") && txt.length < 15) {
                         const tag = el.tagName.toLowerCase();
@@ -2528,7 +2524,6 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             LOG(`── รอวิดีโอฉาก ${scene} gen เสร็จ ──`);
             await sleep(5000); // initial wait
 
-            const overlayEl2 = document.getElementById("netflow-engine-overlay");
             let lastPct = 0;
             let pctGoneAt = 0;
             const scenePollStart = Date.now();
@@ -2540,7 +2535,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                 let foundPct: number | null = null;
                 const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
                 for (const el of els) {
-                    if (overlayEl2 && overlayEl2.contains(el)) continue;
+                    if (el.closest("#netflow-engine-overlay")) continue;
                     const txt = (el.textContent || "").trim();
                     const m = txt.match(/^(\d{1,3})%$/);
                     if (m) {
@@ -2939,7 +2934,6 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
 
     // ── Track generation % ──
     LOG(`── รอวิดีโอ scene ${currentScene} gen เสร็จ (หลัง page navigate) ──`);
-    const overlayEl = document.getElementById("netflow-engine-overlay");
     let lastPct = 0;
     let pctGoneAt = 0;
     const scenePollStart = Date.now();
@@ -2952,7 +2946,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         let foundPct: number | null = null;
         const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
         for (const el of els) {
-            if (overlayEl && overlayEl.contains(el)) continue;
+            if (el.closest("#netflow-engine-overlay")) continue;
             const txt = (el.textContent || "").trim();
             const m = txt.match(/^(\d{1,3})%$/);
             if (m) {
