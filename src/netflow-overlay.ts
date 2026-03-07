@@ -956,7 +956,6 @@ function buildCss(t: OverlayTheme): string {
 
 .nf-brand-gear-icon {
     position: absolute;
-    left: 0;
     top: 50%;
     transform: translateY(-50%);
     width: 80px;
@@ -968,6 +967,14 @@ function buildCss(t: OverlayTheme): string {
         drop-shadow(0 0 4px rgba(${P},1))
         drop-shadow(0 0 12px rgba(${P},0.7))
         drop-shadow(0 0 28px rgba(${P},0.35));
+}
+
+.nf-brand-gear-left {
+    left: 34px;
+}
+
+.nf-brand-gear-right {
+    right: 34px;
 }
 
 .nf-brand-inner-text {
@@ -2447,10 +2454,13 @@ function buildOverlay(): HTMLDivElement {
     const brandInner = document.createElement("div");
     brandInner.className = "nf-engine-brand-inner";
     brandInner.innerHTML = `
-        <div class="nf-brand-gear-icon">
+        <div class="nf-brand-gear-icon nf-brand-gear-left">
             ${buildKineticGearSVG(currentTheme.rgb, currentTheme.accentRgb)}
         </div>
         <div class="nf-brand-inner-text">NETFLOW AI ENGINE V1.0</div>
+        <div class="nf-brand-gear-icon nf-brand-gear-right">
+            ${buildKineticGearSVG(currentTheme.rgb, currentTheme.accentRgb)}
+        </div>
     `;
     engineCore.appendChild(brandInner);
 
@@ -3021,7 +3031,7 @@ function applyCoreBg(): void {
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /** Show the overlay on the page */
-export function showOverlay(): void {
+export function showOverlay(sceneCount: number = 1): void {
     // Resolve theme from localStorage on every show
     currentTheme = resolveThemeColors();
     updateThemeComponents();
@@ -3036,9 +3046,34 @@ export function showOverlay(): void {
     // Re-inject styles with resolved theme (remove old if exists)
     if (styleEl) { styleEl.remove(); styleEl = null; }
     injectStyles();
-    // Reset process steps for fresh overlay
-    currentSceneCount = 1;
-    processSteps = generateProcessSteps(1);
+    // Configure process steps for the correct scene count from the start
+    currentSceneCount = sceneCount;
+    processSteps = generateProcessSteps(sceneCount);
+    // Also update modules for multi-scene BEFORE building DOM
+    if (sceneCount > 1) {
+        const videoMod = modules.find(m => m.id === "video");
+        if (videoMod) {
+            const newSteps: SubStep[] = [
+                { id: "animate", label: "สลับเป็นโหมดวิดีโอ", status: "waiting" },
+                { id: "vid-prompt", label: "Scene 1 Prompt", status: "waiting" },
+                { id: "vid-generate", label: "Scene 1 Generate", status: "waiting" },
+                { id: "vid-wait", label: "Scene 1 รอผล", status: "waiting", progress: 0 },
+            ];
+            for (let i = 2; i <= sceneCount; i++) {
+                newSteps.push({ id: `scene${i}-prompt`, label: `Scene ${i} Prompt`, status: "waiting" });
+                newSteps.push({ id: `scene${i}-gen`, label: `Scene ${i} Generate`, status: "waiting" });
+                newSteps.push({ id: `scene${i}-wait`, label: `Scene ${i} รอผล`, status: "waiting", progress: 0 });
+            }
+            videoMod.steps = newSteps;
+        }
+        const renderMod = modules.find(m => m.id === "render");
+        if (renderMod) {
+            const dlStep = renderMod.steps.find(s => s.id === "download");
+            if (dlStep) dlStep.label = "ดาวน์โหลด 720p";
+            const upStep = renderMod.steps.find(s => s.id === "upscale");
+            if (upStep) upStep.label = "Full Video";
+        }
+    }
     logBuffer.length = 0;
     overlayRoot = buildOverlay();
     document.body.appendChild(overlayRoot);

@@ -2372,17 +2372,17 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: string[] = [], theme?: string): Promise<void> {
     LOG("═══ Auto Mute: ปิดเสียงวิดีโอ ═══");
 
-    // Re-show overlay with correct theme (page navigation destroyed both)
+    // Re-show overlay with correct theme AND scene count (page navigation destroyed both)
     try { if (theme) setOverlayTheme(theme); } catch (_) {}
-    try { showOverlay(); } catch (_) {}
+    try { showOverlay(sceneCount); } catch (e: any) { LOG(`⚠️ showOverlay error: ${e.message}`); }
 
     // Restore overlay progress — all steps up to video detail are DONE
     try {
-        if (sceneCount >= 2) configureScenes(sceneCount);
         const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait"];
         for (const s of doneSteps) updateStep(s, "done");
         if (sceneCount >= 2) updateStep("scene2-prompt", "active");
-    } catch (_) {}
+        LOG(`✅ overlay restored: ${doneSteps.length} steps done, sceneCount=${sceneCount}`);
+    } catch (e: any) { LOG(`⚠️ overlay restore error: ${e.message}`); }
 
     // ── Step A: Mute video ──
     await sleep(1500); // wait for video player to render
@@ -2886,17 +2886,17 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     LOG("═══ Pending: รอ scene 2 gen เสร็จ + ดาวน์โหลด ═══");
 
-    // Re-show overlay with correct theme
+    // Re-show overlay with correct theme AND 2 scenes (page navigation destroyed both)
     try { if (theme) setOverlayTheme(theme); } catch (_) {}
-    try { showOverlay(); } catch (_) {}
+    try { showOverlay(2); } catch (e: any) { LOG(`⚠️ showOverlay error: ${e.message}`); }
 
     // Restore overlay progress — all steps through scene2-gen are DONE
     try {
-        configureScenes(2);
         const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait", "scene2-prompt", "scene2-gen"];
         for (const s of doneSteps) updateStep(s, "done");
         updateStep("scene2-wait", "active");
-    } catch (_) {}
+        LOG(`✅ overlay restored: ${doneSteps.length} steps done (scene2 navigate)`);
+    } catch (e: any) { LOG(`⚠️ overlay restore error: ${e.message}`); }
 
     // Try to mute video
     await sleep(2000);
