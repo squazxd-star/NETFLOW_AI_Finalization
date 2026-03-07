@@ -385,21 +385,25 @@ const CreateVideoTab = () => {
                     )}
                 </div>
 
-                {/* Step 2: Open Flow */}
+                {/* Step 2: Open Engine Page */}
                 <div className={`space-y-2 transition-opacity duration-200 ${!generatedImagePrompt ? 'opacity-40 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
                         <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
-                        เปิดหน้างาน (Google Flow)
+                        {(watch("videoEngine") || "veo") === "grok" ? "เปิดหน้างาน (Grok)" : "เปิดหน้างาน (Google Flow)"}
                     </label>
                     <button
                         type="button"
                         onClick={() => {
-                            window.open('https://labs.google/fx/tools/flow', '_blank');
+                            const engine = getValues("videoEngine") || "veo";
+                            const url = engine === "grok"
+                                ? 'https://grok.com'
+                                : 'https://labs.google/fx/tools/flow';
+                            window.open(url, '_blank');
                             setFlowOpened(true);
                             // Auto-ping after a delay to check if content script loads
                             setTimeout(() => {
                                 if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-                                    chrome.runtime.sendMessage({ action: "PING" }, (res) => {
+                                    chrome.runtime.sendMessage({ action: "PING", videoEngine: engine }, (res) => {
                                         if (!chrome.runtime.lastError && res?.status === "ready") {
                                             setFlowConnected(true);
                                         }
@@ -416,7 +420,13 @@ const CreateVideoTab = () => {
                         }`}
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        {flowConnected ? "✓ เชื่อมต่อ Google Flow แล้ว" : flowOpened ? "⏳ รอเชื่อมต่อ... (กรุณา refresh หน้า Flow)" : "เปิด Google Flow"}
+                        {(() => {
+                            const eng = watch("videoEngine") || "veo";
+                            const label = eng === "grok" ? "Grok" : "Google Flow";
+                            if (flowConnected) return `✓ เชื่อมต่อ ${label} แล้ว`;
+                            if (flowOpened) return `⏳ รอเชื่อมต่อ... (กรุณา refresh หน้า ${label})`;
+                            return `เปิด ${label}`;
+                        })()}
                     </button>
                 </div>
 
