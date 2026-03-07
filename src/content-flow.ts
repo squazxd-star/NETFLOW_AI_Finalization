@@ -26,6 +26,25 @@ const WARN = (msg: string) => {
     try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "warn", msg: `⚠️ ${msg}` }); } catch (_) { /* popup closed */ }
 };
 
+// ─── Close Automation Tab ────────────────────────────────────────────────────
+/** ปิดแท็บ automation (Google Flow) หลังแสดงผลวิดีโอเสร็จ */
+function closeAutomationTab(delayMs: number = 3000): void {
+    LOG(`🔒 จะปิดแท็บ automation ใน ${delayMs / 1000} วินาที...`);
+    setTimeout(() => {
+        try {
+            chrome.runtime.sendMessage({ action: "CLOSE_AUTOMATION_TAB" }, (res) => {
+                if (chrome.runtime.lastError) {
+                    WARN(`ปิดแท็บไม่ได้: ${chrome.runtime.lastError.message}`);
+                } else {
+                    LOG(`✅ ปิดแท็บแล้ว: ${res?.message}`);
+                }
+            });
+        } catch (e: any) {
+            WARN(`ปิดแท็บผิดพลาด: ${e.message}`);
+        }
+    }, delayMs);
+}
+
 // ─── Platform Detection ─────────────────────────────────────────────────────
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isWindows = /Win/i.test(navigator.userAgent);
@@ -2751,6 +2770,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
+        closeAutomationTab(2000);
         return;
     }
 
@@ -2911,6 +2931,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     }
 
     LOG("═══ ดาวน์โหลดเสร็จสิ้น ═══");
+    closeAutomationTab(2000);
 }
 
 /**
@@ -3194,6 +3215,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     if (!opened) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
     try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
     LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
+    closeAutomationTab(2000);
 }
 
 async function checkAndRunPendingAction(): Promise<void> {

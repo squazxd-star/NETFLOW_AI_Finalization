@@ -94,6 +94,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // async
     }
 
+    // Close the automation tab (Google Flow) after automation is complete
+    if (message?.action === "CLOSE_AUTOMATION_TAB") {
+        const tabId = sender?.tab?.id;
+        if (tabId) {
+            console.log("[Netflow] Closing automation tab:", tabId);
+            chrome.tabs.remove(tabId, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn("[Netflow] Failed to close tab:", chrome.runtime.lastError.message);
+                    sendResponse({ success: false, message: chrome.runtime.lastError.message });
+                } else {
+                    sendResponse({ success: true, message: "Tab closed" });
+                }
+            });
+        } else {
+            sendResponse({ success: false, message: "No tab ID found" });
+        }
+        return true; // async
+    }
+
     // After upscaling: find the latest downloaded video, trim last 1s, open in Chrome
     if (message?.action === "OPEN_LATEST_VIDEO") {
         const afterTs = message.afterTimestamp || 0;
