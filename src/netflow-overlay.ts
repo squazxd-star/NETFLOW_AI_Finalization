@@ -2950,12 +2950,13 @@ function refreshTerminal() {
 // ── Toggle Button Builder ──────────────────────────────────────────────────
 
 function ensureToggleButton(): void {
-    if (toggleBtn) return;
+    // Check if button is still in DOM (page navigation destroys it)
+    if (toggleBtn && toggleBtn.isConnected) return;
     injectStyles();
     toggleBtn = document.createElement("button");
     toggleBtn.id = "nf-toggle-btn";
     toggleBtn.className = "nf-toggle-visible";
-    toggleBtn.innerHTML = "⚡";
+    toggleBtn.innerHTML = overlayHidden ? "⚡" : "✕";
     toggleBtn.title = "ซ่อน/แสดง Netflow Overlay";
     toggleBtn.onclick = () => toggleOverlayVisibility();
     document.body.appendChild(toggleBtn);
