@@ -16,7 +16,8 @@
     "nativeMessaging"
   ],
   "host_permissions": [
-    "https://labs.google/*"
+    "https://labs.google/*",
+    "https://grok.com/*"
   ],
   "side_panel": {
     "default_path": "index.html"
@@ -45,12 +46,17 @@
       "matches": ["https://labs.google/*"],
       "js": ["src/content-flow.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://grok.com/*"],
+      "js": ["src/content-grok.js"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["themes/*.jpg", "themes/*.png", "themes/*.webp"],
-      "matches": ["https://labs.google/*"]
+      "matches": ["https://labs.google/*", "https://grok.com/*"]
     }
   ],
   "content_security_policy": {

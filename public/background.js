@@ -4,39 +4,65 @@
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-// ─── Fix #2: Smart tab finder — find Google Flow tab by URL, not just currentWindow ───
-async function findFlowTab() {
-    // Strategy 1: Find tab matching labs.google URL (most reliable, cross-platform)
-    const flowTabs = await chrome.tabs.query({ url: "https://labs.google/*" });
-    if (flowTabs.length > 0) {
-        // Prefer the active one if multiple are open
-        const active = flowTabs.find(t => t.active) || flowTabs[0];
-        return active;
+// ─── Engine Configuration ────────────────────────────────────────────────────
+// Maps engine ID → { urlPatterns, contentScript, label }
+const ENGINE_CONFIG = {
+    veo: {
+        urlPatterns: ["https://labs.google/*"],
+        urlIncludes: "labs.google",
+        contentScript: "src/content-flow.js",
+        label: "Google Flow (Veo 3.1)"
+    },
+    grok: {
+        urlPatterns: ["https://grok.com/*"],
+        urlIncludes: "grok.com",
+        contentScript: "src/content-grok.js",
+        label: "Grok"
+    }
+};
+
+// ─── Smart tab finder — finds the correct tab based on engine ───
+async function findEngineTab(engine) {
+    const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
+    
+    // Strategy 1: Find tab matching engine URL pattern (most reliable)
+    const engineTabs = await chrome.tabs.query({ url: config.urlPatterns });
+    if (engineTabs.length > 0) {
+        const active = engineTabs.find(t => t.active) || engineTabs[0];
+        return { tab: active, config };
     }
 
-    // Strategy 2: Fallback to active tab in current window (original behavior)
+    // Strategy 2: Fallback to active tab in current window
     const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (activeTabs.length > 0) return activeTabs[0];
+    if (activeTabs.length > 0) {
+        const match = activeTabs.find(t => (t.url || "").includes(config.urlIncludes));
+        if (match) return { tab: match, config };
+    }
 
-    // Strategy 3: Last resort — active tab in any window (macOS multi-window)
+    // Strategy 3: Last resort — active tab in any window
     const anyActive = await chrome.tabs.query({ active: true });
     if (anyActive.length > 0) {
-        const flowish = anyActive.find(t => (t.url || "").includes("labs.google"));
-        if (flowish) return flowish;
-        return anyActive[0];
+        const match = anyActive.find(t => (t.url || "").includes(config.urlIncludes));
+        if (match) return { tab: match, config };
     }
 
-    return null;
+    return { tab: null, config };
+}
+
+// ─── Legacy wrapper for backward compatibility ───
+async function findFlowTab() {
+    const result = await findEngineTab("veo");
+    return result.tab;
 }
 
 // ─── Fix #1: Programmatic content script injection ───
 // Ensures content script is present before sending messages.
 // If already injected, Chrome skips re-injection (idempotent).
-async function ensureContentScript(tabId) {
+async function ensureContentScript(tabId, scriptFile) {
     try {
         await chrome.scripting.executeScript({
             target: { tabId },
-            files: ["src/content-flow.js"],
+            files: [scriptFile || "src/content-flow.js"],
         });
     } catch (e) {
         console.warn("[Netflow] Injection failed:", e.message);
@@ -46,13 +72,13 @@ async function ensureContentScript(tabId) {
 
 // ─── Fix #4: Send message with auto-injection retry ───
 // If first sendMessage fails (content script missing), inject and retry once.
-function sendToContentScript(tabId, message) {
+function sendToContentScript(tabId, message, scriptFile) {
     return new Promise((resolve) => {
         chrome.tabs.sendMessage(tabId, message, (response) => {
             if (chrome.runtime.lastError) {
                 // Content script not found — inject programmatically and retry
                 console.log("[Netflow] First attempt failed, injecting content script...");
-                ensureContentScript(tabId).then(() => {
+                ensureContentScript(tabId, scriptFile).then(() => {
                     // Wait a moment for script to initialize
                     setTimeout(() => {
                         chrome.tabs.sendMessage(tabId, message, (retryResponse) => {
@@ -80,12 +106,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         message?.action === "PING" || message?.action === "STOP_AUTOMATION" || message?.action === "CLICK_FIRST_IMAGE") {
         (async () => {
             try {
-                const tab = await findFlowTab();
+                // ── Engine-aware routing ──
+                const engine = message.videoEngine || "veo";
+                const { tab, config } = await findEngineTab(engine);
                 if (!tab?.id) {
-                    sendResponse({ success: false, message: "ไม่พบแท็บ Google Flow — กรุณาเปิด labs.google ก่อน" });
+                    const engineLabel = config.label || engine;
+                    sendResponse({ success: false, message: `ไม่พบแท็บ ${engineLabel} — กรุณาเปิด ${config.urlIncludes} ก่อน` });
                     return;
                 }
-                const response = await sendToContentScript(tab.id, message);
+                console.log(`[Netflow] Routing to ${config.label} (tab ${tab.id})`);
+                const response = await sendToContentScript(tab.id, message, config.contentScript);
                 sendResponse(response);
             } catch (err) {
                 sendResponse({ success: false, message: "Error: " + (err.message || "unknown") });

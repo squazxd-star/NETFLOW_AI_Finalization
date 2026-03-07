@@ -447,6 +447,7 @@ const CreateVideoTab = () => {
                                         chrome.runtime.sendMessage(
                                             {
                                                 action: "GENERATE_IMAGE",
+                                                videoEngine: formData.videoEngine || "veo",
                                                 imagePrompt: generatedImagePrompt,
                                                 videoPrompt: generatedVideoPrompt || undefined,
                                                 videoScenePrompts: videoScenePrompts.length > 0 ? videoScenePrompts : undefined,

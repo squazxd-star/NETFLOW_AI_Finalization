@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run build:content-flow",
+    "build": "vite build && npm run build:content-flow && npm run build:content-grok",
     "build:content-flow": "vite build -c vite.content-flow.config.ts",
+    "build:content-grok": "vite build -c vite.content-grok.config.ts",
     "build:dev": "vite build --mode development",
     "preview": "vite preview"
   },
