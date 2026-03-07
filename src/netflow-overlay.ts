@@ -139,39 +139,39 @@ const MAX_LOG_LINES = 4;
 
 function generateProcessSteps(scenes: number): ProcessStep[] {
     const steps: ProcessStep[] = [
-        { stepId: "upload-char", label: "Upload ตัวละคร", status: "waiting" },
-        { stepId: "upload-prod", label: "Upload สินค้า", status: "waiting" },
-        { stepId: "img-prompt", label: "Paste Image Prompt", status: "waiting" },
-        { stepId: "img-generate", label: "กด Generate →", status: "waiting" },
-        { stepId: "img-wait", label: "รอรูป Generate", status: "waiting", progress: 0 },
-        { stepId: "animate", label: "ทำให้เป็นภาพเคลื่อนไหว", status: "waiting" },
+        { stepId: "upload-char", label: "อัปโหลดภาพตัวละคร", status: "waiting" },
+        { stepId: "upload-prod", label: "อัปโหลดภาพสินค้า", status: "waiting" },
+        { stepId: "img-prompt", label: "ใส่คำสั่งสร้างภาพ", status: "waiting" },
+        { stepId: "img-generate", label: "สั่งสร้างภาพ", status: "waiting" },
+        { stepId: "img-wait", label: "รอผลลัพธ์การสร้างภาพ", status: "waiting", progress: 0 },
+        { stepId: "animate", label: "แปลงเป็นภาพเคลื่อนไหว", status: "waiting" },
     ];
     if (scenes <= 1) {
         steps.push(
-            { stepId: "vid-prompt", label: "Paste Video Prompt", status: "waiting" },
-            { stepId: "vid-generate", label: "กด Generate Video", status: "waiting" },
-            { stepId: "vid-wait", label: "รอ % วิดีโอ + คลิก", status: "waiting", progress: 0 },
-            { stepId: "download", label: "กด ⋮ → ดาวน์โหลด", status: "waiting" },
-            { stepId: "upscale", label: "1080p → Upscale", status: "waiting", progress: 0 },
-            { stepId: "open", label: "เปิดวิดีโอใน Chrome", status: "waiting" },
+            { stepId: "vid-prompt", label: "ใส่คำสั่งสร้างวิดีโอ", status: "waiting" },
+            { stepId: "vid-generate", label: "สั่งสร้างวิดีโอ", status: "waiting" },
+            { stepId: "vid-wait", label: "กำลังสร้างวิดีโอ", status: "waiting", progress: 0 },
+            { stepId: "download", label: "ดาวน์โหลดวิดีโอ", status: "waiting" },
+            { stepId: "upscale", label: "อัปสเกลความละเอียด", status: "waiting", progress: 0 },
+            { stepId: "open", label: "เปิดดูตัวอย่างวิดีโอ", status: "waiting" },
         );
     } else {
         steps.push(
-            { stepId: "vid-prompt", label: "Scene 1 Prompt", status: "waiting" },
-            { stepId: "vid-generate", label: "Scene 1 Generate", status: "waiting" },
-            { stepId: "vid-wait", label: "Scene 1 รอ % + คลิก", status: "waiting", progress: 0 },
+            { stepId: "vid-prompt", label: "ฉาก 1 — ใส่คำสั่ง", status: "waiting" },
+            { stepId: "vid-generate", label: "ฉาก 1 — สั่งสร้าง", status: "waiting" },
+            { stepId: "vid-wait", label: "ฉาก 1 — กำลังสร้าง", status: "waiting", progress: 0 },
         );
         for (let i = 2; i <= scenes; i++) {
             steps.push(
-                { stepId: `scene${i}-prompt`, label: `Scene ${i} Prompt`, status: "waiting" },
-                { stepId: `scene${i}-gen`, label: `Scene ${i} Generate`, status: "waiting" },
-                { stepId: `scene${i}-wait`, label: `Scene ${i} รอ %`, status: "waiting", progress: 0 },
+                { stepId: `scene${i}-prompt`, label: `ฉาก ${i} — ใส่คำสั่ง`, status: "waiting" },
+                { stepId: `scene${i}-gen`, label: `ฉาก ${i} — สั่งสร้าง`, status: "waiting" },
+                { stepId: `scene${i}-wait`, label: `ฉาก ${i} — กำลังสร้าง`, status: "waiting", progress: 0 },
             );
         }
         steps.push(
-            { stepId: "download", label: "กด ⋮ → ดาวน์โหลด", status: "waiting" },
-            { stepId: "upscale", label: "Full Video → 720p", status: "waiting", progress: 0 },
-            { stepId: "open", label: "เปิดวิดีโอใน Chrome", status: "waiting" },
+            { stepId: "download", label: "ดาวน์โหลดวิดีโอ", status: "waiting" },
+            { stepId: "upscale", label: "อัปสเกลความละเอียด", status: "waiting", progress: 0 },
+            { stepId: "open", label: "เปิดดูตัวอย่างวิดีโอ", status: "waiting" },
         );
     }
     return steps;
@@ -182,37 +182,37 @@ const modules: Module[] = [
         id: "ingest",
         title: "ASSET_INGEST",
         steps: [
-            { id: "settings", label: "ตั้งค่า Flow", status: "waiting" },
-            { id: "upload-char", label: "อัพโหลดตัวละคร", status: "waiting" },
-            { id: "upload-prod", label: "อัพโหลดสินค้า", status: "waiting" },
+            { id: "settings", label: "กำหนดค่าเริ่มต้น", status: "waiting" },
+            { id: "upload-char", label: "อัปโหลดภาพตัวละคร", status: "waiting" },
+            { id: "upload-prod", label: "อัปโหลดภาพสินค้า", status: "waiting" },
         ],
     },
     {
         id: "image",
         title: "AI_IMAGE_SYNTHESIS",
         steps: [
-            { id: "img-prompt", label: "ใส่ Prompt", status: "waiting" },
-            { id: "img-generate", label: "สร้างภาพ", status: "waiting" },
-            { id: "img-wait", label: "รอผลภาพ", status: "waiting", progress: 0 },
+            { id: "img-prompt", label: "ใส่คำสั่งสร้างภาพ", status: "waiting" },
+            { id: "img-generate", label: "สั่งสร้างภาพ", status: "waiting" },
+            { id: "img-wait", label: "รอผลลัพธ์การสร้างภาพ", status: "waiting", progress: 0 },
         ],
     },
     {
         id: "video",
         title: "VIDEO_PRODUCTION",
         steps: [
-            { id: "animate", label: "สลับเป็นโหมดวิดีโอ", status: "waiting" },
-            { id: "vid-prompt", label: "ใส่ Video Prompt", status: "waiting" },
-            { id: "vid-generate", label: "สร้างวิดีโอ", status: "waiting" },
-            { id: "vid-wait", label: "รอผลวิดีโอ", status: "waiting", progress: 0 },
+            { id: "animate", label: "แปลงเป็นภาพเคลื่อนไหว", status: "waiting" },
+            { id: "vid-prompt", label: "ใส่คำสั่งสร้างวิดีโอ", status: "waiting" },
+            { id: "vid-generate", label: "สั่งสร้างวิดีโอ", status: "waiting" },
+            { id: "vid-wait", label: "กำลังสร้างวิดีโอ", status: "waiting", progress: 0 },
         ],
     },
     {
         id: "render",
         title: "FINAL_RENDER_OUTPUT",
         steps: [
-            { id: "download", label: "ดาวน์โหลด 1080p", status: "waiting" },
-            { id: "upscale", label: "Upscaling", status: "waiting", progress: 0 },
-            { id: "open", label: "เปิดไฟล์วิดีโอ", status: "waiting" },
+            { id: "download", label: "ดาวน์โหลดวิดีโอ", status: "waiting" },
+            { id: "upscale", label: "อัปสเกลความละเอียด", status: "waiting", progress: 0 },
+            { id: "open", label: "เปิดดูตัวอย่างวิดีโอ", status: "waiting" },
         ],
     },
 ];
