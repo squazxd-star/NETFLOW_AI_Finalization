@@ -826,10 +826,10 @@ const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No dec
 // Face Identity Lock — preserve facial features while framing as anonymous/fictional character
 // CRITICAL: Avoid "identical likeness" or "direct match" phrasing that triggers Google's "famous person" policy.
 // Instead, frame as "original anonymous character inspired by reference style".
-const FACE_IDENTITY_LOCK = "CHARACTER REFERENCE: Use the attached reference photo ONLY as style inspiration for an ORIGINAL ANONYMOUS fictional character. Preserve the general facial aesthetic, hair style, and skin tone from the reference. This is NOT a real person — create a unique, original character that captures a similar visual style. Same consistent fictional character in every frame. Do not replicate any real celebrity or public figure.";
+const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE PRESERVATION: Use Image 1 ONLY as style inspiration for an ORIGINAL ANONYMOUS character. You MUST preserve the exact bone structure, face width, jawline shape, eye shape, and natural skin texture of the reference. Do NOT widen the face, do NOT exaggerate facial proportions. Keep the makeup natural, subtle, and exactly as shown in the reference (no heavy artificial makeup, no exaggerated lipstick unless in reference). This is an original fictional character but with the exact same natural facial anatomy and aesthetic style as the reference.";
 
 // Front-Facing Character Directive — ensures face consistency with reference input
-const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Front-facing, straight-on, looking directly into the lens. Face fully visible and symmetrical. No side profile, no 3/4 turn, no looking away.";
+const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, looking directly into the lens. Face fully visible. Avoid extreme close-ups that distort facial proportions. Keep a natural, relaxed posture.";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CATEGORY-SPECIFIC PRODUCT ANATOMY — tells AI exactly WHAT distinctive features
@@ -2110,10 +2110,12 @@ const buildImagePrompt = (
 
     // ── Expression mapping (form value → descriptive English) ──
     const expressionMap: Record<string, string> = {
-        neutral: "neutral and composed", happy: "happy and confident",
-        excited: "excited and enthusiastic", serious: "serious and focused"
+        neutral: "natural relaxed neutral expression", 
+        happy: "subtle natural smile, relaxed facial muscles (no exaggerated grin)",
+        excited: "bright confident expression, engaged eyes", 
+        serious: "professional focused expression"
     };
-    const expressionText = expressionMap[config.expression || 'happy'] || 'happy and confident';
+    const expressionText = expressionMap[config.expression || 'happy'] || 'subtle natural smile';
 
     // ── Clothing style → descriptive English ──
     const clothingMap: Record<string, string> = {
