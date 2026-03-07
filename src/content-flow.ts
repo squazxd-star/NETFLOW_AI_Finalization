@@ -3353,11 +3353,3 @@ LOG("สคริปต์ Google Flow พร้อมแล้ว — รอค
 // ★ Check for pending action from previous page (video card click caused navigation)
 checkAndRunPendingAction();
 
-document.addEventListener("dblclick", (e) => {
-    const t = e.target as HTMLElement | null;
-    if (!t) return;
-    const tag = t.tagName.toLowerCase();
-    const x = Math.round(e.clientX), y = Math.round(e.clientY);
-    const txt = (t.textContent || "").trim().slice(0, 30);
-    LOG(`🖱️🖱️ ดับเบิลคลิก (${x},${y}) → <${tag}> "${txt}"`);
-}, true);
