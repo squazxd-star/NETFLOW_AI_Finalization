@@ -908,9 +908,21 @@ const buildContactPhysicsDirective = (category: ProductCategory): string => {
     return `${PRODUCT_GRIP_CONTACT[category]} ${PRODUCT_PHYSICS_SHADOW[category]} ${ANTI_FLOATING_HANDS}`;
 };
 
+// Per-category REALISTIC USAGE STEPS — prevents illogical actions (e.g. spraying perfume with cap still on)
+const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
+    beauty: "REALISTIC USAGE: If product has a cap/lid, it MUST be removed or opened BEFORE applying/spraying. Perfume: remove decorative cap first, then press nozzle. Cream/lotion: twist open lid first. Never spray or apply through a closed cap.",
+    beverage: "REALISTIC USAGE: If bottle/can has a cap or tab, it MUST be opened BEFORE drinking or pouring. Twist cap off or pull tab first. Never drink through a sealed container.",
+    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Show realistic preparation steps.",
+    supplement: "REALISTIC USAGE: Open bottle cap or tear sachet BEFORE taking capsules/tablets. Never swallow through closed packaging.",
+    cleaning: "REALISTIC USAGE: Remove safety cap or flip nozzle open BEFORE spraying or pouring cleaning product.",
+    gadget: "REALISTIC USAGE: If device is boxed, unbox first. If it has a power button, press it to turn on. Show logical step-by-step device usage.",
+    kitchen: "REALISTIC USAGE: Show logical cooking steps — prep ingredients before cooking, use utensils in correct order.",
+};
+
 /** Build slim contact physics directive (for video prompts — shorter to avoid policy filter) */
 const buildContactPhysicsDirectiveSlim = (category: ProductCategory): string => {
-    return `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS}`;
+    const usageRealism = PRODUCT_USAGE_REALISM[category] || "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage.";
+    return `Anatomically correct hands, five fingers each. ${usageRealism} ${ANTI_FLOATING_HANDS}`;
 };
 
 // Anti-Distortion directive — injected into all image prompts
