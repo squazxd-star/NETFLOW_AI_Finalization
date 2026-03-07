@@ -49,7 +49,7 @@ export const createVideoSchema = z.object({
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
     outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
-    sceneCount: z.number().int().min(1).max(3).default(1),
+    sceneCount: z.number().int().min(1).max(5).default(2),
 
     // Posting Settings
     autoPostTikTok: z.boolean().default(true),
@@ -87,7 +87,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     outputType: "video",
     orientation: "horizontal",
     outputCount: 1,
-    sceneCount: 1,
+    sceneCount: 2,
     autoPostTikTok: true,
     autoPostYoutube: false,
     mustUseKeywords: "",

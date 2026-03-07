@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Controller } from "react-hook-form";
-import { Settings, Maximize2, Sparkles, Loader2, Zap } from "lucide-react";
+import { Settings, Maximize2, Sparkles, Loader2, Zap, ChevronDown, Film, Clock, Star } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import SectionHeader from "./SectionHeader";
 import { GenerationSettingsSectionProps } from "./types";
@@ -25,7 +25,7 @@ const GenerationSettingsSection = ({
     onToggle,
     productImage
 }: GenerationSettingsSectionProps) => {
-    const sceneCount = (watch("sceneCount") || 1) as 1 | 2 | 3;
+    const sceneCount = (watch("sceneCount") || 2) as number;
     const aiPrompt = watch("aiPrompt") || "";
     const language = watch("language") || "th-central";
     const productName = watch("productName") || "";
@@ -38,6 +38,7 @@ const GenerationSettingsSection = ({
     );
     const [isGenerating, setIsGenerating] = useState(false);
     const [starSpin, setStarSpin] = useState(false);
+    const [sceneDropdownOpen, setSceneDropdownOpen] = useState(false);
 
     useEffect(() => {
         setSceneScripts(parseSceneScripts(aiPrompt, sceneCount));
@@ -137,8 +138,12 @@ const GenerationSettingsSection = ({
                 sceneStructure = `ฉาก 1 (HOOK + CTA): ${guide.s1} รวมกับ ${guide.s3}`;
             } else if (sceneCount === 2) {
                 sceneStructure = `ฉาก 1: ${guide.s1}\nฉาก 2: ${guide.s2} + ${guide.s3}`;
-            } else {
+            } else if (sceneCount === 3) {
                 sceneStructure = `ฉาก 1: ${guide.s1}\nฉาก 2: ${guide.s2}\nฉาก 3: ${guide.s3}`;
+            } else if (sceneCount === 4) {
+                sceneStructure = `ฉาก 1: ${guide.s1}\nฉาก 2: ${guide.s2}\nฉาก 3: เจาะลึกจุดเด่น/รีวิวเพิ่มเติม\nฉาก 4: ${guide.s3}`;
+            } else {
+                sceneStructure = `ฉาก 1: ${guide.s1}\nฉาก 2: ${guide.s2}\nฉาก 3: เจาะลึกจุดเด่น/รีวิวเพิ่มเติม\nฉาก 4: พิสูจน์ผลลัพธ์/เปรียบเทียบ\nฉาก 5: ${guide.s3}`;
             }
 
             // Randomized creative direction for variety (pick 1 of 6)
@@ -185,9 +190,7 @@ ${sceneStructure}
 7. ห้ามเขียนคำอธิบาย ตอบเฉพาะสคริปต์คำพูด
 
 ✍️ ตอบตามรูปแบบนี้เท่านั้น:
-ฉาก 1: [คำพูด 10-18 คำ สั้นกระชับ]
-${sceneCount >= 2 ? "ฉาก 2: [คำพูด 10-18 คำ สั้นกระชับ]" : ""}
-${sceneCount === 3 ? "ฉาก 3: [คำพูด 10-18 คำ สั้นกระชับ]" : ""}`;
+${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพูด 10-18 คำ สั้นกระชับ]`).join("\n")}`;
 
             let content = "";
 
@@ -426,27 +429,90 @@ ${sceneCount === 3 ? "ฉาก 3: [คำพูด 10-18 คำ สั้นก
                     </div>
                     )}
 
-                    {/* Scene Count */}
-                    <div>
-                        <label className="text-sm text-foreground mb-2 block font-medium">
-                            จำนวนฉาก
-                        </label>
-                        <div className="flex gap-2">
-                            {([1, 2, 3] as const).map((count) => (
-                                <button
-                                    key={count}
-                                    type="button"
-                                    onClick={() => setValue("sceneCount", count)}
-                                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                                        sceneCount === count
-                                            ? 'bg-neon-red text-white'
-                                            : 'bg-muted border border-border text-muted-foreground'
-                                    }`}
-                                >
-                                    {count} ฉาก ({count * 8}s)
-                                </button>
-                            ))}
-                        </div>
+                    {/* Scene Count — Custom Dropdown */}
+                    <div className="relative">
+                        <label className="text-xs text-muted-foreground mb-1.5 block">จำนวนฉาก</label>
+                        <button
+                            type="button"
+                            onClick={() => setSceneDropdownOpen(!sceneDropdownOpen)}
+                            className="w-full flex items-center justify-between gap-2 py-3 px-4 rounded-xl border border-border bg-background hover:border-primary/40 transition-all duration-200 group"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <Film className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="text-left">
+                                    <div className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                        {sceneCount} ฉาก
+                                        <span className="text-[10px] font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">
+                                            {sceneCount * 8}s
+                                        </span>
+                                        {sceneCount === 2 && (
+                                            <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md animate-pulse">
+                                                แนะนำ
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                        {sceneCount === 1 && "Quick Hook — เน้นสั้นกระชับ"}
+                                        {sceneCount === 2 && "Hook + Demo — สมดุลที่ดีที่สุด"}
+                                        {sceneCount === 3 && "Hook + Demo + CTA — ครบทุกส่วน"}
+                                        {sceneCount === 4 && "Story-driven — เล่าเรื่องลึก"}
+                                        {sceneCount === 5 && "Full Production — สมบูรณ์แบบ"}
+                                    </div>
+                                </div>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${sceneDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {sceneDropdownOpen && (
+                            <div className="absolute z-50 w-full mt-1.5 rounded-xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                {([
+                                    { count: 1, label: "1 ฉาก", desc: "Quick Hook — เน้นสั้นกระชับ จบใน 8 วิ", icon: "⚡", badge: null },
+                                    { count: 2, label: "2 ฉาก", desc: "Hook + Demo — สมดุลที่ดีที่สุด", icon: "🎯", badge: "แนะนำ" },
+                                    { count: 3, label: "3 ฉาก", desc: "Hook + Demo + CTA — ครบทุกส่วน", icon: "🎬", badge: "ยอดนิยม" },
+                                    { count: 4, label: "4 ฉาก", desc: "Story-driven — เล่าเรื่องลึกซึ้ง", icon: "📖", badge: null },
+                                    { count: 5, label: "5 ฉาก", desc: "Full Production — วิดีโอสมบูรณ์แบบ", icon: "🎥", badge: "PRO" },
+                                ] as const).map((opt, idx) => (
+                                    <button
+                                        key={opt.count}
+                                        type="button"
+                                        onClick={() => {
+                                            setValue("sceneCount", opt.count);
+                                            setSceneDropdownOpen(false);
+                                        }}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-150 ${
+                                            idx > 0 ? 'border-t border-border/50' : ''
+                                        } ${
+                                            sceneCount === opt.count
+                                                ? 'bg-primary/10 text-primary'
+                                                : 'text-foreground hover:bg-muted/50'
+                                        }`}
+                                    >
+                                        <span className="text-lg w-7 text-center flex-shrink-0">{opt.icon}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-semibold">{opt.label}</span>
+                                                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{opt.count * 8}s</span>
+                                                {opt.badge && (
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                                                        opt.badge === "แนะนำ" ? 'text-primary bg-primary/15' :
+                                                        opt.badge === "ยอดนิยม" ? 'text-amber-400 bg-amber-400/15' :
+                                                        'text-violet-400 bg-violet-400/15'
+                                                    }`}>
+                                                        {opt.badge}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground truncate">{opt.desc}</p>
+                                        </div>
+                                        {sceneCount === opt.count && (
+                                            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 shadow-[0_0_6px_rgba(var(--primary-rgb),0.6)]" />
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Script Language */}
