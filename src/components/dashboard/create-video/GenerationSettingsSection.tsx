@@ -41,7 +41,7 @@ const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string
 );
 
 const GrokLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => (
-    <svg viewBox="0 0 24 24" fill="none" className={className} stroke={active ? "currentColor" : "currentColor"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity={active ? 1 : 0.5}>
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke={active ? "#e0e0e0" : "#9e9e9e"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity={active ? 1 : 0.6}>
         <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-8" />
         <polyline points="20 4 20 8 16 8" />
     </svg>
