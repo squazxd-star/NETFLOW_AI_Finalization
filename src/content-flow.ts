@@ -2578,18 +2578,19 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             await sleep(2000);
         }
 
-        // ── Download: Full Video → 720p ──
+        // ── Download: Full Video → 720p (Radix UI selectors) ──
         LOG("── เริ่มดาวน์โหลด Full Video ──");
         try { updateStep("download", "active"); } catch (_) {}
         await sleep(2000);
+        const downloadStartedAt2 = Date.now();
 
-        // Click ดาวน์โหลด
+        // Step 1: Click ดาวน์โหลด button (has <i>download</i> icon)
         let dlBtn2: HTMLElement | null = null;
         const dlPoll2 = Date.now();
         while (!dlBtn2 && Date.now() - dlPoll2 < 10000) {
-            for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
-                const txt = (btn.textContent || "").trim().toLowerCase();
-                if ((txt.includes("download") || txt.includes("ดาวน์โหลด")) && txt.length < 80) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                const icon = btn.querySelector("i");
+                if (icon && (icon.textContent || "").trim() === "download") {
                     const r = btn.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
                 }
@@ -2602,23 +2603,26 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
         await sleep(1500);
 
-        // Click "Full Video" → hover to expand submenu → click "720p"
-        const downloadStartedAt2 = Date.now();
+        // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
         let res720: HTMLElement | null = null;
-
         for (let attempt = 0; attempt < 3 && !res720; attempt++) {
             if (attempt > 0) LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
 
-            // Find and click/hover "Full Video"
             let fullVideoBtn: HTMLElement | null = null;
             const fvStart = Date.now();
             while (!fullVideoBtn && Date.now() - fvStart < 5000) {
-                fullVideoBtn = findByText2("Full Video");
+                for (const mi of document.querySelectorAll<HTMLElement>("[role='menuitem']")) {
+                    const t = (mi.textContent || "").trim();
+                    if (t.includes("Full Video") && mi.querySelector("i")) {
+                        const r = mi.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { fullVideoBtn = mi; break; }
+                    }
+                }
                 if (!fullVideoBtn) await sleep(500);
             }
-            if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
+            if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
-            // Click + hover to expand the submenu (keyboard_arrow_right)
+            // Hover + click to expand submenu
             const fvRect = fullVideoBtn.getBoundingClientRect();
             const fvX = fvRect.left + fvRect.width / 2;
             const fvY = fvRect.top + fvRect.height / 2;
@@ -2629,14 +2633,24 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             LOG("คลิก/hover Full Video ✅");
             await sleep(2000);
 
-            // Poll for "720p" in expanded submenu
+            // Step 3: Find "720p" button[role=menuitem] in expanded submenu
             const r720Start = Date.now();
             while (!res720 && Date.now() - r720Start < 8000) {
-                res720 = findByText2("720p");
+                for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem']")) {
+                    const spans = btn.querySelectorAll("span");
+                    for (const sp of spans) {
+                        if ((sp.textContent || "").trim() === "720p") {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { res720 = btn; break; }
+                        }
+                    }
+                    if (res720) break;
+                }
                 if (!res720) {
                     // Re-hover to keep submenu open
                     if (fullVideoBtn.isConnected) {
                         fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
+                        fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX + 20, clientY: fvY }));
                     }
                     await sleep(500);
                 }
@@ -2646,44 +2660,34 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         await robustClick(res720);
         LOG("คลิก 720p ✅");
 
-        // Wait for download complete
+        // Step 4: Wait for toast "Downloading your extended video." → "Download complete!"
         LOG("รอดาวน์โหลดเสร็จ...");
-        await sleep(5000); // Wait before checking to avoid false positive from pre-existing text
         const dlWaitStart = Date.now();
         let dlDone = false;
         let sawDownloading = false;
-        let dlGoneAt = 0;
         while (Date.now() - dlWaitStart < 300000) {
-            const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-            const lower = bodyText.toLowerCase();
-
-            if (lower.includes("download complete") || lower.includes("ดาวน์โหลดเสร็จ")) {
-                LOG("✅ Download complete!");
-                dlDone = true;
-                break;
-            }
-            for (const el of document.querySelectorAll<HTMLElement>("div, span, p")) {
-                const t = (el.textContent || "").trim().toLowerCase();
-                if (t.length < 60 && (t.includes("download complete") || t.includes("ดาวน์โหลดเสร็จ"))) {
-                    LOG("✅ Download complete! (element)");
+            // Search for toast elements specifically (class sc-9472394d-2)
+            for (const el of document.querySelectorAll<HTMLElement>("div[data-title] div, div[data-content] div")) {
+                const t = (el.textContent || "").trim();
+                if (t === "Download complete!" || t === "ดาวน์โหลดเสร็จ") {
+                    LOG("✅ Download complete! (toast)");
                     dlDone = true;
                     break;
                 }
+                if (t.includes("Downloading your extended video") || t.includes("กำลังดาวน์โหลด")) {
+                    if (!sawDownloading) { sawDownloading = true; LOG("⏳ กำลังดาวน์โหลด..."); }
+                }
             }
             if (dlDone) break;
-
-            const isDownloading = lower.includes("downloading your extended video") || lower.includes("กำลังดาวน์โหลด");
-            if (isDownloading) {
-                sawDownloading = true;
-                dlGoneAt = 0;
-                const elapsed = Math.floor((Date.now() - dlWaitStart) / 1000);
-                LOG(`⏳ กำลังดาวน์โหลด... (${elapsed} วินาที)`);
-            } else if (sawDownloading) {
-                if (dlGoneAt === 0) {
-                    dlGoneAt = Date.now();
-                    LOG("🔍 ข้อความดาวน์โหลดหายไป — กำลังยืนยัน...");
-                } else if (Date.now() - dlGoneAt >= 3000) {
-                    LOG("✅ ดาวน์โหลดเสร็จ (ข้อความหายไป 3 วินาที)");
+            // Fallback: if saw downloading toast but it disappeared, count as done
+            if (sawDownloading) {
+                let stillDownloading = false;
+                for (const el of document.querySelectorAll<HTMLElement>("div[data-title] div, div[data-content] div")) {
+                    const t = (el.textContent || "").trim();
+                    if (t.includes("Downloading")) { stillDownloading = true; break; }
+                }
+                if (!stillDownloading) {
+                    LOG("✅ ดาวน์โหลดเสร็จ (toast หายไป)");
                     dlDone = true;
                     break;
                 }
@@ -2694,7 +2698,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
         try { updateStep("upscale", "done", 100); updateStep("open", "active"); } catch (_) {}
 
-        // Open in Chrome
+        // Step 5: Open in Chrome
         LOG("รอไฟล์ดาวน์โหลดพร้อม...");
         await sleep(5000);
         let opened2 = false;
@@ -3017,17 +3021,18 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         return best;
     };
 
-    // ── Download: Full Video → 720p ──
+    // ── Download: Full Video → 720p (Radix UI selectors) ──
     try { updateStep("download", "active"); } catch (_) {}
     LOG("── เริ่มดาวน์โหลด Full Video (หลัง page navigate) ──");
+    const downloadStartedAt = Date.now();
 
-    // Click ดาวน์โหลด
+    // Step 1: Click ดาวน์โหลด button (has <i>download</i> icon)
     let dlBtn: HTMLElement | null = null;
     const dlPoll = Date.now();
     while (!dlBtn && Date.now() - dlPoll < 10000) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
-            const txt = (btn.textContent || "").trim().toLowerCase();
-            if ((txt.includes("download") || txt.includes("ดาวน์โหลด")) && txt.length < 80) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+            const icon = btn.querySelector("i");
+            if (icon && (icon.textContent || "").trim() === "download") {
                 const r = btn.getBoundingClientRect();
                 if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
             }
@@ -3040,22 +3045,26 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
     await sleep(1500);
 
-    // Click "Full Video" → hover to expand submenu → click "720p"
-    const downloadStartedAt = Date.now();
+    // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
     let res720: HTMLElement | null = null;
-
     for (let attempt = 0; attempt < 3 && !res720; attempt++) {
         if (attempt > 0) LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
 
         let fullVideoBtn: HTMLElement | null = null;
         const fvStart = Date.now();
         while (!fullVideoBtn && Date.now() - fvStart < 5000) {
-            fullVideoBtn = findByText("Full Video");
+            for (const mi of document.querySelectorAll<HTMLElement>("[role='menuitem']")) {
+                const t = (mi.textContent || "").trim();
+                if (t.includes("Full Video") && mi.querySelector("i")) {
+                    const r = mi.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { fullVideoBtn = mi; break; }
+                }
+            }
             if (!fullVideoBtn) await sleep(500);
         }
-        if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
+        if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
-        // Click + hover to expand the submenu (keyboard_arrow_right)
+        // Hover + click to expand submenu
         const fvRect = fullVideoBtn.getBoundingClientRect();
         const fvX = fvRect.left + fvRect.width / 2;
         const fvY = fvRect.top + fvRect.height / 2;
@@ -3066,12 +3075,24 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         LOG("คลิก/hover Full Video ✅");
         await sleep(2000);
 
+        // Step 3: Find "720p" button[role=menuitem] in expanded submenu
         const r720Start = Date.now();
         while (!res720 && Date.now() - r720Start < 8000) {
-            res720 = findByText("720p");
+            for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem']")) {
+                const spans = btn.querySelectorAll("span");
+                for (const sp of spans) {
+                    if ((sp.textContent || "").trim() === "720p") {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { res720 = btn; break; }
+                    }
+                }
+                if (res720) break;
+            }
             if (!res720) {
+                // Re-hover to keep submenu open
                 if (fullVideoBtn.isConnected) {
                     fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
+                    fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX + 20, clientY: fvY }));
                 }
                 await sleep(500);
             }
@@ -3081,44 +3102,32 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     await robustClick(res720);
     LOG("คลิก 720p ✅");
 
-    // Wait for download complete
+    // Step 4: Wait for toast "Downloading your extended video." → "Download complete!"
     LOG("รอดาวน์โหลดเสร็จ...");
-    await sleep(5000); // Wait before checking to avoid false positive from pre-existing text
     const dlWaitStart = Date.now();
     let dlDone = false;
     let sawDownloading = false;
-    let dlGoneAt = 0;
     while (Date.now() - dlWaitStart < 300000) {
-        const bodyText = (document.body.innerText || "") + " " + (document.body.textContent || "");
-        const lower = bodyText.toLowerCase();
-
-        if (lower.includes("download complete") || lower.includes("ดาวน์โหลดเสร็จ")) {
-            LOG("✅ Download complete!");
-            dlDone = true;
-            break;
-        }
-        for (const el of document.querySelectorAll<HTMLElement>("div, span, p")) {
-            const t = (el.textContent || "").trim().toLowerCase();
-            if (t.length < 60 && (t.includes("download complete") || t.includes("ดาวน์โหลดเสร็จ"))) {
-                LOG("✅ Download complete! (element)");
+        for (const el of document.querySelectorAll<HTMLElement>("div[data-title] div, div[data-content] div")) {
+            const t = (el.textContent || "").trim();
+            if (t === "Download complete!" || t === "ดาวน์โหลดเสร็จ") {
+                LOG("✅ Download complete! (toast)");
                 dlDone = true;
                 break;
             }
+            if (t.includes("Downloading your extended video") || t.includes("กำลังดาวน์โหลด")) {
+                if (!sawDownloading) { sawDownloading = true; LOG("⏳ กำลังดาวน์โหลด..."); }
+            }
         }
         if (dlDone) break;
-
-        const isDownloading = lower.includes("downloading your extended video") || lower.includes("กำลังดาวน์โหลด");
-        if (isDownloading) {
-            sawDownloading = true;
-            dlGoneAt = 0;
-            const elapsed = Math.floor((Date.now() - dlWaitStart) / 1000);
-            LOG(`⏳ กำลังดาวน์โหลด... (${elapsed} วินาที)`);
-        } else if (sawDownloading) {
-            if (dlGoneAt === 0) {
-                dlGoneAt = Date.now();
-                LOG("🔍 ข้อความดาวน์โหลดหายไป — กำลังยืนยัน...");
-            } else if (Date.now() - dlGoneAt >= 3000) {
-                LOG("✅ ดาวน์โหลดเสร็จ (ข้อความหายไป 3 วินาที)");
+        if (sawDownloading) {
+            let stillDownloading = false;
+            for (const el of document.querySelectorAll<HTMLElement>("div[data-title] div, div[data-content] div")) {
+                const t = (el.textContent || "").trim();
+                if (t.includes("Downloading")) { stillDownloading = true; break; }
+            }
+            if (!stillDownloading) {
+                LOG("✅ ดาวน์โหลดเสร็จ (toast หายไป)");
                 dlDone = true;
                 break;
             }
@@ -3128,7 +3137,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
     try { updateStep("upscale", "done", 100); updateStep("open", "active"); } catch (_) {}
 
-    // Open in Chrome
+    // Step 5: Open in Chrome
     LOG("รอไฟล์ดาวน์โหลดพร้อม...");
     await sleep(5000);
     let opened = false;
