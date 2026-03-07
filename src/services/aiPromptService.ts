@@ -2010,7 +2010,7 @@ const buildImagePrompt = (
 
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
-[PRODUCT] ${config.productName}: ${productDesc}. The text "${config.productName}" must appear on the product label exactly as spelled — correct font, correct letter spacing, no misspelling, no gibberish.
+[PRODUCT] ${config.productName}: ${productDesc}. PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette, material texture and finish. The text "${config.productName}" must appear on the product label exactly as spelled — correct font, correct letter spacing, no misspelling, no gibberish.
 [CHARACTER] ${characterLine}.
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
@@ -2163,14 +2163,16 @@ const buildVideoPrompt = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     const contactPhysics = buildContactPhysicsDirectiveSlim(category);
-    const productAccuracyDirective = `The ${config.productName} product is the HERO of the video — always visible and prominent. Product appearance must exactly match the reference image: ${fullProductHighlight}. Feature product in every frame, centered and clearly lit.`;
+    // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
+    // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
+    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette, material texture and finish must be preserved identically across every scene. Product is a FIXED visual constant — never morph, never change shape, never alter text between scenes. Feature product in every frame, clearly lit.`;
 
     const prompt = sanitizePromptForPolicy([
         // ★ [VOICE — HIGHEST PRIORITY] — voice persona + script FIRST so model prioritizes it
         `${voiceoverDescriptor}`,
         `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Subject] — product + character
-        `${templateConfig.englishName} commercial video. ${productAccuracyDirective}`,
+        `${templateConfig.englishName} commercial video. ${productAnchor}`,
         // [Action] — character details from form selections
         `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}. ${contactPhysics} ${speakingDirective}`,
         // [Environment] — setting/background
@@ -2183,15 +2185,8 @@ const buildVideoPrompt = (
         `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice must carry identically through every subsequent scene. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
 
-    // ── Build detailed Product Anchor from AI analysis for Scene 2+ identity lock ──
-    const aiProductDesc = ai.product || '';
-    const userProductDesc = config.productDescription?.trim() || '';
-    const productAnchorParts = [
-        `Product: ${config.productName}.`,
-        aiProductDesc ? `Visual details: ${aiProductDesc}.` : '',
-        userProductDesc ? `Description: ${userProductDesc}.` : '',
-        `PRODUCT IDENTITY LOCK: This EXACT product must appear in every scene — identical bottle/package shape, identical proportions, identical cap/closure design, identical label typography and font, identical color palette. The product is a FIXED visual element — never morph, never change shape, never alter text font between scenes.`
-    ].filter(Boolean).join(' ');
+    // ── Product Anchor for Scene 2+ — SAME text as Scene 1 (Anchor Prompt technique) ──
+    // No separate rebuild — reuse the identical productAnchor string from above.
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
     const meta: VideoPromptMeta = {
@@ -2202,7 +2197,7 @@ const buildVideoPrompt = (
         expression: expressionText,
         camera: `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}`,
         product: `${config.productName}, ${fullProductHighlight}`,
-        productAnchor: productAnchorParts,
+        productAnchor: productAnchor,
         template: templateConfig.englishName,
         pacing: durationConfig.pacing,
         restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${buildContactPhysicsDirectiveSlim(category)} ${VIDEO_POLICY_DIRECTIVE}`,
