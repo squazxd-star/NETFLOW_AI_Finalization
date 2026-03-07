@@ -510,24 +510,6 @@ const CreateVideoTab = () => {
                         </button>
                     </div>
 
-                    {/* Stop Button — visible while automation runs */}
-                    {isUploading && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsUploading(false);
-                                setUploadStatus("⚠️ หยุดการทำงานแล้ว");
-                                if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-                                    chrome.runtime.sendMessage({ action: "STOP_AUTOMATION" });
-                                }
-                            }}
-                            className="w-full py-2.5 rounded-xl text-xs font-bold border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:border-red-500 transition-all flex items-center justify-center gap-2"
-                        >
-                            <div className="w-2.5 h-2.5 rounded-sm bg-red-500" />
-                            หยุด AUTOMATION
-                        </button>
-                    )}
-
                     {uploadStatus && (
                         <p className="text-[10px] text-center text-muted-foreground">{uploadStatus}</p>
                     )}
