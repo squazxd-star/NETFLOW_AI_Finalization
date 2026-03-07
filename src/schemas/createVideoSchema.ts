@@ -49,11 +49,14 @@ export const createVideoSchema = z.object({
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
     outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
-    sceneCount: z.number().int().min(1).max(5).default(2),
+    sceneCount: z.number().int().min(1).max(10).default(2),
 
     // Posting Settings
     autoPostTikTok: z.boolean().default(true),
     autoPostYoutube: z.boolean().default(false),
+
+    // Scene Background
+    sceneBackground: z.string().default("studio"),
 
     // Keywords
     mustUseKeywords: z.string().default(""),
@@ -90,6 +93,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     sceneCount: 2,
     autoPostTikTok: true,
     autoPostYoutube: false,
+    sceneBackground: "studio",
     mustUseKeywords: "",
     avoidKeywords: "",
 };

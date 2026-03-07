@@ -75,6 +75,25 @@ export const accentOptions: { value: string; label: string }[] = [
     { value: "isan", label: "อีสาน" },
 ];
 
+export const sceneBackgroundOptions: { value: string; label: string; emoji: string; description: string }[] = [
+    { value: "studio", label: "สตูดิโอ", emoji: "🎬", description: "พื้นหลังสตูดิโอสะอาด เรียบง่าย" },
+    { value: "living-room", label: "ห้องนั่งเล่น", emoji: "🛋️", description: "บรรยากาศอบอุ่น เหมือนรีวิวที่บ้าน" },
+    { value: "bedroom", label: "ห้องนอน", emoji: "🛏️", description: "สไตล์ส่วนตัว ใกล้ชิด" },
+    { value: "cafe", label: "คาเฟ่", emoji: "☕", description: "บรรยากาศร้านกาแฟ ชิลๆ" },
+    { value: "office", label: "ออฟฟิศ", emoji: "💼", description: "มืออาชีพ น่าเชื่อถือ" },
+    { value: "outdoor-nature", label: "ธรรมชาติ", emoji: "🌿", description: "สวน ป่า ต้นไม้ อากาศสดใส" },
+    { value: "outdoor-city", label: "เมือง", emoji: "🏙️", description: "ถนน ตึก บรรยากาศในเมือง" },
+    { value: "kitchen", label: "ครัว", emoji: "🍳", description: "เหมาะกับรีวิวอาหาร/เครื่องครัว" },
+    { value: "gym", label: "ฟิตเนส", emoji: "💪", description: "สไตล์สปอร์ต สุขภาพ" },
+    { value: "beach", label: "ชายหาด", emoji: "🏖️", description: "ทะเล ทราย แดดอุ่น" },
+    { value: "neon-dark", label: "นีออน", emoji: "✨", description: "แสงนีออน ไซเบอร์พังก์ ดูเท่" },
+    { value: "white-minimal", label: "มินิมอล", emoji: "⬜", description: "พื้นหลังขาว สะอาด โฟกัสสินค้า" },
+    { value: "gradient-abstract", label: "แกรเดียนท์", emoji: "🎨", description: "สีไล่เฉด สวยงาม ทันสมัย" },
+    { value: "luxury", label: "หรูหรา", emoji: "👑", description: "หินอ่อน ทอง บรรยากาศพรีเมียม" },
+    { value: "night-market", label: "ตลาดนัด", emoji: "🏮", description: "แสงไฟ บรรยากาศตลาดไทย" },
+    { value: "custom", label: "กำหนดเอง", emoji: "✏️", description: "พิมพ์ฉากที่ต้องการ" },
+];
+
 export const voiceToneOptions: { value: VoiceToneOption; label: string }[] = [
     { value: "energetic", label: "ตื่นเต้น/กระตือรือร้น" },
     { value: "calm", label: "สงบ/ผ่อนคลาย" },

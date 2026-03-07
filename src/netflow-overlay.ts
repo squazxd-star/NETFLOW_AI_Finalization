@@ -1184,15 +1184,15 @@ function buildCss(t: OverlayTheme): string {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 80px;
-    height: 80px;
+    width: 72px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
     filter:
-        drop-shadow(0 0 4px rgba(${P},1))
-        drop-shadow(0 0 12px rgba(${P},0.7))
-        drop-shadow(0 0 28px rgba(${P},0.35));
+        drop-shadow(0 0 3px rgba(${P},0.7))
+        drop-shadow(0 0 8px rgba(${P},0.3));
+    opacity: 0.75;
 }
 
 .nf-brand-gear-left {
@@ -1785,6 +1785,8 @@ function buildCss(t: OverlayTheme): string {
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 18px;
+    text-shadow: 0 0 4px rgba(255,255,255,0.08);
+    transition: text-shadow 0.3s, color 0.3s;
 }
 .nf-proc-badge {
     font-size: 16px;
@@ -1799,6 +1801,12 @@ function buildCss(t: OverlayTheme): string {
 /* Process row states */
 .nf-proc-active {
     color: #fff;
+}
+.nf-proc-active .nf-proc-label {
+    text-shadow:
+        0 0 4px rgba(${P},0.6),
+        0 0 10px rgba(${P},0.4),
+        0 0 20px rgba(${P},0.2);
 }
 .nf-proc-active .nf-proc-num {
     color: ${PH};
@@ -1817,9 +1825,17 @@ function buildCss(t: OverlayTheme): string {
 }
 
 .nf-proc-done {
-    color: rgba(${D},0.7);
+    color: rgba(${D},0.85);
 }
-.nf-proc-done .nf-proc-num { color: rgba(${D},0.5); }
+.nf-proc-done .nf-proc-num {
+    color: rgba(${D},0.5);
+    text-shadow: 0 0 4px rgba(${D},0.3);
+}
+.nf-proc-done .nf-proc-label {
+    text-shadow:
+        0 0 3px rgba(${D},0.4),
+        0 0 8px rgba(${D},0.2);
+}
 .nf-proc-done .nf-proc-dot {
     background: ${DH};
     box-shadow: 0 0 5px rgba(${D},0.5);
@@ -1827,19 +1843,156 @@ function buildCss(t: OverlayTheme): string {
 .nf-proc-done .nf-proc-badge {
     background: rgba(${D},0.1);
     color: ${DL};
+    text-shadow: 0 0 4px rgba(${D},0.3);
 }
 
 .nf-proc-error {
     color: rgba(239,68,68,0.8);
 }
+.nf-proc-error .nf-proc-label {
+    text-shadow:
+        0 0 3px rgba(239,68,68,0.4),
+        0 0 8px rgba(239,68,68,0.2);
+}
 .nf-proc-error .nf-proc-dot { background: #ef4444; }
 .nf-proc-error .nf-proc-badge {
     background: rgba(239,68,68,0.1);
     color: #f87171;
+    text-shadow: 0 0 4px rgba(239,68,68,0.3);
 }
 
 .nf-proc-skipped {
     opacity: 0.15;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS — scale everything proportionally for all screens
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Extra Large (≥1600px) — plenty of room ─── */
+@media (min-width: 1600px) {
+    .nf-core-monitor { width: 58vw; max-width: 850px; }
+}
+
+/* ─── Large Laptop (1200–1599px) — default sweet spot, no changes needed ─── */
+
+/* ─── Medium / Small Laptop (900–1199px) ─── */
+@media (max-width: 1199px) {
+    .nf-core-monitor { width: 72vw; max-width: 680px; min-height: 340px; }
+    .nf-core-title { font-size: 19px; gap: 8px; }
+    .nf-core-counter { min-width: 50px; height: 30px; font-size: 17px; }
+    .nf-terminal { padding: 8px 14px; font-size: 17px; line-height: 1.55; }
+    .nf-proc-label { font-size: 16px; }
+    .nf-proc-num { font-size: 15px; width: 20px; }
+    .nf-proc-badge { font-size: 14px; }
+    .nf-term-status { font-size: 15px; }
+    .nf-engine-core { height: 160px; }
+    .nf-brand-inner-text { font-size: 15px; letter-spacing: 6px; }
+    .nf-brand-gear-icon { width: 60px; height: 60px; }
+    .nf-brand-gear-left { left: 24px; }
+    .nf-brand-gear-right { right: 24px; }
+    .nf-engine-stats { font-size: 11px; padding: 5px 0; }
+    .nf-stat-label { font-size: 10px; letter-spacing: 1.2px; }
+    .nf-stat-val { font-size: 12px; }
+    .nf-module { width: 220px; padding: 10px 12px; }
+    .nf-mod-title { font-size: 15px; }
+    .nf-mod-pct { font-size: 16px; }
+    .nf-step { font-size: 15px; gap: 5px; }
+    .nf-mod-tl { transform: translate(calc(-100% - 200px), calc(-100% - 14px)); }
+    .nf-mod-tr { transform: translate(200px, calc(-100% - 14px)); }
+    .nf-mod-bl { transform: translate(calc(-100% - 200px), 14px); }
+    .nf-mod-br { transform: translate(200px, 14px); }
+}
+
+/* ─── Tablet (600–899px) ─── */
+@media (max-width: 899px) {
+    .nf-core-monitor { width: 88vw; max-width: 560px; min-height: 300px; max-height: 78vh; border-radius: 13px; }
+    .nf-core-header { padding: 12px 16px 10px; }
+    .nf-core-title { font-size: 16px; gap: 6px; letter-spacing: 1px; }
+    .nf-core-counter { min-width: 44px; height: 28px; font-size: 15px; border-radius: 8px; }
+    .nf-terminal { padding: 6px 12px; font-size: 15px; line-height: 1.5; min-height: 80px; }
+    .nf-proc-label { font-size: 14.5px; }
+    .nf-proc-num { font-size: 14px; width: 18px; }
+    .nf-proc-badge { font-size: 13px; padding: 1px 5px; }
+    .nf-proc-dot { width: 5px; height: 5px; }
+    .nf-term-status { font-size: 13.5px; padding: 1px 5px; }
+    .nf-engine-core { height: 140px; }
+    .nf-engine-frame { inset: 6px 10px; }
+    .nf-brand-inner-text { font-size: 13px; letter-spacing: 4px; }
+    .nf-brand-gear-icon { width: 50px; height: 50px; }
+    .nf-brand-gear-left { left: 16px; }
+    .nf-brand-gear-right { right: 16px; }
+    .nf-engine-stats { font-size: 10px; padding: 4px 0; bottom: 6px; left: 8px; right: 8px; }
+    .nf-stat-label { font-size: 9px; letter-spacing: 1px; }
+    .nf-stat-val { font-size: 11px; }
+    .nf-stat-item { padding: 0 6px; gap: 4px; }
+    .nf-module { width: 180px; padding: 8px 10px; border-radius: 10px; }
+    .nf-mod-title { font-size: 13px; letter-spacing: 0.8px; }
+    .nf-mod-pct { font-size: 14px; }
+    .nf-step { font-size: 13px; gap: 4px; padding: 2px 0; }
+    .nf-step-dot { width: 5px; height: 5px; }
+    .nf-mod-tl { transform: translate(calc(-100% - 160px), calc(-100% - 10px)); }
+    .nf-mod-tr { transform: translate(160px, calc(-100% - 10px)); }
+    .nf-mod-bl { transform: translate(calc(-100% - 160px), 10px); }
+    .nf-mod-br { transform: translate(160px, 10px); }
+    .nf-close-btn { top: 10px; right: 10px; padding: 4px 10px; font-size: 16px; }
+    .nf-stop-btn { top: 10px; right: 80px; font-size: 11px; padding: 4px 10px; }
+    .nf-gear-wrap { width: 70px; height: 70px; }
+    .nf-gear-aura { width: 80px; height: 80px; }
+    .nf-pulse-ring { width: 500px; height: 500px; }
+    .nf-pulse-ring:nth-child(2) { width: 380px; height: 380px; }
+    .nf-pulse-ring:nth-child(3) { width: 700px; height: 700px; }
+}
+
+/* ─── Small Phone (≤599px) ─── */
+@media (max-width: 599px) {
+    .nf-core-monitor { width: 96vw; max-width: none; min-height: 260px; max-height: 82vh; border-radius: 10px; }
+    .nf-core-header { padding: 10px 12px 8px; }
+    .nf-core-title { font-size: 14px; gap: 5px; letter-spacing: 0.5px; }
+    .nf-core-title-label { font-size: 12px; }
+    .nf-status-dot { width: 6px; height: 6px; }
+    .nf-core-counter { min-width: 38px; height: 26px; font-size: 13px; border-radius: 6px; padding: 0 6px; }
+    .nf-terminal { padding: 5px 10px; font-size: 13.5px; line-height: 1.45; min-height: 60px; max-height: 50vh; }
+    .nf-proc-row { gap: 4px; padding: 2px 0; }
+    .nf-proc-label { font-size: 13px; }
+    .nf-proc-num { font-size: 12px; width: 16px; }
+    .nf-proc-badge { font-size: 11px; padding: 0px 4px; }
+    .nf-proc-dot { width: 4px; height: 4px; }
+    .nf-term-status { font-size: 12px; padding: 0px 4px; }
+    .nf-engine-core { height: 110px; }
+    .nf-engine-frame { inset: 4px 8px; }
+    .nf-engine-brand-inner { left: 10px; right: 10px; }
+    .nf-brand-inner-text { font-size: 10px; letter-spacing: 2.5px; }
+    .nf-brand-gear-icon { width: 38px; height: 38px; }
+    .nf-brand-gear-left { left: 8px; }
+    .nf-brand-gear-right { right: 8px; }
+    .nf-engine-stats { font-size: 8.5px; padding: 3px 0; bottom: 4px; left: 6px; right: 6px; letter-spacing: 0.8px; }
+    .nf-stat-label { font-size: 7.5px; letter-spacing: 0.6px; }
+    .nf-stat-val { font-size: 9px; }
+    .nf-stat-item { padding: 0 4px; gap: 2px; }
+    /* Hide cross-pattern modules on small screens — terminal view only */
+    .nf-module { display: none; }
+    .nf-pipes-svg { display: none; }
+    .nf-close-btn { top: 8px; right: 8px; padding: 3px 8px; font-size: 14px; border-radius: 6px; }
+    .nf-stop-btn { top: 8px; right: 66px; font-size: 10px; padding: 3px 8px; }
+    .nf-gear-wrap { width: 55px; height: 55px; }
+    .nf-gear-aura { width: 65px; height: 65px; }
+    .nf-pulse-ring { width: 300px; height: 300px; }
+    .nf-pulse-ring:nth-child(2) { width: 220px; height: 220px; }
+    .nf-pulse-ring:nth-child(3) { width: 450px; height: 450px; }
+    .nf-center-glow { width: 400px; height: 400px; }
+    .nf-ambient-orb { display: none; }
+    .nf-corner-deco { display: none; }
+}
+
+/* ─── Very Short Screens (max-height ≤ 600px) ─── */
+@media (max-height: 600px) {
+    .nf-core-monitor { max-height: 90vh; min-height: 220px; }
+    .nf-terminal { max-height: 35vh; min-height: 50px; }
+    .nf-engine-core { height: 100px; }
+    .nf-core-header { padding: 8px 14px 6px; }
+    .nf-brand-inner-text { font-size: 11px; letter-spacing: 3px; }
+    .nf-brand-gear-icon { width: 44px; height: 44px; }
 }
 
     `;
@@ -2406,8 +2559,8 @@ function buildGearSVG(): SVGSVGElement {
 function buildKineticGearSVG(P: string, A: string): string {
     const cx = 120, cy = 120;
 
-    // ═══ OUTER RING 1 — 32 sharp precision teeth ═══
-    const t1 = 32, t1or = 116, t1ir = 104;
+    // ═══ Outer ring — 20 clean teeth ═══
+    const t1 = 20, t1or = 112, t1ir = 100;
     let teeth1 = "";
     for (let i = 0; i < t1; i++) {
         const a1 = (i / t1) * Math.PI * 2;
@@ -2423,8 +2576,8 @@ function buildKineticGearSVG(P: string, A: string): string {
     }
     teeth1 += "Z";
 
-    // ═══ OUTER RING 2 — 24 wider teeth (counter-rotating) ═══
-    const t2 = 24, t2or = 100, t2ir = 90;
+    // ═══ Inner ring — 14 teeth (counter-rotating) ═══
+    const t2 = 14, t2or = 72, t2ir = 62;
     let teeth2 = "";
     for (let i = 0; i < t2; i++) {
         const a1 = (i / t2) * Math.PI * 2;
@@ -2438,157 +2591,38 @@ function buildKineticGearSVG(P: string, A: string): string {
     }
     teeth2 += "Z";
 
-    // ═══ Precision tick marks — 64 fine ticks around outermost edge ═══
-    let ticks = "";
-    for (let i = 0; i < 64; i++) {
-        const a = (i / 64) * Math.PI * 2;
-        const rIn = i % 4 === 0 ? 117 : 119;
-        const rOut = i % 4 === 0 ? 124 : 122;
-        const sw = i % 4 === 0 ? 0.8 : 0.4;
-        const op = i % 4 === 0 ? 0.7 : 0.35;
-        ticks += `<line x1="${(cx + rIn * Math.cos(a)).toFixed(1)}" y1="${(cy + rIn * Math.sin(a)).toFixed(1)}" x2="${(cx + rOut * Math.cos(a)).toFixed(1)}" y2="${(cy + rOut * Math.sin(a)).toFixed(1)}" stroke="rgba(${P},${op})" stroke-width="${sw}"/>`;
-    }
-
-    // ═══ INNER RING 3 — 26 teeth (80% of outer 32) ═══
-    const t3 = 26, t3or = 78, t3ir = 68;
-    let teeth3 = "";
-    for (let i = 0; i < t3; i++) {
-        const a1 = (i / t3) * Math.PI * 2;
-        const a2 = ((i + 0.2) / t3) * Math.PI * 2;
-        const a3 = ((i + 0.5) / t3) * Math.PI * 2;
-        const a4 = ((i + 0.8) / t3) * Math.PI * 2;
-        const a5 = ((i + 1) / t3) * Math.PI * 2;
-        teeth3 += `${i === 0 ? "M" : "L"}${(cx + t3ir * Math.cos(a1)).toFixed(1)},${(cy + t3ir * Math.sin(a1)).toFixed(1)} `;
-        teeth3 += `L${(cx + t3ir * Math.cos(a2)).toFixed(1)},${(cy + t3ir * Math.sin(a2)).toFixed(1)} `;
-        teeth3 += `L${(cx + t3or * Math.cos(a3)).toFixed(1)},${(cy + t3or * Math.sin(a3)).toFixed(1)} `;
-        teeth3 += `L${(cx + t3ir * Math.cos(a4)).toFixed(1)},${(cy + t3ir * Math.sin(a4)).toFixed(1)} `;
-        teeth3 += `L${(cx + t3ir * Math.cos(a5)).toFixed(1)},${(cy + t3ir * Math.sin(a5)).toFixed(1)} `;
-    }
-    teeth3 += "Z";
-
-    // ═══ Inner tick marks — 48 ticks on inner ring edge ═══
-    let innerTicks = "";
-    for (let i = 0; i < 48; i++) {
-        const a = (i / 48) * Math.PI * 2;
-        const rIn = i % 4 === 0 ? 79 : 80;
-        const rOut = i % 4 === 0 ? 85 : 83;
-        const sw = i % 4 === 0 ? 0.6 : 0.3;
-        const op = i % 4 === 0 ? 0.6 : 0.3;
-        innerTicks += `<line x1="${(cx + rIn * Math.cos(a)).toFixed(1)}" y1="${(cy + rIn * Math.sin(a)).toFixed(1)}" x2="${(cx + rOut * Math.cos(a)).toFixed(1)}" y2="${(cy + rOut * Math.sin(a)).toFixed(1)}" stroke="rgba(${A},${op})" stroke-width="${sw}"/>`;
-    }
-
-    // ═══ 9 Sub-gears packed inside (1 center + 8 surrounding) ═══
-    // Helper to build a single mini gear path
-    function miniGear(gx: number, gy: number, numTeeth: number, outerR: number, innerR: number): string {
-        let d = "";
-        for (let i = 0; i < numTeeth; i++) {
-            const a1 = (i / numTeeth) * Math.PI * 2;
-            const a2 = ((i + 0.25) / numTeeth) * Math.PI * 2;
-            const a3 = ((i + 0.75) / numTeeth) * Math.PI * 2;
-            const a4 = ((i + 1) / numTeeth) * Math.PI * 2;
-            d += `${i === 0 ? "M" : "L"}${(gx + innerR * Math.cos(a1)).toFixed(1)},${(gy + innerR * Math.sin(a1)).toFixed(1)} `;
-            d += `L${(gx + outerR * Math.cos(a2)).toFixed(1)},${(gy + outerR * Math.sin(a2)).toFixed(1)} `;
-            d += `L${(gx + outerR * Math.cos(a3)).toFixed(1)},${(gy + outerR * Math.sin(a3)).toFixed(1)} `;
-            d += `L${(gx + innerR * Math.cos(a4)).toFixed(1)},${(gy + innerR * Math.sin(a4)).toFixed(1)} `;
-        }
-        return d + "Z";
-    }
-
-    // 8 gears in a ring (radius 42 from center) + 1 center gear
-    const gearRing = 42;
-    const allNineGears: string[] = [];
-
-    // Center gear (#1) — largest, 14 teeth
-    const cGearD = miniGear(cx, cy, 14, 18, 13);
-    allNineGears.push(`<g class="nf-kinetic-sub" style="transform-origin:${cx}px ${cy}px">
-        <path d="${cGearD}" fill="none" stroke="rgba(${P},0.8)" stroke-width="1.2"/>
-        <circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="rgba(${A},0.5)" stroke-width="0.6" stroke-dasharray="2,1"/>
-        <circle cx="${cx}" cy="${cy}" r="4" fill="rgba(${P},0.9)">
-            <animate attributeName="r" values="3;5;3" dur="1.5s" repeatCount="indefinite"/>
-        </circle>
-    </g>`);
-
-    // 8 surrounding gears (#2-#9) — evenly spaced around center
-    for (let g = 0; g < 8; g++) {
-        const angle = (g / 8) * Math.PI * 2;
-        const gx = cx + gearRing * Math.cos(angle);
-        const gy = cy + gearRing * Math.sin(angle);
-        const numT = 10;
-        const gd = miniGear(gx, gy, numT, 14, 10);
-        const reverse = g % 2 === 0 ? "" : "animation-direction:reverse;";
-        allNineGears.push(`<g class="nf-kinetic-sub" style="transform-origin:${gx.toFixed(1)}px ${gy.toFixed(1)}px;${reverse}">
-            <path d="${gd}" fill="none" stroke="rgba(${A},0.6)" stroke-width="0.9"/>
-            <circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="7" fill="none" stroke="rgba(${P},0.4)" stroke-width="0.5" stroke-dasharray="1.5,1.5"/>
-            <circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="2.5" fill="rgba(${P},0.6)"/>
-        </g>`);
-    }
-    const nineGearsHTML = allNineGears.join("\n");
-
-    // ═══ Connecting spokes from center to each surrounding gear ═══
-    let spokes = "";
-    for (let g = 0; g < 8; g++) {
-        const angle = (g / 8) * Math.PI * 2;
-        const x1 = cx + 10 * Math.cos(angle), y1 = cy + 10 * Math.sin(angle);
-        const x2 = cx + (gearRing - 10) * Math.cos(angle), y2 = cy + (gearRing - 10) * Math.sin(angle);
-        spokes += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(${A},0.25)" stroke-width="0.5"/>`;
-    }
-
-    return `<svg width="80" height="80" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+    return `<svg width="72" height="72" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
             <linearGradient id="nfKGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="rgba(${P},0.95)"/>
-                <stop offset="50%" stop-color="rgba(${A},0.75)"/>
-                <stop offset="100%" stop-color="rgba(${P},0.95)"/>
+                <stop offset="0%" stop-color="rgba(${P},0.9)"/>
+                <stop offset="100%" stop-color="rgba(${A},0.7)"/>
             </linearGradient>
             <linearGradient id="nfKGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="rgba(${A},0.8)"/>
-                <stop offset="100%" stop-color="rgba(${P},0.6)"/>
-            </linearGradient>
-            <linearGradient id="nfKGrad3" x1="100%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="rgba(${P},0.85)"/>
-                <stop offset="50%" stop-color="rgba(${A},0.65)"/>
-                <stop offset="100%" stop-color="rgba(${P},0.85)"/>
+                <stop offset="0%" stop-color="rgba(${A},0.7)"/>
+                <stop offset="100%" stop-color="rgba(${P},0.5)"/>
             </linearGradient>
         </defs>
 
-        <!-- Outermost ambient rings + tick marks -->
-        <g opacity="0.3">
-            <circle cx="120" cy="120" r="126" stroke="rgba(${P},0.4)" stroke-width="0.3" stroke-dasharray="2,8"/>
-            <circle cx="120" cy="120" r="124" stroke="rgba(${P},0.2)" stroke-width="0.2"/>
-        </g>
-        ${ticks}
-
-        <!-- OUTER LAYER 1 — 32 sharp teeth (CW) -->
+        <!-- Outer ring (CW) -->
         <g class="nf-kinetic-outer">
-            <path d="${teeth1}" fill="none" stroke="url(#nfKGrad)" stroke-width="1.5" stroke-linejoin="bevel"/>
-            <circle cx="120" cy="120" r="${t1ir}" fill="none" stroke="rgba(${P},0.2)" stroke-width="0.5"/>
+            <path d="${teeth1}" fill="none" stroke="url(#nfKGrad)" stroke-width="1.2" stroke-linejoin="bevel"/>
+            <circle cx="120" cy="120" r="${t1ir}" fill="none" stroke="rgba(${P},0.15)" stroke-width="0.4"/>
         </g>
 
-        <!-- OUTER LAYER 2 — 24 teeth (CCW) -->
+        <!-- Inner ring (CCW) -->
         <g class="nf-kinetic-mid">
-            <path d="${teeth2}" fill="none" stroke="url(#nfKGrad2)" stroke-width="1.2" stroke-linejoin="bevel"/>
-            <circle cx="120" cy="120" r="${t2ir}" fill="none" stroke="rgba(${A},0.25)" stroke-width="0.5" stroke-dasharray="1,2"/>
+            <path d="${teeth2}" fill="none" stroke="url(#nfKGrad2)" stroke-width="1" stroke-linejoin="bevel"/>
+            <circle cx="120" cy="120" r="${t2ir}" fill="none" stroke="rgba(${A},0.15)" stroke-width="0.3" stroke-dasharray="2,3"/>
         </g>
 
-        <!-- INNER RING 3 — 26 teeth (CW fast) + inner tick marks -->
-        <g class="nf-kinetic-inner">
-            <path d="${teeth3}" fill="none" stroke="url(#nfKGrad3)" stroke-width="1.1" stroke-linejoin="bevel"/>
-            <circle cx="120" cy="120" r="${t3ir}" fill="none" stroke="rgba(${P},0.2)" stroke-width="0.4"/>
-            <circle cx="120" cy="120" r="65" fill="none" stroke="rgba(${A},0.15)" stroke-width="0.3" stroke-dasharray="1,2"/>
-        </g>
-        ${innerTicks}
+        <!-- Thin separator ring -->
+        <circle cx="120" cy="120" r="50" fill="none" stroke="rgba(${P},0.12)" stroke-width="0.3"/>
 
-        <!-- Precision rings between inner gear and core -->
-        <circle cx="120" cy="120" r="60" fill="none" stroke="rgba(${P},0.15)" stroke-width="0.3" stroke-dasharray="3,5" opacity="0.5"/>
-        <circle cx="120" cy="120" r="58" fill="none" stroke="rgba(${A},0.1)" stroke-width="0.2"/>
-
-        <!-- Connecting spokes (static) -->
-        ${spokes}
-
-        <!-- 9 PACKED SUB-GEARS (1 center + 8 ring, all spinning) -->
-        <g class="nf-kinetic-mid" style="animation-duration:18s">
-            ${nineGearsHTML}
-        </g>
+        <!-- Core dot -->
+        <circle cx="120" cy="120" r="5" fill="rgba(${P},0.8)">
+            <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+        </circle>
     </svg>`;
 }
 
@@ -3374,9 +3408,9 @@ function applyCoreBg(): void {
     // Resolve correct theme key (try override → localStorage → default)
     let key = _themeKeyOverride;
     if (!key) {
-        try { key = localStorage.getItem("netflow_app_theme") || "red"; } catch { key = "red"; }
+        try { key = localStorage.getItem("netflow_app_theme") || "green"; } catch { key = "green"; }
     }
-    const file = THEME_IMAGES[key] || THEME_IMAGES["red"];
+    const file = THEME_IMAGES[key] || THEME_IMAGES["green"];
     if (!file) return;
     let imgUrl: string;
     try {
@@ -3391,7 +3425,7 @@ function applyCoreBg(): void {
         `linear-gradient(180deg, rgba(${P},0.25) 0%, rgba(${P},0.12) 50%, rgba(${P},0.20) 100%)`,
         `url('${imgUrl}')`,
     ].join(", ");
-    monitor.style.backgroundSize = "auto, auto, cover";
+    monitor.style.backgroundSize = "auto, auto, 50%";
     monitor.style.backgroundPosition = "center, center, center";
     monitor.style.backgroundRepeat = "no-repeat, no-repeat, no-repeat";
     monitor.style.setProperty("--nf-bg-set", "1");

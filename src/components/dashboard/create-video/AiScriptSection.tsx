@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Controller } from "react-hook-form";
 import {
-    FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe
+    FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe,
+    ImageIcon, ChevronDown, Tag, ShieldAlert
 } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
@@ -10,6 +12,7 @@ import {
     voiceToneOptions,
     saleStyleOptions,
     languageOptions,
+    sceneBackgroundOptions,
 } from "@/types/netflow";
 
 const AiScriptSection = ({
@@ -26,7 +29,11 @@ const AiScriptSection = ({
     const template = watch("template");
     const hookEnabled = watch("hookEnabled");
     const ctaEnabled = watch("ctaEnabled");
+    const sceneBackground = watch("sceneBackground") || "studio";
     const isAiMode = useAiScript;
+
+    const [showAllBackgrounds, setShowAllBackgrounds] = useState(false);
+    const visibleBackgrounds = showAllBackgrounds ? sceneBackgroundOptions : sceneBackgroundOptions.slice(0, 8);
 
     return (
         <section className="glass-card overflow-hidden">
@@ -40,66 +47,82 @@ const AiScriptSection = ({
             </div>
 
             {isOpen && (
-                <div className="px-4 pb-4 space-y-4">
-                    {/* Script Type Toggle - AI vs Manual */}
-                    <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">
-                            ประเภทสคริปต์
-                        </label>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setValue("useAiScript", true)}
-                                className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 ${useAiScript
-                                    ? 'bg-neon-red text-white'
-                                    : 'bg-muted text-muted-foreground border border-border'
-                                    }`}
+                <div className="px-4 pb-4 space-y-5">
+
+                    {/* ═══ Row 1: Script Type Toggle ═══ */}
+                    <div className="flex items-center gap-2 p-1 rounded-xl bg-muted/50 border border-border">
+                        <button
+                            type="button"
+                            onClick={() => setValue("useAiScript", true)}
+                            className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${useAiScript
+                                ? 'text-white shadow-lg shadow-primary/25'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            style={useAiScript ? { background: themeConfig.hex } : {}}
+                        >
+                            <Stars className="w-4 h-4" />
+                            AI สร้างอัตโนมัติ
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setValue("useAiScript", false)}
+                            className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${!useAiScript
+                                ? 'text-white shadow-lg shadow-primary/25'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            style={!useAiScript ? { background: themeConfig.hex } : {}}
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                            เขียนเอง
+                        </button>
+                    </div>
+
+                    {/* ═══ Row 2: Template + Language (side by side) ═══ */}
+                    <div className="grid grid-cols-5 gap-3">
+                        <div className="col-span-3">
+                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium">
+                                เทมเพลตสคริปต์
+                            </label>
+                            <select
+                                {...register("template")}
+                                className="w-full neon-select text-xs"
                             >
-                                <Stars className="w-4 h-4" />
-                                AI สร้างอัตโนมัติ
-                            </button>
-                            <button
-                                onClick={() => setValue("useAiScript", false)}
-                                className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 ${!useAiScript
-                                    ? 'bg-neon-red text-white'
-                                    : 'bg-muted text-muted-foreground border border-border'
-                                    }`}
+                                {templateOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] text-muted-foreground/60 mt-1 flex items-center gap-1 leading-tight">
+                                <Sparkles className="w-3 h-3 flex-shrink-0" />
+                                {templateOptions.find(t => t.value === template)?.description}
+                            </p>
+                        </div>
+                        <div className="col-span-2">
+                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium flex items-center gap-1">
+                                <Globe className="w-3 h-3" />
+                                ภาษา
+                            </label>
+                            <select
+                                {...register("language")}
+                                className="w-full neon-select text-xs"
                             >
-                                <Pencil className="w-4 h-4" />
-                                เขียนเอง
-                            </button>
+                                {languageOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
-                    {/* Template Selection - Always available */}
-                    <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">
-                            เทมเพลตสคริปต์
-                        </label>
-                        <select
-                            {...register("template")}
-                            className="w-full neon-select"
-                        >
-                            {templateOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-[10px] text-muted-foreground/70 mt-1 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            {templateOptions.find(t => t.value === template)?.description}
-                        </p>
-                    </div>
-
-                    {/* Prompt - Disabled in AI mode */}
-                    <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                            <label className={`text-xs block flex items-center gap-1 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                    {/* ═══ Row 3: Prompt Area ═══ */}
+                    <div className="rounded-xl border border-border/60 bg-background/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
+                            <label className={`text-[11px] font-medium flex items-center gap-1.5 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
                                 <RefreshCw className="w-3 h-3" />
                                 คำสั่งเพิ่มเติม (Prompt)
                             </label>
-
-                            {/* Analyze Logic Feature */}
                             <button
                                 type="button"
                                 onClick={async () => {
@@ -109,7 +132,6 @@ const AiScriptSection = ({
                                         return;
                                     }
                                     try {
-                                        // Dynamic Import to avoid circular deps if any
                                         const { generateVisualPrompt } = await import("@/services/geminiService");
                                         const { getApiKey } = await import("@/services/storageService");
                                         const apiKey = await getApiKey("openai");
@@ -119,35 +141,32 @@ const AiScriptSection = ({
                                             return;
                                         }
 
-                                        // Set loading state if possible or just alert
                                         const btn = document.getElementById("analyze-btn");
-                                        if (btn) btn.innerText = "⏳ กำลังวิเคราะห์...";
+                                        if (btn) btn.innerText = "กำลังวิเคราะห์...";
 
                                         const style = watch("saleStyle") || "hard";
                                         const name = watch("productName") || "";
 
                                         const result = await generateVisualPrompt(apiKey, img, name, style);
 
-                                        // Parse result to get just the prompt part if needed, or put whole text
-                                        // Default format is "Name: ... \n Prompt: ..." 
                                         const promptMatch = result.match(/Prompt:\s*([\s\S]+)/i);
                                         const cleanPrompt = promptMatch ? promptMatch[1].trim() : result;
 
                                         setValue("aiPrompt", cleanPrompt);
-                                        setValue("useAiScript", false); // Switch to Manual so user can see it
+                                        setValue("useAiScript", false);
 
-                                        if (btn) btn.innerText = "✨ วิเคราะห์ภาพด้วย AI";
+                                        if (btn) btn.innerText = "วิเคราะห์ภาพด้วย AI";
                                     } catch (e: any) {
                                         alert("เกิดข้อผิดพลาด: " + e.message);
                                         const btn = document.getElementById("analyze-btn");
-                                        if (btn) btn.innerText = "✨ วิเคราะห์ภาพด้วย AI";
+                                        if (btn) btn.innerText = "วิเคราะห์ภาพด้วย AI";
                                     }
                                 }}
                                 id="analyze-btn"
-                                className="text-[10px] px-2 py-1 rounded-md transition-colors flex items-center gap-1"
-                                style={{ background: `rgba(${themeConfig.hexRgb},0.2)`, color: themeConfig.hex }}
-                                onMouseEnter={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.4)`)}
-                                onMouseLeave={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.2)`)}
+                                className="text-[10px] px-2.5 py-1 rounded-lg transition-all duration-200 flex items-center gap-1 font-medium"
+                                style={{ background: `rgba(${themeConfig.hexRgb},0.15)`, color: themeConfig.hex }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.3)`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.15)`)}
                             >
                                 <Sparkles className="w-3 h-3" />
                                 วิเคราะห์ภาพด้วย AI
@@ -156,22 +175,22 @@ const AiScriptSection = ({
                         <textarea
                             {...register("aiPrompt")}
                             placeholder="ระบุรายละเอียดเพิ่มเติม เช่น จุดเด่นที่ต้องการเน้น, คำที่ต้องการใช้, สิ่งที่ต้องการหลีกเลี่ยง..."
-                            rows={4}
+                            rows={3}
                             disabled={isAiMode}
-                            className={`w-full neon-textarea transition-all ${isAiMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`w-full bg-transparent px-3 py-2.5 text-xs resize-none outline-none placeholder:text-muted-foreground/40 transition-opacity ${isAiMode ? 'opacity-40 cursor-not-allowed' : ''}`}
                         />
                     </div>
 
-                    {/* Sale Style & Voice Tone - Row */}
+                    {/* ═══ Row 4: Voice & Energy (compact row) ═══ */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs mb-1.5 block flex items-center gap-1 text-muted-foreground">
+                            <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
                                 <Mic className="w-3 h-3" />
                                 น้ำเสียง & อารมณ์
                             </label>
                             <select
                                 {...register("voiceTone")}
-                                className="w-full neon-select"
+                                className="w-full neon-select text-xs"
                             >
                                 {voiceToneOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -181,13 +200,13 @@ const AiScriptSection = ({
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs mb-1.5 block flex items-center gap-1 text-muted-foreground">
+                            <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
                                 <Sparkles className="w-3 h-3" />
                                 ระดับพลังงาน
                             </label>
                             <select
                                 {...register("saleStyle")}
-                                className="w-full neon-select"
+                                className="w-full neon-select text-xs"
                             >
                                 {saleStyleOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -198,30 +217,72 @@ const AiScriptSection = ({
                         </div>
                     </div>
 
-                    {/* Language & Dialect Selection - Always available */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                                <Globe className="w-3 h-3" />
-                                ภาษา
-                            </label>
-                            <select
-                                {...register("language")}
-                                className="w-full neon-select"
+                    {/* ═══ Row 5: Scene Background Picker ═══ */}
+                    <div>
+                        <label className="text-[11px] mb-2 block font-medium flex items-center gap-1.5 text-muted-foreground">
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            ฉากพื้นหลัง (Background)
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {visibleBackgrounds.map((bg) => {
+                                const isActive = sceneBackground === bg.value;
+                                return (
+                                    <button
+                                        key={bg.value}
+                                        type="button"
+                                        onClick={() => setValue("sceneBackground", bg.value)}
+                                        className={`relative group flex flex-col items-center gap-1 py-2.5 px-1.5 rounded-xl text-center transition-all duration-200 border ${
+                                            isActive
+                                                ? 'border-primary bg-primary/10 shadow-[0_0_12px_rgba(var(--primary-rgb),0.2)]'
+                                                : 'border-border/60 bg-muted/30 hover:border-primary/40 hover:bg-muted/60'
+                                        }`}
+                                    >
+                                        <span className={`text-lg leading-none transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+                                            {bg.emoji}
+                                        </span>
+                                        <span className={`text-[10px] font-medium leading-tight ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                                            {bg.label}
+                                        </span>
+                                        {isActive && (
+                                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary flex items-center justify-center">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {sceneBackgroundOptions.length > 8 && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAllBackgrounds(!showAllBackgrounds)}
+                                className="w-full mt-2 py-1.5 text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
                             >
-                                {languageOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            {/* Accent field removed - language selection covers dialect */}
-                        </div>
+                                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAllBackgrounds ? 'rotate-180' : ''}`} />
+                                {showAllBackgrounds ? 'แสดงน้อยลง' : `แสดงทั้งหมด (${sceneBackgroundOptions.length})`}
+                            </button>
+                        )}
+
+                        {sceneBackground === "custom" && (
+                            <input
+                                type="text"
+                                placeholder="พิมพ์ฉากที่ต้องการ เช่น ร้านขายยา, สระว่ายน้ำ..."
+                                className="w-full neon-input text-xs mt-2"
+                                onChange={(e) => {
+                                    // Store custom value in a data attribute or extend schema
+                                    const input = e.target as HTMLInputElement;
+                                    input.dataset.customBg = e.target.value;
+                                }}
+                            />
+                        )}
+
+                        <p className="text-[10px] text-muted-foreground/50 mt-1.5 leading-tight">
+                            {sceneBackgroundOptions.find(b => b.value === sceneBackground)?.description}
+                        </p>
                     </div>
 
-                    {/* Hook & CTA - Disabled in AI mode */}
+                    {/* ═══ Row 6: Hook & CTA (compact) ═══ */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <div className="flex items-center gap-2 mb-1.5">
@@ -229,15 +290,18 @@ const AiScriptSection = ({
                                     name="hookEnabled"
                                     control={control}
                                     render={({ field }) => (
-                                        <input
-                                            type="checkbox"
-                                            checked={field.value}
-                                            onChange={(e) => field.onChange(e.target.checked)}
-                                            className="w-3 h-3 rounded accent-neon-red"
-                                        />
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={field.value}
+                                                onChange={(e) => field.onChange(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-7 h-4 rounded-full bg-muted border border-border peer-checked:bg-primary/80 transition-colors after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-3" />
+                                        </label>
                                     )}
                                 />
-                                <label className="text-xs text-muted-foreground">
+                                <label className="text-[11px] text-muted-foreground font-medium">
                                     ประโยคเปิด (Hook)
                                 </label>
                             </div>
@@ -246,7 +310,7 @@ const AiScriptSection = ({
                                 {...register("hookText")}
                                 placeholder="เช่น หยุดดูคลิปนี้ก่อน..."
                                 disabled={!hookEnabled}
-                                className={`w-full neon-input text-xs ${!hookEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`w-full neon-input text-xs ${!hookEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                             />
                         </div>
                         <div>
@@ -255,15 +319,18 @@ const AiScriptSection = ({
                                     name="ctaEnabled"
                                     control={control}
                                     render={({ field }) => (
-                                        <input
-                                            type="checkbox"
-                                            checked={field.value}
-                                            onChange={(e) => field.onChange(e.target.checked)}
-                                            className="w-3 h-3 rounded accent-neon-red"
-                                        />
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={field.value}
+                                                onChange={(e) => field.onChange(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-7 h-4 rounded-full bg-muted border border-border peer-checked:bg-primary/80 transition-colors after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-3" />
+                                        </label>
                                     )}
                                 />
-                                <label className="text-xs text-muted-foreground">
+                                <label className="text-[11px] text-muted-foreground font-medium">
                                     ปุ่มกระตุ้น (CTA)
                                 </label>
                             </div>
@@ -272,32 +339,34 @@ const AiScriptSection = ({
                                 {...register("ctaText")}
                                 placeholder="เช่น กดตะกร้าเลย..."
                                 disabled={!ctaEnabled}
-                                className={`w-full neon-input text-xs ${!ctaEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`w-full neon-input text-xs ${!ctaEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
 
-                    {/* Keyword Tags - Disabled in AI mode */}
+                    {/* ═══ Row 7: Keywords (compact) ═══ */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs mb-1.5 block text-muted-foreground">
+                            <label className="text-[11px] mb-1.5 block text-muted-foreground font-medium flex items-center gap-1">
+                                <Tag className="w-3 h-3" />
                                 คำสำคัญที่ต้องใช้
                             </label>
                             <input
                                 type="text"
                                 {...register("mustUseKeywords")}
-                                placeholder="ค้นด้วยเครื่องหมาย จุลภาค"
+                                placeholder="คั่นด้วยเครื่องหมาย จุลภาค"
                                 className="w-full neon-input text-xs"
                             />
                         </div>
                         <div>
-                            <label className="text-xs mb-1.5 block text-muted-foreground">
+                            <label className="text-[11px] mb-1.5 block text-muted-foreground font-medium flex items-center gap-1">
+                                <ShieldAlert className="w-3 h-3" />
                                 คำที่ต้องหลีกเลี่ยง
                             </label>
                             <input
                                 type="text"
                                 {...register("avoidKeywords")}
-                                placeholder="ค้นด้วยเครื่องหมาย จุลภาค"
+                                placeholder="คั่นด้วยเครื่องหมาย จุลภาค"
                                 className="w-full neon-input text-xs"
                             />
                         </div>
