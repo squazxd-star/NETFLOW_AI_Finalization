@@ -76,7 +76,7 @@ export const accentOptions: { value: string; label: string }[] = [
 ];
 
 export const sceneBackgroundOptions: { value: string; label: string; emoji: string; description: string }[] = [
-    { value: "auto", label: "Auto ฉาก", emoji: "⚡", description: "AI เลือกฉากให้อัตโนมัติตามสินค้าและเทมเพลต" },
+    { value: "auto", label: "Auto ฉาก", emoji: "\u{1FA84}", description: "AI เลือกฉากให้อัตโนมัติตามสินค้าและเทมเพลต" },
     { value: "studio", label: "สตูดิโอ", emoji: "🎬", description: "พื้นหลังสตูดิโอสะอาด เรียบง่าย" },
     { value: "living-room", label: "ห้องนั่งเล่น", emoji: "🛋️", description: "บรรยากาศอบอุ่น เหมือนรีวิวที่บ้าน" },
     { value: "bedroom", label: "ห้องนอน", emoji: "🛏️", description: "สไตล์ส่วนตัว ใกล้ชิด" },
