@@ -11,21 +11,32 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /* ── Inline SVG brand logos ── */
 const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
+    <svg viewBox="0 0 100 100" fill="none" className={className}>
         <defs>
-            <linearGradient id="veo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#4285F4" />
-                <stop offset="33%" stopColor="#EA4335" />
-                <stop offset="66%" stopColor="#FBBC05" />
-                <stop offset="100%" stopColor="#34A853" />
+            <linearGradient id="veo31-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#2196F3" />
+                <stop offset="35%" stopColor="#E53935" />
+                <stop offset="65%" stopColor="#FF9800" />
+                <stop offset="100%" stopColor="#4CAF50" />
             </linearGradient>
+            <linearGradient id="veo31-dim" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#607D8B" />
+                <stop offset="100%" stopColor="#455A64" />
+            </linearGradient>
+            <filter id="veo31-glow">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
         </defs>
         <path
-            d="M8 5.14v14l11-7-11-7z"
-            fill={active ? "url(#veo-grad)" : "currentColor"}
-            opacity={active ? 1 : 0.6}
+            d="M18 12 L88 50 L18 88 Z"
+            fill={active ? "url(#veo31-bg)" : "url(#veo31-dim)"}
+            filter={active ? "url(#veo31-glow)" : undefined}
+            rx="6"
         />
-        <circle cx="17" cy="7" r="2.5" fill={active ? "#4285F4" : "currentColor"} opacity={active ? 0.9 : 0.4} />
+        <text x="44" y="58" fontSize="26" fontWeight="700" fill="white" fontFamily="system-ui, sans-serif" textAnchor="middle" opacity={active ? 0.95 : 0.5}>
+            3.1
+        </text>
     </svg>
 );
 
@@ -350,8 +361,8 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                 <div className="px-4 pb-4 space-y-4">
                     {/* Engine Selector — Theme-aware with brand logos */}
                     <div>
-                        <label className="text-[11px] text-muted-foreground mb-2 block font-medium">เลือก Engine</label>
-                        <div className="flex items-center gap-2 p-1 rounded-xl bg-muted/50 border border-border">
+                        <label className="text-[11px] text-muted-foreground mb-2 block font-medium text-center tracking-wide">เลือก Engine</label>
+                        <div className="grid grid-cols-2 gap-2.5">
                             {([
                                 { value: "veo" as const, label: "Veo 3.1", sub: "Google" },
                                 { value: "grok" as const, label: "Grok", sub: "xAI" }
@@ -362,10 +373,10 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                         key={engine.value}
                                         type="button"
                                         onClick={() => setValue("videoEngine", engine.value)}
-                                        className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-lg text-xs font-semibold transition-all duration-300 relative overflow-hidden ${
+                                        className={`flex items-center justify-center gap-2.5 py-3 px-3 rounded-xl text-xs font-semibold transition-all duration-300 relative overflow-hidden border ${
                                             isActive
-                                                ? 'text-white shadow-lg'
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                                                ? 'text-white shadow-lg border-transparent'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border-border bg-muted/30'
                                         }`}
                                         style={isActive ? {
                                             background: `linear-gradient(135deg, ${themeConfig.hex}, ${themeConfig.gradientTo})`,
@@ -373,11 +384,11 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                         } : {}}
                                     >
                                         {engine.value === "veo"
-                                            ? <VeoLogo className="w-5 h-5" active={isActive} />
+                                            ? <VeoLogo className="w-6 h-6" active={isActive} />
                                             : <GrokLogo className="w-5 h-5" active={isActive} />
                                         }
-                                        <div className="flex flex-col items-start leading-none">
-                                            <span>{engine.label}</span>
+                                        <div className="flex flex-col items-start leading-tight">
+                                            <span className="text-[13px] font-bold tracking-tight">{engine.label}</span>
                                             <span className={`text-[9px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{engine.sub}</span>
                                         </div>
                                         {isActive && (
@@ -398,9 +409,9 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                             background: `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.06) 0%, rgba(${themeConfig.hexRgb}, 0.02) 100%)`,
                         }}
                     >
-                        <div className="flex items-center gap-2">
-                            <VeoLogo className="w-4 h-4" active />
-                            <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: themeConfig.hex }}>
+                        <div className="flex items-center justify-center gap-2">
+                            <VeoLogo className="w-5 h-5" active />
+                            <label className="text-[13px] font-bold tracking-tight" style={{ color: themeConfig.hex }}>
                                 Veo 3.1 Settings
                             </label>
                         </div>
