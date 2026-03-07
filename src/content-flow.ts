@@ -2511,12 +2511,14 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                 chrome.storage.local.set({
                     netflow_pending_action: {
                         timestamp: Date.now(),
-                        action: "wait_scene2_gen_and_download",
-                        theme: theme
+                        action: "wait_scene_gen_and_download",
+                        theme: theme,
+                        sceneCount: sceneCount,
+                        currentScene: scene
                     }
                 }, () => resolve());
             });
-            LOG(`💾 บันทึก pending action: wait_scene2_gen_and_download (ป้องกันหน้า reload)`);
+            LOG(`💾 บันทึก pending action: wait_scene_gen_and_download (ฉาก ${scene}/${sceneCount})`);
 
             await robustClick(sendBtn);
             LOG(`คลิก Generate ฉาก ${scene} ✅`);
@@ -2890,22 +2892,27 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 }
 
 /**
- * Called when page navigated during scene 2 generation.
+ * Called when page navigated during scene N generation.
  * Tracks generation % on the new page, then downloads Full Video 720p.
  */
-async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
-    LOG("═══ Pending: รอ scene 2 gen เสร็จ + ดาวน์โหลด ═══");
+async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: number = 2, theme?: string): Promise<void> {
+    LOG(`═══ Pending: รอ scene ${currentScene}/${sceneCount} gen เสร็จ + ดาวน์โหลด ═══`);
 
-    // Re-show overlay with correct theme AND 2 scenes (page navigation destroyed both)
+    // Re-show overlay with correct theme AND scene count (page navigation destroyed both)
     try { if (theme) setOverlayTheme(theme); } catch (_) {}
-    try { showOverlay(2); } catch (e: any) { LOG(`⚠️ showOverlay error: ${e.message}`); }
+    try { showOverlay(sceneCount); } catch (e: any) { LOG(`⚠️ showOverlay error: ${e.message}`); }
 
-    // Restore overlay progress — all steps through scene2-gen are DONE
+    // Restore overlay progress — all steps through current scene's gen are DONE
     try {
-        const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait", "scene2-prompt", "scene2-gen"];
+        const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait"];
+        // Mark all completed scenes as done
+        for (let s = 2; s <= currentScene; s++) {
+            doneSteps.push(`scene${s}-prompt`, `scene${s}-gen`);
+            if (s < currentScene) doneSteps.push(`scene${s}-wait`);
+        }
         for (const s of doneSteps) updateStep(s, "done");
-        updateStep("scene2-wait", "active");
-        LOG(`✅ overlay restored: ${doneSteps.length} steps done (scene2 navigate)`);
+        updateStep(`scene${currentScene}-wait`, "active");
+        LOG(`✅ overlay restored: ${doneSteps.length} steps done (scene ${currentScene}/${sceneCount} navigate)`);
     } catch (e: any) { LOG(`⚠️ overlay restore error: ${e.message}`); }
 
     // Try to mute video
@@ -2931,7 +2938,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     }
 
     // ── Track generation % ──
-    LOG("── รอวิดีโอ scene 2 gen เสร็จ (หลัง page navigate) ──");
+    LOG(`── รอวิดีโอ scene ${currentScene} gen เสร็จ (หลัง page navigate) ──`);
     const overlayEl = document.getElementById("netflow-engine-overlay");
     let lastPct = 0;
     let pctGoneAt = 0;
@@ -2959,16 +2966,16 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         if (foundPct !== null) {
             noPctCount = 0;
             if (foundPct !== lastPct) {
-                LOG(`🎬 scene 2 ความคืบหน้า: ${foundPct}%`);
+                LOG(`🎬 scene ${currentScene} ความคืบหน้า: ${foundPct}%`);
                 lastPct = foundPct;
             }
             pctGoneAt = 0;
         } else if (lastPct > 0) {
             if (pctGoneAt === 0) {
                 pctGoneAt = Date.now();
-                LOG(`🔍 scene 2: % หายไป (จาก ${lastPct}%) — กำลังยืนยัน...`);
+                LOG(`🔍 scene ${currentScene}: % หายไป (จาก ${lastPct}%) — กำลังยืนยัน...`);
             } else if (Date.now() - pctGoneAt >= PCT_GONE_CONFIRM) {
-                LOG(`✅ scene 2: % หายไป ${PCT_GONE_CONFIRM / 1000} วินาที — เจนเสร็จ!`);
+                LOG(`✅ scene ${currentScene}: % หายไป ${PCT_GONE_CONFIRM / 1000} วินาที — เจนเสร็จ!`);
                 sceneGenDone = true;
                 break;
             }
@@ -2986,12 +2993,12 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
                     }
                 }
                 if (hasPlayingVideo) {
-                    LOG("✅ scene 2: พบวิดีโอกำลังเล่น — ถือว่า gen เสร็จแล้ว");
+                    LOG(`✅ scene ${currentScene}: พบวิดีโอกำลังเล่น — ถือว่า gen เสร็จแล้ว`);
                     sceneGenDone = true;
                     break;
                 }
                 if (noPctCount >= 30) {
-                    LOG("✅ scene 2: ไม่พบ % มานาน 60 วินาที — ถือว่าเสร็จ");
+                    LOG(`✅ scene ${currentScene}: ไม่พบ % มานาน 60 วินาที — ถือว่าเสร็จ`);
                     sceneGenDone = true;
                     break;
                 }
@@ -2999,9 +3006,9 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         }
         await sleep(2000);
     }
-    if (!sceneGenDone) { LOG("⚠️ scene 2 หมดเวลา — ลองดาวน์โหลดต่อ"); }
-    try { updateStep("scene2-wait", "done", 100); } catch (_) {}
-    LOG("✅ scene 2 เสร็จ — เริ่มดาวน์โหลด");
+    if (!sceneGenDone) { LOG(`⚠️ scene ${currentScene} หมดเวลา — ลองดาวน์โหลดต่อ`); }
+    try { updateStep(`scene${currentScene}-wait`, "done", 100); } catch (_) {}
+    LOG(`✅ scene ${currentScene} เสร็จ — เริ่มดาวน์โหลด`);
     await sleep(3000);
 
     // ── Helper: find visible element by text ──
@@ -3227,8 +3234,8 @@ async function checkAndRunPendingAction(): Promise<void> {
 
         if (result.action === "mute_video") {
             await standaloneMuteAndDownload(result.sceneCount || 1, result.scenePrompts || [], result.theme);
-        } else if (result.action === "wait_scene2_gen_and_download") {
-            await waitForScene2GenAndDownload(result.theme);
+        } else if (result.action === "wait_scene_gen_and_download" || result.action === "wait_scene2_gen_and_download") {
+            await waitForSceneGenAndDownload(result.sceneCount || 2, result.currentScene || 2, result.theme);
         } else {
             LOG(`⚠️ ไม่รู้จัก pending action: ${result.action}`);
         }
