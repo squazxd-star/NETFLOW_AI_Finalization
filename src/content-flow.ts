@@ -2293,15 +2293,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 LOG(`⚠️ ไม่สามารถบันทึก pending action: ${e.message}`);
             }
 
-            // Click the card to open detail view
+            // Click the card to open detail view (single click only — double causes re-navigation black screen)
             LOG("คลิกการ์ดวิดีโอเพื่อเข้าหน้ารายละเอียด...");
-            await clickVideoCard(el);
-            
-            // Fallback click on the visual thumbnail just in case
-            if (clickTarget !== el) {
-                await clickVideoCard(clickTarget);
-            }
-            
+            await clickVideoCard(clickTarget);
             LOG("✅ คลิกการ์ดวิดีโอเสร็จ");
             return el;
         };

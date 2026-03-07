@@ -3031,12 +3031,16 @@ export function showOverlay(sceneCount: number = 1): void {
     currentTheme = resolveThemeColors();
     updateThemeComponents();
 
-    if (overlayRoot) {
-        // If overlay exists but is hidden, show it
+    if (overlayRoot && overlayRoot.isConnected) {
+        // If overlay exists and still in DOM, just show it if hidden
         if (overlayHidden) {
             toggleOverlayVisibility();
         }
         return;
+    }
+    // Reset stale reference if DOM element was destroyed by SPA navigation
+    if (overlayRoot && !overlayRoot.isConnected) {
+        overlayRoot = null;
     }
     // Re-inject styles with resolved theme (remove old if exists)
     if (styleEl) { styleEl.remove(); styleEl = null; }
