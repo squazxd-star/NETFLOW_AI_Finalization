@@ -205,6 +205,7 @@ const CreateVideoTab = () => {
                                 // Build config for AI prompt service — ALL form fields
                                 const promptConfig = {
                                     productImage: productImage || undefined,
+                                    characterImage: characterImage || undefined,
                                     productName: data.productName || "Product",
                                     productDescription: data.productDescription || "",
                                     template: data.template || "product-review",
@@ -221,9 +222,10 @@ const CreateVideoTab = () => {
                                     ctaText: data.ctaEnabled ? data.ctaText : "",
                                     mustUseKeywords: data.mustUseKeywords || "",
                                     avoidKeywords: data.avoidKeywords || "",
-                                    userScript: data.aiPrompt || "",
+                                    userScript: data.sceneScriptsRaw || "",
                                     clothingStyles: data.clothingStyles || ["casual"],
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
+                                    sceneBackground: data.sceneBackground || "auto",
                                 };
 
                                 // Show loading state

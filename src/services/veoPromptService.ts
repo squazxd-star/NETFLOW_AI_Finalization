@@ -28,7 +28,7 @@ const TEMPLATE_CONFIGS: Record<TemplateOption, { thaiName: string; englishName: 
         focus: "Show texture, steam/sizzle, first bite reaction, and why it's delicious"
     },
     "fashion-review": {
-        thaiName: "รีวิวเสื้อผ้า",
+        thaiName: "รีวิวเสื้อผ้า", 
         englishName: "Fashion Review",
         style: "Fashion review style, clean styling, confident try-on",
         focus: "Show fit, fabric, movement, before/after look, and how to style it"
@@ -230,6 +230,32 @@ const ENVIRONMENT_SETTING: Record<string, string> = {
     "trending": "trendy aesthetic backdrop, social media ready environment, modern stylish space",
     "mini-drama": "cinematic scene setting, mood-appropriate environment, story-driven backdrop",
     "before-after": "split-screen friendly clean background, transformation-ready setting, clear contrast environment"
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER-SELECTED BACKGROUND — maps UI background picker values to English prompts
+// Priority: user-selected > smart environment (when not "auto")
+// ═══════════════════════════════════════════════════════════════════════════
+const USER_BACKGROUND_MAPPING: Record<string, string> = {
+    "studio": "professional photography studio with clean white/grey seamless backdrop, controlled soft diffused lighting, product-focused minimal environment",
+    "living-room": "cozy modern living room with warm ambient lighting, comfortable sofa and soft furnishings, homey relatable atmosphere, natural window light",
+    "bedroom": "stylish modern bedroom with soft bedside lamp glow, neatly arranged bed and pillows, intimate personal space, warm cozy atmosphere",
+    "cafe": "trendy café interior with espresso machine and pastry display, warm Edison bulb lighting, rustic wooden tables, relaxed social atmosphere",
+    "office": "clean professional office with modern desk setup, ergonomic chair, neutral corporate colors, bright overhead lighting, trustworthy business environment",
+    "outdoor-nature": "lush green garden or park setting, natural sunlight filtering through trees, fresh flowers and greenery, peaceful outdoor atmosphere",
+    "outdoor-city": "vibrant urban street with modern buildings, city sidewalk, natural daylight, dynamic metropolitan atmosphere, trendy urban backdrop",
+    "kitchen": "modern clean kitchen with marble countertop, cooking utensils and fresh ingredients visible, warm inviting culinary atmosphere, natural window light",
+    "gym": "modern gym interior with dumbbells and weight racks, fit people exercising in background, bright motivational lighting, athletic sporty atmosphere",
+    "beach": "tropical beach setting with white sand and turquoise ocean, warm golden sunlight, palm trees swaying, relaxed vacation atmosphere",
+    "neon-dark": "dark moody room with vibrant neon lights in pink and blue, cyberpunk aesthetic, dramatic colored shadows, edgy futuristic atmosphere",
+    "white-minimal": "pure white minimalist backdrop with soft even lighting, zero distractions, product-focused clean space, professional e-commerce aesthetic",
+    "gradient-abstract": "smooth abstract gradient background in soft pastel colors, modern contemporary feel, clean artistic backdrop, visually appealing depth",
+    "luxury": "opulent luxury setting with marble surfaces and gold accents, crystal chandelier ambient light, premium high-end atmosphere, elegant rich textures",
+    "night-market": "vibrant Thai night market with colorful string lights and lanterns, food stalls in background, warm festive glow, lively street atmosphere",
+    "rooftop": "modern rooftop terrace with panoramic city skyline view, golden hour sunset lighting, open air urban setting, sophisticated elevated atmosphere",
+    "library": "elegant library with tall wooden bookshelves, warm reading lamp glow, quiet intellectual atmosphere, leather armchair, scholarly trustworthy setting",
+    "restaurant": "upscale restaurant interior with elegant table setting, candlelight ambiance, fine dining backdrop, warm sophisticated atmosphere",
+    "spa": "serene spa environment with aromatic candles and smooth stones, soft diffused lighting, bamboo and natural elements, peaceful zen atmosphere",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -528,13 +554,20 @@ const TEMPLATE_CATEGORY_MATCH: Record<ProductCategory, string[]> = {
     other: []
 };
 
-/** Smart environment selection: category overrides template when mismatched */
+/** Smart environment selection: user-selected > AI vision > category override > template default */
 const getSmartEnvironment = (
     template: string,
     category: ProductCategory,
-    aiEnvironment?: string
+    aiEnvironment?: string,
+    userBackground?: string
 ): string => {
-    // AI Vision analysis always wins
+    // 1. User-selected background from UI takes TOP priority (unless "auto" or "custom")
+    if (userBackground && userBackground !== 'auto' && userBackground !== 'custom') {
+        const mapped = USER_BACKGROUND_MAPPING[userBackground];
+        if (mapped) return mapped;
+    }
+    
+    // 2. AI Vision analysis wins over template/category defaults
     if (aiEnvironment) return aiEnvironment;
     
     // If template naturally matches category, use template environment
@@ -706,48 +739,68 @@ interface VoicePersona {
 
 const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
     male: [
-        // ── ENERGETIC (3 variants) ──
+        // ── ENERGETIC (5 variants) ──
         { name: "Tawan",   voiceTone: "energetic",    ageRange: "teen",         age: "18",      characterType: "วัยรุ่นหนุ่มผอมสูง ผมสั้นสไตล์เกาหลี สปอร์ตบอย นักเรียนมัธยม" },
         { name: "First",   voiceTone: "energetic",    ageRange: "young-adult",  age: "24",      characterType: "หนุ่มฟิตหุ่นล่ำ นักกีฬา/ฟิตเนส ผิวแทน กล้ามชัด พลังงานสูง" },
         { name: "Fluke",   voiceTone: "energetic",    ageRange: "adult",        age: "35",      characterType: "ผู้ชายวัยทำงานแอคทีฟ หุ่นแข็งแรง พิธีกร/นักรีวิว พลังงานเหลือเฟือ" },
-        // ── CALM (3 variants) ──
+        { name: "Gun",     voiceTone: "energetic",    ageRange: "young-adult",  age: "22",      characterType: "หนุ่มนักศึกษาสายสตรีท ผมทำสี แต่งตัวสตรีทแวร์ ไลฟ์ขายของมืออาชีพ" },
+        { name: "Tle",     voiceTone: "energetic",    ageRange: "adult",        age: "30",      characterType: "พิธีกรหนุ่มมาดเท่ ผมเซ็ตเป๊ะ หุ่นดี นักรีวิวสายเทค พลังงานล้น" },
+        // ── CALM (5 variants) ──
         { name: "Prem",    voiceTone: "calm",         ageRange: "young-adult",  age: "27",      characterType: "หนุ่มสุภาพเรียบร้อย ผมยาวเล็กน้อย ใส่แว่น หน้าตาอ่อนโยน นักอ่าน" },
         { name: "Pond",    voiceTone: "calm",         ageRange: "adult",        age: "40",      characterType: "ผู้ชายวัยกลางคน สุขุม ผมเกรียน ใบหน้าคม สง่า แพทย์/ที่ปรึกษา" },
         { name: "Suthep",  voiceTone: "calm",         ageRange: "middle-age",   age: "55",      characterType: "ลุงใจดี ผมหงอกเล็กน้อย ท่าทางสุขุม ปราชญ์/ครูบาอาจารย์" },
-        // ── FRIENDLY (3 variants) ──
+        { name: "Top",     voiceTone: "calm",         ageRange: "young-adult",  age: "25",      characterType: "หนุ่มมินิมอล ผมยาวหวีเรียบ เสื้อผ้าโทนเอิร์ธ สุขุม นักเขียน/ช่างภาพ" },
+        { name: "Mark",    voiceTone: "calm",         ageRange: "adult",        age: "45",      characterType: "ผู้ชายสง่าเงียบขรึม หนวดเคราเล็กน้อย สายธรรมชาติ โยคะ/ครูสมาธิ" },
+        // ── FRIENDLY (5 variants) ──
         { name: "Somsak",  voiceTone: "friendly",     ageRange: "teen",         age: "17",      characterType: "เด็กหนุ่มข้างบ้าน ยิ้มง่าย ผมตั้ง เสื้อยืดกางเกงยีนส์ เป็นกันเอง" },
-        { name: "Bank",    voiceTone: "friendly",     ageRange: "young-adult",  age: "26",      characterType: "หนุ่มออฟฟิศ อบอุ่น ใส่เสื้อเชิ้ตพับแขน ยิ้มหวาน พ่อค้าออนไลน์" },
+        { name: "Bank",    voiceTone: "friendly",     ageRange: "young-adult",  age: "26",      characterType: "หนุ่มออฟฟิศอบอุ่น ใส่เสื้อเชิ้ตพับแขน ยิ้มหวาน พ่อค้าออนไลน์" },
         { name: "Chai",    voiceTone: "friendly",     ageRange: "adult",        age: "38",      characterType: "คุณพ่อยุคใหม่ หุ่นท้วมนิดๆ ใจดี อบอุ่น บล็อกเกอร์ครอบครัว" },
-        // ── PROFESSIONAL (3 variants) ──
+        { name: "Pete",    voiceTone: "friendly",     ageRange: "young-adult",  age: "23",      characterType: "หนุ่มบาริสต้า ผมหยิกธรรมชาติ ผ้ากันเปื้อน ยิ้มเป็นมิตร สายกาแฟ" },
+        { name: "Dome",    voiceTone: "friendly",     ageRange: "adult",        age: "33",      characterType: "ช่างภาพฟรีแลนซ์ แต่งตัวชิลล์ ยิ้มง่าย เล่าเรื่องสนุก นักเดินทาง" },
+        // ── PROFESSIONAL (5 variants) ──
         { name: "Natt",    voiceTone: "professional", ageRange: "young-adult",  age: "28",      characterType: "หนุ่มสตาร์ทอัพ สูทสลิมฟิต ผมเซ็ต ดูดีมีระดับ CEO รุ่นใหม่" },
         { name: "Arthit",  voiceTone: "professional", ageRange: "adult",        age: "42",      characterType: "ผู้บริหาร สูทสากล ท่าทางมั่นใจ น่าเชื่อถือ ผู้เชี่ยวชาญ" },
         { name: "Somchai", voiceTone: "professional", ageRange: "middle-age",   age: "52",      characterType: "ผู้ใหญ่มากประสบการณ์ ผมขาวเท่ มาดนิ่ง กูรู/ที่ปรึกษาอาวุโส" },
-        // ── CUTE (3 variants) ──
+        { name: "James",   voiceTone: "professional", ageRange: "young-adult",  age: "30",      characterType: "ทนายหนุ่ม สูทเข้ารูป ผมเซ็ตเรียบร้อย มาดจริงจัง น่าเชื่อถือ" },
+        { name: "Ton",     voiceTone: "professional", ageRange: "adult",        age: "48",      characterType: "หมอผู้เชี่ยวชาญ เสื้อกาวน์ขาว ท่าทางน่าไว้วางใจ สุขุม แม่นยำ" },
+        // ── CUTE (5 variants) ──
         { name: "Beam",    voiceTone: "cute",         ageRange: "teen",         age: "16",      characterType: "เด็กหนุ่มหน้าใส ตาโต ผมปัด น่ารักสดใส ไอดอลวัยรุ่น" },
         { name: "Win",     voiceTone: "cute",         ageRange: "young-adult",  age: "23",      characterType: "ซอฟท์บอย ผิวขาว หน้าหวาน เสื้อผ้าพาสเทล อินฟลูเอนเซอร์" },
         { name: "Ohm",     voiceTone: "cute",         ageRange: "adult",        age: "33",      characterType: "ผู้ชายเสน่ห์แรง ยิ้มมีเสน่ห์ ลุคชิลล์ ดูดีแบบไม่ต้องพยายาม" },
+        { name: "New",     voiceTone: "cute",         ageRange: "young-adult",  age: "20",      characterType: "หนุ่มน้อยหน้าเด็ก ผิวใส ผมม้า ตาแป๋ว สดใสร่าเริง ไอดอลเกาหลี" },
+        { name: "Film",    voiceTone: "cute",         ageRange: "adult",        age: "28",      characterType: "หนุ่มหน้าใสดูอ่อนกว่าวัย ผมยาวปัดข้าง ยิ้มละไม เสน่ห์ธรรมชาติ" },
     ],
     female: [
-        // ── ENERGETIC (3 variants) ──
+        // ── ENERGETIC (5 variants) ──
         { name: "Fah",     voiceTone: "energetic",    ageRange: "teen",         age: "18",      characterType: "สาววัยรุ่นไฟแรง ผมหางม้า ชุดสปอร์ต สดใสร่าเริง เชียร์ลีดเดอร์" },
         { name: "Mint",    voiceTone: "energetic",    ageRange: "young-adult",  age: "25",      characterType: "สาวฟิตเนส หุ่นดี ผิวสุขภาพดี กระฉับกระเฉง ยูทูบเบอร์ไลฟ์สไตล์" },
         { name: "Pat",     voiceTone: "energetic",    ageRange: "adult",        age: "35",      characterType: "ผู้หญิงแกร่ง พิธีกร/นักรีวิว พลังเยอะ แต่งตัวจัดจ้าน มีออร่า" },
-        // ── CALM (3 variants) ──
+        { name: "Bow",     voiceTone: "energetic",    ageRange: "young-adult",  age: "23",      characterType: "สาวนักศึกษาเปรี้ยวจี๊ด ผมสั้นบ๊อบ แต่งตัวสตรีท ไลฟ์สดมือโปร พลังเยอะ" },
+        { name: "Aom",     voiceTone: "energetic",    ageRange: "adult",        age: "32",      characterType: "แม่ค้าออนไลน์ตัวแม่ หุ่นดี แต่งตัวจัด เสียงดัง พลังงานล้นเวที นักขาย" },
+        // ── CALM (5 variants) ──
         { name: "Namwan",  voiceTone: "calm",         ageRange: "young-adult",  age: "26",      characterType: "สาวเรียบร้อย ผมยาวตรง ใบหน้าอ่อนหวาน แต่งตัวมินิมอล สุภาพ" },
         { name: "Noon",    voiceTone: "calm",         ageRange: "adult",        age: "38",      characterType: "ผู้หญิงสง่า ผมประบ่า มาดสุขุม แพทย์/นักจิตวิทยา น่าไว้วางใจ" },
         { name: "Aree",    voiceTone: "calm",         ageRange: "middle-age",   age: "50",      characterType: "คุณป้าสง่างาม ผมสั้นเรียบร้อย ท่าทางอบอุ่น ครู/ที่ปรึกษาอาวุโส" },
-        // ── FRIENDLY (3 variants) ──
+        { name: "Mild",    voiceTone: "calm",         ageRange: "young-adult",  age: "24",      characterType: "สาวโยคะ ผิวเปล่งปลั่ง ผมยาวถักเปีย เสื้อผ้าธรรมชาติ สงบนิ่ง" },
+        { name: "Orn",     voiceTone: "calm",         ageRange: "adult",        age: "43",      characterType: "เภสัชกรหญิง ท่าทางน่าเชื่อถือ ผมรวบมวยต่ำ เสื้อกาวน์ สุขุมนุ่มนวล" },
+        // ── FRIENDLY (5 variants) ──
         { name: "Somying", voiceTone: "friendly",     ageRange: "teen",         age: "17",      characterType: "สาวน้อยข้างบ้าน ยิ้มสดใส แก้มแดง เสื้อยืดน่ารัก เป็นกันเอง" },
         { name: "Pear",    voiceTone: "friendly",     ageRange: "young-adult",  age: "27",      characterType: "สาวออฟฟิศอบอุ่น ใส่เสื้อผ้าแคชชวล ยิ้มเก่ง แม่ค้าออนไลน์" },
         { name: "Nong",    voiceTone: "friendly",     ageRange: "adult",        age: "40",      characterType: "คุณแม่ยุคใหม่ หน้าตาดี อบอุ่น ห่วงใย บล็อกเกอร์ครอบครัว" },
-        // ── PROFESSIONAL (3 variants) ──
+        { name: "Jui",     voiceTone: "friendly",     ageRange: "young-adult",  age: "22",      characterType: "สาวร้านกาแฟ ผ้ากันเปื้อนน่ารัก ผมม้า ยิ้มหวาน เป็นกันเอง อบอุ่น" },
+        { name: "Kratae",  voiceTone: "friendly",     ageRange: "adult",        age: "35",      characterType: "แม่บ้านสายรีวิว แต่งตัวสบายๆ หน้าตาดี ยิ้มง่าย เล่าเรื่องสนุก" },
+        // ── PROFESSIONAL (5 variants) ──
         { name: "Ploy",    voiceTone: "professional", ageRange: "young-adult",  age: "28",      characterType: "สาวมั่น สูทสวย ผมเก็บมวย ดูดีมีระดับ ผู้ก่อตั้งสตาร์ทอัพ" },
         { name: "Kwan",    voiceTone: "professional", ageRange: "adult",        age: "42",      characterType: "ผู้บริหารหญิง สง่า น่าเชื่อถือ เสื้อผ้าเนี้ยบ ผู้เชี่ยวชาญ" },
         { name: "Suda",    voiceTone: "professional", ageRange: "middle-age",   age: "53",      characterType: "ผู้หญิงมากประสบการณ์ สง่างาม ผมสั้นทรงผู้ดี กูรู/ศาสตราจารย์" },
-        // ── CUTE (3 variants) ──
+        { name: "May",     voiceTone: "professional", ageRange: "young-adult",  age: "30",      characterType: "นักการตลาดสาว สูทเข้ารูป ผมยาวตรง แว่นตาทรงเท่ มาดมั่นใจ" },
+        { name: "Ning",    voiceTone: "professional", ageRange: "adult",        age: "45",      characterType: "หมอผิวหนัง เสื้อกาวน์ขาว ท่าทางน่าไว้วางใจ ผมประบ่า สุขุม" },
+        // ── CUTE (5 variants) ──
         { name: "Minnie",  voiceTone: "cute",         ageRange: "teen",         age: "16",      characterType: "สาวน้อยหน้าใส ตากลมโต ผมสองข้าง ชุดน่ารักพาสเทล ไอดอล" },
         { name: "Ice",     voiceTone: "cute",         ageRange: "young-adult",  age: "22",      characterType: "สาวหวาน ผิวขาว ผมยาว แต่งตัวน่ารัก อินฟลูเอนเซอร์บิวตี้" },
         { name: "Jiew",    voiceTone: "cute",         ageRange: "adult",        age: "32",      characterType: "ผู้หญิงเสน่ห์แรง หน้าเด็ก ยิ้มหวาน ดูอ่อนกว่าวัย มีเสน่ห์" },
+        { name: "Bam",     voiceTone: "cute",         ageRange: "young-adult",  age: "20",      characterType: "สาวน้อยผมม้าหน้าเด็ก ตาแป๋ว แก้มป่อง ชุดน่ารักสไตล์ญี่ปุ่น" },
+        { name: "Pim",     voiceTone: "cute",         ageRange: "adult",        age: "29",      characterType: "สาวหวานหน้าเด็ก ผมลอนยาว ผิวขาวใส ยิ้มหวานมีเสน่ห์ บิวตี้บล็อกเกอร์" },
     ]
 };
 
@@ -755,22 +808,21 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
  * Lookup persona by gender + voiceTone + ageRange (with smart fallback).
  * Priority: exact match → same tone any age → same age any tone → first of tone.
  */
-function getPersona(gender: string, voiceTone: string, ageRange?: string): VoicePersona {
+function getPersona(gender: string, voiceTone: string, _ageRange?: string): VoicePersona {
     const genderKey = gender === 'male' ? 'male' : 'female';
     const pool = VOICE_PERSONA_DB[genderKey];
+    const rnd = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    // 1. Exact match: tone + ageRange
-    if (ageRange) {
-        const exact = pool.find(p => p.voiceTone === voiceTone && p.ageRange === ageRange);
-        if (exact) return exact;
-    }
+    // Always pick RANDOM from ALL personas matching the tone (diverse age/look variants)
+    // DO NOT filter by ageRange — each (tone, ageRange) combo has only 1 persona,
+    // which would always return the same person (e.g. Mint, First). Instead, randomize
+    // from the full tone pool so every run can get a different persona.
+    const sameTonePool = pool.filter(p => p.voiceTone === voiceTone);
+    if (sameTonePool.length > 0) return rnd(sameTonePool);
 
-    // 2. Same tone, any age (pick first = youngest variant)
-    const sameTone = pool.find(p => p.voiceTone === voiceTone);
-    if (sameTone) return sameTone;
-
-    // 3. Fallback: friendly young-adult
-    return pool.find(p => p.voiceTone === 'friendly') || pool[0];
+    // Fallback: random from any friendly, then first of pool
+    const friendlyPool = pool.filter(p => p.voiceTone === 'friendly');
+    return friendlyPool.length > 0 ? rnd(friendlyPool) : pool[0];
 }
 
 // Legacy compat: simple name lookup by gender+tone (returns first match)
@@ -788,9 +840,9 @@ const VOICE_PERSONA: Record<string, Record<string, string>> = {
  * as they confuse the video model and may trigger content policy errors.
  * Do NOT use the phrase "lip sync" — it gets truncated to "Lip." triggering safety filters.
  */
-const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: string): string => {
+const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: string, preSelectedPersona?: VoicePersona): string => {
     const genderWord = gender === 'male' ? 'Thai male' : 'Thai female';
-    const persona = getPersona(gender, voiceTone, ageRange);
+    const persona = preSelectedPersona || getPersona(gender, voiceTone, ageRange);
 
     // Visual speaking behavior per tone (how the character LOOKS while speaking, not how they SOUND)
     const speakingBehavior: Record<string, string> = {
@@ -1854,6 +1906,7 @@ const generateThaiScript = (
 export interface PromptGenerationConfig {
     // Images
     productImage?: string;      // Base64
+    characterImage?: string;    // Base64 — character reference for AI age/appearance analysis
     
     // Product Info
     productName: string;
@@ -1888,6 +1941,9 @@ export interface PromptGenerationConfig {
     
     // User-provided script
     userScript?: string;
+    
+    // Scene Background — "auto" = smart environment, otherwise specific background
+    sceneBackground?: string;
 }
 
 export interface GeneratedPrompts {
@@ -1915,6 +1971,10 @@ export interface VideoPromptMeta {
     sceneTransition: string;       // per-template transition keywords
     environment: string;           // setting/background
     lighting: string;              // lighting style
+    characterAnchor: string;       // FULL character Visual DNA — face, hair, outfit, body — for Scene 2+ lock
+    personaName: string;           // Voice persona name (e.g. "Mint", "First") for voice lock
+    clothingDesc: string;          // Clothing description for character consistency
+    productUsageRealism: string;   // Category-specific usage realism (e.g. open cap before spray)
 }
 
 /**
@@ -2028,6 +2088,147 @@ Keep response concise (max 150 words). No brand names. Focus on visual details u
     return result.response.text();
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CHARACTER IMAGE ANALYSIS — estimates age/gender/build for voice persona matching
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface CharacterAnalysis {
+    estimatedAge: number;       // e.g. 25
+    ageRange: string;           // teen, young-adult, adult, middle-age
+    gender: string;             // male, female
+    build: string;              // slim, athletic, average, muscular, curvy
+    hairstyle: string;          // short black hair, long wavy brown hair, etc.
+    skinTone: string;           // fair, medium, tan, dark
+    clothing: string;           // casual t-shirt, formal suit, etc.
+    overallLook: string;        // 1-2 sentence visual summary
+}
+
+const CHARACTER_ANALYSIS_PROMPT = `Analyze this person's appearance for video generation casting.
+
+Respond in EXACTLY this JSON format (no markdown, no extra text):
+{
+  "estimatedAge": <number 15-60>,
+  "ageRange": "<teen|young-adult|adult|middle-age>",
+  "gender": "<male|female>",
+  "build": "<slim|athletic|average|muscular|curvy>",
+  "hairstyle": "<short description of hair style, length, color>",
+  "skinTone": "<fair|medium|tan|dark>",
+  "clothing": "<what they are wearing>",
+  "overallLook": "<1-2 sentence visual summary of this person's appearance>"
+}
+
+Rules:
+- teen = 15-19, young-adult = 20-29, adult = 30-44, middle-age = 45+
+- Be accurate with age estimation based on facial features, skin condition, body proportion
+- Focus on VISUAL details only, no personality assumptions
+- Keep descriptions concise and factual`;
+
+/**
+ * Analyze character reference image to estimate age/gender/build for persona matching.
+ * Uses the same AI provider (OpenAI/Gemini) as product analysis.
+ */
+export const analyzeCharacterImage = async (imageBase64: string): Promise<CharacterAnalysis | null> => {
+    const provider = getAIProvider();
+    console.log(`🧑 Analyzing character image with ${provider.toUpperCase()}...`);
+
+    try {
+        let rawResponse: string;
+
+        if (provider === 'openai') {
+            const apiKey = await getApiKey('openai');
+            if (!apiKey) return null;
+
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [{
+                        role: "user",
+                        content: [
+                            { type: "text", text: CHARACTER_ANALYSIS_PROMPT },
+                            { type: "image_url", image_url: { url: imageBase64 } }
+                        ]
+                    }],
+                    max_tokens: 300
+                })
+            });
+
+            const json = await response.json();
+            if (json.error) throw new Error(json.error.message);
+            rawResponse = json.choices[0].message.content;
+        } else {
+            const apiKey = await getApiKey('gemini');
+            if (!apiKey) return null;
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+            const mimeType = imageBase64.includes('png') ? 'image/png' : 'image/jpeg';
+
+            const result = await model.generateContent([
+                CHARACTER_ANALYSIS_PROMPT,
+                { inlineData: { data: base64Data, mimeType } }
+            ]);
+            rawResponse = result.response.text();
+        }
+
+        // Parse JSON response (strip markdown code fences if present)
+        const cleaned = rawResponse.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+        const parsed = JSON.parse(cleaned) as CharacterAnalysis;
+
+        // Validate and clamp
+        parsed.estimatedAge = Math.max(15, Math.min(60, parsed.estimatedAge || 25));
+        if (!["teen", "young-adult", "adult", "middle-age"].includes(parsed.ageRange)) {
+            parsed.ageRange = parsed.estimatedAge < 20 ? "teen"
+                : parsed.estimatedAge < 30 ? "young-adult"
+                : parsed.estimatedAge < 45 ? "adult"
+                : "middle-age";
+        }
+        if (!["male", "female"].includes(parsed.gender)) parsed.gender = "female";
+
+        console.log(`🧑 Character analysis result:`, parsed);
+        return parsed;
+    } catch (e) {
+        console.warn("Character image analysis failed:", e);
+        return null;
+    }
+};
+
+/**
+ * Pick the best-matching voice persona based on character analysis from AI vision.
+ * Prioritizes: same tone + closest age match.
+ */
+function getPersonaFromCharacterAnalysis(
+    characterAnalysis: CharacterAnalysis,
+    voiceTone: string
+): VoicePersona {
+    const genderKey = characterAnalysis.gender === 'male' ? 'male' : 'female';
+    const pool = VOICE_PERSONA_DB[genderKey];
+    const targetAge = characterAnalysis.estimatedAge;
+
+    // Filter by tone first
+    const tonePool = pool.filter(p => p.voiceTone === voiceTone);
+    if (tonePool.length === 0) {
+        // Fallback: any persona from same gender
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // Sort by closest age match
+    const sorted = [...tonePool].sort((a, b) => {
+        const diffA = Math.abs(parseInt(a.age) - targetAge);
+        const diffB = Math.abs(parseInt(b.age) - targetAge);
+        return diffA - diffB;
+    });
+
+    // Pick from top 2 closest (small randomization to avoid always same pick)
+    const topN = sorted.slice(0, Math.min(2, sorted.length));
+    return topN[Math.floor(Math.random() * topN.length)];
+}
+
 /**
  * Generate Image and Video prompts based on config
  */
@@ -2035,16 +2236,28 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
     console.log("🎬 Generating prompts with config:", config);
     
     let productAnalysis = "";
+    let characterAnalysis: CharacterAnalysis | null = null;
     
-    // Step 1: Analyze product image if available
+    // Step 1: Analyze images in PARALLEL (product + character)
+    const analysisPromises: Promise<void>[] = [];
+
     if (config.productImage) {
-        try {
-            productAnalysis = await analyzeProductImage(config.productImage, config.productName);
-            console.log("📸 Product analysis:", productAnalysis);
-        } catch (e) {
-            console.warn("Product image analysis failed:", e);
-        }
+        analysisPromises.push(
+            analyzeProductImage(config.productImage, config.productName)
+                .then(r => { productAnalysis = r; console.log("📸 Product analysis:", r); })
+                .catch(e => console.warn("Product image analysis failed:", e))
+        );
     }
+
+    if (config.characterImage) {
+        analysisPromises.push(
+            analyzeCharacterImage(config.characterImage)
+                .then(r => { characterAnalysis = r; })
+                .catch(e => console.warn("Character image analysis failed:", e))
+        );
+    }
+
+    await Promise.all(analysisPromises);
 
     // Step 2: Get template config
     const templateConfig = TEMPLATE_CONFIGS[config.template] || TEMPLATE_CONFIGS["product-review"];
@@ -2053,8 +2266,9 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
     // Step 3: Build Image Prompt (for Google Labs ImageFX)
     const imagePrompt = buildImagePrompt(config, templateConfig, productAnalysis);
     
-    // Step 4: Build Video Prompt (for Google Labs VideoFX) — JSON format
-    const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, productAnalysis);
+    // Step 4: Build Video Prompt (for Google Labs VideoFX)
+    // Pass characterAnalysis so persona selection matches the actual character's age/appearance
+    const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, productAnalysis, characterAnalysis);
 
     return {
         imagePrompt,
@@ -2148,7 +2362,7 @@ const buildImagePrompt = (
 
     // ── Character dynamics (AI-analyzed > template default) ──
     const dynamics = ai.character || CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
-    const environment = getSmartEnvironment(template, category, ai.environment);
+    const environment = getSmartEnvironment(template, category, ai.environment, config.sceneBackground);
     const lighting = getSmartLighting(config.voiceTone || 'friendly', category, ai.lighting);
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
 
@@ -2206,7 +2420,8 @@ const buildVideoPrompt = (
     config: PromptGenerationConfig,
     templateConfig: typeof TEMPLATE_CONFIGS[TemplateOption],
     durationConfig: typeof DURATION_CONFIGS[number],
-    productAnalysis: string
+    productAnalysis: string,
+    characterAnalysis?: CharacterAnalysis | null
 ): { prompt: string; sceneScripts: string[]; meta: VideoPromptMeta } => {
     const genderText = config.gender === 'male' ? 'professional male presenter' : 'professional female presenter';
     const genderVoice = config.gender === 'male' ? 'Male' : 'Female';
@@ -2297,14 +2512,24 @@ const buildVideoPrompt = (
     // ── 6-Part Hierarchical Lookups (AI-analyzed > template default) ──
     const productHighlight = ai.product || PRODUCT_HIGHLIGHT[category];
     const dynamics = ai.character || CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
-    const environment = getSmartEnvironment(template, category, ai.environment);
+    const environment = getSmartEnvironment(template, category, ai.environment, config.sceneBackground);
     const lighting = getSmartLighting(voiceTone, category, ai.lighting);
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
     const cameraMove = CAMERA_MOVEMENT[template] || CAMERA_MOVEMENT["product-review"];
     const transition = SCENE_TRANSITION[template] || SCENE_TRANSITION["product-review"];
 
+    // ── Select persona ONCE — if character image was analyzed, pick by closest age match ──
+    const persona = characterAnalysis
+        ? getPersonaFromCharacterAnalysis(characterAnalysis, voiceTone)
+        : getPersona(config.gender || 'female', voiceTone, config.ageRange);
+
+    // If AI detected gender from character image, override form gender for consistency
+    const effectiveGender = characterAnalysis?.gender || config.gender || 'female';
+
+    console.log(`🧑 Persona selected: ${persona.name} (age ${persona.age}) ${characterAnalysis ? `[AI-matched from estimated age ${characterAnalysis.estimatedAge}]` : '[random from tone pool]'}`);
+
     // ── FIXED Voiceover Descriptor — same string in EVERY scene ──
-    const voiceoverDescriptor = buildVoiceoverDescriptor(config.gender || 'female', voiceTone, config.ageRange);
+    const voiceoverDescriptor = buildVoiceoverDescriptor(effectiveGender, voiceTone, config.ageRange, persona);
 
     // ── Product description: user-provided > AI-analyzed > template default ──
     const fullProductHighlight = config.productDescription?.trim()
@@ -2323,30 +2548,55 @@ const buildVideoPrompt = (
 
     const contactPhysics = buildContactPhysicsDirectiveSlim(category);
     const videoProductAnatomy = buildProductAnatomyDirective(category, config.productName);
+
+    // ── Product Usage Realism — prevents illogical actions (e.g. spraying with cap on) ──
+    const productUsageRealism = PRODUCT_USAGE_REALISM[category] || "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage.";
+
+    // ── CHARACTER VISUAL DNA ANCHOR — IDENTICAL text for Scene 1 AND Scene 2+ ──
+    // Repeats FULL physical description in every scene for maximum consistency.
+    // When characterAnalysis is available (AI Vision), include precise details from the actual reference image.
+    const aiAppearance = characterAnalysis
+        ? `AI-observed appearance: ${characterAnalysis.overallLook}. Hair: ${characterAnalysis.hairstyle}. Build: ${characterAnalysis.build}. Skin tone: ${characterAnalysis.skinTone}. Estimated age: ${characterAnalysis.estimatedAge}.`
+        : '';
+    const aiClothing = characterAnalysis?.clothing
+        ? `Reference clothing: ${characterAnalysis.clothing}.`
+        : '';
+
+    const characterAnchor = [
+        `CHARACTER VISUAL DNA (MUST be IDENTICAL in every scene):`,
+        `Character '${persona.name}': ${genderText}, age ${persona.age}, ${persona.characterType}.`,
+        aiAppearance,
+        `Outfit: ${clothingDesc}${aiClothing ? ` (${aiClothing})` : ''} — same outfit in EVERY scene, absolutely no wardrobe changes.`,
+        `Expression baseline: ${expressionText}.`,
+        `${dynamics}. ${movementDesc}.`,
+        `FACE LOCK: Preserve EXACT facial bone structure, face width, jawline shape, eye shape, nose shape, natural skin texture, skin tone from scene 1. Zero face changes between scenes.`,
+        `BODY LOCK: Same body type, same build, same posture style, same height proportion across all scenes.`,
+        `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture in every scene.`
+    ].filter(Boolean).join(' ');
+
     // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
-    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame.`;
+    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ${productUsageRealism}`;
 
     const prompt = sanitizePromptForPolicy([
-        // ★ [VOICE — HIGHEST PRIORITY] — voice persona + script FIRST so model prioritizes it
+        // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity
+        `${characterAnchor}`,
+        // ★ [2. VOICE PERSONA + SCRIPT] — voice persona + dialogue
         `${voiceoverDescriptor}`,
-        `${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
-        // [Subject] — product + character
+        `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
+        // ★ [3. PRODUCT IDENTITY] — product anchor with usage realism
         `${templateConfig.englishName} commercial video. ${productAnchor}`,
-        // [Action] — character details from form selections
-        `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}. ${contactPhysics} ${speakingDirective}`,
-        // [Environment] — setting/background
+        // [4. ACTION] — character interaction
+        `${contactPhysics} ${speakingDirective}`,
+        // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
-        // [Camera & Lighting]
+        // [6. CAMERA & LIGHTING]
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
-        // [Style/Mood]
+        // [7. STYLE/MOOD]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
-        // [Constraints] — policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice must carry identically through every subsequent scene. ${VIDEO_POLICY_DIRECTIVE}`
+        // [8. CONSTRAINTS] — policy + technical
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice '${persona.name}' must carry identically through every subsequent scene. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
-
-    // ── Product Anchor for Scene 2+ — SAME text as Scene 1 (Anchor Prompt technique) ──
-    // No separate rebuild — reuse the identical productAnchor string from above.
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
     const meta: VideoPromptMeta = {
@@ -2365,7 +2615,11 @@ const buildVideoPrompt = (
         cameraMovement: cameraMove,
         sceneTransition: transition,
         environment,
-        lighting
+        lighting,
+        characterAnchor,
+        personaName: persona.name,
+        clothingDesc,
+        productUsageRealism
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -2376,8 +2630,13 @@ const buildVideoPrompt = (
 /**
  * Build a plain-text video prompt for Scene 2+ using meta from Scene 1.
  * 
- * Strong continuity: IDENTICAL character, product, environment, outfit across all scenes.
- * Only the voiceover script changes — everything visual is locked from Scene 1.
+ * HIGH-PRECISION CONSISTENCY approach (per Gemini expert recommendation):
+ * 1. CHARACTER VISUAL DNA — full physical description repeated in EVERY scene
+ * 2. PRODUCT IDENTITY — full product anchor repeated in EVERY scene
+ * 3. VOICE PERSONA — full voice persona (not just VOICE LOCK) in EVERY scene
+ * 4. ACTION + USAGE REALISM — prevents illogical actions
+ * 5. CAMERA + CONTINUITY — seamless flow between scenes
+ * Only the voiceover script changes — everything visual/vocal is locked from Scene 1.
  */
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
@@ -2392,34 +2651,36 @@ export const buildSceneVideoPromptJSON = (
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
-    // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
-    // 99.9% seamless (no transition), 0.1% with transition effect (per user request)
+    // ── SEAMLESS TRANSITION ──
     const useTransition = Math.random() < 0.001;
     const transitionDirective = useTransition
         ? `TRANSITION: ${meta.sceneTransition}. Smooth visual transition from scene ${sceneNumber - 1}.`
-        : `NO TRANSITION: Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade, no visual effect between scenes.`;
-
-    const continuityDirective = [
-        `[HIGHEST PRIORITY] VOICE LOCK: The character's speaking voice in scene ${sceneNumber} MUST be identical to scene ${sceneNumber - 1} — same person, same pitch, same tone, same energy, same pace. Zero voice change. The audience must not notice any scene boundary.`,
-        `[HIGHEST PRIORITY] SEAMLESS CUT: ${transitionDirective} No black frame, no silence gap, no freeze. Continuous fluid motion at the scene boundary — one unbroken take feel.`,
-        `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation.`,
-        `CONSISTENT: same character face/outfit/hairstyle, same background, lighting.`,
-        `[HIGHEST PRIORITY] PRODUCT IDENTITY LOCK FOR SCENE ${sceneNumber}: The product MUST be visually IDENTICAL to scene 1 — same packaging SILHOUETTE, same PROPORTIONS, same cap/closure DISTINCTIVE DESIGN (preserve every geometric detail, facet, angle), same visual branding, same color palette, same material finish and transparency level. Every distinctive design element from scene 1 must appear unchanged. Preserve exact visual branding from reference. Product must NOT morph, simplify, stretch, or lose any distinctive features between scenes. If scene 1 product has a unique cap shape, that EXACT cap must appear. If it has a specific liquid color, that EXACT color must render.`,
-        `CAMERA: continue ${meta.cameraMovement}. No camera reset.`,
-        `[HIGHEST PRIORITY] NO TEXT: ${ANTI_TEXT_DIRECTIVE} Absolutely NO banners, NO subtitles, NO floating text, NO UI elements anywhere in the frame.`
-    ].join(' ');
+        : `Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade.`;
 
     return sanitizePromptForPolicy([
-        // ★ VOICE + TRANSITION first — highest priority for the model
-        continuityDirective,
-        `${meta.voiceoverDescriptor}`,
-        `${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
-        // ★ Then product + character + style
+        // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity repeated
+        `${meta.characterAnchor}`,
+
+        // ★ [2. PRODUCT IDENTITY] — full product anchor repeated
         `${meta.template} commercial video. ${meta.productAnchor}`,
-        `${meta.gender}, ${meta.expression}, ${meta.style}. ${speakingDirective}`,
+
+        // ★ [3. VOICE PERSONA + SCRIPT] — full voice persona in every scene
+        `${meta.voiceoverDescriptor}`,
+        `[HIGHEST PRIORITY] VOICE LOCK for scene ${sceneNumber}: Speaker '${meta.personaName}' — IDENTICAL voice to scene ${sceneNumber - 1}. Same person, same pitch, same tone, same energy, same pace. Zero voice change. Audience must not notice any scene boundary.`,
+        `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+
+        // ★ [4. ACTION + USAGE REALISM] — prevents illogical actions like spraying with cap on
+        `${meta.productUsageRealism} ${speakingDirective}`,
+
+        // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
+
+        // [6. CONTINUITY + STYLE]
+        `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation. ${transitionDirective} No black frame, no silence gap, no freeze.`,
         `${meta.pacing}. Fluid motion, high frame rate.`,
-        `${aspectDirective} ${meta.restrictions} Same fictional character, outfit, product, environment from scene ${sceneNumber - 1}.`
+
+        // [7. CONSTRAINTS]
+        `${aspectDirective} ${meta.restrictions} Same fictional character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment from scene 1 through scene ${sceneNumber}. CAMERA: continue ${meta.cameraMovement}. No camera reset.`
     ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
 };
 

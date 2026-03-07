@@ -1073,17 +1073,9 @@ function buildCss(t: OverlayTheme): string {
     z-index: 4;
 }
 
-/* HUD Frame */
+/* HUD Frame — hidden */
 .nf-engine-frame {
-    position: absolute;
-    inset: 8px 14px;
-    border: 1px solid rgba(${P},0.25);
-    border-radius: 3px;
-    box-shadow:
-        0 0 20px rgba(${P},0.08),
-        0 0 40px rgba(${P},0.04),
-        inset 0 0 20px rgba(${P},0.02);
-    animation: nf-frame-pulse 4s ease-in-out infinite;
+    display: none;
 }
 
 @keyframes nf-frame-pulse {
@@ -1097,18 +1089,10 @@ function buildCss(t: OverlayTheme): string {
     }
 }
 
-/* Frame corner accents */
+/* Frame corner accents — hidden */
 .nf-frame-corner {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-style: solid;
-    border-color: rgba(${A},0.6);
+    display: none;
 }
-.nf-frame-corner.nf-fc-tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
-.nf-frame-corner.nf-fc-tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
-.nf-frame-corner.nf-fc-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
-.nf-frame-corner.nf-fc-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
 
 /* Wave SVG */
 .nf-engine-waves {
@@ -1301,19 +1285,18 @@ function buildCss(t: OverlayTheme): string {
     position: absolute;
     width: 264px;
     background: rgba(${bgt(8)}, 0.88);
-    border: 1px solid rgba(${P},0.2);
+    border: none;
     border-radius: 12px;
     padding: 14px 17px;
     backdrop-filter: blur(16px) saturate(1.3);
     -webkit-backdrop-filter: blur(16px) saturate(1.3);
     overflow: hidden;
     animation: nf-module-in 0.5s ease-out both;
-    transition: border-color 0.4s, box-shadow 0.4s;
+    transition: box-shadow 0.4s;
     z-index: 5;
 }
 
 .nf-module.nf-active {
-    border-color: rgba(${P},0.5);
     box-shadow:
         0 0 30px rgba(${P},0.12),
         0 0 60px rgba(${P},0.06),
@@ -1321,7 +1304,6 @@ function buildCss(t: OverlayTheme): string {
 }
 
 .nf-module.nf-done {
-    border-color: rgba(${D}, 0.4);
     box-shadow: 0 0 20px rgba(${D}, 0.1);
 }
 

@@ -99,8 +99,8 @@ const AiScriptSection = ({
                             </p>
                         </div>
                         <div className="col-span-2">
-                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium flex items-center gap-1">
-                                <Globe className="w-3 h-3" />
+                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium flex items-center gap-1.5">
+                                <Globe className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                                 ภาษา
                             </label>
                             <select
@@ -120,7 +120,7 @@ const AiScriptSection = ({
                     <div className="rounded-xl border border-border/60 bg-background/50 overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
                             <label className={`text-[11px] font-medium flex items-center gap-1.5 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                                <RefreshCw className="w-3 h-3" />
+                                <RefreshCw className="w-3.5 h-3.5" style={{ color: themeConfig.hex, opacity: isAiMode ? 0.5 : 1 }} />
                                 คำสั่งเพิ่มเติม (Prompt)
                             </label>
                             <button
@@ -185,7 +185,7 @@ const AiScriptSection = ({
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
-                                <Mic className="w-3 h-3" />
+                                <Mic className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                                 น้ำเสียง & อารมณ์
                             </label>
                             <select
@@ -201,7 +201,7 @@ const AiScriptSection = ({
                         </div>
                         <div>
                             <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
-                                <Sparkles className="w-3 h-3" />
+                                <Sparkles className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                                 ระดับพลังงาน
                             </label>
                             <select
@@ -219,8 +219,8 @@ const AiScriptSection = ({
 
                     {/* ═══ Row 5: Scene Background Picker ═══ */}
                     <div>
-                        <label className="text-[11px] mb-2 block font-medium flex items-center gap-1.5 text-muted-foreground">
-                            <ImageIcon className="w-3.5 h-3.5" />
+                        <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
+                            <ImageIcon className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                             ฉากพื้นหลัง (Background)
                         </label>
                         <div className="grid grid-cols-4 gap-2">
@@ -277,9 +277,6 @@ const AiScriptSection = ({
                             />
                         )}
 
-                        <p className="text-[10px] text-muted-foreground/50 mt-1.5 leading-tight">
-                            {sceneBackgroundOptions.find(b => b.value === sceneBackground)?.description}
-                        </p>
                     </div>
 
                     {/* ═══ Row 6: Hook & CTA (compact) ═══ */}
@@ -347,8 +344,8 @@ const AiScriptSection = ({
                     {/* ═══ Row 7: Keywords (compact) ═══ */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-[11px] mb-1.5 block text-muted-foreground font-medium flex items-center gap-1">
-                                <Tag className="w-3 h-3" />
+                            <label className="text-[11px] mb-1.5 block text-muted-foreground font-medium flex items-center gap-1.5">
+                                <Tag className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                                 คำสำคัญที่ต้องใช้
                             </label>
                             <input
@@ -359,8 +356,8 @@ const AiScriptSection = ({
                             />
                         </div>
                         <div>
-                            <label className="text-[11px] mb-1.5 block text-muted-foreground font-medium flex items-center gap-1">
-                                <ShieldAlert className="w-3 h-3" />
+                            <label className="text-[11px] mb-1.5 block text-muted-foreground font-medium flex items-center gap-1.5">
+                                <ShieldAlert className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                                 คำที่ต้องหลีกเลี่ยง
                             </label>
                             <input

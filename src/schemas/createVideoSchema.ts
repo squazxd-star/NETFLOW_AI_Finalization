@@ -18,6 +18,7 @@ export const createVideoSchema = z.object({
     // AI Scripting
     useAiScript: z.boolean().default(true),
     aiPrompt: z.string().default(""),
+    sceneScriptsRaw: z.string().default(""),
     saleStyle: z.enum(["hard", "soft", "educational", "storytelling"]).default("hard"),
     language: z.enum(["th-central", "th-north", "th-south", "th-isan"]).default("th-central"),
     voiceTone: z.enum(["energetic", "calm", "friendly", "professional", "cute"]).default("energetic"),
@@ -56,7 +57,7 @@ export const createVideoSchema = z.object({
     autoPostYoutube: z.boolean().default(false),
 
     // Scene Background
-    sceneBackground: z.string().default("studio"),
+    sceneBackground: z.string().default("auto"),
 
     // Keywords
     mustUseKeywords: z.string().default(""),
@@ -78,6 +79,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     cameraAngles: ["front", "close-up"],
     useAiScript: true,
     aiPrompt: "",
+    sceneScriptsRaw: "",
     saleStyle: "storytelling",
     language: "th-central",
     voiceTone: "energetic",
@@ -93,7 +95,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     sceneCount: 2,
     autoPostTikTok: true,
     autoPostYoutube: false,
-    sceneBackground: "studio",
+    sceneBackground: "auto",
     mustUseKeywords: "",
     avoidKeywords: "",
 };

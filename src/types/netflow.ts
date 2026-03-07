@@ -76,6 +76,7 @@ export const accentOptions: { value: string; label: string }[] = [
 ];
 
 export const sceneBackgroundOptions: { value: string; label: string; emoji: string; description: string }[] = [
+    { value: "auto", label: "Auto ฉาก", emoji: "🤖", description: "AI เลือกฉากให้อัตโนมัติตามสินค้าและเทมเพลต" },
     { value: "studio", label: "สตูดิโอ", emoji: "🎬", description: "พื้นหลังสตูดิโอสะอาด เรียบง่าย" },
     { value: "living-room", label: "ห้องนั่งเล่น", emoji: "🛋️", description: "บรรยากาศอบอุ่น เหมือนรีวิวที่บ้าน" },
     { value: "bedroom", label: "ห้องนอน", emoji: "🛏️", description: "สไตล์ส่วนตัว ใกล้ชิด" },
@@ -91,6 +92,10 @@ export const sceneBackgroundOptions: { value: string; label: string; emoji: stri
     { value: "gradient-abstract", label: "แกรเดียนท์", emoji: "🎨", description: "สีไล่เฉด สวยงาม ทันสมัย" },
     { value: "luxury", label: "หรูหรา", emoji: "👑", description: "หินอ่อน ทอง บรรยากาศพรีเมียม" },
     { value: "night-market", label: "ตลาดนัด", emoji: "🏮", description: "แสงไฟ บรรยากาศตลาดไทย" },
+    { value: "rooftop", label: "ดาดฟ้า", emoji: "🌆", description: "วิวเมืองจากที่สูง บรรยากาศเปิดโล่ง" },
+    { value: "library", label: "ห้องสมุด", emoji: "📚", description: "ชั้นหนังสือ บรรยากาศสงบ น่าเชื่อถือ" },
+    { value: "restaurant", label: "ร้านอาหาร", emoji: "🍽️", description: "โต๊ะอาหาร บรรยากาศร้านหรู" },
+    { value: "spa", label: "สปา", emoji: "🧖", description: "ผ่อนคลาย เทียนหอม บรรยากาศเซน" },
     { value: "custom", label: "กำหนดเอง", emoji: "✏️", description: "พิมพ์ฉากที่ต้องการ" },
 ];
 

@@ -62,7 +62,7 @@ const GenerationSettingsSection = ({
 }: GenerationSettingsSectionProps) => {
     const { config: themeConfig } = useTheme();
     const sceneCount = (watch("sceneCount") || 2) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-    const aiPrompt = watch("aiPrompt") || "";
+    const sceneScriptsRaw = watch("sceneScriptsRaw") || "";
     const language = watch("language") || "th-central";
     const productName = watch("productName") || "";
     const saleStyle = watch("saleStyle") || "hard";
@@ -70,21 +70,21 @@ const GenerationSettingsSection = ({
     const voiceTone = watch("voiceTone") || "friendly";
 
     const [sceneScripts, setSceneScripts] = useState<string[]>(() =>
-        parseSceneScripts(aiPrompt, sceneCount)
+        parseSceneScripts(sceneScriptsRaw, sceneCount)
     );
     const [isGenerating, setIsGenerating] = useState(false);
     const [starSpin, setStarSpin] = useState(false);
     const [sceneDropdownOpen, setSceneDropdownOpen] = useState(false);
 
     useEffect(() => {
-        setSceneScripts(parseSceneScripts(aiPrompt, sceneCount));
-    }, [aiPrompt, sceneCount]);
+        setSceneScripts(parseSceneScripts(sceneScriptsRaw, sceneCount));
+    }, [sceneScriptsRaw, sceneCount]);
 
     const onChangeSceneScript = (index: number, value: string) => {
         setSceneScripts((prev) => {
             const next = [...prev];
             next[index] = value;
-            setValue("aiPrompt", next.join("\n\n"));
+            setValue("sceneScriptsRaw", next.join("\n\n"));
             return next;
         });
     };
@@ -311,7 +311,7 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
 
             const newScripts = Array.from({ length: sceneCount }, (_, i) => scenes[i] || "");
             setSceneScripts(newScripts);
-            setValue("aiPrompt", newScripts.join("\n\n"));
+            setValue("sceneScriptsRaw", newScripts.join("\n\n"));
 
         } catch (error: any) {
             console.error("AI Generation Error:", error);
