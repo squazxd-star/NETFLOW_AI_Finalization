@@ -2245,8 +2245,8 @@ export const buildSceneVideoPromptJSON = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
-    // 90% seamless (no transition), 10% with transition effect
-    const useTransition = Math.random() < 0.1;
+    // 99% seamless (no transition), 1% with transition effect
+    const useTransition = Math.random() < 0.01;
     const transitionDirective = useTransition
         ? `TRANSITION: ${meta.sceneTransition}. Smooth visual transition from scene ${sceneNumber - 1}.`
         : `NO TRANSITION: Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade, no visual effect between scenes.`;
@@ -2255,7 +2255,8 @@ export const buildSceneVideoPromptJSON = (
         `[HIGHEST PRIORITY] VOICE LOCK: The character's speaking voice in scene ${sceneNumber} MUST be identical to scene ${sceneNumber - 1} — same person, same pitch, same tone, same energy, same pace. Zero voice change. The audience must not notice any scene boundary.`,
         `[HIGHEST PRIORITY] SEAMLESS CUT: ${transitionDirective} No black frame, no silence gap, no freeze. Continuous fluid motion at the scene boundary — one unbroken take feel.`,
         `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation.`,
-        `CONSISTENT: same character face/outfit/hairstyle, IDENTICAL product (same shape, color, label, packaging — zero drift), same background, lighting.`,
+        `CONSISTENT: same character face/outfit/hairstyle, same background, lighting.`,
+        `[HIGHEST PRIORITY] PRODUCT IDENTITY LOCK FOR SCENE ${sceneNumber}: The product MUST be visually IDENTICAL to scene 1 — same bottle/packaging SHAPE, same PROPORTIONS, same cap/closure design, same label TYPOGRAPHY (exact brand name spelling letter-by-letter, exact font), same color palette. The text "${meta.product?.split(',')[0]?.trim()}" must appear on the label exactly as spelled — NO misspelling, NO letter swaps, NO gibberish text. Product shape must NOT morph, stretch, or change between scenes.`,
         `CAMERA: continue ${meta.cameraMovement}. No camera reset.`,
     ].join(' ');
 
