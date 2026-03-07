@@ -2166,21 +2166,21 @@ const buildVideoPrompt = (
     const productAccuracyDirective = `The ${config.productName} product is the HERO of the video — always visible and prominent. Product appearance must exactly match the reference image: ${fullProductHighlight}. Feature product in every frame, centered and clearly lit.`;
 
     const prompt = sanitizePromptForPolicy([
+        // ★ [VOICE — HIGHEST PRIORITY] — voice persona + script FIRST so model prioritizes it
+        `${voiceoverDescriptor}`,
+        `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Subject] — product + character
         `${templateConfig.englishName} commercial video. ${productAccuracyDirective}`,
         // [Action] — character details from form selections
         `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}. ${contactPhysics} ${speakingDirective}`,
         // [Environment] — setting/background
         `${environment}.`,
-        // [Camera & Lighting] — user-selected angles + template cinematic + lighting
+        // [Camera & Lighting]
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
-        // [Style/Mood] — pacing + frame rate
+        // [Style/Mood]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
-        // [Audio/Voiceover] — FIXED descriptor + script
-        `${voiceoverDescriptor}`,
-        `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Constraints] — policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — same voice carries through all scenes. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice must carry identically through every subsequent scene. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
 
     // ── Build detailed Product Anchor from AI analysis for Scene 2+ identity lock ──
@@ -2238,29 +2238,30 @@ export const buildSceneVideoPromptJSON = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
-    // Fix #3: 80% seamless (no transition), 20% with transition effect
-    const useTransition = Math.random() < 0.2;
+    // 90% seamless (no transition), 10% with transition effect
+    const useTransition = Math.random() < 0.1;
     const transitionDirective = useTransition
         ? `TRANSITION: ${meta.sceneTransition}. Smooth visual transition from scene ${sceneNumber - 1}.`
         : `NO TRANSITION: Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade, no visual effect between scenes.`;
 
     const continuityDirective = [
+        `[HIGHEST PRIORITY] VOICE LOCK: The character's speaking voice in scene ${sceneNumber} MUST be identical to scene ${sceneNumber - 1} — same person, same pitch, same tone, same energy, same pace. Zero voice change. The audience must not notice any scene boundary.`,
+        `[HIGHEST PRIORITY] SEAMLESS CUT: ${transitionDirective} No black frame, no silence gap, no freeze. Continuous fluid motion at the scene boundary — one unbroken take feel.`,
         `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation.`,
         `CONSISTENT: same character face/outfit/hairstyle, IDENTICAL product (same shape, color, label, packaging — zero drift), same background, lighting.`,
-        transitionDirective,
-        `CAMERA: continue ${meta.cameraMovement}. No camera reset. Continuous movement at scene boundary — no freeze frame.`,
-        `VOICE: speaking continues seamlessly from scene ${sceneNumber - 1} — same tone, same pace, mid-sentence flow. No voice reset.`,
-        `NO black screen, NO silence gap. One continuous take.`,
+        `CAMERA: continue ${meta.cameraMovement}. No camera reset.`,
     ].join(' ');
 
     return sanitizePromptForPolicy([
+        // ★ VOICE + TRANSITION first — highest priority for the model
         continuityDirective,
-        `${meta.template} commercial video. ${meta.productAnchor}`,
         `${meta.voiceoverDescriptor}`,
+        `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        // ★ Then product + character + style
+        `${meta.template} commercial video. ${meta.productAnchor}`,
         `${meta.gender}, ${meta.expression}, ${meta.style}. ${speakingDirective}`,
         `${meta.camera}. ${meta.lighting}.`,
         `${meta.pacing}. Fluid motion, high frame rate.`,
-        `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
         `${aspectDirective} ${meta.restrictions} Same fictional character, outfit, product, environment from scene ${sceneNumber - 1}.`
     ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
 };
