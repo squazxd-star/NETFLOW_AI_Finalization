@@ -75,28 +75,40 @@ const NetCastProductionSection = ({
                             <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
                                 <button
                                     onClick={() => setValue("selectedPlatform", "tiktok")}
-                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${selectedPlatform === 'tiktok' ? 'text-white bg-muted/50' : 'text-muted-foreground hover:text-white'
-                                        }`}
+                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
+                                        selectedPlatform === 'tiktok' 
+                                            ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                                            : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                    }`}
                                 >
-                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg className={`w-5 h-5 transition-transform duration-300 ${selectedPlatform === 'tiktok' ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
                                     </svg>
+                                    {selectedPlatform === 'tiktok' && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-l-xl"></div>}
                                 </button>
-                                <div className="w-px h-8 bg-border"></div>
+                                <div className="w-px h-8 bg-border z-10"></div>
                                 <button
                                     onClick={() => setValue("selectedPlatform", "youtube")}
-                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${selectedPlatform === 'youtube' ? 'text-white bg-muted/50' : 'text-muted-foreground hover:text-white'
-                                        }`}
+                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
+                                        selectedPlatform === 'youtube' 
+                                            ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                                            : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                    }`}
                                 >
-                                    <Youtube className="w-5 h-5" />
+                                    <Youtube className={`w-5 h-5 transition-transform duration-300 ${selectedPlatform === 'youtube' ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
+                                    {selectedPlatform === 'youtube' && <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>}
                                 </button>
-                                <div className="w-px h-8 bg-border"></div>
+                                <div className="w-px h-8 bg-border z-10"></div>
                                 <button
                                     onClick={() => setValue("selectedPlatform", "save")}
-                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${selectedPlatform === 'save' ? 'text-white bg-muted/50' : 'text-muted-foreground hover:text-white'
-                                        }`}
+                                    className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
+                                        selectedPlatform === 'save' 
+                                            ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                                            : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                    }`}
                                 >
-                                    <Save className="w-5 h-5" />
+                                    <Save className={`w-5 h-5 transition-transform duration-300 ${selectedPlatform === 'save' ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
+                                    {selectedPlatform === 'save' && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-r-xl"></div>}
                                 </button>
                             </div>
                         </div>

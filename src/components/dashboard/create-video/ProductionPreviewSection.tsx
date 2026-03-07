@@ -48,33 +48,42 @@ const ProductionPreviewSection = ({
                         <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
                             <button
                                 onClick={handleTikTokToggle}
-                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-200 ${
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
                                     !isTikTokReady ? 'text-muted-foreground/40 opacity-40' :
-                                    autoPostTikTok ? 'text-orange-400 bg-orange-500/15' : 'text-white'
+                                    autoPostTikTok 
+                                        ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                                        : 'text-muted-foreground hover:text-white hover:bg-white/5'
                                 }`}
                                 title={!isTikTokReady ? "ตั้งค่า TikTok ก่อน" : autoPostTikTok ? "TikTok: เปิด" : "TikTok: ปิด"}
                             >
-                                <TikTokIcon className="w-5 h-5" />
+                                <TikTokIcon className={`w-5 h-5 transition-transform duration-300 ${autoPostTikTok ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
+                                {autoPostTikTok && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-l-xl"></div>}
                             </button>
-                            <div className="w-px h-8 bg-border" />
+                            <div className="w-px h-8 bg-border z-10" />
                             <button
                                 onClick={() => setValue("autoPostYoutube", !autoPostYoutube)}
-                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${
-                                    autoPostYoutube ? 'text-white' : 'text-muted-foreground'
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
+                                    autoPostYoutube 
+                                        ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                                        : 'text-muted-foreground hover:text-white hover:bg-white/5'
                                 }`}
+                                title={autoPostYoutube ? "YouTube: เปิด" : "YouTube: ปิด"}
                             >
-                                <Youtube className="w-5 h-5" />
+                                <Youtube className={`w-5 h-5 transition-transform duration-300 ${autoPostYoutube ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
+                                {autoPostYoutube && <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>}
                             </button>
-                            <div className="w-px h-8 bg-border" />
+                            <div className="w-px h-8 bg-border z-10" />
                             <button
                                 onClick={(e) => { e.preventDefault(); onDownloadVideo(); }}
                                 disabled={!hasVideo}
-                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all ${
-                                    hasVideo ? 'text-white hover:bg-neon-red cursor-pointer' : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
+                                    hasVideo 
+                                        ? 'text-white hover:text-primary hover:bg-primary/10 hover:shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)] cursor-pointer' 
+                                        : 'text-muted-foreground opacity-50 cursor-not-allowed'
                                 }`}
                                 title="บันทึกลงเครื่อง"
                             >
-                                <Save className="w-5 h-5" />
+                                <Save className={`w-5 h-5 transition-transform duration-300 ${hasVideo ? 'hover:scale-110 hover:drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
                             </button>
                         </div>
                     </div>
