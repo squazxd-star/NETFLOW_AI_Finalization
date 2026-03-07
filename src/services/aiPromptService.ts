@@ -1740,6 +1740,7 @@ export interface VideoPromptMeta {
     pacing: string;
     restrictions: string;
     voiceoverDescriptor: string;   // FIXED voice cue — copy-paste to every scene
+    voiceLanguage: string;         // e.g. "Thai" — for dynamic SCRIPT label in Scene 2+
     cameraMovement: string;        // per-template camera motion
     sceneTransition: string;       // per-template transition keywords
     environment: string;           // setting/background
@@ -2069,9 +2070,10 @@ const buildVideoPrompt = (
     const movementDesc = movementMap[config.movement || 'minimal'] || 'subtle gentle gestures';
 
     // ── Language → voiceover language ──
+    // All Thai dialects produce Thai voiceover; accent/dialect is handled by ACCENT_THAI config
     const languageMap: Record<string, string> = {
-        "th-central": "Thai", "th-north": "English",
-        "th-south": "Lao", "th-isan": "Chinese Mandarin"
+        "th-central": "Thai", "th-north": "Thai",
+        "th-south": "Thai", "th-isan": "Thai"
     };
     const voiceLanguage = languageMap[config.language] || "Thai";
 
@@ -2176,6 +2178,7 @@ const buildVideoPrompt = (
         pacing: durationConfig.pacing,
         restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${buildContactPhysicsDirective(category)} ${VIDEO_POLICY_DIRECTIVE}`,
         voiceoverDescriptor,
+        voiceLanguage,
         cameraMovement: cameraMove,
         sceneTransition: transition,
         environment,
@@ -2219,11 +2222,11 @@ export const buildSceneVideoPromptJSON = (
     return sanitizePromptForPolicy([
         continuityDirective,
         `${meta.template} commercial video. ${meta.product} — visible in every frame.`,
-        `${meta.voiceoverDescriptor}`,
         `${meta.gender}, ${meta.expression}, ${meta.style}. ${speakingDirective}`,
         `${meta.camera}. ${meta.lighting}.`,
         `${meta.pacing}. Fluid motion, high frame rate.`,
-        `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        `${meta.voiceoverDescriptor}`,
+        `${meta.genderVoice}. ${(meta.voiceLanguage || 'Thai').toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
         `${aspectDirective} ${meta.restrictions} Same fictional character, outfit, product, environment from scene ${sceneNumber - 1}.`
     ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
 };

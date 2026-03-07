@@ -33,6 +33,17 @@ const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
 LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
 
+// ─── Global Video Auto-Mute (prevents audio interference during automation) ──
+(() => {
+    const muteAll = () => document.querySelectorAll<HTMLVideoElement>("video").forEach(v => { if (!v.muted) v.muted = true; });
+    muteAll();
+    const obs = new MutationObserver(muteAll);
+    obs.observe(document.body, { childList: true, subtree: true });
+    // Periodic fallback: some players unmute via JS after load
+    setInterval(muteAll, 2000);
+    LOG("🔇 Auto-mute ทำงาน — เสียงจะเงียบตลอด automation");
+})();
+
 // ─── Mouse Position Tracker (Debug) ─────────────────────────────────────────
 document.addEventListener("click", (e) => {
     const t = e.target as HTMLElement | null;
