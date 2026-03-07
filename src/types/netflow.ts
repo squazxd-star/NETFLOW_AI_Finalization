@@ -96,6 +96,9 @@ export const sceneBackgroundOptions: { value: string; label: string; emoji: stri
     { value: "library", label: "ห้องสมุด", emoji: "📚", description: "ชั้นหนังสือ บรรยากาศสงบ น่าเชื่อถือ" },
     { value: "restaurant", label: "ร้านอาหาร", emoji: "🍽️", description: "โต๊ะอาหาร บรรยากาศร้านหรู" },
     { value: "spa", label: "สปา", emoji: "🧖", description: "ผ่อนคลาย เทียนหอม บรรยากาศเซน" },
+    { value: "hospital", label: "คลินิก", emoji: "🏥", description: "สะอาด น่าเชื่อถือ เหมาะสินค้าสุขภาพ" },
+    { value: "school", label: "ห้องเรียน", emoji: "🎓", description: "บรรยากาศการเรียน เหมาะคอร์สออนไลน์" },
+    { value: "temple", label: "วัด/ศาสนา", emoji: "🛕", description: "สงบ ศักดิ์สิทธิ์ บรรยากาศจิตใจ" },
     { value: "custom", label: "กำหนดเอง", emoji: "✏️", description: "พิมพ์ฉากที่ต้องการ" },
 ];
 
