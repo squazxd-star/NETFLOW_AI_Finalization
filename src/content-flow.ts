@@ -45,7 +45,19 @@ document.addEventListener("click", (e) => {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+class NetflowAbortError extends Error {
+    constructor() { super("AUTOMATION_STOPPED"); this.name = "NetflowAbortError"; }
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
+    if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
+    const id = setTimeout(() => {
+        if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
+        resolve();
+    }, ms);
+    // Store timeout id for potential cleanup
+    (sleep as any)._lastId = id;
+});
 
 /** Check if automation should stop (user clicked stop button) */
 function checkStop(): boolean {
@@ -3265,7 +3277,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         // Fire-and-forget: run the long automation in the background
         handleGenerateImage(message as GenerateImageRequest)
             .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
-            .catch(err => console.error("[Netflow AI] Generate error:", err));
+            .catch(err => {
+                if (err instanceof NetflowAbortError || err?.name === "NetflowAbortError") {
+                    LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
+                    try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
+                    try { hideOverlay(); } catch (_) {}
+                } else {
+                    console.error("[Netflow AI] Generate error:", err);
+                }
+            });
         return false;
     }
 

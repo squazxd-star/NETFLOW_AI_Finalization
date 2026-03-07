@@ -1570,6 +1570,38 @@ function buildCss(t: OverlayTheme): string {
     text-shadow: 0 0 8px rgba(${P},0.5);
 }
 
+/* ─── Stop Automation Button ─── */
+.nf-stop-btn {
+    position: absolute;
+    top: 14px;
+    right: 110px;
+    background: rgba(255, 60, 60, 0.08);
+    border: 1px solid rgba(255, 60, 60, 0.25);
+    border-radius: 8px;
+    color: rgba(255, 100, 100, 0.8);
+    font-size: 13px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 20;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.nf-stop-btn:hover {
+    background: rgba(255, 60, 60, 0.2);
+    border-color: rgba(255, 60, 60, 0.6);
+    color: #ff4444;
+    text-shadow: 0 0 8px rgba(255,60,60,0.5);
+}
+.nf-stop-btn .nf-stop-icon {
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    border-radius: 2px;
+}
+
 /* ─── Glowing Pipe Animations ─── */
 @keyframes nf-pipe-flow {
     0% { stroke-dashoffset: 40; }
@@ -2673,6 +2705,22 @@ function buildOverlay(): HTMLDivElement {
         d.className = `nf-corner-deco ${cls}`;
         root.appendChild(d);
     });
+
+    // Stop automation button
+    const stopBtn = document.createElement("button");
+    stopBtn.className = "nf-stop-btn";
+    stopBtn.innerHTML = '<span class="nf-stop-icon"></span> หยุด';
+    stopBtn.onclick = () => {
+        (window as any).__NETFLOW_STOP__ = true;
+        try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
+        // Also notify sidepanel via chrome.runtime if available
+        try {
+            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+                chrome.runtime.sendMessage({ action: "AUTOMATION_STOPPED" });
+            }
+        } catch (_) {}
+    };
+    root.appendChild(stopBtn);
 
     // Close button (toggles overlay visibility, doesn't destroy)
     const closeBtn = document.createElement("button");

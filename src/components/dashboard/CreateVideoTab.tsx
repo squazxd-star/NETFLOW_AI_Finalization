@@ -49,13 +49,17 @@ const CreateVideoTab = () => {
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
     const [flowLogs, setFlowLogs] = useState<string[]>(["✅ ระบบพร้อมทำงาน..."]);
 
-    // Listen for FLOW_LOG messages from content-flow.ts
+    // Listen for FLOW_LOG + AUTOMATION_STOPPED messages from content-flow.ts
     useEffect(() => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
         const handler = (message: any) => {
             if (message?.action === "FLOW_LOG" && message.msg) {
                 const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
                 setFlowLogs(prev => [...prev.slice(-199), `[${ts}] ${message.msg}`]);
+            }
+            if (message?.action === "AUTOMATION_STOPPED") {
+                setIsUploading(false);
+                setUploadStatus("⛔ หยุดการทำงานแล้ว");
             }
         };
         chrome.runtime.onMessage.addListener(handler);
