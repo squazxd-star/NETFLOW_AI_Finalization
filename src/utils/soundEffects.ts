@@ -1,53 +1,55 @@
 /**
- * Mechanical "แต๊ก" click sound using Web Audio API
- * No external audio files needed — all sounds are synthesized in real-time
+ * Engine Start sound using Web Audio API
+ * Dual-oscillator Mechanical + Digital tone — no external audio files needed
  */
 
-/** "แต๊ก" — crisp mechanical click with sub-bass weight */
+/** Engine Start — sawtooth sub-engine + sine digital whir */
 export function playAutomationSound() {
     try {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const duration = 1.5;
 
-        // --- Layer 1: Noise-based click (plastic/metal snap) ---
-        const bufferSize = audioCtx.sampleRate * 0.05;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buffer;
+        // Layer 1: The Sub Engine (เสียงทุ้มต่ำ)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(40, audioCtx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + duration);
 
+        // Layer 2: The Digital Whir (เสียงวี้ดแบบ Hi-tech)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + duration);
+
+        // Filter: ตัดเสียงแหลมเกินไปออกให้ดู Smooth
         const filter = audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 3000;
-        filter.Q.value = 5;
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
 
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+        // Envelope: คุมความดัง
+        gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain1.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.1);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
 
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(audioCtx.destination);
-        noise.start();
-        noise.stop(audioCtx.currentTime + 0.05);
+        gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain2.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.2);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
 
-        // --- Layer 2: Sub-thump for weight ---
-        const thump = audioCtx.createOscillator();
-        const thumpGain = audioCtx.createGain();
-        thump.type = 'sine';
-        thump.frequency.setValueAtTime(150, audioCtx.currentTime);
-        thump.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.05);
-        thumpGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        thumpGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-        thump.connect(thumpGain);
-        thumpGain.connect(audioCtx.destination);
-        thump.start();
-        thump.stop(audioCtx.currentTime + 0.05);
+        osc1.connect(gain1);
+        osc2.connect(gain2);
+        gain1.connect(filter);
+        gain2.connect(filter);
+        filter.connect(audioCtx.destination);
+
+        osc1.start();
+        osc2.start();
+        osc1.stop(audioCtx.currentTime + duration);
+        osc2.stop(audioCtx.currentTime + duration);
 
         // Clean up after sounds finish
-        setTimeout(() => audioCtx.close(), 300);
+        setTimeout(() => audioCtx.close(), 2000);
     } catch (e) {
         // Silently ignore — sound is non-critical
         console.warn('[SFX] Could not play automation sound:', e);
