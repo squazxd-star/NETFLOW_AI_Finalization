@@ -2218,10 +2218,12 @@ const buildVideoPrompt = (
     
     // ── Expression mapping ──
     const expressionMap: Record<string, string> = {
-        neutral: "neutral and composed", happy: "happy and confident",
-        excited: "excited and enthusiastic", serious: "serious and focused"
+        neutral: "natural relaxed neutral expression", 
+        happy: "subtle natural smile, relaxed facial muscles (no exaggerated grin)",
+        excited: "bright confident expression, engaged eyes", 
+        serious: "professional focused expression"
     };
-    const expressionText = expressionMap[config.expression || 'happy'] || 'happy and confident';
+    const expressionText = expressionMap[config.expression || 'happy'] || 'subtle natural smile';
 
     // ── Clothing style ──
     const clothingMap: Record<string, string> = {
