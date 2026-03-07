@@ -52,16 +52,6 @@ const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
 LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
 
-// ─── Mouse Position Tracker (Debug) ─────────────────────────────────────────
-document.addEventListener("click", (e) => {
-    const t = e.target as HTMLElement | null;
-    if (!t) return;
-    const tag = t.tagName.toLowerCase();
-    const x = Math.round(e.clientX), y = Math.round(e.clientY);
-    const txt = (t.textContent || "").trim().slice(0, 30);
-    LOG(`🖱️ คลิก (${x},${y}) → <${tag}> "${txt}"`);
-}, true);
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 class NetflowAbortError extends Error {
