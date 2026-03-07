@@ -2584,25 +2584,45 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("คลิกดาวน์โหลดแล้ว ✅");
         await sleep(1500);
 
-        // Click "Full Video"
-        let fullVideoBtn: HTMLElement | null = null;
-        const fvStart = Date.now();
-        while (!fullVideoBtn && Date.now() - fvStart < 5000) {
-            fullVideoBtn = findByText2("Full Video");
-            if (!fullVideoBtn) await sleep(500);
-        }
-        if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
-        await robustClick(fullVideoBtn);
-        LOG("คลิก Full Video ✅");
-        await sleep(1500);
-
-        // Click "720p"
+        // Click "Full Video" → hover to expand submenu → click "720p"
         const downloadStartedAt2 = Date.now();
         let res720: HTMLElement | null = null;
-        const r720Start = Date.now();
-        while (!res720 && Date.now() - r720Start < 5000) {
-            res720 = findByText2("720p");
-            if (!res720) await sleep(500);
+
+        for (let attempt = 0; attempt < 3 && !res720; attempt++) {
+            if (attempt > 0) LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
+
+            // Find and click/hover "Full Video"
+            let fullVideoBtn: HTMLElement | null = null;
+            const fvStart = Date.now();
+            while (!fullVideoBtn && Date.now() - fvStart < 5000) {
+                fullVideoBtn = findByText2("Full Video");
+                if (!fullVideoBtn) await sleep(500);
+            }
+            if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
+
+            // Click + hover to expand the submenu (keyboard_arrow_right)
+            const fvRect = fullVideoBtn.getBoundingClientRect();
+            const fvX = fvRect.left + fvRect.width / 2;
+            const fvY = fvRect.top + fvRect.height / 2;
+            fullVideoBtn.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: fvX, clientY: fvY }));
+            fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
+            fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX, clientY: fvY }));
+            await robustClick(fullVideoBtn);
+            LOG("คลิก/hover Full Video ✅");
+            await sleep(2000);
+
+            // Poll for "720p" in expanded submenu
+            const r720Start = Date.now();
+            while (!res720 && Date.now() - r720Start < 8000) {
+                res720 = findByText2("720p");
+                if (!res720) {
+                    // Re-hover to keep submenu open
+                    if (fullVideoBtn.isConnected) {
+                        fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
+                    }
+                    await sleep(500);
+                }
+            }
         }
         if (!res720) { WARN("ไม่พบ 720p"); return; }
         await robustClick(res720);
@@ -2983,25 +3003,42 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     LOG("คลิกดาวน์โหลดแล้ว ✅");
     await sleep(1500);
 
-    // Click "Full Video"
-    let fullVideoBtn: HTMLElement | null = null;
-    const fvStart = Date.now();
-    while (!fullVideoBtn && Date.now() - fvStart < 5000) {
-        fullVideoBtn = findByText("Full Video");
-        if (!fullVideoBtn) await sleep(500);
-    }
-    if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
-    await robustClick(fullVideoBtn);
-    LOG("คลิก Full Video ✅");
-    await sleep(1500);
-
-    // Click "720p"
+    // Click "Full Video" → hover to expand submenu → click "720p"
     const downloadStartedAt = Date.now();
     let res720: HTMLElement | null = null;
-    const r720Start = Date.now();
-    while (!res720 && Date.now() - r720Start < 5000) {
-        res720 = findByText("720p");
-        if (!res720) await sleep(500);
+
+    for (let attempt = 0; attempt < 3 && !res720; attempt++) {
+        if (attempt > 0) LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
+
+        let fullVideoBtn: HTMLElement | null = null;
+        const fvStart = Date.now();
+        while (!fullVideoBtn && Date.now() - fvStart < 5000) {
+            fullVideoBtn = findByText("Full Video");
+            if (!fullVideoBtn) await sleep(500);
+        }
+        if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); return; }
+
+        // Click + hover to expand the submenu (keyboard_arrow_right)
+        const fvRect = fullVideoBtn.getBoundingClientRect();
+        const fvX = fvRect.left + fvRect.width / 2;
+        const fvY = fvRect.top + fvRect.height / 2;
+        fullVideoBtn.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: fvX, clientY: fvY }));
+        fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
+        fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX, clientY: fvY }));
+        await robustClick(fullVideoBtn);
+        LOG("คลิก/hover Full Video ✅");
+        await sleep(2000);
+
+        const r720Start = Date.now();
+        while (!res720 && Date.now() - r720Start < 8000) {
+            res720 = findByText("720p");
+            if (!res720) {
+                if (fullVideoBtn.isConnected) {
+                    fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
+                }
+                await sleep(500);
+            }
+        }
     }
     if (!res720) { WARN("ไม่พบ 720p"); return; }
     await robustClick(res720);
