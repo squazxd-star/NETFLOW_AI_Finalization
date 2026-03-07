@@ -166,33 +166,34 @@ const ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> =
 // Based on Gemini expert recommendation for TikTok-safe commercial prompts
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Part 1: Product Highlight — material & texture descriptors per category
+// Part 1: Product Highlight — Technical Layers: [Material/Texture] + [Surface Detail] + [Lighting Response]
+// Uses studio-grade descriptors so AI renders product with maximum physical accuracy
 const PRODUCT_HIGHLIGHT: Record<ProductCategory, string> = {
-    food: "appetizing presentation, visible texture and steam, vibrant natural food colors, fresh ingredients",
-    beverage: "condensation droplets on glass, rich liquid color, visible pour or fizz, refreshing aesthetic",
-    fashion: "premium fabric texture, clean stitching details, elegant draping, natural fabric movement",
-    gadget: "sleek modern design, brushed metal or matte finish, clean product lines, sharp edges",
-    beauty: "elegant glass or matte packaging, dewy product texture, premium cosmetic aesthetic",
-    supplement: "clean clinical packaging, visible capsule or tablet details, health-forward branding, athletic fit presenter with toned physique holding product confidently",
-    pet: "pet-safe materials, vibrant fun packaging, durable quality, animal-friendly design",
-    baby: "soft pastel tones, BPA-free safe materials, gentle rounded edges, parent-trusted quality",
-    home: "premium household material, clean modern design, functional elegance, lifestyle integration",
-    kitchen: "durable cooking-grade material, heat-resistant finish, ergonomic design, professional look",
-    fitness: "sweat-resistant material, bold sporty design, durable construction, performance-ready finish, athletic fit presenter with muscular toned physique",
-    auto: "precision-engineered surface, metallic or carbon-fiber finish, rugged durability, automotive grade",
-    jewelry: "brilliant gemstone sparkle, polished precious metal, intricate craftsmanship, luxury finish",
-    watch: "precise dial details, premium strap material, polished case finish, sophisticated design",
-    bag: "premium leather or fabric texture, quality hardware, clean stitching, structured silhouette",
-    shoe: "detailed sole construction, premium upper material, clean profile lines, comfort-engineered design",
-    book: "crisp cover design, quality paper texture, readable typography, engaging visual layout",
-    toy: "vibrant safe-for-kids colors, smooth rounded edges, durable play-tested material, fun design",
-    stationery: "smooth writing surface, precise construction, clean minimalist design, satisfying tactile feel",
-    cleaning: "efficient formula, clear packaging, easy-grip bottle design, professional cleaning aesthetic",
-    outdoor: "weather-resistant material, rugged durable construction, adventure-ready design, nature-compatible",
-    health: "medical-grade quality, clean sterile packaging, precision instrumentation, trustworthy design",
-    craft: "rich artisan texture, handmade quality details, natural material warmth, creative aesthetic",
-    digital: "clean UI interface, modern digital design, intuitive layout, tech-forward presentation",
-    other: "high-quality product details, clean presentation, visible material texture, professional finish"
+    food: "appetizing presentation with visible micro-texture, natural steam wisps, vibrant saturated food colors under warm three-point lighting, fresh ingredients with visible moisture droplets, macro-level surface detail",
+    beverage: "condensation droplets on polished glass surface, rich translucent liquid color with caustics light refraction, visible pour dynamics or carbonation fizz, crisp rim lighting on glass edges, reflective surface highlights",
+    fashion: "premium woven fabric texture with visible thread count, clean precision stitching, natural gravity-driven draping, soft directional lighting revealing fabric weave pattern, matte or satin material finish",
+    gadget: "precision-machined surface with brushed aluminum or anodized metal finish, sharp chamfered edges catching rim light, clean product lines with reflective highlights, matte-gloss contrast on surfaces, studio softbox lighting",
+    beauty: "elegant frosted glass or high-gloss packaging with visible light refraction, metallic cap with polished chrome or gold finish, dewy surface texture, soft beauty lighting with three-point setup, premium cosmetic studio aesthetic",
+    supplement: "clean clinical matte packaging with crisp label printing, visible capsule translucency or tablet surface texture, health-forward branding, softbox even illumination, athletic fit presenter with toned physique holding product confidently",
+    pet: "durable pet-safe materials with visible texture, vibrant fun packaging with glossy print finish, quality construction details, bright even lighting, animal-friendly design aesthetic",
+    baby: "soft pastel tones with gentle matte finish, BPA-free safe materials with smooth surface, rounded edges with no sharp points, warm diffused lighting, parent-trusted premium quality feel",
+    home: "premium household material with visible grain or weave, clean modern industrial design, functional elegance with precise construction, lifestyle-integrated styling, natural window light aesthetic",
+    kitchen: "durable cooking-grade stainless steel or ceramic material, heat-resistant matte or enamel finish, ergonomic handle design with visible grip texture, professional studio overhead lighting",
+    fitness: "sweat-resistant textured material with matte grip surface, bold sporty design with precision molding, durable reinforced construction, high-energy studio lighting, athletic fit presenter with muscular toned physique",
+    auto: "precision-engineered surface with metallic or carbon-fiber weave texture, polished chrome or matte black finish, rugged automotive-grade construction, dramatic side lighting revealing surface detail",
+    jewelry: "brilliant gemstone with visible internal facet sparkle and light dispersion, polished precious metal with mirror-like reflective surface, intricate micro-craftsmanship detail, dramatic spotlight with deep bokeh",
+    watch: "precise dial with visible minute markers and hands, premium leather or brushed metal strap texture, polished case with reflective bezel catching light, sapphire crystal face, sophisticated macro-detail lighting",
+    bag: "premium leather grain texture or woven fabric with visible stitch pattern, polished metal hardware with reflective highlights, clean precision stitching, structured silhouette with natural shadow",
+    shoe: "detailed outsole tread pattern, premium upper material with visible texture grain, clean profile lines with precise construction, comfort-engineered cushion visible at cross-section, studio side lighting",
+    book: "crisp high-resolution cover printing, quality paper edge texture, readable sharp typography, engaging visual cover layout, even diffused top lighting",
+    toy: "vibrant child-safe glossy colors, smooth injection-molded rounded edges, durable play-tested ABS plastic material, fun dynamic design, bright cheerful lighting",
+    stationery: "smooth precision-ground writing surface, machined metal or molded polymer body, clean minimalist design with visible material quality, satisfying tactile finish, soft desk lamp lighting",
+    cleaning: "transparent or translucent bottle with visible liquid formula, crisp label printing, ergonomic grip-textured bottle design, professional clean-white lighting aesthetic",
+    outdoor: "weather-resistant ripstop or Cordura material with visible weave, rugged reinforced construction with metal hardware, adventure-ready functional design, natural outdoor golden-hour lighting",
+    health: "medical-grade precision instrument with clean sterile white finish, sharp readable markings, clinical packaging with crisp typography, bright even clinical lighting, trustworthy professional design",
+    craft: "rich artisan texture with visible handmade imperfections, natural wood or fiber material warmth, detailed craftsmanship visible at macro level, warm workshop ambient lighting",
+    digital: "clean high-resolution UI interface on screen, modern flat design with crisp typography, intuitive layout visible on device display, cool-toned tech lighting with screen glow",
+    other: "high-quality product surface with visible material texture and finish detail, clean professional presentation, precise construction, studio three-point lighting setup"
 };
 
 // Part 2: Character & Video Dynamics — action descriptors per template
@@ -831,7 +832,7 @@ const FACE_IDENTITY_LOCK = "CHARACTER REFERENCE: Use the attached reference phot
 const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Front-facing, straight-on, looking directly into the lens. Face fully visible and symmetrical. No side profile, no 3/4 turn, no looking away.";
 
 // Product Match Directive — ensures product matches input reference exactly
-const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Product matches reference EXACTLY — same shape, color, packaging, proportions. LABEL TEXT LOCK: The brand name and text printed ON the product packaging must be pixel-accurate — correct spelling, correct font style, correct letter spacing, correct capitalization, exactly as shown in the reference image. Do NOT invent, alter, or blur any text on the product label. Clearly visible, well-lit, prominent in frame. SINGLE PRODUCT ONLY: Show EXACTLY ONE product unit in the entire frame — the hero product. Do NOT generate duplicate bottles, extra containers, separate spray mechanisms, additional packaging, or any other product that is not the hero product. Character holds ONE product only. No cosmetics, bottles, or props on the table/background that resemble or compete with the hero product.";
+const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Maintaining the exact design of the reference product — same shape, color, packaging, proportions, material finish. Render product with extreme surface detail: visible material texture, reflective highlights on glossy surfaces, matte diffusion on matte surfaces, accurate light interaction (caustics on glass, specular on metal, soft scatter on plastic). LABEL TEXT LOCK: brand name and text on packaging must be pixel-accurate — correct spelling letter-by-letter, correct font style, correct spacing, correct capitalization, exactly as reference. Do NOT invent, alter, blur, or hallucinate any text. High-fidelity logo detail, clear legible branding. SINGLE PRODUCT ONLY: EXACTLY ONE product unit in frame — the hero product. No duplicate bottles, no extra containers, no separate spray mechanisms, no background props that resemble the product. Character holds ONE product only. PRODUCT CAMERA: product lit with soft rim light to define edges, key light revealing surface texture, fill light preventing harsh shadows on label.";
 
 // Anti-Text Directive — strongest possible anti-text/font rendering prevention
 // EXCEPTION: text that is PART OF the physical product packaging/label is allowed and must be accurate
@@ -2022,7 +2023,7 @@ const buildImagePrompt = (
 
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
-[PRODUCT] ${config.productName}: ${productDesc}. PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette, material texture and finish. The text "${config.productName}" must appear on the product label exactly as spelled — correct font, correct letter spacing, no misspelling, no gibberish.
+[PRODUCT] ${config.productName}: ${productDesc}. PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette, material texture and finish. Render with extreme surface detail — visible material grain, accurate light response (specular highlights on glossy, soft diffusion on matte, caustics on glass). The text "${config.productName}" must appear on the product label exactly as spelled letter-by-letter — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining edges and key light revealing surface texture.
 [CHARACTER] ${characterLine}.
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
@@ -2177,7 +2178,7 @@ const buildVideoPrompt = (
     const contactPhysics = buildContactPhysicsDirectiveSlim(category);
     // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
-    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette, material texture and finish must be preserved identically across every scene. Product is a FIXED visual constant — never morph, never change shape, never alter text between scenes. Feature product in every frame, clearly lit.`;
+    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. Render with extreme surface detail: visible material texture and finish, accurate light interaction on surfaces (specular on glossy, diffusion on matte, caustics on glass/liquid). PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette must be preserved identically across every scene. High-fidelity logo detail, clear legible branding — text "${config.productName}" spelled exactly letter-by-letter on label. Product is a FIXED visual constant — never morph, never change shape, never alter text. Product lit with soft rim light defining edges, featured in every frame.`;
 
     const prompt = sanitizePromptForPolicy([
         // ★ [VOICE — HIGHEST PRIORITY] — voice persona + script FIRST so model prioritizes it
