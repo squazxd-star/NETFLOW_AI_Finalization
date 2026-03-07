@@ -1433,7 +1433,7 @@ function buildCss(t: OverlayTheme): string {
 /* ─── Floating Toggle Button ─── */
 #nf-toggle-btn {
     position: fixed;
-    bottom: 20px;
+    top: 20px;
     right: 20px;
     z-index: 999998;
     width: 48px;
@@ -2954,9 +2954,9 @@ function ensureToggleButton(): void {
     injectStyles();
     toggleBtn = document.createElement("button");
     toggleBtn.id = "nf-toggle-btn";
-    toggleBtn.className = "nf-toggle-hidden";
+    toggleBtn.className = "nf-toggle-visible";
     toggleBtn.innerHTML = "⚡";
-    toggleBtn.title = "เปิด Netflow Overlay";
+    toggleBtn.title = "ซ่อน/แสดง Netflow Overlay";
     toggleBtn.onclick = () => toggleOverlayVisibility();
     document.body.appendChild(toggleBtn);
 }
@@ -2967,22 +2967,16 @@ function toggleOverlayVisibility(): void {
     ensureToggleButton();
 
     if (!overlayHidden) {
-        // Hide overlay → show toggle button
+        // Hide overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-visible");
         overlayRoot.classList.add("nf-hidden");
-        if (toggleBtn) {
-            toggleBtn.classList.remove("nf-toggle-hidden");
-            toggleBtn.classList.add("nf-toggle-visible");
-        }
+        if (toggleBtn) toggleBtn.innerHTML = "⚡";
         overlayHidden = true;
     } else {
-        // Show overlay → hide toggle button
+        // Show overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-hidden");
         overlayRoot.classList.add("nf-visible");
-        if (toggleBtn) {
-            toggleBtn.classList.remove("nf-toggle-visible");
-            toggleBtn.classList.add("nf-toggle-hidden");
-        }
+        if (toggleBtn) toggleBtn.innerHTML = "✕";
         overlayHidden = false;
     }
 }

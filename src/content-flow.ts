@@ -2418,14 +2418,19 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         // Helper: find visible element by text
         const findByText2 = (text: string, sel = "button, [role='menuitem'], [role='option'], li, span, div[role='button'], div"): HTMLElement | null => {
+            let best: HTMLElement | null = null;
+            let bestLen = Infinity;
             for (const el of document.querySelectorAll<HTMLElement>(sel)) {
                 const t = (el.textContent || "").trim();
                 if (t.includes(text) && t.length < 100) {
                     const r = el.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0 && r.top >= 0) return el;
+                    if (r.width > 0 && r.height > 0 && r.top >= 0 && t.length < bestLen) {
+                        best = el;
+                        bestLen = t.length;
+                    }
                 }
             }
-            return null;
+            return best;
         };
 
         // For each additional scene (2, 3, ...)
@@ -2643,6 +2648,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         // Wait for download complete
         LOG("รอดาวน์โหลดเสร็จ...");
+        await sleep(5000); // Wait before checking to avoid false positive from pre-existing text
         const dlWaitStart = Date.now();
         let dlDone = false;
         let sawDownloading = false;
@@ -2996,14 +3002,19 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
 
     // ── Helper: find visible element by text ──
     const findByText = (text: string, sel = "button, [role='menuitem'], [role='option'], li, span, div[role='button'], div"): HTMLElement | null => {
+        let best: HTMLElement | null = null;
+        let bestLen = Infinity;
         for (const el of document.querySelectorAll<HTMLElement>(sel)) {
             const t = (el.textContent || "").trim();
             if (t.includes(text) && t.length < 100) {
                 const r = el.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0 && r.top >= 0) return el;
+                if (r.width > 0 && r.height > 0 && r.top >= 0 && t.length < bestLen) {
+                    best = el;
+                    bestLen = t.length;
+                }
             }
         }
-        return null;
+        return best;
     };
 
     // ── Download: Full Video → 720p ──
@@ -3072,6 +3083,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
 
     // Wait for download complete
     LOG("รอดาวน์โหลดเสร็จ...");
+    await sleep(5000); // Wait before checking to avoid false positive from pre-existing text
     const dlWaitStart = Date.now();
     let dlDone = false;
     let sawDownloading = false;
