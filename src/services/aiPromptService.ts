@@ -831,8 +831,47 @@ const FACE_IDENTITY_LOCK = "CHARACTER REFERENCE: Use the attached reference phot
 // Front-Facing Character Directive — ensures face consistency with reference input
 const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Front-facing, straight-on, looking directly into the lens. Face fully visible and symmetrical. No side profile, no 3/4 turn, no looking away.";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CATEGORY-SPECIFIC PRODUCT ANATOMY — tells AI exactly WHAT distinctive features
+// to study from the reference image and preserve with 100% fidelity.
+// Without this, AI guesses/imagines product details and gets them wrong.
+// ═══════════════════════════════════════════════════════════════════════════
+const CATEGORY_PRODUCT_ANATOMY: Record<ProductCategory, string> = {
+    beauty: "STUDY REFERENCE: exact bottle silhouette (round/angular/curved), cap/closure distinctive shape (faceted/smooth/dome/sculpted — preserve every geometric facet and angle), liquid color visible through glass (exact hue and saturation), bottle transparency/frosted level, nozzle or spray mechanism shape, any decorative sculpted elements on bottle or cap, metallic ring or collar details, label/logo placement and embossing style",
+    beverage: "STUDY REFERENCE: exact bottle/can silhouette and proportions, cap/tab design and color, liquid color and opacity level visible through container, label wrap layout and color bands, bottle neck shape, grip texture or ridges, carbonation bubble density if visible",
+    food: "STUDY REFERENCE: exact packaging shape and dimensions, seal/opening mechanism, color bands and stripe patterns on packaging, window cutouts showing product inside, logo placement and size, any embossed or raised lettering, texture of packaging material (matte/glossy/foil)",
+    fashion: "STUDY REFERENCE: exact garment silhouette and cut, collar/neckline shape, sleeve style and length, button/zipper hardware style and color, fabric weave pattern and drape direction, pocket placement and style, any distinctive stitching or seam details, tag/label placement",
+    gadget: "STUDY REFERENCE: exact device form factor and edge radius, button placement and protrusion style, port locations and shapes, screen-to-bezel ratio, camera module layout, material transitions (metal/glass/plastic boundaries), antenna lines, LED indicator positions, logo engraving depth and placement",
+    supplement: "STUDY REFERENCE: exact bottle/container shape and proportions, cap style (childproof/flip/screw), label layout and color scheme, capsule/tablet color and shape if visible, dosage markings, seal band, bottle material (opaque/translucent), any certification badges on label",
+    pet: "STUDY REFERENCE: exact packaging shape, resealable mechanism, color palette and patterns, mascot/animal illustration style, portion window if present, texture of bag material, zipper or tear notch placement",
+    baby: "STUDY REFERENCE: exact container shape and soft-touch texture, safety cap design, pour spout or pump mechanism, pastel color palette, rounded edge design, label layout with safety certifications, transparent window showing product level",
+    home: "STUDY REFERENCE: exact product dimensions and silhouette, material surface (wood grain/metal/plastic), joint and connection details, color finish, hardware elements, any adjustable mechanisms, brand marking placement",
+    kitchen: "STUDY REFERENCE: exact utensil/appliance shape, handle design and grip texture, cooking surface material, hinge or pivot mechanisms, temperature markings, lid fit, steam vents, brand logo placement and size",
+    fitness: "STUDY REFERENCE: exact equipment shape and form factor, grip texture pattern, adjustment mechanism, weight markings, padding thickness, strap/buckle hardware, logo placement, color accents",
+    auto: "STUDY REFERENCE: exact part shape and mounting design, connector types, surface finish (chrome/matte/carbon), installation hardware, certification markings, serial number area, brand embossing",
+    jewelry: "STUDY REFERENCE: exact gem cut shape (round/princess/oval) and facet count, setting style (prong/bezel/pave), metal color and polish level, chain link pattern and thickness, clasp mechanism, any filigree or engraving details, gem color and internal light dispersion pattern",
+    watch: "STUDY REFERENCE: exact case shape (round/square/tonneau), bezel design and markings, dial layout and indices style, crown shape and position, strap/bracelet link pattern, crystal dome profile, subdial placement, hand shapes, logo position on dial",
+    bag: "STUDY REFERENCE: exact bag silhouette and proportions, closure mechanism (zipper/flap/buckle), hardware color and shape (gold/silver/gunmetal), handle attachment style, pocket layout, logo plaque design and placement, stitching pattern, interior lining color if visible",
+    shoe: "STUDY REFERENCE: exact sole profile and tread pattern, upper material panels and stitching lines, tongue shape, lace eyelet style, heel height and shape, toe box silhouette, brand logo placement, midsole color bands, any air/gel visible units",
+    book: "STUDY REFERENCE: exact cover layout and typography, spine width, front cover illustration/photo, author name placement, publisher logo, any embossing or foil details, page edge color (gilt/plain), bookmark ribbon color",
+    toy: "STUDY REFERENCE: exact figurine/toy proportions, articulation points, color placement on each body section, facial expression and eye style, accessory shapes, packaging window size, brand logo placement",
+    stationery: "STUDY REFERENCE: exact pen/pencil barrel shape and taper, clip design, nib/tip style, cap attachment mechanism, grip section texture, barrel print pattern, brand marking placement and size",
+    cleaning: "STUDY REFERENCE: exact bottle shape and grip indentations, trigger spray or cap type, label color blocks and layout, liquid color and opacity visible through bottle, nozzle angle, safety cap style, volume markings",
+    outdoor: "STUDY REFERENCE: exact equipment shape, strap adjustment system, buckle and hardware style, fabric panel colors and pattern, zipper pulls, brand patch placement, reflective elements, D-ring or attachment points",
+    health: "STUDY REFERENCE: exact device shape and display area, button layout, sensor placement, measurement scale markings, power indicator, material transitions, carrying case shape, brand/model number placement",
+    craft: "STUDY REFERENCE: exact tool shape, blade/tip profile, handle ergonomic curves, material color gradients, measuring marks, brand stamping, storage slot design",
+    digital: "STUDY REFERENCE: exact app icon design, UI color scheme, screen layout and navigation elements, font style, button shapes, brand wordmark placement",
+    other: "STUDY REFERENCE: exact product silhouette and proportions, distinctive design elements, material surface texture, logo placement, color palette, hardware or mechanical details"
+};
+
+// Build product anatomy directive dynamically based on category
+const buildProductAnatomyDirective = (category: ProductCategory, productName: string): string => {
+    const anatomy = CATEGORY_PRODUCT_ANATOMY[category];
+    return `PRODUCT ANATOMY CHECKLIST for "${productName}": ${anatomy}. Preserve EVERY distinctive design element exactly as shown in the reference image — do NOT simplify, do NOT reimagine, do NOT substitute with generic shapes. If the reference shows a unique cap shape, that EXACT cap shape must appear. If it shows a specific liquid color, that EXACT color must render.`;
+};
+
 // Product Match Directive — ensures product matches input reference exactly
-const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Maintaining the exact design of the reference product — same shape, color, packaging, proportions, material finish. Render product with extreme surface detail: visible material texture, reflective highlights on glossy surfaces, matte diffusion on matte surfaces, accurate light interaction (caustics on glass, specular on metal, soft scatter on plastic). LABEL TEXT LOCK: brand name and text on packaging must be pixel-accurate — correct spelling letter-by-letter, correct font style, correct spacing, correct capitalization, exactly as reference. Do NOT invent, alter, blur, or hallucinate any text. High-fidelity logo detail, clear legible branding. SINGLE PRODUCT ONLY: EXACTLY ONE product unit in frame — the hero product. No duplicate bottles, no extra containers, no separate spray mechanisms, no background props that resemble the product. Character holds ONE product only. PRODUCT CAMERA: product lit with soft rim light to define edges, key light revealing surface texture, fill light preventing harsh shadows on label.";
+const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Reproduce the reference product with photographic accuracy — same silhouette, same proportions, same material finish, same color palette. Render with extreme surface detail: visible material texture, realistic light interaction (caustics through glass, specular highlights on metallic surfaces, soft diffusion on matte, light refraction on transparent elements). LABEL TEXT LOCK: brand name and all text on packaging pixel-accurate — correct spelling letter-by-letter, correct font style, correct spacing, correct capitalization. Do NOT invent, alter, blur, or hallucinate any text. High-fidelity logo detail. SINGLE PRODUCT ONLY: EXACTLY ONE product unit in frame. No duplicate bottles, no extra containers, no background props resembling the product. Character holds ONE product. PRODUCT LIGHTING: soft rim light defining product edges and silhouette, key light revealing surface texture and material quality, fill light preventing harsh shadows on label, realistic light refraction through any transparent/glass elements.";
 
 // Anti-Text Directive — strongest possible anti-text/font rendering prevention
 // EXCEPTION: text that is PART OF the physical product packaging/label is allowed and must be accurate
@@ -2123,14 +2162,16 @@ const buildImagePrompt = (
         ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}`
         : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}`;
 
+    const productAnatomy = buildProductAnatomyDirective(category, config.productName);
+
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
-[PRODUCT] ${config.productName}: ${productDesc}. PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette, material texture and finish. Render with extreme surface detail — visible material grain, accurate light response (specular highlights on glossy, soft diffusion on matte, caustics on glass). The text "${config.productName}" must appear on the product label exactly as spelled letter-by-letter — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining edges and key light revealing surface texture.
+[PRODUCT] ${config.productName}: ${productDesc}. ${productAnatomy} PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette, material texture and finish — all from reference image. Render with extreme surface detail: visible material grain, realistic light response (specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass/transparent elements, light dispersion on faceted surfaces). The text "${config.productName}" must appear on the product label exactly as spelled letter-by-letter — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality.
 [CHARACTER] ${characterLine}.
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
 [LIGHTING] ${lighting}.
-[QUALITY] ${aspectRatio} orientation, photorealistic. ${ANTI_TEXT_DIRECTIVE}
+[QUALITY] ${aspectRatio} orientation, photorealistic, ultra-detailed textures, 4K quality. ${ANTI_TEXT_DIRECTIVE}
 
 COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character holding or interacting with the product naturally. Both must be clearly visible together.
 ${FRONT_FACING_DIRECTIVE}
@@ -2140,8 +2181,8 @@ ${FACE_IDENTITY_LOCK}
 
 Reference Images:
 - Image 1: Character style reference — use as visual inspiration for an ORIGINAL ANONYMOUS fictional character with similar aesthetic${hasProductImage ? `
-- Image 2: Product reference — MUST preserve exact packaging shape, label text font, brand name spelling, and product design. The label on the product is the #1 priority to match.` : ''}
-- If text conflicts with images, images win. Character style from Image 1 is the visual guide.
+- Image 2: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.` : ''}
+- If text conflicts with images, images win. Product structure from Image 2 is the absolute visual authority for product design.
 
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
@@ -2278,9 +2319,10 @@ const buildVideoPrompt = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     const contactPhysics = buildContactPhysicsDirectiveSlim(category);
+    const videoProductAnatomy = buildProductAnatomyDirective(category, config.productName);
     // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
-    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. Render with extreme surface detail: visible material texture and finish, accurate light interaction on surfaces (specular on glossy, diffusion on matte, caustics on glass/liquid). PRODUCT IDENTITY LOCK: exact packaging shape, proportions, cap/closure design, label typography and font, color palette must be preserved identically across every scene. High-fidelity logo detail, clear legible branding — text "${config.productName}" spelled exactly letter-by-letter on label. Product is a FIXED visual constant — never morph, never change shape, never alter text. Product lit with soft rim light defining edges, featured in every frame.`;
+    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette — all IDENTICAL across every scene. High-fidelity logo detail — text "${config.productName}" spelled exactly letter-by-letter on label. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame.`;
 
     const prompt = sanitizePromptForPolicy([
         // ★ [VOICE — HIGHEST PRIORITY] — voice persona + script FIRST so model prioritizes it
@@ -2359,7 +2401,7 @@ export const buildSceneVideoPromptJSON = (
         `[HIGHEST PRIORITY] SEAMLESS CUT: ${transitionDirective} No black frame, no silence gap, no freeze. Continuous fluid motion at the scene boundary — one unbroken take feel.`,
         `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation.`,
         `CONSISTENT: same character face/outfit/hairstyle, same background, lighting.`,
-        `[HIGHEST PRIORITY] PRODUCT IDENTITY LOCK FOR SCENE ${sceneNumber}: The product MUST be visually IDENTICAL to scene 1 — same bottle/packaging SHAPE, same PROPORTIONS, same cap/closure design, same label TYPOGRAPHY (exact brand name spelling letter-by-letter, exact font), same color palette. The text "${meta.product?.split(',')[0]?.trim()}" must appear on the label exactly as spelled — NO misspelling, NO letter swaps, NO gibberish text. Product shape must NOT morph, stretch, or change between scenes.`,
+        `[HIGHEST PRIORITY] PRODUCT IDENTITY LOCK FOR SCENE ${sceneNumber}: The product MUST be visually IDENTICAL to scene 1 — same packaging SILHOUETTE, same PROPORTIONS, same cap/closure DISTINCTIVE DESIGN (preserve every geometric detail, facet, angle), same label TYPOGRAPHY (exact brand name spelling letter-by-letter, exact font), same color palette, same material finish and transparency level. Every distinctive design element from scene 1 must appear unchanged. The text "${meta.product?.split(',')[0]?.trim()}" must appear on the label exactly as spelled — NO misspelling, NO letter swaps, NO gibberish text. Product must NOT morph, simplify, stretch, or lose any distinctive features between scenes. If scene 1 product has a unique cap shape, that EXACT cap must appear. If it has a specific liquid color, that EXACT color must render.`,
         `CAMERA: continue ${meta.cameraMovement}. No camera reset.`,
     ].join(' ');
 
