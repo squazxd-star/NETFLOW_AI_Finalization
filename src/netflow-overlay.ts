@@ -106,6 +106,10 @@ function updateThemeComponents() {
     if (m) { _themeR = parseInt(m[1], 16); _themeG = parseInt(m[2], 16); _themeB = parseInt(m[3], 16); }
 }
 
+// ── Theme-aware SVG icons (use currentColor → follows CSS color which is theme hex) ──
+const NF_ICON_BOLT = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+const NF_ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
 let overlayRoot: HTMLDivElement | null = null;
 let toggleBtn: HTMLButtonElement | null = null;
 let styleEl: HTMLStyleElement | null = null;
@@ -3329,7 +3333,7 @@ function ensureToggleButton(): void {
     toggleBtn = document.createElement("button");
     toggleBtn.id = "nf-toggle-btn";
     toggleBtn.className = "nf-toggle-visible";
-    toggleBtn.innerHTML = overlayHidden ? "⚡" : "✕";
+    toggleBtn.innerHTML = overlayHidden ? NF_ICON_BOLT : NF_ICON_CLOSE;
     toggleBtn.title = "ซ่อน/แสดง Netflow Overlay";
     toggleBtn.onclick = () => toggleOverlayVisibility();
     document.body.appendChild(toggleBtn);
@@ -3344,13 +3348,13 @@ function toggleOverlayVisibility(): void {
         // Hide overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-visible");
         overlayRoot.classList.add("nf-hidden");
-        if (toggleBtn) toggleBtn.innerHTML = "⚡";
+        if (toggleBtn) toggleBtn.innerHTML = NF_ICON_BOLT;
         overlayHidden = true;
     } else {
         // Show overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-hidden");
         overlayRoot.classList.add("nf-visible");
-        if (toggleBtn) toggleBtn.innerHTML = "✕";
+        if (toggleBtn) toggleBtn.innerHTML = NF_ICON_CLOSE;
         overlayHidden = false;
     }
 }
