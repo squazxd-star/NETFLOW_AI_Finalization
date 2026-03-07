@@ -265,8 +265,7 @@ function buildCss(t: OverlayTheme): string {
         radial-gradient(ellipse at 10% 80%, rgba(${P},0.08) 0%, transparent 45%),
         radial-gradient(ellipse at 90% 10%, rgba(${A},0.08) 0%, transparent 45%),
         radial-gradient(ellipse at 50% 50%, rgba(${bgt(18)},0.94) 0%, rgba(${bgt(4)},0.98) 40%, rgba(0,0,0,0.99) 100%);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
+    /* backdrop-filter removed — bg is 94%+ opaque, blur is invisible but costs ~10ms/frame */
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     animation: nf-fade-in 0.6s ease-out;
     overflow: hidden;
@@ -292,7 +291,6 @@ function buildCss(t: OverlayTheme): string {
     z-index: 0;
     pointer-events: none;
     opacity: 0.24;
-    mix-blend-mode: screen;
 }
 
 /* ─── Vignette Overlay (enhanced with theme tint at edges) ─── */
@@ -322,13 +320,7 @@ function buildCss(t: OverlayTheme): string {
     );
     pointer-events: none;
     z-index: 1;
-    will-change: transform;
-    animation: nf-scanline-shift 0.15s steps(2) infinite;
-}
-
-@keyframes nf-scanline-shift {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(4px); }
+    contain: strict;
 }
 
 /* ─── Radial Pulse Ring (enhanced glow + gradient border) ─── */
@@ -341,12 +333,12 @@ function buildCss(t: OverlayTheme): string {
     transform: translate(-50%, -50%);
     border-radius: 50%;
     border: 1.5px solid rgba(${P},0.24);
-    box-shadow: 0 0 30px rgba(${P},0.09), inset 0 0 30px rgba(${P},0.06);
     pointer-events: none;
     z-index: 1;
+    will-change: transform, opacity;
     animation: nf-pulse-expand 5s ease-out infinite;
 }
-#netflow-engine-overlay .nf-pulse-ring:nth-child(2) { animation-delay: 1.6s; width: 600px; height: 600px; border-color: rgba(${A},0.18); box-shadow: 0 0 25px rgba(${A},0.09); }
+#netflow-engine-overlay .nf-pulse-ring:nth-child(2) { animation-delay: 1.6s; width: 600px; height: 600px; border-color: rgba(${A},0.18); }
 #netflow-engine-overlay .nf-pulse-ring:nth-child(3) { animation-delay: 3.2s; width: 1100px; height: 1100px; }
 
 @keyframes nf-pulse-expand {
@@ -364,7 +356,7 @@ function buildCss(t: OverlayTheme): string {
 #netflow-engine-overlay::before {
     content: '';
     position: absolute;
-    inset: -80px;
+    inset: -30px;
     background-image:
         radial-gradient(circle, rgba(${P},0.15) 1px, transparent 1px),
         radial-gradient(circle, rgba(${P},0.10) 1px, transparent 1px);
@@ -384,7 +376,7 @@ function buildCss(t: OverlayTheme): string {
 #netflow-engine-overlay::after {
     content: '';
     position: absolute;
-    inset: -80px;
+    inset: -30px;
     background-image:
         linear-gradient(rgba(${P},0.08) 1px, transparent 1px),
         linear-gradient(90deg, rgba(${P},0.08) 1px, transparent 1px);
@@ -478,6 +470,7 @@ function buildCss(t: OverlayTheme): string {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-repeat: repeat;
     background-size: 200px 200px;
+    contain: strict;
 }
 
 /* ─── Ambient Orbs (large soft drifting glows) ─── */
@@ -572,6 +565,7 @@ function buildCss(t: OverlayTheme): string {
     background-size: 80px 80px, 80px 80px, 160px 160px, 160px 160px;
     pointer-events: none;
     z-index: 0;
+    contain: strict;
 }
 
 /* ─── Pattern: Honeycomb Hex ─── */
@@ -585,6 +579,7 @@ function buildCss(t: OverlayTheme): string {
     background-size: 40px 46px;
     pointer-events: none;
     z-index: 0;
+    contain: strict;
 }
 
 /* ─── Pattern: Radar Sweep ─── */
@@ -670,6 +665,7 @@ function buildCss(t: OverlayTheme): string {
         );
     pointer-events: none;
     z-index: 0;
+    contain: strict;
 }
 
 /* ─── Pattern: Concentric Ripples ─── */
@@ -722,6 +718,7 @@ function buildCss(t: OverlayTheme): string {
     background-position: 0 0, 0 30px, 30px -30px, 30px 0px;
     pointer-events: none;
     z-index: 0;
+    contain: strict;
 }
 
 /* ─── Pattern: Plasma Blobs ─── */
@@ -2961,10 +2958,13 @@ function initMatrixRain() {
     let _bgGrad: CanvasGradient | null = null;
     let _bgW = 0, _bgH = 0;
 
+    let _skipFrame = false;
     function drawPlexus() {
         if (!matrixCtx || !matrixCanvas) { matrixAnimFrame = null; return; }
         matrixAnimFrame = requestAnimationFrame(drawPlexus);
-        // No frame skip — run at full 60fps for smooth motion
+        // Throttle to ~30fps — background layer, visually identical
+        _skipFrame = !_skipFrame;
+        if (_skipFrame) return;
 
         const ctx = matrixCtx;
         const w = matrixCanvas.width;
@@ -3151,9 +3151,12 @@ const _waveConst = [0, 1, 2, 3].map(idx => ({
     spd: 0.7 + idx * 0.12,
 }));
 
+let _waveSkip = false;
 function animateEngineCoreWaves() {
     waveAnimFrame = requestAnimationFrame(animateEngineCoreWaves);
-    wavePhase += 0.035;
+    _waveSkip = !_waveSkip;
+    if (_waveSkip) return;
+    wavePhase += 0.07; // doubled increment to compensate for half frame rate
 
     // Cache path references once
     if (!_wavePaths) {
