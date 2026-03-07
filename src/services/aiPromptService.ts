@@ -1695,12 +1695,12 @@ const generateThaiScript = (
         scriptParts.push(`🎬 ฉาก1: "${openingHook} ${powerWord}!"`);
     } else if (sceneCount === 2) {
         scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
-        scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA} ${urgency}"`);
+        scriptParts.push(`🎬 ฉาก2: "${benefit} ${powerWord} ${closingCTA} ${urgency}"`);
     } else {
         // 3+ scenes: hook → benefit/review → closing CTA
         scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
-        scriptParts.push(`🎬 ฉาก2: "${action} ${productName} ${powerWord} ${benefit}"`);
-        scriptParts.push(`🎬 ฉาก3: "${closingCTA} ${urgency}"`);
+        scriptParts.push(`🎬 ฉาก2: "${action} ${productName} ${powerWord} ${benefit} ${pickRandom(SALES_POWER_WORDS)}"`);
+        scriptParts.push(`🎬 ฉาก3: "${closingCTA} ${pickRandom(SALES_BENEFITS)} ${urgency}"`);
         // Fill remaining scenes if > 3
         for (let i = 3; i < sceneCount; i++) {
             scriptParts.push(`🎬 ฉาก${i + 1}: "${productName} ${pickRandom(SALES_BENEFITS)} ${pickRandom(URGENCY_PHRASES)}"`);
