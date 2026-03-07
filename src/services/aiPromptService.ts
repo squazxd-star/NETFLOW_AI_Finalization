@@ -2392,8 +2392,8 @@ export const buildSceneVideoPromptJSON = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
-    // 99% seamless (no transition), 1% with transition effect
-    const useTransition = Math.random() < 0.01;
+    // 99.9% seamless (no transition), 0.1% with transition effect (per user request)
+    const useTransition = Math.random() < 0.001;
     const transitionDirective = useTransition
         ? `TRANSITION: ${meta.sceneTransition}. Smooth visual transition from scene ${sceneNumber - 1}.`
         : `NO TRANSITION: Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade, no visual effect between scenes.`;
@@ -2405,6 +2405,7 @@ export const buildSceneVideoPromptJSON = (
         `CONSISTENT: same character face/outfit/hairstyle, same background, lighting.`,
         `[HIGHEST PRIORITY] PRODUCT IDENTITY LOCK FOR SCENE ${sceneNumber}: The product MUST be visually IDENTICAL to scene 1 — same packaging SILHOUETTE, same PROPORTIONS, same cap/closure DISTINCTIVE DESIGN (preserve every geometric detail, facet, angle), same label TYPOGRAPHY (exact brand name spelling letter-by-letter, exact font), same color palette, same material finish and transparency level. Every distinctive design element from scene 1 must appear unchanged. The text "${meta.product?.split(',')[0]?.trim()}" must appear on the label exactly as spelled — NO misspelling, NO letter swaps, NO gibberish text. Product must NOT morph, simplify, stretch, or lose any distinctive features between scenes. If scene 1 product has a unique cap shape, that EXACT cap must appear. If it has a specific liquid color, that EXACT color must render.`,
         `CAMERA: continue ${meta.cameraMovement}. No camera reset.`,
+        `[HIGHEST PRIORITY] NO TEXT: ${ANTI_TEXT_DIRECTIVE} Absolutely NO banners, NO subtitles, NO floating text, NO UI elements anywhere in the frame.`
     ].join(' ');
 
     return sanitizePromptForPolicy([
