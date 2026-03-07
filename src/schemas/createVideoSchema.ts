@@ -42,7 +42,10 @@ export const createVideoSchema = z.object({
     hookEnabled: z.boolean().default(true),
     ctaEnabled: z.boolean().default(true),
 
-    // Google Flow Settings (new)
+    // Engine Selection
+    videoEngine: z.enum(["veo", "grok"]).default("veo"),
+
+    // Google Flow Settings (Veo)
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
     outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
@@ -80,6 +83,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     ctaText: "",
     hookEnabled: true,
     ctaEnabled: true,
+    videoEngine: "veo",
     outputType: "video",
     orientation: "horizontal",
     outputCount: 1,

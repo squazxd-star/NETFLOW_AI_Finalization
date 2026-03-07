@@ -174,7 +174,7 @@ const PRODUCT_HIGHLIGHT: Record<ProductCategory, string> = {
     fashion: "premium woven fabric texture with visible thread count, clean precision stitching, natural gravity-driven draping, soft directional lighting revealing fabric weave pattern, matte or satin material finish",
     gadget: "precision-machined surface with brushed aluminum or anodized metal finish, sharp chamfered edges catching rim light, clean product lines with reflective highlights, matte-gloss contrast on surfaces, studio softbox lighting",
     beauty: "elegant frosted glass or high-gloss packaging with visible light refraction, metallic cap with polished chrome or gold finish, dewy surface texture, soft beauty lighting with three-point setup, premium cosmetic studio aesthetic",
-    supplement: "clean clinical matte packaging with crisp label printing, visible capsule translucency or tablet surface texture, health-forward branding, softbox even illumination, athletic fit presenter with toned physique holding product confidently",
+    supplement: "clean clinical matte packaging with crisp printing, visible capsule translucency or tablet surface texture, health-forward branding, softbox even illumination, athletic fit presenter with toned physique holding product confidently",
     pet: "durable pet-safe materials with visible texture, vibrant fun packaging with glossy print finish, quality construction details, bright even lighting, animal-friendly design aesthetic",
     baby: "soft pastel tones with gentle matte finish, BPA-free safe materials with smooth surface, rounded edges with no sharp points, warm diffused lighting, parent-trusted premium quality feel",
     home: "premium household material with visible grain or weave, clean modern industrial design, functional elegance with precise construction, lifestyle-integrated styling, natural window light aesthetic",
@@ -185,14 +185,14 @@ const PRODUCT_HIGHLIGHT: Record<ProductCategory, string> = {
     watch: "precise dial with visible minute markers and hands, premium leather or brushed metal strap texture, polished case with reflective bezel catching light, sapphire crystal face, sophisticated macro-detail lighting",
     bag: "premium leather grain texture or woven fabric with visible stitch pattern, polished metal hardware with reflective highlights, clean precision stitching, structured silhouette with natural shadow",
     shoe: "detailed outsole tread pattern, premium upper material with visible texture grain, clean profile lines with precise construction, comfort-engineered cushion visible at cross-section, studio side lighting",
-    book: "crisp high-resolution cover printing, quality paper edge texture, readable sharp typography, engaging visual cover layout, even diffused top lighting",
+    book: "crisp high-resolution cover printing, quality paper edge texture, engaging visual cover layout, even diffused top lighting",
     toy: "vibrant child-safe glossy colors, smooth injection-molded rounded edges, durable play-tested ABS plastic material, fun dynamic design, bright cheerful lighting",
     stationery: "smooth precision-ground writing surface, machined metal or molded polymer body, clean minimalist design with visible material quality, satisfying tactile finish, soft desk lamp lighting",
-    cleaning: "transparent or translucent bottle with visible liquid formula, crisp label printing, ergonomic grip-textured bottle design, professional clean-white lighting aesthetic",
+    cleaning: "transparent or translucent bottle with visible liquid formula, crisp packaging printing, ergonomic grip-textured bottle design, professional clean-white lighting aesthetic",
     outdoor: "weather-resistant ripstop or Cordura material with visible weave, rugged reinforced construction with metal hardware, adventure-ready functional design, natural outdoor golden-hour lighting",
-    health: "medical-grade precision instrument with clean sterile white finish, sharp readable markings, clinical packaging with crisp typography, bright even clinical lighting, trustworthy professional design",
+    health: "medical-grade precision instrument with clean sterile white finish, sharp markings, clinical packaging, bright even clinical lighting, trustworthy professional design",
     craft: "rich artisan texture with visible handmade imperfections, natural wood or fiber material warmth, detailed craftsmanship visible at macro level, warm workshop ambient lighting",
-    digital: "clean high-resolution UI interface on screen, modern flat design with crisp typography, intuitive layout visible on device display, cool-toned tech lighting with screen glow",
+    digital: "clean high-resolution UI interface on screen, modern flat design, intuitive layout visible on device display, cool-toned tech lighting with screen glow",
     other: "high-quality product surface with visible material texture and finish detail, clean professional presentation, precise construction, studio three-point lighting setup"
 };
 
@@ -858,7 +858,7 @@ const CATEGORY_PRODUCT_ANATOMY: Record<ProductCategory, string> = {
     stationery: "STUDY REFERENCE: exact pen/pencil barrel shape and taper, clip design, nib/tip style, cap attachment mechanism, grip section texture, barrel print pattern, brand marking placement and size",
     cleaning: "STUDY REFERENCE: exact bottle shape and grip indentations, trigger spray or cap type, packaging color blocks and layout, liquid color and opacity visible through bottle, nozzle angle, safety cap style, volume markings",
     outdoor: "STUDY REFERENCE: exact equipment shape, strap adjustment system, buckle and hardware style, fabric panel colors and pattern, zipper pulls, brand patch placement, reflective elements, D-ring or attachment points",
-    health: "STUDY REFERENCE: exact device shape and display area, button layout, sensor placement, measurement scale markings, power indicator, material transitions, carrying case shape, brand/model number placement",
+    health: "STUDY REFERENCE: exact device shape and display area, button layout, sensor placement, measurement scale markings, power indicator, material transitions, carrying case shape, brand marking placement",
     craft: "STUDY REFERENCE: exact tool shape, blade/tip profile, handle ergonomic curves, material color gradients, measuring marks, brand stamping, storage slot design",
     digital: "STUDY REFERENCE: exact app icon design, UI color scheme, screen layout and navigation elements, button shapes, brand wordmark placement",
     other: "STUDY REFERENCE: exact product silhouette and proportions, distinctive design elements, material surface texture, logo placement, color palette, hardware or mechanical details"
@@ -965,7 +965,7 @@ const buildContactPhysicsDirectiveSlim = (category: ProductCategory): string => 
 };
 
 // Anti-Distortion directive — injected into all image prompts
-const ANTI_DISTORTION_DIRECTIVE = "PRODUCT ACCURACY: Frontal eye-level shot, perfectly centered, symmetrical composition. Shot on 85mm lens, f/8 aperture, zero lens distortion. High-end product photography, no perspective warping. Preserve original packaging design and branding exactly as shown in the reference image. LABEL ACCURACY: All text on the product (brand name, product name, tagline) must match the reference image letter-for-letter — same font, same size, same position. Never generate gibberish, misspelled, or made-up text on the product.";
+const ANTI_DISTORTION_DIRECTIVE = "PRODUCT ACCURACY: Frontal eye-level shot, perfectly centered, symmetrical composition. Shot on 85mm lens, f/8 aperture, zero lens distortion. High-end product photography, no perspective warping. Preserve original packaging design and visual branding exactly as shown in the reference image. VISUAL ACCURACY: All branding and visual elements on the product must match the reference image — same size, same position. Do not generate random markings or hallucinated graphics.";
 
 // Brand & Policy Safety — words to auto-sanitize from prompts
 const BRAND_REPLACEMENTS: [RegExp, string][] = [

@@ -280,11 +280,46 @@ ${sceneCount === 3 ? "ฉาก 3: [คำพูด 10-18 คำ สั้นก
 
             {isOpen && (
                 <div className="px-4 pb-4 space-y-4">
-                    {/* Google Flow Settings */}
-                    <div className="space-y-3 p-3 rounded-xl border border-neon-red/20 bg-neon-red/5">
-                        <label className="text-xs font-bold text-neon-red flex items-center gap-1.5">
+                    {/* Engine Selector */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">เลือก Engine</label>
+                        <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
+                            {([
+                                { value: "veo", label: "Veo 3.1", icon: <Zap className="w-4 h-4" /> },
+                                { value: "grok", label: "Grok", icon: <Sparkles className="w-4 h-4" /> }
+                            ] as const).map((engine, idx) => (
+                                <div key={engine.value} className="flex-1 flex items-center">
+                                    {idx > 0 && <div className="w-px h-8 bg-border z-10" />}
+                                    <button
+                                        type="button"
+                                        onClick={() => setValue("videoEngine", engine.value)}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 transition-all duration-300 relative ${
+                                            (watch("videoEngine") || "veo") === engine.value
+                                                ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]'
+                                                : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <span className={`transition-transform duration-300 ${
+                                            (watch("videoEngine") || "veo") === engine.value ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''
+                                        }`}>
+                                            {engine.icon}
+                                        </span>
+                                        <span className="text-xs font-semibold">{engine.label}</span>
+                                        {(watch("videoEngine") || "veo") === engine.value && (
+                                            <div className={`absolute inset-0 bg-primary/5 animate-pulse ${idx === 0 ? 'rounded-l-xl' : 'rounded-r-xl'}`} />
+                                        )}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Veo 3.1 Settings */}
+                    {(watch("videoEngine") || "veo") === "veo" && (
+                    <div className="space-y-3 p-3 rounded-xl border border-primary/20 bg-primary/5 transition-all duration-300 animate-in fade-in slide-in-from-top-1">
+                        <label className="text-xs font-bold text-primary flex items-center gap-1.5">
                             <Zap className="w-3.5 h-3.5" />
-                            Google Flow Settings
+                            Veo 3.1 Settings
                         </label>
 
                         {/* Orientation */}
@@ -301,8 +336,8 @@ ${sceneCount === 3 ? "ฉาก 3: [คำพูด 10-18 คำ สั้นก
                                         onClick={() => setValue("orientation", opt.value)}
                                         className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
                                             (watch("orientation") || "horizontal") === opt.value
-                                                ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
-                                                : 'bg-muted border border-border text-muted-foreground hover:border-neon-red/30'
+                                                ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                                                : 'bg-muted border border-border text-muted-foreground hover:border-primary/30'
                                         }`}
                                     >
                                         {opt.icon} {opt.label}
@@ -322,8 +357,8 @@ ${sceneCount === 3 ? "ฉาก 3: [คำพูด 10-18 คำ สั้นก
                                         onClick={() => setValue("outputCount", count)}
                                         className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
                                             (watch("outputCount") || 1) === count
-                                                ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
-                                                : 'bg-muted border border-border text-muted-foreground hover:border-neon-red/30'
+                                                ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                                                : 'bg-muted border border-border text-muted-foreground hover:border-primary/30'
                                         }`}
                                     >
                                         x{count}
@@ -332,6 +367,64 @@ ${sceneCount === 3 ? "ฉาก 3: [คำพูด 10-18 คำ สั้นก
                             </div>
                         </div>
                     </div>
+                    )}
+
+                    {/* Grok Settings */}
+                    {(watch("videoEngine") || "veo") === "grok" && (
+                    <div className="space-y-3 p-3 rounded-xl border border-primary/20 bg-primary/5 transition-all duration-300 animate-in fade-in slide-in-from-top-1">
+                        <label className="text-xs font-bold text-primary flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Grok Settings
+                        </label>
+
+                        {/* Orientation (Grok) */}
+                        <div>
+                            <label className="text-xs text-muted-foreground mb-1.5 block">ขนาดภาพ</label>
+                            <div className="flex gap-2">
+                                {([
+                                    { value: "horizontal", label: "แนวนอน", icon: "▬" },
+                                    { value: "vertical", label: "แนวตั้ง", icon: "▮" }
+                                ] as const).map((opt) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setValue("orientation", opt.value)}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                                            (watch("orientation") || "horizontal") === opt.value
+                                                ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                                                : 'bg-muted border border-border text-muted-foreground hover:border-primary/30'
+                                        }`}
+                                    >
+                                        {opt.icon} {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Grok Quality */}
+                        <div>
+                            <label className="text-xs text-muted-foreground mb-1.5 block">คุณภาพวิดีโอ</label>
+                            <div className="flex gap-2">
+                                {([
+                                    { value: "fast", label: "เร็ว" },
+                                    { value: "quality", label: "คุณภาพสูง" }
+                                ]).map((opt) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                                            opt.value === "quality"
+                                                ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                                                : 'bg-muted border border-border text-muted-foreground hover:border-primary/30'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    )}
 
                     {/* Scene Count */}
                     <div>
