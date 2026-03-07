@@ -236,26 +236,140 @@ const ENVIRONMENT_SETTING: Record<string, string> = {
 // USER-SELECTED BACKGROUND — maps UI background picker values to English prompts
 // Priority: user-selected > smart environment (when not "auto")
 // ═══════════════════════════════════════════════════════════════════════════
-const USER_BACKGROUND_MAPPING: Record<string, string> = {
-    "studio": "professional photography studio with clean white/grey seamless backdrop, controlled soft diffused lighting, product-focused minimal environment",
-    "living-room": "cozy modern living room with warm ambient lighting, comfortable sofa and soft furnishings, homey relatable atmosphere, natural window light",
-    "bedroom": "stylish modern bedroom with soft bedside lamp glow, neatly arranged bed and pillows, intimate personal space, warm cozy atmosphere",
-    "cafe": "trendy café interior with espresso machine and pastry display, warm Edison bulb lighting, rustic wooden tables, relaxed social atmosphere",
-    "office": "clean professional office with modern desk setup, ergonomic chair, neutral corporate colors, bright overhead lighting, trustworthy business environment",
-    "outdoor-nature": "lush green garden or park setting, natural sunlight filtering through trees, fresh flowers and greenery, peaceful outdoor atmosphere",
-    "outdoor-city": "vibrant urban street with modern buildings, city sidewalk, natural daylight, dynamic metropolitan atmosphere, trendy urban backdrop",
-    "kitchen": "modern clean kitchen with marble countertop, cooking utensils and fresh ingredients visible, warm inviting culinary atmosphere, natural window light",
-    "gym": "modern gym interior with dumbbells and weight racks, fit people exercising in background, bright motivational lighting, athletic sporty atmosphere",
-    "beach": "tropical beach setting with white sand and turquoise ocean, warm golden sunlight, palm trees swaying, relaxed vacation atmosphere",
-    "neon-dark": "dark moody room with vibrant neon lights in pink and blue, cyberpunk aesthetic, dramatic colored shadows, edgy futuristic atmosphere",
-    "white-minimal": "pure white minimalist backdrop with soft even lighting, zero distractions, product-focused clean space, professional e-commerce aesthetic",
-    "gradient-abstract": "smooth abstract gradient background in soft pastel colors, modern contemporary feel, clean artistic backdrop, visually appealing depth",
-    "luxury": "opulent luxury setting with marble surfaces and gold accents, crystal chandelier ambient light, premium high-end atmosphere, elegant rich textures",
-    "night-market": "vibrant Thai night market with colorful string lights and lanterns, food stalls in background, warm festive glow, lively street atmosphere",
-    "rooftop": "modern rooftop terrace with panoramic city skyline view, golden hour sunset lighting, open air urban setting, sophisticated elevated atmosphere",
-    "library": "elegant library with tall wooden bookshelves, warm reading lamp glow, quiet intellectual atmosphere, leather armchair, scholarly trustworthy setting",
-    "restaurant": "upscale restaurant interior with elegant table setting, candlelight ambiance, fine dining backdrop, warm sophisticated atmosphere",
-    "spa": "serene spa environment with aromatic candles and smooth stones, soft diffused lighting, bamboo and natural elements, peaceful zen atmosphere",
+const USER_BACKGROUND_MAPPING: Record<string, string[]> = {
+    "studio": [
+        "professional photography studio with clean white seamless backdrop, controlled soft diffused lighting, product-focused minimal environment",
+        "sleek grey photography studio with large softbox key lights, reflective glossy floor, high-end commercial shoot setting",
+        "bright airy studio with natural daylight windows, white cyclorama wall, minimalist clean aesthetic, fashion shoot vibe",
+        "dark studio with dramatic single spotlight, deep black backdrop, moody cinematic product lighting, high contrast",
+        "modern content-creator studio with ring light glow, neutral grey wall, professional yet approachable setting",
+    ],
+    "living-room": [
+        "cozy modern living room with warm ambient lighting, comfortable sofa and soft furnishings, homey relatable atmosphere, natural window light",
+        "Scandinavian-style living room with light wood floors, minimalist white sofa, large windows with sheer curtains, airy bright space",
+        "luxurious living room with plush velvet sofa, coffee table with books, warm golden floor lamp, elegant yet comfortable feel",
+        "modern Thai condo living room with city view through glass balcony door, contemporary furniture, soft evening ambient light",
+        "bohemian living room with textured throw pillows, indoor plants, woven rug, warm earthy tones, relaxed creative atmosphere",
+    ],
+    "bedroom": [
+        "stylish modern bedroom with soft bedside lamp glow, neatly arranged bed and pillows, intimate personal space, warm cozy atmosphere",
+        "minimalist Japanese-inspired bedroom with low platform bed, soft natural linen, morning sunlight streaming through shoji screens",
+        "luxurious master bedroom with king-size bed, plush duvet, warm string lights on headboard, romantic dreamy atmosphere",
+        "cozy small bedroom with fairy lights, pastel color scheme, neatly organized desk corner, youthful fresh aesthetic",
+        "modern hotel-style bedroom with crisp white sheets, mood lighting, floor-to-ceiling window with city night view",
+    ],
+    "cafe": [
+        "trendy café interior with espresso machine and pastry display, warm Edison bulb lighting, rustic wooden tables, relaxed social atmosphere",
+        "minimalist white café with marble tabletop, latte art in ceramic cup, indoor plants hanging from ceiling, bright airy space",
+        "vintage Thai café with retro furniture, exposed brick wall, warm amber pendant lights, nostalgic cozy charm",
+        "industrial loft café with concrete walls, metal stools, large windows, urban hip atmosphere, specialty coffee vibes",
+        "garden café with outdoor seating under string lights, lush greenery surrounding, birdsong atmosphere, natural dappled sunlight",
+    ],
+    "office": [
+        "clean professional office with modern desk setup, ergonomic chair, neutral corporate colors, bright overhead lighting, trustworthy business environment",
+        "creative co-working space with standing desks, colorful accent walls, natural daylight, energetic productive atmosphere",
+        "executive corner office with panoramic city view, dark wood desk, leather chair, premium business authority setting",
+        "modern home office with plants on shelf, dual monitor setup, warm desk lamp, productive yet comfortable space",
+        "startup office with open floor plan, whiteboard brainstorm wall, bright fluorescent lighting, dynamic innovative energy",
+    ],
+    "outdoor-nature": [
+        "lush green garden or park setting, natural sunlight filtering through trees, fresh flowers and greenery, peaceful outdoor atmosphere",
+        "tropical forest clearing with dappled golden sunlight, vibrant green foliage, misty morning air, exotic natural beauty",
+        "blooming flower field in spring, soft pastel petals everywhere, gentle warm breeze, dreamy romantic natural setting",
+        "serene lakeside with crystal clear water reflection, surrounding mountains, golden hour warm glow, tranquil peaceful escape",
+        "bamboo grove path with soft filtered light, zen garden stones, gentle rustling leaves, meditative calm atmosphere",
+    ],
+    "outdoor-city": [
+        "vibrant urban street with modern buildings, city sidewalk, natural daylight, dynamic metropolitan atmosphere, trendy urban backdrop",
+        "neon-lit city street at night, rain-slicked pavement with reflections, bustling nightlife energy, cinematic urban mood",
+        "modern shopping district with glass storefronts, well-dressed pedestrians, bright afternoon sun, upscale city lifestyle",
+        "Bangkok Sukhumvit street with BTS skytrain in background, vibrant city energy, warm tropical daylight, Thai urban life",
+        "quiet city alley with street art murals, vintage lampposts, morning golden light, artistic urban discovery vibe",
+    ],
+    "kitchen": [
+        "modern clean kitchen with marble countertop, cooking utensils and fresh ingredients visible, warm inviting culinary atmosphere, natural window light",
+        "rustic farmhouse kitchen with wooden counters, copper pots hanging, herb garden by window, warm cozy home-cooking vibe",
+        "sleek contemporary kitchen with island counter, stainless steel appliances, bright LED under-cabinet lighting, professional chef aesthetic",
+        "small cozy kitchen with tiled backsplash, morning coffee brewing, warm sunlight through window, comforting home atmosphere",
+        "open-concept kitchen connected to dining area, fresh fruits on counter, pendant lights above island, modern family home feel",
+    ],
+    "gym": [
+        "modern gym interior with dumbbells and weight racks, fit people exercising in background, bright motivational lighting, athletic sporty atmosphere",
+        "boutique fitness studio with mirrored wall, clean rubber flooring, neon motivational signs, premium workout environment",
+        "outdoor crossfit area with kettlebells and pull-up bars, morning sunlight, gritty determined training atmosphere",
+        "yoga studio with bamboo floors, soft natural lighting, calming neutral walls, peaceful mindful exercise space",
+        "home gym setup with compact equipment, rubber mat flooring, motivational poster on wall, personal training space",
+    ],
+    "beach": [
+        "tropical beach setting with white sand and turquoise ocean, warm golden sunlight, palm trees swaying, relaxed vacation atmosphere",
+        "sunset beach with dramatic orange-pink sky, gentle waves lapping shore, silhouette of palm trees, romantic golden hour",
+        "crystal clear shallow water beach, coral visible underwater, bright midday tropical sun, paradise island feeling",
+        "rocky coastline beach with waves crashing, dramatic cloudy sky, wild natural beauty, adventurous coastal atmosphere",
+        "quiet private beach cove with hammock between palm trees, soft white sand, gentle turquoise waves, ultimate relaxation",
+    ],
+    "neon-dark": [
+        "dark moody room with vibrant neon lights in pink and blue, cyberpunk aesthetic, dramatic colored shadows, edgy futuristic atmosphere",
+        "underground club setting with purple and magenta neon strips, fog machine haze, pulsating energy, nightlife atmosphere",
+        "futuristic corridor with cyan and red LED panels, reflective dark floor, sci-fi movie aesthetic, high-tech mood",
+        "neon-lit gaming setup room with RGB lighting, dark walls with colored glow, tech-savvy streamer aesthetic, electric energy",
+        "dark alley with neon signs in Thai and English, rain droplets catching colored light, noir cinematic atmosphere, urban mystery",
+    ],
+    "white-minimal": [
+        "pure white minimalist backdrop with soft even lighting, zero distractions, product-focused clean space, professional e-commerce aesthetic",
+        "bright white infinity cove with seamless floor-to-wall transition, studio strobe lighting, catalog-ready clean look",
+        "white marble surface with subtle grey veins, soft overhead light, elegant minimalist product display setting",
+        "all-white room with single accent shadow, geometric clean lines, contemporary art gallery aesthetic, sophisticated simplicity",
+        "white textured fabric backdrop with gentle side lighting, soft shadows, fashion lookbook aesthetic, refined clean composition",
+    ],
+    "gradient-abstract": [
+        "smooth abstract gradient background in soft pastel colors, modern contemporary feel, clean artistic backdrop, visually appealing depth",
+        "warm sunset gradient from coral to deep purple, dreamy ethereal atmosphere, soft bokeh light particles floating",
+        "cool blue-to-teal gradient with subtle geometric shapes, modern tech aesthetic, clean futuristic backdrop",
+        "soft pink-to-lavender gradient with gentle lens flare, feminine elegant atmosphere, beauty brand aesthetic",
+        "bold orange-to-magenta gradient with dynamic diagonal light streaks, energetic vibrant modern backdrop",
+    ],
+    "luxury": [
+        "opulent luxury setting with marble surfaces and gold accents, crystal chandelier ambient light, premium high-end atmosphere, elegant rich textures",
+        "penthouse lounge with floor-to-ceiling windows, city night view, velvet furniture, champagne on glass table, exclusive VIP atmosphere",
+        "luxury boutique interior with dark wood panels, soft spotlight on display, premium leather and brass details, high-fashion retail setting",
+        "royal palace-inspired room with ornate gold frames, silk drapes, warm candlelight glow, regal majestic atmosphere",
+        "modern luxury car showroom aesthetic, polished concrete floor, dramatic single spotlight, sleek premium brand environment",
+    ],
+    "night-market": [
+        "vibrant Thai night market with colorful string lights and lanterns, food stalls in background, warm festive glow, lively street atmosphere",
+        "bustling night bazaar with vendor tents, smoke from grilling meat, warm orange light bulbs, authentic Thai street food energy",
+        "Chinatown night market with red lanterns, neon signs in Thai and Chinese, crowded lively walkway, cultural street atmosphere",
+        "hipster night market with craft stalls and live music stage, fairy lights overhead, cool evening breeze, trendy social gathering",
+        "floating market at dusk with wooden boats, warm lantern reflections on water, tropical evening atmosphere, unique Thai culture",
+    ],
+    "rooftop": [
+        "modern rooftop terrace with panoramic city skyline view, golden hour sunset lighting, open air urban setting, sophisticated elevated atmosphere",
+        "rooftop bar with infinity pool edge, city lights twinkling below, deep blue twilight sky, luxury nightlife rooftop vibe",
+        "rooftop garden with potted plants and wooden deck, fairy string lights, warm evening sky, intimate urban oasis",
+        "high-rise rooftop with dramatic wind and clouds, sunrise golden light, panoramic 360 view, powerful elevated feeling",
+        "casual rooftop hangout with bean bags and low tables, warm sunset glow, relaxed chill atmosphere, friends gathering vibe",
+    ],
+    "library": [
+        "elegant library with tall wooden bookshelves, warm reading lamp glow, quiet intellectual atmosphere, leather armchair, scholarly trustworthy setting",
+        "modern library with floor-to-ceiling glass windows, minimalist white shelves, bright natural daylight, contemporary knowledge space",
+        "cozy home library corner with overstuffed armchair, stacked books on side table, warm amber reading light, intimate study nook",
+        "grand old library with spiral staircase, ornate ceiling, dust motes in sunbeam, classic academic majesty, timeless wisdom atmosphere",
+        "trendy bookstore café with exposed shelves, coffee cup beside open book, warm Edison bulbs, intellectual yet casual social space",
+    ],
+    "restaurant": [
+        "upscale restaurant interior with elegant table setting, candlelight ambiance, fine dining backdrop, warm sophisticated atmosphere",
+        "trendy rooftop restaurant with city night view, modern plating on dark table, moody ambient lighting, date-night vibe",
+        "casual Thai street food restaurant with wooden tables, colorful dishes served, warm fluorescent glow, authentic local dining",
+        "Japanese omakase counter with chef preparing sushi, warm cypress wood bar, minimal elegant plating, premium culinary artistry",
+        "modern brunch restaurant with natural light flooding in, avocado toast and fresh juice on marble table, bright Instagram-worthy aesthetic",
+    ],
+    "spa": [
+        "serene spa environment with aromatic candles and smooth stones, soft diffused lighting, bamboo and natural elements, peaceful zen atmosphere",
+        "Thai massage room with warm herbal compress, teak wood interior, dim candlelight, traditional healing sanctuary",
+        "modern wellness center with white towels and orchids, soft ambient music atmosphere, clean luxurious relaxation space",
+        "outdoor hot spring bath surrounded by natural rocks and steam, mountain forest view, misty tranquil healing environment",
+        "minimalist spa reception with water feature wall, pebble floor path, soft incense aroma, calming entrance to wellness journey",
+    ],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -564,7 +678,7 @@ const getSmartEnvironment = (
     // 1. User-selected background from UI takes TOP priority (unless "auto" or "custom")
     if (userBackground && userBackground !== 'auto' && userBackground !== 'custom') {
         const mapped = USER_BACKGROUND_MAPPING[userBackground];
-        if (mapped) return mapped;
+        if (mapped && mapped.length > 0) return pickRandom(mapped);
     }
     
     // 2. AI Vision analysis wins over template/category defaults
