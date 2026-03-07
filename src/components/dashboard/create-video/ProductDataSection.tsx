@@ -166,46 +166,59 @@ const ProductDataSection = ({
                         />
                     </div>
 
-                    {/* Product Image */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <Image className="w-3 h-3 text-neon-red" />
-                            รูปสินค้า
-                        </label>
-                        <button
-                            onClick={() => onProductImageUpload()}
-                            className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
-                        >
-                            {productImage ? (
-                                <img src={productImage} alt="Product" className="w-full h-full object-cover" />
-                            ) : (
-                                <>
-                                    <Plus className="w-6 h-6 text-muted-foreground" />
-                                    <span className="text-[10px] text-muted-foreground">คลิกเพื่อเลือกรูปสินค้า</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    {/* Product & Character Images — side by side */}
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* Product Image */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+                                <Image className="w-3 h-3 text-neon-red" />
+                                รูปสินค้า
+                            </label>
+                            <button
+                                onClick={() => onProductImageUpload()}
+                                className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                            >
+                                {productImage ? (
+                                    <>
+                                        <img src={productImage} alt="Product" className="w-full h-full object-contain p-1" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <RefreshCw className="w-5 h-5 text-white" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="w-6 h-6 text-muted-foreground" />
+                                        <span className="text-[10px] text-muted-foreground text-center px-2">เลือกรูปสินค้า</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
 
-                    {/* Character Image */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <Image className="w-3 h-3 text-neon-red" />
-                            รูปตัวละคร
-                        </label>
-                        <button
-                            onClick={() => onCharacterImageUpload()}
-                            className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden"
-                        >
-                            {characterImage ? (
-                                <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
-                            ) : (
-                                <>
-                                    <Plus className="w-6 h-6 text-muted-foreground" />
-                                    <span className="text-[10px] text-muted-foreground">คลิกเพื่อเลือกรูปตัวละคร</span>
-                                </>
-                            )}
-                        </button>
+                        {/* Character Image */}
+                        <div>
+                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+                                <Image className="w-3 h-3 text-neon-red" />
+                                รูปตัวละคร
+                            </label>
+                            <button
+                                onClick={() => onCharacterImageUpload()}
+                                className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                            >
+                                {characterImage ? (
+                                    <>
+                                        <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <RefreshCw className="w-5 h-5 text-white" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="w-6 h-6 text-muted-foreground" />
+                                        <span className="text-[10px] text-muted-foreground text-center px-2">เลือกรูปตัวละคร</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Gender Selection — affects Voice Persona (Fah/Somsak) */}

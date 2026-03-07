@@ -260,8 +260,10 @@ function buildCss(t: OverlayTheme): string {
     inset: 0;
     z-index: 999999;
     background:
-        radial-gradient(ellipse at 25% 15%, rgba(${P},0.05) 0%, transparent 55%),
-        radial-gradient(ellipse at 75% 85%, rgba(${A},0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 25% 15%, rgba(${P},0.15) 0%, transparent 55%),
+        radial-gradient(ellipse at 75% 85%, rgba(${A},0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 10% 80%, rgba(${P},0.08) 0%, transparent 45%),
+        radial-gradient(ellipse at 90% 10%, rgba(${A},0.08) 0%, transparent 45%),
         radial-gradient(ellipse at 50% 50%, rgba(${bgt(18)},0.94) 0%, rgba(${bgt(4)},0.98) 40%, rgba(0,0,0,0.99) 100%);
     backdrop-filter: blur(30px);
     -webkit-backdrop-filter: blur(30px);
@@ -278,7 +280,7 @@ function buildCss(t: OverlayTheme): string {
     height: 100%;
     z-index: 0;
     pointer-events: none;
-    opacity: 0.55;
+    opacity: 0.85;
 }
 
 /* ─── Hex Grid Overlay ─── */
@@ -289,7 +291,7 @@ function buildCss(t: OverlayTheme): string {
     height: 100%;
     z-index: 0;
     pointer-events: none;
-    opacity: 0.08;
+    opacity: 0.24;
     mix-blend-mode: screen;
 }
 
@@ -299,8 +301,10 @@ function buildCss(t: OverlayTheme): string {
     inset: 0;
     background:
         radial-gradient(ellipse at center, transparent 25%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 85%, rgba(0,0,0,0.95) 100%),
-        radial-gradient(ellipse at 0% 0%, rgba(${P},0.04) 0%, transparent 40%),
-        radial-gradient(ellipse at 100% 100%, rgba(${A},0.03) 0%, transparent 40%);
+        radial-gradient(ellipse at 0% 0%, rgba(${P},0.12) 0%, transparent 40%),
+        radial-gradient(ellipse at 100% 100%, rgba(${A},0.09) 0%, transparent 40%),
+        radial-gradient(ellipse at 100% 0%, rgba(${P},0.06) 0%, transparent 35%),
+        radial-gradient(ellipse at 0% 100%, rgba(${A},0.06) 0%, transparent 35%);
     pointer-events: none;
     z-index: 1;
 }
@@ -313,8 +317,8 @@ function buildCss(t: OverlayTheme): string {
         0deg,
         transparent,
         transparent 2px,
-        rgba(${P},0.015) 2px,
-        rgba(${P},0.015) 4px
+        rgba(${P},0.045) 2px,
+        rgba(${P},0.045) 4px
     );
     pointer-events: none;
     z-index: 1;
@@ -336,13 +340,13 @@ function buildCss(t: OverlayTheme): string {
     height: 800px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    border: 1.5px solid rgba(${P},0.08);
-    box-shadow: 0 0 30px rgba(${P},0.03), inset 0 0 30px rgba(${P},0.02);
+    border: 1.5px solid rgba(${P},0.24);
+    box-shadow: 0 0 30px rgba(${P},0.09), inset 0 0 30px rgba(${P},0.06);
     pointer-events: none;
     z-index: 1;
     animation: nf-pulse-expand 5s ease-out infinite;
 }
-#netflow-engine-overlay .nf-pulse-ring:nth-child(2) { animation-delay: 1.6s; width: 600px; height: 600px; border-color: rgba(${A},0.06); box-shadow: 0 0 25px rgba(${A},0.03); }
+#netflow-engine-overlay .nf-pulse-ring:nth-child(2) { animation-delay: 1.6s; width: 600px; height: 600px; border-color: rgba(${A},0.18); box-shadow: 0 0 25px rgba(${A},0.09); }
 #netflow-engine-overlay .nf-pulse-ring:nth-child(3) { animation-delay: 3.2s; width: 1100px; height: 1100px; }
 
 @keyframes nf-pulse-expand {
@@ -362,8 +366,8 @@ function buildCss(t: OverlayTheme): string {
     position: absolute;
     inset: -80px;
     background-image:
-        radial-gradient(circle, rgba(${P},0.055) 1px, transparent 1px),
-        radial-gradient(circle, rgba(${P},0.035) 1px, transparent 1px);
+        radial-gradient(circle, rgba(${P},0.15) 1px, transparent 1px),
+        radial-gradient(circle, rgba(${P},0.10) 1px, transparent 1px);
     background-size: 26px 45px, 26px 45px;
     background-position: 0 0, 13px 22.5px;
     pointer-events: none;
@@ -382,8 +386,8 @@ function buildCss(t: OverlayTheme): string {
     position: absolute;
     inset: -80px;
     background-image:
-        linear-gradient(rgba(${P},0.028) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(${P},0.028) 1px, transparent 1px);
+        linear-gradient(rgba(${P},0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(${P},0.08) 1px, transparent 1px);
     background-size: 55px 55px;
     pointer-events: none;
     z-index: 0;
@@ -398,13 +402,14 @@ function buildCss(t: OverlayTheme): string {
 /* ─── Diagonal Traces A (35° scrolling right) ─── */
 .nf-pat-diag-a {
     position: absolute;
-    inset: -250px;
+    inset: -120px;
+    will-change: transform;
     background: repeating-linear-gradient(
         35deg,
         transparent,
         transparent 70px,
-        rgba(${A},0.018) 70px,
-        rgba(${A},0.018) 71px
+        rgba(${A},0.054) 70px,
+        rgba(${A},0.054) 71px
     );
     pointer-events: none;
     z-index: 0;
@@ -414,13 +419,14 @@ function buildCss(t: OverlayTheme): string {
 /* ─── Diagonal Traces B (-35° scrolling left) ─── */
 .nf-pat-diag-b {
     position: absolute;
-    inset: -250px;
+    inset: -120px;
+    will-change: transform;
     background: repeating-linear-gradient(
         -35deg,
         transparent,
         transparent 90px,
-        rgba(${P},0.014) 90px,
-        rgba(${P},0.014) 91px
+        rgba(${P},0.042) 90px,
+        rgba(${P},0.042) 91px
     );
     pointer-events: none;
     z-index: 0;
@@ -439,17 +445,18 @@ function buildCss(t: OverlayTheme): string {
 /* ─── Data Stream Columns (vertical, scrolling up) ─── */
 .nf-pat-data {
     position: absolute;
-    inset: -200px;
+    inset: -120px;
+    will-change: transform;
     background: repeating-linear-gradient(
         90deg,
         transparent 0px,
         transparent 110px,
-        rgba(${P},0.022) 110px,
-        rgba(${P},0.022) 111px,
+        rgba(${P},0.066) 110px,
+        rgba(${P},0.066) 111px,
         transparent 111px,
         transparent 113px,
-        rgba(${A},0.015) 113px,
-        rgba(${A},0.015) 114px
+        rgba(${A},0.045) 113px,
+        rgba(${A},0.045) 114px
     );
     pointer-events: none;
     z-index: 0;
@@ -467,11 +474,10 @@ function buildCss(t: OverlayTheme): string {
     inset: 0;
     pointer-events: none;
     z-index: 1;
-    opacity: 0.03;
+    opacity: 0.09;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-repeat: repeat;
     background-size: 200px 200px;
-    mix-blend-mode: overlay;
 }
 
 /* ─── Ambient Orbs (large soft drifting glows) ─── */
@@ -484,25 +490,25 @@ function buildCss(t: OverlayTheme): string {
 }
 .nf-orb-1 {
     width: 550px; height: 550px;
-    background: radial-gradient(circle, rgba(${P},0.07) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(${P},0.21) 0%, transparent 70%);
     top: -8%; left: -6%;
     animation: nf-orb-1 22s ease-in-out infinite alternate;
 }
 .nf-orb-2 {
     width: 450px; height: 450px;
-    background: radial-gradient(circle, rgba(${A},0.055) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(${A},0.16) 0%, transparent 70%);
     bottom: -6%; right: -4%;
     animation: nf-orb-2 28s ease-in-out infinite alternate;
 }
 .nf-orb-3 {
     width: 380px; height: 380px;
-    background: radial-gradient(circle, rgba(${P},0.045) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(${P},0.13) 0%, transparent 70%);
     top: 35%; left: 55%;
     animation: nf-orb-3 32s ease-in-out infinite alternate;
 }
 .nf-orb-4 {
     width: 320px; height: 320px;
-    background: radial-gradient(circle, rgba(${A},0.04) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(${A},0.12) 0%, transparent 70%);
     top: 60%; left: 10%;
     animation: nf-orb-4 26s ease-in-out infinite alternate;
 }
@@ -531,15 +537,234 @@ function buildCss(t: OverlayTheme): string {
     width: 700px; height: 700px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(${P},0.06) 0%, rgba(${A},0.02) 40%, transparent 70%);
+    background: radial-gradient(circle, rgba(${P},0.18) 0%, rgba(${A},0.06) 40%, transparent 70%);
     pointer-events: none;
     z-index: 0;
     animation: nf-center-pulse 6s ease-in-out infinite;
 }
 
 @keyframes nf-center-pulse {
-    0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
-    50%      { opacity: 0.8; transform: translate(-50%, -50%) scale(1.15); }
+    0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}
+
+/* ─── Extra Ambient Orbs (5-8) for 3x density ─── */
+.nf-orb-5 {
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, rgba(${P},0.18) 0%, transparent 65%);
+    top: 10%; right: 15%;
+    animation: nf-orb-5 24s ease-in-out infinite alternate;
+}
+@keyframes nf-orb-5 {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(-180px, 160px) scale(1.25); }
+}
+
+/* ─── Pattern: Circuit Board Traces ─── */
+.nf-pat-circuit {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(0deg, rgba(${P},0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(${P},0.04) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(${A},0.025) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(${A},0.025) 2px, transparent 2px);
+    background-size: 80px 80px, 80px 80px, 160px 160px, 160px 160px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ─── Pattern: Honeycomb Hex ─── */
+.nf-pat-honeycomb {
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(circle at 50% 0%, rgba(${P},0.06) 2px, transparent 2px),
+        radial-gradient(circle at 0% 75%, rgba(${A},0.05) 2px, transparent 2px),
+        radial-gradient(circle at 100% 75%, rgba(${P},0.05) 2px, transparent 2px);
+    background-size: 40px 46px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ─── Pattern: Radar Sweep ─── */
+.nf-pat-radar {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 1000px; height: 1000px;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        rgba(${P},0.1) 15deg,
+        transparent 60deg,
+        transparent 180deg,
+        rgba(${A},0.06) 195deg,
+        transparent 240deg,
+        transparent 360deg
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+    animation: nf-radar-spin 12s linear infinite;
+    opacity: 0.6;
+}
+@keyframes nf-radar-spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ─── Pattern: Horizontal Wave Lines ─── */
+.nf-pat-wave-h {
+    position: absolute;
+    inset: -40px;
+    will-change: transform;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 18px,
+        rgba(${A},0.035) 18px,
+        rgba(${A},0.035) 19px
+    );
+    pointer-events: none;
+    z-index: 0;
+    animation: nf-wave-h 12s linear infinite;
+}
+@keyframes nf-wave-h {
+    from { transform: translateY(0); }
+    to   { transform: translateY(38px); }
+}
+
+/* ─── Pattern: Binary Dots ─── */
+.nf-pat-binary {
+    position: absolute;
+    inset: -70px;
+    will-change: transform;
+    background-image:
+        radial-gradient(circle, rgba(${P},0.07) 1.5px, transparent 1.5px),
+        radial-gradient(circle, rgba(${A},0.05) 1px, transparent 1px);
+    background-size: 18px 22px, 30px 36px;
+    background-position: 0 0, 9px 11px;
+    pointer-events: none;
+    z-index: 0;
+    animation: nf-binary-fall 15s linear infinite;
+}
+@keyframes nf-binary-fall {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-66px); }
+}
+
+/* ─── Pattern: Crosshatch Fine Lines ─── */
+.nf-pat-crosshatch {
+    position: absolute;
+    inset: 0;
+    background:
+        repeating-linear-gradient(
+            45deg, transparent, transparent 40px,
+            rgba(${P},0.03) 40px, rgba(${P},0.03) 41px
+        ),
+        repeating-linear-gradient(
+            -45deg, transparent, transparent 40px,
+            rgba(${A},0.025) 40px, rgba(${A},0.025) 41px
+        );
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ─── Pattern: Concentric Ripples ─── */
+.nf-pat-ripple-1 {
+    position: absolute;
+    left: 20%; top: 30%;
+    width: 700px; height: 700px;
+    transform: translate(-50%, -50%);
+    background: repeating-radial-gradient(
+        circle, transparent 0px, transparent 30px,
+        rgba(${P},0.04) 30px, rgba(${P},0.04) 31px
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, opacity;
+    animation: nf-ripple-grow 8s ease-out infinite;
+}
+.nf-pat-ripple-2 {
+    position: absolute;
+    left: 80%; top: 70%;
+    width: 550px; height: 550px;
+    transform: translate(-50%, -50%);
+    background: repeating-radial-gradient(
+        circle, transparent 0px, transparent 25px,
+        rgba(${A},0.035) 25px, rgba(${A},0.035) 26px
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, opacity;
+    animation: nf-ripple-grow 10s ease-out infinite;
+    animation-delay: 3s;
+}
+@keyframes nf-ripple-grow {
+    0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+/* ─── Pattern: Diamond Tiles ─── */
+.nf-pat-diamond {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(45deg, rgba(${P},0.035) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(${P},0.035) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(${A},0.03) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(${A},0.03) 75%);
+    background-size: 60px 60px;
+    background-position: 0 0, 0 30px, 30px -30px, 30px 0px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ─── Pattern: Plasma Blobs ─── */
+.nf-pat-plasma {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(${P},0.14) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(${A},0.12) 0%, transparent 45%),
+        radial-gradient(ellipse at 60% 80%, rgba(${P},0.10) 0%, transparent 40%),
+        radial-gradient(ellipse at 30% 10%, rgba(${A},0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, rgba(${P},0.09) 0%, transparent 45%);
+    pointer-events: none;
+    z-index: 0;
+    will-change: opacity;
+    animation: nf-plasma 20s ease-in-out infinite alternate;
+}
+@keyframes nf-plasma {
+    0%   { opacity: 0.4; }
+    50%  { opacity: 0.7; }
+    100% { opacity: 0.5; }
+}
+
+/* ─── Pattern: Tech Scan Band ─── */
+.nf-pat-techscan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(${P},0.08) 1.5%,
+        rgba(${A},0.04) 2.5%,
+        transparent 4%,
+        transparent 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+    animation: nf-techscan 6s linear infinite;
+}
+@keyframes nf-techscan {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(100%); }
 }
 
 /* ─── Main Layout: Cross Pattern ─── */
@@ -840,8 +1065,8 @@ function buildCss(t: OverlayTheme): string {
         0deg,
         transparent,
         transparent 2px,
-        rgba(${P},0.015) 2px,
-        rgba(${P},0.015) 4px
+        rgba(${P},0.045) 2px,
+        rgba(${P},0.045) 4px
     );
     pointer-events: none;
     z-index: 4;
@@ -2343,21 +2568,95 @@ function buildOverlay(): HTMLDivElement {
     matrixCanvas.id = "nf-matrix-canvas";
     root.appendChild(matrixCanvas);
 
-    // ═══ ANIMATED BACKGROUND PATTERNS (lightweight set) ═══
-    // Data stream columns (scrolling up) — single layer, cheap
+    // ═══ ANIMATED BACKGROUND PATTERNS (full set — 3x density) ═══
+
+    // Plasma blobs (screen blend, soft morphing)
+    const plasma = document.createElement("div");
+    plasma.className = "nf-pat-plasma";
+    root.appendChild(plasma);
+
+    // 8 Ambient orbs (drifting glow spheres)
+    for (let i = 1; i <= 5; i++) {
+        const orb = document.createElement("div");
+        orb.className = `nf-ambient-orb nf-orb-${i}`;
+        root.appendChild(orb);
+    }
+
+    // Data stream columns (scrolling up)
     const dataPat = document.createElement("div");
     dataPat.className = "nf-pat-data";
     root.appendChild(dataPat);
 
-    // Center glow pulse — opacity-only animation, GPU composited
+    // Diagonal traces A & B
+    const diagA = document.createElement("div");
+    diagA.className = "nf-pat-diag-a";
+    root.appendChild(diagA);
+    const diagB = document.createElement("div");
+    diagB.className = "nf-pat-diag-b";
+    root.appendChild(diagB);
+
+    // Circuit board traces
+    const circuit = document.createElement("div");
+    circuit.className = "nf-pat-circuit";
+    root.appendChild(circuit);
+
+    // Honeycomb hex
+    const honeycomb = document.createElement("div");
+    honeycomb.className = "nf-pat-honeycomb";
+    root.appendChild(honeycomb);
+
+    // Binary dots
+    const binary = document.createElement("div");
+    binary.className = "nf-pat-binary";
+    root.appendChild(binary);
+
+    // Crosshatch fine lines
+    const crosshatch = document.createElement("div");
+    crosshatch.className = "nf-pat-crosshatch";
+    root.appendChild(crosshatch);
+
+    // Diamond tiles
+    const diamond = document.createElement("div");
+    diamond.className = "nf-pat-diamond";
+    root.appendChild(diamond);
+
+    // Horizontal wave lines
+    const waveH = document.createElement("div");
+    waveH.className = "nf-pat-wave-h";
+    root.appendChild(waveH);
+
+    // Radar sweep
+    const radar = document.createElement("div");
+    radar.className = "nf-pat-radar";
+    root.appendChild(radar);
+
+    // Concentric ripples (2 sources)
+    const ripple1 = document.createElement("div");
+    ripple1.className = "nf-pat-ripple-1";
+    root.appendChild(ripple1);
+    const ripple2 = document.createElement("div");
+    ripple2.className = "nf-pat-ripple-2";
+    root.appendChild(ripple2);
+
+    // Tech scan band
+    const techscan = document.createElement("div");
+    techscan.className = "nf-pat-techscan";
+    root.appendChild(techscan);
+
+    // Center glow pulse
     const centerGlow = document.createElement("div");
     centerGlow.className = "nf-center-glow";
     root.appendChild(centerGlow);
 
-    // Noise grain texture — static, one paint
+    // Noise grain texture
     const noise = document.createElement("div");
     noise.className = "nf-pat-noise";
     root.appendChild(noise);
+
+    // CRT scanlines
+    const crt = document.createElement("div");
+    crt.className = "nf-crt-scanlines";
+    root.appendChild(crt);
 
     // ═══ VIGNETTE OVERLAY ═══
     const vignette = document.createElement("div");
@@ -2438,13 +2737,13 @@ function buildOverlay(): HTMLDivElement {
     waveSvg.setAttribute("viewBox", "0 0 560 140");
     waveSvg.setAttribute("preserveAspectRatio", "none");
     waveSvg.id = "nf-engine-waves";
-    for (let w = 0; w < 6; w++) {
+    for (let w = 0; w < 4; w++) {
         const path = document.createElementNS(wNs, "path");
         path.setAttribute("fill", "none");
-        path.setAttribute("stroke-width", w < 3 ? "1.5" : "1");
-        path.setAttribute("stroke", w < 3
-            ? `rgba(${currentTheme.rgb},${0.12 + w * 0.08})`
-            : `rgba(${currentTheme.accentRgb},${0.08 + (w - 3) * 0.06})`);
+        path.setAttribute("stroke-width", w < 2 ? "1.5" : "1");
+        path.setAttribute("stroke", w < 2
+            ? `rgba(${currentTheme.rgb},${0.14 + w * 0.10})`
+            : `rgba(${currentTheme.accentRgb},${0.10 + (w - 2) * 0.08})`);
         path.setAttribute("data-wave-idx", String(w));
         waveSvg.appendChild(path);
     }
@@ -2598,9 +2897,11 @@ interface PlexusNode {
     oSpeed: number; // angular speed (rad/frame)
 }
 
-const PLEXUS_COUNT = 220;
-const PLEXUS_LINK_DIST = 210;
+const PLEXUS_COUNT = 120;
+const PLEXUS_LINK_DIST = 160;
 const PLEXUS_SPEED = 0.4;
+let _glowSprite: HTMLCanvasElement | null = null;
+let _glowSpriteR = 0; let _glowSpriteG = 0; let _glowSpriteB = 0;
 let plexusNodes: PlexusNode[] = [];
 
 function _initPlexusNodes(w: number, h: number): void {
@@ -2747,56 +3048,64 @@ function initMatrixRain() {
             }
         }
 
-        // ── Draw lines: batch by opacity buckets for fewer state changes ──
-        const BUCKETS = 5;
-        for (let b = 0; b < BUCKETS; b++) {
-            const bMin = b / BUCKETS;
-            const bMax = (b + 1) / BUCKETS;
-            const bAlpha = ((bMin + bMax) * 0.5 * 0.35).toFixed(3);
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(${_themeR},${_themeG},${_themeB},${bAlpha})`;
-            ctx.lineWidth = (bMin + bMax) * 0.5 * 1.2;
-            for (let i = 0; i < len; i++) {
-                const a = nodes[i];
-                for (let j = i + 1; j < len; j++) {
-                    const bNode = nodes[j];
-                    const dx = a.x - bNode.x;
-                    const dy = a.y - bNode.y;
-                    const d2 = dx * dx + dy * dy;
-                    if (d2 < linkDist2) {
-                        const ratio = 1 - Math.sqrt(d2) / PLEXUS_LINK_DIST;
-                        if (ratio >= bMin && ratio < bMax) {
-                            ctx.moveTo(a.x, a.y);
-                            ctx.lineTo(bNode.x, bNode.y);
-                        }
+        // ── Draw lines: 2 buckets (dim + bright) for fewer state changes ──
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${_themeR},${_themeG},${_themeB},0.06)`;
+        ctx.lineWidth = 0.4;
+        const linePath2 = new Path2D();
+        for (let i = 0; i < len; i++) {
+            const a = nodes[i];
+            for (let j = i + 1; j < len; j++) {
+                const bNode = nodes[j];
+                const dx = a.x - bNode.x;
+                const dy = a.y - bNode.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < linkDist2) {
+                    const ratio = 1 - d2 / linkDist2; // approximate (skip sqrt)
+                    if (ratio < 0.4) {
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(bNode.x, bNode.y);
+                    } else {
+                        linePath2.moveTo(a.x, a.y);
+                        linePath2.lineTo(bNode.x, bNode.y);
                     }
                 }
             }
-            ctx.stroke();
+        }
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(${_themeR},${_themeG},${_themeB},0.18)`;
+        ctx.lineWidth = 0.8;
+        ctx.stroke(linePath2);
+
+        // ── Draw particles using pre-rendered glow sprite (no shadowBlur) ──
+        // Rebuild glow sprite if theme changed
+        if (!_glowSprite || _glowSpriteR !== _themeR || _glowSpriteG !== _themeG || _glowSpriteB !== _themeB) {
+            _glowSprite = document.createElement('canvas');
+            const sz = 48;
+            _glowSprite.width = sz; _glowSprite.height = sz;
+            const gc = _glowSprite.getContext('2d')!;
+            const grad = gc.createRadialGradient(sz/2, sz/2, 0, sz/2, sz/2, sz/2);
+            grad.addColorStop(0, `rgba(${_themeR},${_themeG},${_themeB},0.9)`);
+            grad.addColorStop(0.3, `rgba(${_themeR},${_themeG},${_themeB},0.35)`);
+            grad.addColorStop(1, `rgba(${_themeR},${_themeG},${_themeB},0)`);
+            gc.fillStyle = grad;
+            gc.fillRect(0, 0, sz, sz);
+            _glowSpriteR = _themeR; _glowSpriteG = _themeG; _glowSpriteB = _themeB;
         }
 
-        // ── Draw particles: use shadowBlur for glow (GPU-accelerated) ──
-        ctx.save();
-        ctx.shadowColor = `rgba(${_themeR},${_themeG},${_themeB},0.8)`;
-        ctx.shadowBlur = 25;
-
-        // Glow layer (theme-colored particles)
+        // Glow layer — drawImage of cached sprite (GPU-composited, no shadowBlur)
+        const sprite = _glowSprite;
         for (let i = 0; i < len; i++) {
             const n = nodes[i];
             const pulse = 0.6 + 0.4 * Math.sin(n.pulsePhase);
-            const r = n.radius * (0.8 + pulse * 0.4);
-            const coreR = _themeR + ((255 - _themeR) * 0.7 * pulse) | 0;
-            const coreG = _themeG + ((255 - _themeG) * 0.7 * pulse) | 0;
-            const coreB = _themeB + ((255 - _themeB) * 0.7 * pulse) | 0;
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${coreR},${coreG},${coreB},${(0.6 + pulse * 0.4).toFixed(2)})`;
-            ctx.fill();
+            const sz = (n.radius * 5) * (0.8 + pulse * 0.4);
+            ctx.globalAlpha = 0.5 + pulse * 0.4;
+            ctx.drawImage(sprite, n.x - sz / 2, n.y - sz / 2, sz, sz);
         }
-        ctx.restore();
+        ctx.globalAlpha = 1;
 
-        // Bright inner dots (no shadow needed — crisp white centers)
-        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        // Bright inner dots — batched into one path
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
         ctx.beginPath();
         for (let i = 0; i < len; i++) {
             const n = nodes[i];
@@ -2808,12 +3117,6 @@ function initMatrixRain() {
             }
         }
         ctx.fill();
-
-        // Floating dust (tiny dots)
-        ctx.fillStyle = `rgba(${_themeR},${_themeG},${_themeB},0.08)`;
-        for (let d = 0; d < 6; d++) {
-            ctx.fillRect(Math.random() * w, Math.random() * h, 1, 1);
-        }
     }
 
     drawPlexus();
@@ -2832,30 +3135,46 @@ function stopMatrixRain() {
 
 // ── Engine Core Wave Animation ────────────────────────────────────────────
 
+let _wavePaths: SVGPathElement[] | null = null;
+const _W = 560, _H = 140, _CX = _W / 2, _HH = _H / 2;
+// Pre-compute fade table for wave (step=8, x: 0..560)
+const _waveFade: number[] = [];
+for (let x = 0; x <= _W; x += 8) {
+    const dist = Math.abs(x - _CX) / _CX;
+    _waveFade.push(Math.pow(Math.min(1, dist * 1.6), 0.6));
+}
+// Pre-compute wave constants per path index
+const _waveConst = [0, 1, 2, 3].map(idx => ({
+    amp: 10 + idx * 5,
+    freq: (1.2 + idx * 0.35) * Math.PI * 2 / _W,
+    off: idx * 0.6,
+    spd: 0.7 + idx * 0.12,
+}));
+
 function animateEngineCoreWaves() {
     waveAnimFrame = requestAnimationFrame(animateEngineCoreWaves);
     wavePhase += 0.035;
-    const svg = document.getElementById("nf-engine-waves");
-    if (!svg) { waveAnimFrame = null; return; }
 
-    const W = 560, H = 140, CX = W / 2;
-    const paths = svg.querySelectorAll("path");
-    paths.forEach((p) => {
-        const idx = parseInt(p.getAttribute("data-wave-idx") || "0", 10);
-        const amp = 10 + idx * 5;
-        const freq = 1.2 + idx * 0.35;
-        const off = idx * 0.6;
-        const spd = 0.7 + idx * 0.12;
-        let d = `M 0 ${H / 2}`;
-        for (let x = 0; x <= W; x += 3) {
-            const dist = Math.abs(x - CX) / CX;
-            const fade = Math.pow(Math.min(1, dist * 1.6), 0.6);
-            const y = H / 2 + amp * fade * Math.sin((x / W) * freq * Math.PI * 2 + wavePhase * spd + off);
-            d += ` L ${x} ${Math.round(y * 10) / 10}`;
+    // Cache path references once
+    if (!_wavePaths) {
+        const svg = document.getElementById("nf-engine-waves");
+        if (!svg) { waveAnimFrame = null; return; }
+        _wavePaths = Array.from(svg.querySelectorAll("path")) as SVGPathElement[];
+    }
+
+    const parts: string[] = [];
+    for (let pi = 0; pi < _wavePaths.length; pi++) {
+        const c = _waveConst[pi];
+        const phase = wavePhase * c.spd + c.off;
+        parts.length = 0;
+        parts.push(`M 0 ${_HH}`);
+        let fi = 0;
+        for (let x = 0; x <= _W; x += 8) {
+            const y = _HH + c.amp * _waveFade[fi++] * Math.sin(x * c.freq + phase);
+            parts.push(`L${x} ${(y * 10 + 0.5) | 0}`);  // fast round via bitwise
         }
-        p.setAttribute("d", d);
-    });
-
+        _wavePaths[pi].setAttribute("d", parts.join(' '));
+    }
 }
 
 function startVisualizer() {
@@ -2877,6 +3196,7 @@ function startVisualizer() {
 function stopVisualizer() {
     if (waveAnimFrame !== null) { cancelAnimationFrame(waveAnimFrame); waveAnimFrame = null; }
     if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+    _wavePaths = null;
     stopMatrixRain();
 }
 
@@ -2973,14 +3293,12 @@ function toggleOverlayVisibility(): void {
         overlayRoot.classList.add("nf-hidden");
         if (toggleBtn) toggleBtn.innerHTML = "⚡";
         overlayHidden = true;
-        try { localStorage.setItem("nf_overlay_hidden", "1"); } catch (_) {}
     } else {
         // Show overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-hidden");
         overlayRoot.classList.add("nf-visible");
         if (toggleBtn) toggleBtn.innerHTML = "✕";
         overlayHidden = false;
-        try { localStorage.removeItem("nf_overlay_hidden"); } catch (_) {}
     }
 }
 
@@ -3034,7 +3352,10 @@ export function showOverlay(sceneCount: number = 1): void {
     updateThemeComponents();
 
     if (overlayRoot && overlayRoot.isConnected) {
-        // Overlay already exists in DOM — don't force-show if user hid it
+        // If overlay exists and still in DOM, just show it if hidden
+        if (overlayHidden) {
+            toggleOverlayVisibility();
+        }
         return;
     }
     // Reset stale reference if DOM element was destroyed by SPA navigation
@@ -3075,15 +3396,7 @@ export function showOverlay(sceneCount: number = 1): void {
     logBuffer.length = 0;
     overlayRoot = buildOverlay();
     document.body.appendChild(overlayRoot);
-    // Respect user's hide preference from previous page
-    const userHid = !!localStorage.getItem("nf_overlay_hidden");
-    if (userHid) {
-        overlayRoot.classList.remove("nf-visible");
-        overlayRoot.classList.add("nf-hidden");
-        overlayHidden = true;
-    } else {
-        overlayHidden = false;
-    }
+    overlayHidden = false;
     ensureToggleButton();
     startTimer();
     startVisualizer();
@@ -3096,7 +3409,6 @@ export function hideOverlay(): void {
     stopTimer();
     stopVisualizer();
     overlayHidden = false;
-    try { localStorage.removeItem("nf_overlay_hidden"); } catch (_) {}
     if (overlayRoot) {
         overlayRoot.classList.add("nf-fade-out");
         setTimeout(() => {

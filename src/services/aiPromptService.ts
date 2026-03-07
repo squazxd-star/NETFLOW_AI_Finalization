@@ -827,8 +827,15 @@ const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No dec
 // Instead, frame as "original anonymous character inspired by reference style".
 const FACE_IDENTITY_LOCK = "CHARACTER REFERENCE: Use the attached reference photo ONLY as style inspiration for an ORIGINAL ANONYMOUS fictional character. Preserve the general facial aesthetic, hair style, and skin tone from the reference. This is NOT a real person — create a unique, original character that captures a similar visual style. Same consistent fictional character in every frame. Do not replicate any real celebrity or public figure.";
 
+// Front-Facing Character Directive — ensures face consistency with reference input
+const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Front-facing, straight-on, looking directly into the lens. Face fully visible and symmetrical. No side profile, no 3/4 turn, no looking away.";
+
+// Product Match Directive — ensures product matches input reference exactly
+const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Product matches reference EXACTLY — same shape, color, packaging, proportions. LABEL TEXT LOCK: The brand name and text printed ON the product packaging must be pixel-accurate — correct spelling, correct font style, correct letter spacing, correct capitalization, exactly as shown in the reference image. Do NOT invent, alter, or blur any text on the product label. Clearly visible, well-lit, prominent in frame.";
+
 // Anti-Text Directive — strongest possible anti-text/font rendering prevention
-const ANTI_TEXT_DIRECTIVE = "STRICTLY NO TEXT IN ANY FRAME: no subtitles, no captions, no watermarks, no typography, no floating text, no on-screen graphics, no Thai characters, no gibberish fonts, no signage, no banners, no logos, no UI elements. Every frame must be a clean visual with zero text of any kind. Shot on 85mm lens, shallow depth of field, natural environment.";
+// EXCEPTION: text that is PART OF the physical product packaging/label is allowed and must be accurate
+const ANTI_TEXT_DIRECTIVE = "NO OVERLAY TEXT: no subtitles, no captions, no watermarks, no floating text, no on-screen graphics, no gibberish fonts, no banners, no UI elements. EXCEPTION: text printed ON the physical product packaging (brand name, product name) must be preserved exactly as reference — correct spelling and font. Shot on 85mm lens, shallow depth of field, natural environment.";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CATEGORY-SPECIFIC GRIP + CONTACT PHYSICS (20 subcategories in 5 groups)
@@ -893,13 +900,21 @@ const PRODUCT_PHYSICS_SHADOW: Record<ProductCategory, string> = {
     other: "Realistic gravity, all objects grounded. Product placed firmly on surface or held securely in hand. Natural contact shadows and ambient occlusion. No floating products."
 };
 
-/** Build category-specific contact + physics directive */
+// Anti-Floating Hands — prevents unrealistic hand/product physics
+const ANTI_FLOATING_HANDS = "HAND REALISM: Product already held naturally from scene start — never spawns from thin air. No levitating hands, no disconnected fingers. Natural gripping with realistic weight.";
+
+/** Build category-specific contact + physics directive (full — for image prompts) */
 const buildContactPhysicsDirective = (category: ProductCategory): string => {
-    return `${PRODUCT_GRIP_CONTACT[category]} ${PRODUCT_PHYSICS_SHADOW[category]}`;
+    return `${PRODUCT_GRIP_CONTACT[category]} ${PRODUCT_PHYSICS_SHADOW[category]} ${ANTI_FLOATING_HANDS}`;
+};
+
+/** Build slim contact physics directive (for video prompts — shorter to avoid policy filter) */
+const buildContactPhysicsDirectiveSlim = (category: ProductCategory): string => {
+    return `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS}`;
 };
 
 // Anti-Distortion directive — injected into all image prompts
-const ANTI_DISTORTION_DIRECTIVE = "PRODUCT ACCURACY: Frontal eye-level shot, perfectly centered, symmetrical composition. Shot on 85mm lens, f/8 aperture, zero lens distortion. High-end product photography, no perspective warping. Preserve original packaging design, labels, and branding exactly as shown in the reference image.";
+const ANTI_DISTORTION_DIRECTIVE = "PRODUCT ACCURACY: Frontal eye-level shot, perfectly centered, symmetrical composition. Shot on 85mm lens, f/8 aperture, zero lens distortion. High-end product photography, no perspective warping. Preserve original packaging design and branding exactly as shown in the reference image. LABEL ACCURACY: All text on the product (brand name, product name, tagline) must match the reference image letter-for-letter — same font, same size, same position. Never generate gibberish, misspelled, or made-up text on the product.";
 
 // Brand & Policy Safety — words to auto-sanitize from prompts
 const BRAND_REPLACEMENTS: [RegExp, string][] = [
@@ -1025,6 +1040,8 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
         [ANTI_TEXT_DIRECTIVE, "___DIRECTIVE_ANTI_TEXT___"],
         [ANTI_DISTORTION_DIRECTIVE, "___DIRECTIVE_ANTI_DISTORT___"],
         [VIDEO_POLICY_DIRECTIVE, "___DIRECTIVE_VIDEO_POLICY___"],
+        [FRONT_FACING_DIRECTIVE, "___DIRECTIVE_FRONT_FACING___"],
+        [PRODUCT_MATCH_DIRECTIVE, "___DIRECTIVE_PRODUCT_MATCH___"],
     ];
     for (const [directive, ph] of DIRECTIVE_PLACEHOLDERS) {
         if (result.includes(directive)) {
@@ -1736,11 +1753,11 @@ export interface VideoPromptMeta {
     expression: string;
     camera: string;
     product: string;
+    productAnchor: string;         // detailed product visual identity (from AI analysis) for Scene 2+ lock
     template: string;
     pacing: string;
     restrictions: string;
     voiceoverDescriptor: string;   // FIXED voice cue — copy-paste to every scene
-    voiceLanguage: string;         // e.g. "Thai" — for dynamic SCRIPT label in Scene 2+
     cameraMovement: string;        // per-template camera motion
     sceneTransition: string;       // per-template transition keywords
     environment: string;           // setting/background
@@ -1993,7 +2010,7 @@ const buildImagePrompt = (
 
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
-[PRODUCT] ${config.productName}: ${productDesc}.
+[PRODUCT] ${config.productName}: ${productDesc}. The text "${config.productName}" must appear on the product label exactly as spelled — correct font, correct letter spacing, no misspelling, no gibberish.
 [CHARACTER] ${characterLine}.
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
@@ -2001,12 +2018,14 @@ const buildImagePrompt = (
 [QUALITY] ${aspectRatio} orientation, photorealistic. ${ANTI_TEXT_DIRECTIVE}
 
 COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character holding or interacting with the product naturally. Both must be clearly visible together.
+${FRONT_FACING_DIRECTIVE}
+${PRODUCT_MATCH_DIRECTIVE}
 ${ANTI_DISTORTION_DIRECTIVE}
 ${FACE_IDENTITY_LOCK}
 
 Reference Images:
 - Image 1: Character style reference — use as visual inspiration for an ORIGINAL ANONYMOUS fictional character with similar aesthetic${hasProductImage ? `
-- Image 2: Product reference (must preserve packaging and product type)` : ''}
+- Image 2: Product reference — MUST preserve exact packaging shape, label text font, brand name spelling, and product design. The label on the product is the #1 priority to match.` : ''}
 - If text conflicts with images, images win. Character style from Image 1 is the visual guide.
 
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
@@ -2070,10 +2089,9 @@ const buildVideoPrompt = (
     const movementDesc = movementMap[config.movement || 'minimal'] || 'subtle gentle gestures';
 
     // ── Language → voiceover language ──
-    // All Thai dialects produce Thai voiceover; accent/dialect is handled by ACCENT_THAI config
     const languageMap: Record<string, string> = {
-        "th-central": "Thai", "th-north": "Thai",
-        "th-south": "Thai", "th-isan": "Thai"
+        "th-central": "Thai", "th-north": "English",
+        "th-south": "Lao", "th-isan": "Chinese Mandarin"
     };
     const voiceLanguage = languageMap[config.language] || "Thai";
 
@@ -2144,7 +2162,7 @@ const buildVideoPrompt = (
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
-    const contactPhysics = buildContactPhysicsDirective(category);
+    const contactPhysics = buildContactPhysicsDirectiveSlim(category);
     const productAccuracyDirective = `The ${config.productName} product is the HERO of the video — always visible and prominent. Product appearance must exactly match the reference image: ${fullProductHighlight}. Feature product in every frame, centered and clearly lit.`;
 
     const prompt = sanitizePromptForPolicy([
@@ -2162,8 +2180,18 @@ const buildVideoPrompt = (
         `${voiceoverDescriptor}`,
         `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Constraints] — policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} Same fictional character and outfit throughout. Product must appear frontal, centered, symmetrical, zero lens distortion. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — same voice carries through all scenes. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
+
+    // ── Build detailed Product Anchor from AI analysis for Scene 2+ identity lock ──
+    const aiProductDesc = ai.product || '';
+    const userProductDesc = config.productDescription?.trim() || '';
+    const productAnchorParts = [
+        `Product: ${config.productName}.`,
+        aiProductDesc ? `Visual details: ${aiProductDesc}.` : '',
+        userProductDesc ? `Description: ${userProductDesc}.` : '',
+        `PRODUCT IDENTITY LOCK: This EXACT product must appear in every scene — identical bottle/package shape, identical proportions, identical cap/closure design, identical label typography and font, identical color palette. The product is a FIXED visual element — never morph, never change shape, never alter text font between scenes.`
+    ].filter(Boolean).join(' ');
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
     const meta: VideoPromptMeta = {
@@ -2174,11 +2202,11 @@ const buildVideoPrompt = (
         expression: expressionText,
         camera: `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}`,
         product: `${config.productName}, ${fullProductHighlight}`,
+        productAnchor: productAnchorParts,
         template: templateConfig.englishName,
         pacing: durationConfig.pacing,
-        restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${buildContactPhysicsDirective(category)} ${VIDEO_POLICY_DIRECTIVE}`,
+        restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${buildContactPhysicsDirectiveSlim(category)} ${VIDEO_POLICY_DIRECTIVE}`,
         voiceoverDescriptor,
-        voiceLanguage,
         cameraMovement: cameraMove,
         sceneTransition: transition,
         environment,
@@ -2210,23 +2238,29 @@ export const buildSceneVideoPromptJSON = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     // ── CONTINUITY LOCK + TRANSITION TECHNIQUES ──
+    // Fix #3: 80% seamless (no transition), 20% with transition effect
+    const useTransition = Math.random() < 0.2;
+    const transitionDirective = useTransition
+        ? `TRANSITION: ${meta.sceneTransition}. Smooth visual transition from scene ${sceneNumber - 1}.`
+        : `NO TRANSITION: Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade, no visual effect between scenes.`;
+
     const continuityDirective = [
         `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation.`,
-        `KEEP CONSISTENT: same fictional character face/body/clothing, product appearance, background, lighting, voice.`,
-        `MATCH CUT: character position and pose at start of this scene must match exactly where scene ${sceneNumber - 1} ended.`,
-        `CAMERA CARRY-OVER: continue same camera motion from previous scene — ${meta.cameraMovement}. Do not reset camera.`,
-        `ACTION OVERLAP: character has slight continuous movement (gestures, breathing) at scene boundary — no freeze frame.`,
-        `NO black screen, NO fade, NO silence gap. One continuous take.`,
+        `CONSISTENT: same character face/outfit/hairstyle, IDENTICAL product (same shape, color, label, packaging — zero drift), same background, lighting.`,
+        transitionDirective,
+        `CAMERA: continue ${meta.cameraMovement}. No camera reset. Continuous movement at scene boundary — no freeze frame.`,
+        `VOICE: speaking continues seamlessly from scene ${sceneNumber - 1} — same tone, same pace, mid-sentence flow. No voice reset.`,
+        `NO black screen, NO silence gap. One continuous take.`,
     ].join(' ');
 
     return sanitizePromptForPolicy([
         continuityDirective,
-        `${meta.template} commercial video. ${meta.product} — visible in every frame.`,
+        `${meta.template} commercial video. ${meta.productAnchor}`,
+        `${meta.voiceoverDescriptor}`,
         `${meta.gender}, ${meta.expression}, ${meta.style}. ${speakingDirective}`,
         `${meta.camera}. ${meta.lighting}.`,
         `${meta.pacing}. Fluid motion, high frame rate.`,
-        `${meta.voiceoverDescriptor}`,
-        `${meta.genderVoice}. ${(meta.voiceLanguage || 'Thai').toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
         `${aspectDirective} ${meta.restrictions} Same fictional character, outfit, product, environment from scene ${sceneNumber - 1}.`
     ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
 };

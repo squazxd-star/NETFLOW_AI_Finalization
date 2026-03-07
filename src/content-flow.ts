@@ -33,17 +33,6 @@ const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
 LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
 
-// ─── Global Video Auto-Mute (prevents audio interference during automation) ──
-(() => {
-    const muteAll = () => document.querySelectorAll<HTMLVideoElement>("video").forEach(v => { if (!v.muted) v.muted = true; });
-    muteAll();
-    const obs = new MutationObserver(muteAll);
-    obs.observe(document.body, { childList: true, subtree: true });
-    // Periodic fallback: some players unmute via JS after load
-    setInterval(muteAll, 2000);
-    LOG("🔇 Auto-mute ทำงาน — เสียงจะเงียบตลอด automation");
-})();
-
 // ─── Mouse Position Tracker (Debug) ─────────────────────────────────────────
 document.addEventListener("click", (e) => {
     const t = e.target as HTMLElement | null;
@@ -2326,6 +2315,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mouseup", opts));
             card.dispatchEvent(new MouseEvent("click", opts));
+            await sleep(50); card.click();
             LOG("คลิกการ์ดวิดีโอแล้ว");
             await sleep(2000);
         };
@@ -2341,6 +2331,26 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 steps.push("✅ Video Complete");
                 updateStep("vid-wait", "done", 100);
                 LOG("✅ คลิกเข้าหน้ารายละเอียดวิดีโอแล้ว — รอ mute จาก pending action");
+
+                // ★ SPA navigation fix: if script survived the card click (no full page reload),
+                // the pending action won't be picked up by checkAndRunPendingAction (only runs at init).
+                // Wait 3s then check — if pending action is still unclaimed, execute it directly.
+                await sleep(3000);
+                const pendingCheck = await new Promise<any>((resolve) => {
+                    chrome.storage.local.get("netflow_pending_action", (data) => {
+                        if (chrome.runtime.lastError) { resolve(null); return; }
+                        resolve(data?.netflow_pending_action || null);
+                    });
+                });
+                if (pendingCheck && !pendingCheck._claimed) {
+                    LOG("🔄 สคริปต์ยังทำงานอยู่หลังคลิกการ์ด (SPA navigation) — เรียก pending action โดยตรง");
+                    chrome.storage.local.remove("netflow_pending_action");
+                    if (pendingCheck.action === "mute_video") {
+                        await standaloneMuteAndDownload(pendingCheck.sceneCount || 1, pendingCheck.scenePrompts || [], pendingCheck.theme);
+                    } else if (pendingCheck.action === "wait_scene_gen_and_download") {
+                        await waitForSceneGenAndDownload(pendingCheck.sceneCount || 2, pendingCheck.currentScene || 2, pendingCheck.theme);
+                    }
+                }
             }
         } catch (e: any) {
             WARN(`ขั้น 6 ผิดพลาด: ${e.message}`);
@@ -2554,6 +2564,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                     if (foundPct !== lastPct) {
                         LOG(`🎬 ฉาก ${scene} ความคืบหน้า: ${foundPct}%`);
                         lastPct = foundPct;
+                        try { updateStep(`scene${scene}-wait`, "active", foundPct); } catch (_) {}
                     }
                     pctGoneAt = 0;
                 } else if (lastPct > 0) {
@@ -2966,6 +2977,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             if (foundPct !== lastPct) {
                 LOG(`🎬 scene ${currentScene} ความคืบหน้า: ${foundPct}%`);
                 lastPct = foundPct;
+                try { updateStep(`scene${currentScene}-wait`, "active", foundPct); } catch (_) {}
             }
             pctGoneAt = 0;
         } else if (lastPct > 0) {
