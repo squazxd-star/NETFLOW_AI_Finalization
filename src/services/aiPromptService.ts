@@ -2331,7 +2331,7 @@ const buildVideoPrompt = (
     const prompt = sanitizePromptForPolicy([
         // ★ [VOICE — HIGHEST PRIORITY] — voice persona + script FIRST so model prioritizes it
         `${voiceoverDescriptor}`,
-        `${genderVoice} ${voiceLanguage} voice speaking. ${voiceLanguage.toUpperCase()} SCRIPT (character speaks these exact words on-camera): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
+        `${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // [Subject] — product + character
         `${templateConfig.englishName} commercial video. ${productAnchor}`,
         // [Action] — character details from form selections
@@ -2414,7 +2414,7 @@ export const buildSceneVideoPromptJSON = (
         // ★ VOICE + TRANSITION first — highest priority for the model
         continuityDirective,
         `${meta.voiceoverDescriptor}`,
-        `${meta.genderVoice}. THAI SCRIPT (character speaks these exact words on-camera): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        `${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
         // ★ Then product + character + style
         `${meta.template} commercial video. ${meta.productAnchor}`,
         `${meta.gender}, ${meta.expression}, ${meta.style}. ${speakingDirective}`,
