@@ -468,6 +468,7 @@ const CreateVideoTab = () => {
                                                 characterImage: characterImage || undefined,
                                                 orientation: formData.orientation || "horizontal",
                                                 outputCount: formData.outputCount || 1,
+                                                veoQuality: formData.veoQuality || "fast",
                                                 theme: localStorage.getItem("netflow_app_theme") || "red",
                                             },
                                             (res) => {

@@ -50,6 +50,7 @@ export const createVideoSchema = z.object({
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
     outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
+    veoQuality: z.enum(["fast", "quality"]).default("fast"),
     sceneCount: z.number().int().min(1).max(10).default(2),
 
     // Posting Settings
@@ -92,6 +93,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     outputType: "video",
     orientation: "horizontal",
     outputCount: 1,
+    veoQuality: "fast" as const,
     sceneCount: 2,
     autoPostTikTok: true,
     autoPostYoutube: false,

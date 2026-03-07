@@ -1362,6 +1362,7 @@ interface GenerateImageRequest {
     characterImage?: string;
     orientation?: "horizontal" | "vertical";
     outputCount?: 1 | 2 | 3 | 4;
+    veoQuality?: "fast" | "quality";  // Veo 3.1 rendering quality
     theme?: string;                // UI theme key from sidepanel (e.g. "red", "blue", "green")
 }
 
@@ -1546,6 +1547,145 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
 }
 
 /**
+ * Select Veo quality: click the "Veo 3.1 - Fast" dropdown at the bottom,
+ * then pick either "Veo 3.1 - Fast" or "Veo 3.1 - Quality" from the menu.
+ */
+async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
+    const targetLabel = quality === "quality" ? "Veo 3.1 - Quality" : "Veo 3.1 - Fast";
+    LOG(`=== เลือกคุณภาพ Veo: ${targetLabel} ===`);
+
+    // Step 1: Find the dropdown trigger button — contains "Veo 3.1" text + arrow_drop_down icon
+    let dropdownBtn: HTMLElement | null = null;
+    const allBtns = document.querySelectorAll<HTMLElement>("button");
+    for (const btn of allBtns) {
+        const txt = (btn.textContent || "").trim();
+        if (txt.includes("Veo 3.1") && txt.includes("arrow_drop_down")) {
+            dropdownBtn = btn;
+            LOG(`พบปุ่ม Veo dropdown: "${txt.substring(0, 40).trim()}"`);
+            break;
+        }
+    }
+
+    // Fallback: button with aria-haspopup="menu" containing "Veo"
+    if (!dropdownBtn) {
+        for (const btn of allBtns) {
+            if (btn.getAttribute("aria-haspopup") === "menu") {
+                const txt = (btn.textContent || "").trim();
+                if (txt.includes("Veo")) {
+                    dropdownBtn = btn;
+                    LOG(`พบปุ่ม Veo dropdown (aria-haspopup): "${txt.substring(0, 40).trim()}"`);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Fallback 2: any button at the bottom containing "Veo 3.1"
+    if (!dropdownBtn) {
+        for (const btn of allBtns) {
+            const txt = (btn.textContent || "").trim();
+            if (txt.includes("Veo 3.1")) {
+                const rect = btn.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.7) {
+                    dropdownBtn = btn;
+                    LOG(`พบปุ่ม Veo dropdown (bottom area): "${txt.substring(0, 40).trim()}"`);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!dropdownBtn) {
+        WARN("ไม่พบปุ่ม Veo quality dropdown");
+        return false;
+    }
+
+    // Check if already showing the target quality
+    const currentTxt = (dropdownBtn.textContent || "").trim();
+    if (currentTxt.includes(targetLabel)) {
+        LOG(`✅ Veo quality เป็น "${targetLabel}" อยู่แล้ว — ไม่ต้องเปลี่ยน`);
+        return true;
+    }
+
+    // Step 2: Click the dropdown trigger
+    const dRect = dropdownBtn.getBoundingClientRect();
+    const dCx = dRect.left + dRect.width / 2;
+    const dCy = dRect.top + dRect.height / 2;
+    const dOpts = { bubbles: true, cancelable: true, clientX: dCx, clientY: dCy, button: 0 };
+    dropdownBtn.dispatchEvent(new PointerEvent("pointerdown", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    dropdownBtn.dispatchEvent(new MouseEvent("mousedown", dOpts));
+    await sleep(80);
+    dropdownBtn.dispatchEvent(new PointerEvent("pointerup", { ...dOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+    dropdownBtn.dispatchEvent(new MouseEvent("mouseup", dOpts));
+    dropdownBtn.dispatchEvent(new MouseEvent("click", dOpts));
+    LOG("คลิกเปิด Veo quality dropdown");
+    await sleep(1000);
+
+    // Step 3: Find and click the target option in the dropdown menu
+    // Look for buttons/menu-items containing the target text
+    let found = false;
+    const menuItems = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option']");
+    for (const item of menuItems) {
+        // Check spans inside for exact text match
+        const spans = item.querySelectorAll("span");
+        for (const span of spans) {
+            const spanTxt = (span.textContent || "").trim();
+            if (spanTxt === targetLabel) {
+                const iRect = item.getBoundingClientRect();
+                if (iRect.width > 0 && iRect.height > 0) {
+                    const iCx = iRect.left + iRect.width / 2;
+                    const iCy = iRect.top + iRect.height / 2;
+                    const iOpts = { bubbles: true, cancelable: true, clientX: iCx, clientY: iCy, button: 0 };
+                    item.dispatchEvent(new PointerEvent("pointerdown", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                    item.dispatchEvent(new MouseEvent("mousedown", iOpts));
+                    await sleep(80);
+                    item.dispatchEvent(new PointerEvent("pointerup", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                    item.dispatchEvent(new MouseEvent("mouseup", iOpts));
+                    item.dispatchEvent(new MouseEvent("click", iOpts));
+                    LOG(`✅ เลือก "${targetLabel}" สำเร็จ`);
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (found) break;
+
+        // Fallback: check textContent directly
+        if (!found) {
+            const itemTxt = (item.textContent || "").trim();
+            if (itemTxt.includes(targetLabel) && !itemTxt.includes("arrow_drop_down")) {
+                const iRect = item.getBoundingClientRect();
+                if (iRect.width > 0 && iRect.height > 0) {
+                    const iCx = iRect.left + iRect.width / 2;
+                    const iCy = iRect.top + iRect.height / 2;
+                    const iOpts = { bubbles: true, cancelable: true, clientX: iCx, clientY: iCy, button: 0 };
+                    item.dispatchEvent(new PointerEvent("pointerdown", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                    item.dispatchEvent(new MouseEvent("mousedown", iOpts));
+                    await sleep(80);
+                    item.dispatchEvent(new PointerEvent("pointerup", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                    item.dispatchEvent(new MouseEvent("mouseup", iOpts));
+                    item.dispatchEvent(new MouseEvent("click", iOpts));
+                    LOG(`✅ เลือก "${targetLabel}" สำเร็จ (fallback)`);
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!found) {
+        WARN(`ไม่พบตัวเลือก "${targetLabel}" ใน dropdown`);
+        // Close the dropdown
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(300);
+        return false;
+    }
+
+    await sleep(600);
+    return true;
+}
+
+/**
  * Main handler: configure → upload images → paste prompt → click generate
  * IMPORTANT: Never abort early — always try to paste prompt and click generate
  */
@@ -1592,6 +1732,22 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         WARN(`ตั้งค่าผิดพลาด: ${e.message}`);
         steps.push("⚠️ Settings");
         updateStep("settings", "error");
+    }
+
+    // ── Step 0.5: Select Veo quality (Fast / Quality) ──
+    try {
+        const veoQuality = req.veoQuality || "fast";
+        const qOk = await selectVeoQuality(veoQuality);
+        if (qOk) {
+            steps.push(`✅ Veo ${veoQuality}`);
+            LOG(`✅ Veo quality: ${veoQuality}`);
+        } else {
+            steps.push(`⚠️ Veo quality`);
+            WARN("ไม่สามารถเลือก Veo quality ได้ — ใช้ค่าเดิม");
+        }
+    } catch (e: any) {
+        WARN(`Veo quality error: ${e.message}`);
+        steps.push("⚠️ Veo quality");
     }
 
     // ── Step 1: Upload reference images ──
