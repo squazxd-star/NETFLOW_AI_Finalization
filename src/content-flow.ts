@@ -2315,7 +2315,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             card.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             card.dispatchEvent(new MouseEvent("mouseup", opts));
             card.dispatchEvent(new MouseEvent("click", opts));
-            await sleep(50); card.click();
             LOG("คลิกการ์ดวิดีโอแล้ว");
             await sleep(2000);
         };

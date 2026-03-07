@@ -2973,12 +2973,14 @@ function toggleOverlayVisibility(): void {
         overlayRoot.classList.add("nf-hidden");
         if (toggleBtn) toggleBtn.innerHTML = "⚡";
         overlayHidden = true;
+        try { localStorage.setItem("nf_overlay_hidden", "1"); } catch (_) {}
     } else {
         // Show overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-hidden");
         overlayRoot.classList.add("nf-visible");
         if (toggleBtn) toggleBtn.innerHTML = "✕";
         overlayHidden = false;
+        try { localStorage.removeItem("nf_overlay_hidden"); } catch (_) {}
     }
 }
 
@@ -3032,10 +3034,7 @@ export function showOverlay(sceneCount: number = 1): void {
     updateThemeComponents();
 
     if (overlayRoot && overlayRoot.isConnected) {
-        // If overlay exists and still in DOM, just show it if hidden
-        if (overlayHidden) {
-            toggleOverlayVisibility();
-        }
+        // Overlay already exists in DOM — don't force-show if user hid it
         return;
     }
     // Reset stale reference if DOM element was destroyed by SPA navigation
@@ -3076,7 +3075,15 @@ export function showOverlay(sceneCount: number = 1): void {
     logBuffer.length = 0;
     overlayRoot = buildOverlay();
     document.body.appendChild(overlayRoot);
-    overlayHidden = false;
+    // Respect user's hide preference from previous page
+    const userHid = !!localStorage.getItem("nf_overlay_hidden");
+    if (userHid) {
+        overlayRoot.classList.remove("nf-visible");
+        overlayRoot.classList.add("nf-hidden");
+        overlayHidden = true;
+    } else {
+        overlayHidden = false;
+    }
     ensureToggleButton();
     startTimer();
     startVisualizer();
@@ -3089,6 +3096,7 @@ export function hideOverlay(): void {
     stopTimer();
     stopVisualizer();
     overlayHidden = false;
+    try { localStorage.removeItem("nf_overlay_hidden"); } catch (_) {}
     if (overlayRoot) {
         overlayRoot.classList.add("nf-fade-out");
         setTimeout(() => {
