@@ -3289,10 +3289,12 @@ function refreshTerminal() {
         }
     }
 
-    // Update counter
-    activeStepCount = doneCount;
+    // Update counter — show current active step number (1-based)
+    const activeIdx = processSteps.findIndex(s => s.status === "active");
+    const currentStepNum = activeIdx >= 0 ? activeIdx + 1 : (doneCount >= nonSkipped && nonSkipped > 0 ? processSteps.length : doneCount);
+    activeStepCount = currentStepNum;
     const counter = document.getElementById("nf-step-counter");
-    if (counter) counter.textContent = `${doneCount}/${processSteps.length}`;
+    if (counter) counter.textContent = `${currentStepNum}/${processSteps.length}`;
 
     // Update core title based on overall state
     const titleVal = document.querySelector(".nf-core-title-val") as HTMLElement | null;
@@ -3493,11 +3495,13 @@ const STATUS_MAP: Record<string, string> = {
 };
 
 function refreshStatBar(_stepId: string, status: StepStatus, progress?: number): void {
-    // STEP: count done / total
-    const doneCount = processSteps.filter(s => s.status === "done").length;
+    // STEP: show current active step number (1-based), synced with step list
+    const activeIndex = processSteps.findIndex(s => s.status === "active");
+    const doneCountStat = processSteps.filter(s => s.status === "done").length;
     const totalCount = processSteps.length;
+    const currentStep = activeIndex >= 0 ? activeIndex + 1 : (doneCountStat >= totalCount ? totalCount : doneCountStat);
     const stepEl = document.getElementById("nf-stat-step");
-    if (stepEl) stepEl.textContent = `${doneCount}/${totalCount}`;
+    if (stepEl) stepEl.textContent = `${currentStep}/${totalCount}`;
 
     // SCENES
     const scenesEl = document.getElementById("nf-stat-scenes");
@@ -3508,7 +3512,7 @@ function refreshStatBar(_stepId: string, status: StepStatus, progress?: number):
         const statusEl = document.getElementById("nf-stat-status");
         const label = STATUS_MAP[_stepId] || _stepId.toUpperCase();
         if (statusEl) statusEl.textContent = label;
-    } else if (status === "done" && doneCount >= totalCount) {
+    } else if (status === "done" && doneCountStat >= totalCount) {
         const statusEl = document.getElementById("nf-stat-status");
         if (statusEl) statusEl.textContent = "COMPLETE";
     } else if (status === "error") {
