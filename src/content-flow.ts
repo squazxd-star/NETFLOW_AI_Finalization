@@ -2376,6 +2376,14 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     try { if (theme) setOverlayTheme(theme); } catch (_) {}
     try { showOverlay(); } catch (_) {}
 
+    // Restore overlay progress — all steps up to video detail are DONE
+    try {
+        if (sceneCount >= 2) configureScenes(sceneCount);
+        const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait"];
+        for (const s of doneSteps) updateStep(s, "done");
+        if (sceneCount >= 2) updateStep("scene2-prompt", "active");
+    } catch (_) {}
+
     // ── Step A: Mute video ──
     await sleep(1500); // wait for video player to render
     const muteBtn = (() => {
@@ -2452,6 +2460,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             // Paste prompt using Slate-compatible method (same as main flow)
             await setPromptText(slateEditor, prompt);
             LOG(`วาง prompt ฉาก ${scene} (${prompt.length} ตัวอักษร) ✅`);
+            try { updateStep(`scene${scene}-prompt`, "done"); updateStep(`scene${scene}-gen`, "active"); } catch (_) {}
             await sleep(1000);
 
             // Click the generate/send button — find the one NEAREST to the Slate editor (same parent area)
@@ -2506,6 +2515,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
             await robustClick(sendBtn);
             LOG(`คลิก Generate ฉาก ${scene} ✅`);
+            try { updateStep(`scene${scene}-gen`, "done"); updateStep(`scene${scene}-wait`, "active"); } catch (_) {}
 
             // Track % for this scene
             LOG(`── รอวิดีโอฉาก ${scene} gen เสร็จ ──`);
@@ -2555,6 +2565,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             }
             if (!sceneGenDone) { WARN(`ฉาก ${scene} หมดเวลา`); }
             LOG(`✅ ฉาก ${scene} เสร็จแล้ว`);
+            try { updateStep(`scene${scene}-wait`, "done", 100); } catch (_) {}
 
             // Clear pending action — page didn't navigate, we completed tracking here
             chrome.storage.local.remove("netflow_pending_action");
@@ -2564,6 +2575,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         // ── Download: Full Video → 720p ──
         LOG("── เริ่มดาวน์โหลด Full Video ──");
+        try { updateStep("download", "active"); } catch (_) {}
         await sleep(2000);
 
         // Click ดาวน์โหลด
@@ -2582,6 +2594,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         if (!dlBtn2) { WARN("ไม่พบปุ่มดาวน์โหลด"); return; }
         await robustClick(dlBtn2);
         LOG("คลิกดาวน์โหลดแล้ว ✅");
+        try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
         await sleep(1500);
 
         // Click "Full Video" → hover to expand submenu → click "720p"
@@ -2673,6 +2686,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             await sleep(2000);
         }
         if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
+        try { updateStep("upscale", "done", 100); updateStep("open", "active"); } catch (_) {}
 
         // Open in Chrome
         LOG("รอไฟล์ดาวน์โหลดพร้อม...");
@@ -2701,6 +2715,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         }
         if (!opened2) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
 
+        try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
         return;
     }
@@ -2875,6 +2890,14 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     try { if (theme) setOverlayTheme(theme); } catch (_) {}
     try { showOverlay(); } catch (_) {}
 
+    // Restore overlay progress — all steps through scene2-gen are DONE
+    try {
+        configureScenes(2);
+        const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait", "scene2-prompt", "scene2-gen"];
+        for (const s of doneSteps) updateStep(s, "done");
+        updateStep("scene2-wait", "active");
+    } catch (_) {}
+
     // Try to mute video
     await sleep(2000);
     const muteBtn = (() => {
@@ -2967,6 +2990,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         await sleep(2000);
     }
     if (!sceneGenDone) { LOG("⚠️ scene 2 หมดเวลา — ลองดาวน์โหลดต่อ"); }
+    try { updateStep("scene2-wait", "done", 100); } catch (_) {}
     LOG("✅ scene 2 เสร็จ — เริ่มดาวน์โหลด");
     await sleep(3000);
 
@@ -2983,6 +3007,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     };
 
     // ── Download: Full Video → 720p ──
+    try { updateStep("download", "active"); } catch (_) {}
     LOG("── เริ่มดาวน์โหลด Full Video (หลัง page navigate) ──");
 
     // Click ดาวน์โหลด
@@ -3001,6 +3026,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
     if (!dlBtn) { WARN("ไม่พบปุ่มดาวน์โหลด"); return; }
     await robustClick(dlBtn);
     LOG("คลิกดาวน์โหลดแล้ว ✅");
+    try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
     await sleep(1500);
 
     // Click "Full Video" → hover to expand submenu → click "720p"
@@ -3088,6 +3114,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         await sleep(2000);
     }
     if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
+    try { updateStep("upscale", "done", 100); updateStep("open", "active"); } catch (_) {}
 
     // Open in Chrome
     LOG("รอไฟล์ดาวน์โหลดพร้อม...");
@@ -3115,6 +3142,7 @@ async function waitForScene2GenAndDownload(theme?: string): Promise<void> {
         if (!opened) await sleep(3000);
     }
     if (!opened) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
+    try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
     LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
 }
 
