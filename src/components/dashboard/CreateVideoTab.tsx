@@ -200,7 +200,7 @@ const CreateVideoTab = () => {
 
                                 const data = getValues();
                                 console.log("[Prompt Button] Form data:", data);
-                                const { generatePrompts, generateQuickPrompts } = await import("@/services/aiPromptService");
+                                const { generatePrompts, generateQuickPrompts } = await import("@/services/veoPromptService");
 
                                 // Build config for AI prompt service — ALL form fields
                                 const promptConfig = {
@@ -232,8 +232,8 @@ const CreateVideoTab = () => {
                                 setGeneratedVideoPrompt("⏳ กำลังวิเคราะห์ด้วย AI...");
 
                                 try {
-                                    console.log("[Prompt Button] Importing aiPromptService...");
-                                    const { generatePrompts, generateQuickPrompts } = await import("@/services/aiPromptService");
+                                    console.log("[Prompt Button] Importing veoPromptService...");
+                                    const { generatePrompts, generateQuickPrompts } = await import("@/services/veoPromptService");
                                     console.log("[Prompt Button] Imported successfully");
                                     
                                     let prompts;
@@ -251,7 +251,7 @@ const CreateVideoTab = () => {
 
                                     // Pre-build all scene video prompts
                                     if (prompts.sceneScripts && prompts.videoPromptMeta && prompts.sceneScripts.length > 1) {
-                                        const { buildSceneVideoPromptJSON } = await import("@/services/aiPromptService");
+                                        const { buildSceneVideoPromptJSON } = await import("@/services/veoPromptService");
                                         const allScenePrompts = [prompts.videoPrompt]; // Scene 1 is the main videoPrompt
                                         for (let i = 1; i < prompts.sceneScripts.length; i++) {
                                             allScenePrompts.push(buildSceneVideoPromptJSON(prompts.videoPromptMeta, prompts.sceneScripts[i], i + 1));
@@ -265,7 +265,7 @@ const CreateVideoTab = () => {
                                     alert("สร้าง Prompt ไม่สำเร็จ: " + (err.message || "Unknown error"));
                                     // Fallback to quick mode
                                     try {
-                                        const { generateQuickPrompts } = await import("@/services/aiPromptService");
+                                        const { generateQuickPrompts } = await import("@/services/veoPromptService");
                                         const prompts = generateQuickPrompts(promptConfig);
                                         setGeneratedImagePrompt(prompts.imagePrompt);
                                         setGeneratedVideoPrompt(prompts.videoPrompt);

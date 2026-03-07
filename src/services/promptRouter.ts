@@ -28,12 +28,12 @@ import {
     generateQuickPrompts as veoGenerateQuickPrompts,
     analyzeProductImage as veoAnalyzeProductImage,
     buildSceneVideoPromptJSON as veoBuildScenePrompt,
-} from "./aiPromptService";
+} from "./veoPromptService";
 import { grokPromptBuilder } from "./grokPromptService";
 
 // ═══════════════════════════════════════════════════════════
-// Veo Prompt Builder — wrapper ที่ครอบ aiPromptService เดิม
-// (ไม่แก้ไข aiPromptService.ts เลย แค่ครอบให้เข้า interface)
+// Veo Prompt Builder — wrapper ที่ครอบ veoPromptService
+// (ไม่แก้ไข veoPromptService.ts เลย แค่ครอบให้เข้า interface)
 // ═══════════════════════════════════════════════════════════
 
 const veoPromptBuilder: EnginePromptBuilder = {
@@ -66,7 +66,7 @@ const ENGINE_PROMPT_BUILDERS: Record<VideoEngine, EnginePromptBuilder> = {
 };
 
 // ═══════════════════════════════════════════════════════════
-// Public API — ใช้ตรงนี้แทน import aiPromptService ตรงๆ
+// Public API — ใช้ตรงนี้แทน import veoPromptService ตรงๆ
 // ═══════════════════════════════════════════════════════════
 
 /**

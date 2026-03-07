@@ -7,7 +7,7 @@
  * ต้อง implement เพื่อให้ระบบ Prompt Router ทำงานได้
  */
 
-import type { PromptGenerationConfig, GeneratedPrompts, VideoPromptMeta } from "./aiPromptService";
+import type { PromptGenerationConfig, GeneratedPrompts, VideoPromptMeta } from "./veoPromptService";
 
 // ── Re-export types ที่ engine ต้องใช้ ──
 export type { PromptGenerationConfig, GeneratedPrompts, VideoPromptMeta };

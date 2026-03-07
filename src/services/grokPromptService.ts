@@ -9,7 +9,7 @@
  * 1. implement แต่ละ function ตาม TODO
  * 2. prompt format ของ Grok อาจต่างจาก Veo — ปรับได้ตามต้องการ
  * 3. แต่ต้อง return ออกมาเป็น GeneratedPrompts เหมือนกัน
- * 4. ดูตัวอย่างจาก aiPromptService.ts (Veo) ได้
+ * 4. ดูตัวอย่างจาก veoPromptService.ts (Veo) ได้
  * 
  * หมายเหตุ:
  * - Grok รองรับ prompt format แบบไหน ให้ปรับ buildImagePrompt / buildVideoPrompt ตามนั้น
