@@ -376,7 +376,7 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                         key={engine.value}
                                         type="button"
                                         onClick={() => setValue("videoEngine", engine.value)}
-                                        className={`flex items-center justify-center gap-2.5 py-3 px-3 rounded-xl text-xs font-semibold transition-all duration-300 relative overflow-hidden border ${
+                                        className={`flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl text-xs font-semibold transition-all duration-300 relative overflow-hidden border ${
                                             isActive
                                                 ? 'text-white shadow-lg border-transparent'
                                                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border-border bg-muted/30'
@@ -386,16 +386,18 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                             boxShadow: `0 4px 15px rgba(${themeConfig.hexRgb}, 0.3)`,
                                         } : {}}
                                     >
-                                        {engine.value === "veo"
-                                            ? <VeoLogo className="w-6 h-6" active={isActive} />
-                                            : <GrokLogo className="w-5 h-5" active={isActive} />
-                                        }
-                                        <div className="flex flex-col items-start leading-tight">
-                                            <span className="text-[13px] font-bold tracking-tight">{engine.label}</span>
+                                        <div className="w-7 h-7 flex items-center justify-center">
+                                            {engine.value === "veo"
+                                                ? <VeoLogo className="w-7 h-7" active={isActive} />
+                                                : <GrokLogo className="w-6 h-6" active={isActive} />
+                                            }
+                                        </div>
+                                        <div className="flex flex-col items-center leading-tight">
+                                            <span className="text-[12px] font-bold tracking-tight">{engine.label}</span>
                                             <span className={`text-[9px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{engine.sub}</span>
                                         </div>
                                         {engine.value === "veo" && (
-                                            <span className={`absolute top-1 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-md ${isActive ? 'text-white/80 bg-white/15' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
+                                            <span className={`absolute top-1.5 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? 'text-white/90 bg-white/20' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
                                                 แนะนำ
                                             </span>
                                         )}
