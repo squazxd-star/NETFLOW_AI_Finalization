@@ -903,7 +903,7 @@ const runGrokPipeline = async (config: GrokPipelineConfig): Promise<{ success: b
     // Initialize overlay
     try {
         if (theme) setOverlayTheme(theme);
-        showOverlay(sceneCount);
+        showOverlay(sceneCount, 'grok');
     } catch (e: any) { LOG(`⚠️ Overlay error: ${e.message}`); }
 
     // ═══ Step 1: Wait for Imagine page ═══
@@ -1146,6 +1146,7 @@ async function handleGrokGenerate(req: GrokGenerateRequest): Promise<{ success: 
                 sceneCount,
                 source: 'grok',
             });
+            try { updateStep('complete', 'done'); } catch (_) {}
             try { completeOverlay(8000); } catch (_) {}
             return { success: true, message: `วิดีโอสำเร็จ (${sceneCount} ฉาก)`, step: 'complete' };
         } else {
