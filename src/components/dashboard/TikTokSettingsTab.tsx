@@ -94,7 +94,7 @@ const TikTokSettingsTab = () => {
                     description: count > 1
                         ? `พบ ${count} สินค้า - "${result.product.name}" และอื่นๆ` 
                         : `สินค้า "${result.product.name}" ถูกบันทึกแล้ว`,
-                    className: "toast-theme-bg"
+                    className: "bg-green-600 text-white"
                 });
                 await loadSyncedProducts();
                 setActiveProductId(result.product.id);
@@ -136,7 +136,7 @@ const TikTokSettingsTab = () => {
         toast({
             title: "✅ เลือกสินค้าแล้ว",
             description: `"${product.name}" จะถูกใช้ในวิดีโอถัดไป`,
-            className: "toast-theme-bg"
+            className: "bg-green-600 text-white"
         });
     };
 
@@ -168,7 +168,7 @@ const TikTokSettingsTab = () => {
             toast({
                 title: "✅ บันทึกสำเร็จ",
                 description: "การตั้งค่า TikTok ถูกบันทึกแล้ว พร้อมใช้งานโพสต์อัตโนมัติ",
-                className: "toast-theme-bg"
+                className: "bg-green-600 text-white"
             });
         } catch {
             toast({
@@ -242,7 +242,10 @@ const TikTokSettingsTab = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-[11px] font-medium text-foreground truncate">{product.name}</p>
-                                    <p className="text-[9px] text-muted-foreground font-mono">{product.id}</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="text-[9px] text-muted-foreground font-mono">{product.id}</p>
+                                        {product.price && <p className="text-[9px] text-neon-red font-medium">{product.price}</p>}
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => handleUseProduct(product)}

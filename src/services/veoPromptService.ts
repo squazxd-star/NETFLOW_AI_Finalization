@@ -164,7 +164,7 @@ const ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> =
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MASTER FORMULA — คัมภีร์ 5 ส่วน (The 5-Part Master Formula)
-// Based on Gemini expert recommendation for TikTok-safe commercial prompts
+// Based on Gemini expert recommendation for platform-safe commercial prompts
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Part 1: Product Highlight — Technical Layers: [Material/Texture] + [Surface Detail] + [Lighting Response]
@@ -860,7 +860,7 @@ const CINEMATIC_SPECS: Record<string, string> = {
     "flash-sale": "High-energy commercial, 85mm lens, zero lens distortion, fast cuts, dynamic angles, bold color grading, high frame rate",
     "tutorial": "Educational demo style, 85mm lens, zero lens distortion, overhead and eye-level angles, clear step visibility, steady shots, 4K",
     "lifestyle": "Lifestyle vlog aesthetic, 85mm lens, zero lens distortion, natural movement, golden hour grading, cinematic wide and close shots",
-    "trending": "TikTok viral aesthetic, vertical framing, zero lens distortion, trendy transitions, punchy color grading, high frame rate",
+    "trending": "Short-form viral aesthetic, vertical framing, zero lens distortion, trendy transitions, punchy color grading, high frame rate",
     "mini-drama": "Short film cinematic, 85mm lens, zero lens distortion, dramatic angles, emotional color grading, shallow DOF, 4K",
     "before-after": "Transformation reveal style, 85mm lens, zero lens distortion, locked-off comparison shots, perfectly centered, dramatic lighting shift, 4K"
 };
@@ -1409,7 +1409,6 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\bclinique\b/gi, "premium skincare brand"],
     [/\bnars\b/gi, "professional makeup brand"],
     // Social platforms
-    [/\btiktok\b/gi, "short video platform"],
     [/\binstagram\b/gi, "social media platform"],
     [/\bfacebook\b/gi, "social network"],
     [/\byoutube\b/gi, "video platform"],
@@ -1463,7 +1462,7 @@ const POLICY_UNSAFE_WORDS = [
     "sensual", "alluring", "provocative", "attractive body",
     // Text-trigger words — these cause AI to render text/fonts in frames
     "poster style", "thumbnail", "title card", "signage", "banner ad",
-    "infographic", "presentation slide", "YouTube style", "TikTok overlay",
+    "infographic", "presentation slide", "YouTube style",
     // Supplement/health overclaim triggers
     "FDA approved", "clinically proven", "doctor recommended", "treats disease",
     "prevents cancer", "anti-aging guaranteed", "permanent results",
@@ -1687,7 +1686,7 @@ const HOOK_VARIATIONS: Record<string, string[]> = {
     ],
     "trending": [
         "ทำไมทุกคนพูดถึง!",
-        "Viral ทั่ว TikTok!",
+        "Viral ทั่วโซเชียล!",
         "เทรนด์นี้ต้องลอง!",
         "Everyone's talking about this!",
         "ดังมากตอนนี้!",
@@ -2727,7 +2726,7 @@ const analyzeWithOpenAI = async (imageBase64: string, productName: string): Prom
                 content: [
                     {
                         type: "text",
-                        text: `Analyze this product image for TikTok commercial video generation.
+                        text: `Analyze this product image for short-form commercial video generation.
 
 Product Name: ${productName}
 
@@ -2771,7 +2770,7 @@ const analyzeWithGemini = async (imageBase64: string, productName: string): Prom
     const mimeType = imageBase64.includes('png') ? 'image/png' : 'image/jpeg';
 
     const result = await model.generateContent([
-        `Analyze this product image for TikTok commercial video generation.
+        `Analyze this product image for short-form commercial video generation.
 
 Product Name: ${productName}
 

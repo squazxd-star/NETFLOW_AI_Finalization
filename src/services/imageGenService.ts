@@ -22,7 +22,7 @@ export const generateNanoImage = async (prompt: string, referenceImageBase64?: s
             ],
             parameters: {
                 sampleCount: 1,
-                // "9:16" is standard for TikTok, can be parameterized later
+                // "9:16" is standard for TikTok/Reels, can be parameterized later
                 aspectRatio: "9:16"
             }
         };
@@ -84,7 +84,7 @@ export const generateDalleImage = async (prompt: string, apiKey: string): Promis
                 model: "dall-e-3",
                 prompt: prompt,
                 n: 1,
-                size: "1024x1792", // Portrait for TikTok
+                size: "1024x1792", // Portrait for TikTok/Reels
                 quality: "standard",
                 response_format: "b64_json"
             })

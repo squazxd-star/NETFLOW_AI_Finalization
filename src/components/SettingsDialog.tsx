@@ -260,36 +260,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                             <h3 className="text-[13px] font-semibold text-white">การเชื่อมต่อและซิงค์</h3>
                         </div>
 
-                        {/* TikTok Studio — compact card */}
-                        <div className="bg-white/[0.03] rounded-xl p-3.5 space-y-3 border border-white/[0.06]">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-black/80 flex items-center justify-center ring-1 ring-white/10">
-                                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white">
-                                            <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64c.298.008.595.058.88.15V9.4a6.33 6.33 0 00-1-.05A6.34 6.34 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-medium text-white">TikTok Studio</span>
-                                        <p className="text-[10px] text-white/35">ซิงค์ Product ID อัตโนมัติ</p>
-                                    </div>
-                                </div>
-                                <Switch
-                                    checked={tiktokConnected}
-                                    onCheckedChange={setTiktokConnected}
-                                    style={{ '--switch-checked-bg': themeConfig.hex } as React.CSSProperties}
-                                    className="data-[state=checked]:!bg-[--switch-checked-bg]"
-                                />
-                            </div>
-                            <button
-                                className="w-full py-2 rounded-lg text-xs font-medium text-white transition-all duration-200 hover:opacity-90"
-                                style={{ background: themeConfig.hex }}
-                            >
-                                <RefreshCw className="w-3.5 h-3.5 mr-1.5 inline-block" />
-                                Force Sync ข้อมูลล่าสุด
-                            </button>
-                        </div>
-
                         {/* Connected Accounts */}
                         <div className="space-y-2">
                             <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium pl-1">บัญชีที่เชื่อมต่อ</span>
@@ -307,6 +277,28 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                 <button className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
                                     <MoreVertical className="w-3.5 h-3.5 text-white/30" />
                                 </button>
+                            </div>
+
+                            {/* TikTok Studio Connection */}
+                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06] flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 via-pink-500 to-red-500 flex items-center justify-center text-white shadow-lg">
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span className="text-[13px] font-medium text-white">TikTok Studio</span>
+                                        <p className={`text-[10px] ${tiktokConnected ? 'text-green-400' : 'text-white/30'}`}>
+                                            {tiktokConnected ? '✓ เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={tiktokConnected}
+                                    onCheckedChange={setTiktokConnected}
+                                    className="data-[state=checked]:bg-green-500"
+                                />
                             </div>
 
                             <button className="w-full bg-white/[0.02] hover:bg-white/[0.05] rounded-xl p-2.5 border border-dashed border-white/[0.08] flex items-center justify-center gap-1.5 transition-colors">

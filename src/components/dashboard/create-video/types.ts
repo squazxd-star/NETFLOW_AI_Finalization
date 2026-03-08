@@ -38,7 +38,7 @@ export interface ProductionPreviewSectionProps extends SectionProps {
     onToggle: () => void;
     hasVideo: boolean;
     onDownloadVideo: () => void;
-    isTikTokReady: boolean;
+    isTikTokReady?: boolean;
     onTikTokNotReady?: () => void;
 }
 

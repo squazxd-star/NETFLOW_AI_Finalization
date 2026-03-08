@@ -53,12 +53,17 @@ export const createVideoSchema = z.object({
     veoQuality: z.enum(["fast", "quality"]).default("fast"),
     sceneCount: z.number().int().min(1).max(10).default(2),
 
+    // Grok Settings
+    grokAspectRatio: z.enum(["16:9", "9:16", "1:1", "3:2", "2:3"]).default("9:16"),
+    grokResolution: z.enum(["480p", "720p"]).default("720p"),
+    grokDuration: z.enum(["6s", "10s"]).default("10s"),
+
     // Posting Settings
-    autoPostTikTok: z.boolean().default(true),
     autoPostYoutube: z.boolean().default(false),
+    autoPostTikTok: z.boolean().default(false),
 
     // Scene Background
-    sceneBackground: z.string().default("auto"),
+    sceneBackground: z.string().default("studio"),
 
     // Keywords
     mustUseKeywords: z.string().default(""),
@@ -95,9 +100,12 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     outputCount: 1,
     veoQuality: "fast" as const,
     sceneCount: 2,
-    autoPostTikTok: true,
+    grokAspectRatio: "9:16" as const,
+    grokResolution: "720p" as const,
+    grokDuration: "10s" as const,
     autoPostYoutube: false,
-    sceneBackground: "auto",
+    autoPostTikTok: false,
+    sceneBackground: "studio",
     mustUseKeywords: "",
     avoidKeywords: "",
 };

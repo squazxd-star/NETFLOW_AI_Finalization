@@ -127,7 +127,7 @@ const NetflowPanel = () => {
                         className="flex-1 py-3 px-2 rounded-none border-b-2 border-transparent data-[state=active]:border-neon-red data-[state=active]:bg-neon-red/[0.06] data-[state=active]:text-neon-red data-[state=active]:shadow-none data-[state=active]:font-bold text-muted-foreground text-xs font-medium transition-all duration-300 hover:text-foreground hover:bg-white/[0.03]"
                     >
                         <ShoppingBag className="w-3 h-3 mr-1.5" />
-                        ตั้งค่า TikTok
+                        TikTok
                     </TabsTrigger>
                 </TabsList>
 
@@ -153,7 +153,7 @@ const NetflowPanel = () => {
                     </ErrorBoundary>
                 </TabsContent>
 
-                {/* TikTok Settings Tab - forceMount to preserve form state */}
+                {/* TikTok Settings Tab */}
                 <TabsContent 
                     value="tiktok" 
                     forceMount
@@ -163,6 +163,7 @@ const NetflowPanel = () => {
                         <TikTokSettingsTab />
                     </ErrorBoundary>
                 </TabsContent>
+
             </Tabs>
         </div>
     );

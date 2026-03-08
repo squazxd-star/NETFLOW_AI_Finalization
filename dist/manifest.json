@@ -17,7 +17,9 @@
   ],
   "host_permissions": [
     "https://labs.google/*",
-    "https://grok.com/*"
+    "https://grok.com/*",
+    "*://*.tiktok.com/*",
+    "*://api.openai.com/*"
   ],
   "side_panel": {
     "default_path": "index.html"
@@ -51,12 +53,33 @@
       "matches": ["https://grok.com/*"],
       "js": ["src/content-grok.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://www.tiktok.com/tiktokstudio/*",
+        "*://tiktok.com/tiktokstudio/*",
+        "*://seller-th.tiktok.com/*",
+        "*://seller.tiktok.com/*"
+      ],
+      "js": ["src/content-tiktok.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://www.tiktok.com/tiktokstudio/upload*",
+        "*://tiktok.com/tiktokstudio/upload*",
+        "*://seller-th.tiktok.com/tiktokstudio/*",
+        "*://seller.tiktok.com/tiktokstudio/*"
+      ],
+      "js": ["src/content-tiktok-upload.js"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["themes/*.jpg", "themes/*.png", "themes/*.webp"],
-      "matches": ["https://labs.google/*", "https://grok.com/*"]
+      "matches": ["https://labs.google/*", "https://grok.com/*", "*://*.tiktok.com/*"]
     }
   ],
   "content_security_policy": {

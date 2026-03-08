@@ -10,42 +10,38 @@ import { getApiKey } from "@/services/storageService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /* ── Inline SVG brand logos ── */
-const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => (
-    <svg viewBox="0 0 100 100" fill="none" className={className}>
-        <defs>
-            <linearGradient id="veo31-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#2196F3" />
-                <stop offset="35%" stopColor="#E53935" />
-                <stop offset="65%" stopColor="#FF9800" />
-                <stop offset="100%" stopColor="#4CAF50" />
-            </linearGradient>
-            <linearGradient id="veo31-dim" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#607D8B" />
-                <stop offset="100%" stopColor="#455A64" />
-            </linearGradient>
-            <filter id="veo31-glow">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-        </defs>
-        <path
-            d="M18 12 L88 50 L18 88 Z"
-            fill={active ? "url(#veo31-bg)" : "url(#veo31-dim)"}
-            filter={active ? "url(#veo31-glow)" : undefined}
-            rx="6"
-        />
-        <text x="44" y="58" fontSize="26" fontWeight="700" fill="white" fontFamily="system-ui, sans-serif" textAnchor="middle" opacity={active ? 0.95 : 0.5}>
-            3.1
-        </text>
-    </svg>
-);
+const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => {
+    const color = active ? "#ffffff" : "#9e9e9e";
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} opacity={active ? 1 : 0.6}>
+            {/* Flask / Erlenmeyer beaker — Veo logo */}
+            <path
+                d="M9 2 h6 v0.5 h-1 v5.5 l4.5 9 c0.6 1.2 -0.2 2.5 -1.5 2.5 H7 c-1.3 0 -2.1 -1.3 -1.5 -2.5 L10 8 V2.5 H9 Z"
+                stroke={color}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+            {/* Liquid fill inside flask */}
+            <path
+                d="M7.5 16.5 c1.5 -1.5 5.5 -1.5 9 0 L18.5 17 c0.6 1.2 -0.2 2.5 -1.5 2.5 H7 c-1.3 0 -2.1 -1.3 -1.5 -2.5 Z"
+                fill={active ? color : "#666"}
+                opacity={active ? 0.9 : 0.4}
+            />
+        </svg>
+    );
+};
 
-const GrokLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => (
-    <svg viewBox="0 0 24 24" fill="none" className={className} stroke={active ? "#e0e0e0" : "#9e9e9e"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity={active ? 1 : 0.6}>
-        <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-8" />
-        <polyline points="20 4 20 8 16 8" />
-    </svg>
-);
+const GrokLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => {
+    const color = active ? "#ffffff" : "#9e9e9e";
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} opacity={active ? 1 : 0.6}>
+            <path d="M18.5 7.4 A8 8 0 1 0 16 5.1" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+            <line x1="19" y1="3" x2="8" y2="20.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+    );
+};
 
 const parseSceneScripts = (prompt: string, count: number) => {
     const parts = prompt
@@ -503,7 +499,7 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                                 boxShadow: `0 2px 10px rgba(${themeConfig.hexRgb}, 0.3)`,
                                             } : {}}
                                         >
-                                            <opt.Icon className="w-3.5 h-3.5" />
+                                            <opt.Icon className="w-3.5 h-3.5" style={{ color: '#FFD700', filter: 'drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))' }} />
                                             <div className="flex flex-col items-start leading-none">
                                                 <span>{opt.label}</span>
                                                 <span className={`text-[8px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{opt.sub}</span>
@@ -537,21 +533,24 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                             </label>
                         </div>
 
-                        {/* Orientation (Grok) */}
+                        {/* Aspect Ratio (Grok) */}
                         <div>
-                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium">ขนาดภาพ</label>
-                            <div className="flex gap-2">
+                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium">Aspect Ratio</label>
+                            <div className="flex gap-1.5">
                                 {([
-                                    { value: "horizontal", label: "แนวนอน", Icon: Monitor },
-                                    { value: "vertical", label: "แนวตั้ง", Icon: Smartphone }
+                                    { value: "2:3", w: 10, h: 14 },
+                                    { value: "3:2", w: 14, h: 10 },
+                                    { value: "1:1", w: 12, h: 12 },
+                                    { value: "9:16", w: 9, h: 14 },
+                                    { value: "16:9", w: 14, h: 8 },
                                 ] as const).map((opt) => {
-                                    const isActive = (watch("orientation") || "horizontal") === opt.value;
+                                    const isActive = (watch("grokAspectRatio") || "9:16") === opt.value;
                                     return (
                                         <button
                                             key={opt.value}
                                             type="button"
-                                            onClick={() => setValue("orientation", opt.value)}
-                                            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                                            onClick={() => setValue("grokAspectRatio", opt.value)}
+                                            className={`flex-1 py-2 rounded-lg text-[10px] font-medium transition-all duration-200 flex flex-col items-center justify-center gap-1 ${
                                                 isActive
                                                     ? 'text-white shadow-md'
                                                     : 'bg-muted/60 border border-border text-muted-foreground hover:bg-muted'
@@ -561,39 +560,116 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                                 boxShadow: `0 2px 10px rgba(${themeConfig.hexRgb}, 0.3)`,
                                             } : {}}
                                         >
-                                            <opt.Icon className="w-3.5 h-3.5" />
-                                            {opt.label}
+                                            <div
+                                                className="rounded-[2px]"
+                                                style={{
+                                                    width: opt.w,
+                                                    height: opt.h,
+                                                    background: isActive ? 'rgba(255,255,255,0.9)' : 'currentColor',
+                                                }}
+                                            />
+                                            <span>{opt.value}</span>
                                         </button>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* Grok Quality */}
+                        {/* Grok Resolution */}
                         <div>
-                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium">คุณภาพวิดีโอ</label>
+                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium">ความละเอียด</label>
                             <div className="flex gap-2">
                                 {([
-                                    { value: "fast", label: "เร็ว" },
-                                    { value: "quality", label: "คุณภาพสูง" }
-                                ]).map((opt) => {
-                                    const isActive = opt.value === "quality";
+                                    { value: "480p", label: "480p", sub: "ฟรี", premium: false },
+                                    { value: "720p", label: "720p", sub: "HD", premium: true }
+                                ] as const).map((opt) => {
+                                    const isActive = (watch("grokResolution") || "720p") === opt.value;
                                     return (
-                                        <button
-                                            key={opt.value}
-                                            type="button"
-                                            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                                                isActive
-                                                    ? 'text-white shadow-md'
-                                                    : 'bg-muted/60 border border-border text-muted-foreground hover:bg-muted'
-                                            }`}
-                                            style={isActive ? {
-                                                background: themeConfig.hex,
-                                                boxShadow: `0 2px 10px rgba(${themeConfig.hexRgb}, 0.3)`,
-                                            } : {}}
-                                        >
-                                            {opt.label}
-                                        </button>
+                                        <div key={opt.value} className="flex-1 relative group">
+                                            <button
+                                                type="button"
+                                                onClick={() => setValue("grokResolution", opt.value)}
+                                                className={`w-full py-2.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                                                    isActive
+                                                        ? 'text-white shadow-md'
+                                                        : 'bg-muted/60 border border-border text-muted-foreground hover:bg-muted'
+                                                }`}
+                                                style={isActive ? {
+                                                    background: themeConfig.hex,
+                                                    boxShadow: `0 2px 10px rgba(${themeConfig.hexRgb}, 0.3)`,
+                                                } : {}}
+                                            >
+                                                <Film className="w-3.5 h-3.5" style={{ color: '#FFD700', filter: 'drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))' }} />
+                                                <div className="flex flex-col items-start leading-none">
+                                                    <span>{opt.label}</span>
+                                                    <span className={`text-[8px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{opt.sub}</span>
+                                                </div>
+                                                {opt.premium && (
+                                                    <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-sm">
+                                                        ⚡SuperGrok
+                                                    </span>
+                                                )}
+                                            </button>
+                                            {opt.premium && (
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 rounded-xl bg-black/95 border border-amber-500/30 shadow-xl shadow-amber-500/10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-50 backdrop-blur-sm">
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <span className="text-amber-400 text-[10px] font-bold">⚡ SuperGrok Required</span>
+                                                    </div>
+                                                    <p className="text-[9px] text-white/70 leading-relaxed">720p HD ต้องใช้ SuperGrok ($30/mo) — ถ้าไม่มี Grok จะ fallback เป็น 480p อัตโนมัติ</p>
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-black/95 border-r border-b border-amber-500/30 transform rotate-45 -mt-1"></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Grok Duration */}
+                        <div>
+                            <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium">ความยาววิดีโอ</label>
+                            <div className="flex gap-2">
+                                {([
+                                    { value: "6s", label: "6s", sub: "ฟรี", premium: false },
+                                    { value: "10s", label: "10s", sub: "ยาวขึ้น", premium: true }
+                                ] as const).map((opt) => {
+                                    const isActive = (watch("grokDuration") || "10s") === opt.value;
+                                    return (
+                                        <div key={opt.value} className="flex-1 relative group">
+                                            <button
+                                                type="button"
+                                                onClick={() => setValue("grokDuration", opt.value)}
+                                                className={`w-full py-2.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                                                    isActive
+                                                        ? 'text-white shadow-md'
+                                                        : 'bg-muted/60 border border-border text-muted-foreground hover:bg-muted'
+                                                }`}
+                                                style={isActive ? {
+                                                    background: themeConfig.hex,
+                                                    boxShadow: `0 2px 10px rgba(${themeConfig.hexRgb}, 0.3)`,
+                                                } : {}}
+                                            >
+                                                <Clock className="w-3.5 h-3.5" style={{ color: '#FFD700', filter: 'drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))' }} />
+                                                <div className="flex flex-col items-start leading-none">
+                                                    <span>{opt.label}</span>
+                                                    <span className={`text-[8px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{opt.sub}</span>
+                                                </div>
+                                                {opt.premium && (
+                                                    <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-sm">
+                                                        ⚡SuperGrok
+                                                    </span>
+                                                )}
+                                            </button>
+                                            {opt.premium && (
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 rounded-xl bg-black/95 border border-amber-500/30 shadow-xl shadow-amber-500/10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-50 backdrop-blur-sm">
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <span className="text-amber-400 text-[10px] font-bold">⚡ SuperGrok Required</span>
+                                                    </div>
+                                                    <p className="text-[9px] text-white/70 leading-relaxed">วิดีโอ 10 วินาทีต้องใช้ SuperGrok ($30/mo) — ถ้าไม่มี Grok จะสร้างได้แค่ 6 วินาที</p>
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-black/95 border-r border-b border-amber-500/30 transform rotate-45 -mt-1"></div>
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </div>

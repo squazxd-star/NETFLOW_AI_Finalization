@@ -2,13 +2,14 @@ import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronD
 import { useState, useEffect } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
+import { useToast } from "@/hooks/use-toast";
 import {
     getSyncedProducts,
+    triggerProductSync,
     setActiveProduct,
     openTikTokStudio,
     TikTokProduct
 } from "@/services/tiktokProductService";
-import { useToast } from "@/hooks/use-toast";
 
 const ProductDataSection = ({
     register,
@@ -24,46 +25,58 @@ const ProductDataSection = ({
 }: ProductDataSectionProps) => {
     const gender = watch("gender");
     const { toast } = useToast();
-    const [syncedProducts, setSyncedProducts] = useState<TikTokProduct[]>([]);
-    const [selectedProductId, setSelectedProductId] = useState<string>("");
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    // Load synced products on mount
+    // TikTok product sync state
+    const [syncedProducts, setSyncedProducts] = useState<TikTokProduct[]>([]);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
+
     useEffect(() => {
-        loadSyncedProducts();
+        getSyncedProducts().then(setSyncedProducts);
     }, []);
 
-    const loadSyncedProducts = async () => {
-        const products = await getSyncedProducts();
-        setSyncedProducts(products);
+    const handleSyncProduct = async () => {
+        setIsSyncing(true);
+        try {
+            const result = await triggerProductSync();
+            if (result.success && result.product) {
+                toast({
+                    title: `✅ ซิงค์สำเร็จ! (${result.count || 1} สินค้า)`,
+                    description: `สินค้า "${result.product.name}" ถูกบันทึกแล้ว`,
+                    className: "bg-green-600 text-white"
+                });
+                setSyncedProducts(result.products || [result.product]);
+                setValue("productId", result.product.id);
+                setValue("productName", result.product.name);
+                if (result.product.imageUrl && onSyncedProductImageSelect) {
+                    onSyncedProductImageSelect(result.product.imageUrl);
+                }
+            } else {
+                toast({
+                    title: "❌ ซิงค์ไม่สำเร็จ",
+                    description: result.error || "กรุณาเปิดหน้าสินค้าใน TikTok Studio ก่อน",
+                    variant: "destructive"
+                });
+            }
+        } catch {
+            toast({ title: "❌ เกิดข้อผิดพลาด", variant: "destructive" });
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
-    // Handle product selection
-    const handleSelectProduct = async (product: TikTokProduct) => {
-        setSelectedProductId(product.id);
-        setIsDropdownOpen(false);
-        
-        // Auto-fill form fields
+    const handleSelectSyncedProduct = async (product: TikTokProduct) => {
+        await setActiveProduct(product.id);
         setValue("productId", product.id);
         setValue("productName", product.name);
-        onSyncedProductImageSelect?.(product.imageUrl || null);
-
-        // Set as active product
-        await setActiveProduct(product.id);
-        
+        if (product.imageUrl && onSyncedProductImageSelect) {
+            onSyncedProductImageSelect(product.imageUrl);
+        }
+        setShowProductDropdown(false);
         toast({
             title: "✅ เลือกสินค้าแล้ว",
-            description: `"${product.name}" ถูกใช้เป็นข้อมูลสินค้า`,
-            className: "toast-theme-bg"
-        });
-    };
-
-    // Handle open TikTok Studio
-    const handleOpenTikTokStudio = () => {
-        openTikTokStudio();
-        toast({
-            title: "🌐 เปิด TikTok Studio",
-            description: "ไปที่หน้าสินค้าและกด 'ซิงค์' เพื่อเพิ่มสินค้าใหม่"
+            description: `"${product.name}"`,
+            className: "bg-green-600 text-white"
         });
     };
 
@@ -79,186 +92,205 @@ const ProductDataSection = ({
             </div>
 
             {isOpen && (
-                <div className="px-4 pb-4 space-y-4">
-                    {/* Synced Products Dropdown */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <RefreshCw className="w-3 h-3 text-neon-red" />
-                            เลือกจากสินค้าที่ซิงค์
-                        </label>
-                        
-                        {syncedProducts.length > 0 ? (
+                <div className="px-4 pb-4 space-y-3">
+
+                    {/* ─── Category 1: ข้อมูลสินค้า ─── */}
+                    <div className="space-y-3 p-3 rounded-xl bg-muted/15 border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <FileText className="w-3.5 h-3.5 text-neon-red" />
+                            <span className="text-[11px] font-semibold text-foreground/80">รายละเอียดสินค้า</span>
+                            <div className="h-px bg-border/50 flex-1" />
+                        </div>
+
+                        {/* Product Name — primary field */}
+                        <div>
+                            <label className="text-[10px] text-muted-foreground mb-1 block">ชื่อสินค้า</label>
+                            <input
+                                type="text"
+                                {...register("productName")}
+                                placeholder="ระบุชื่อสินค้า..."
+                                className="w-full neon-input text-xs"
+                            />
+                        </div>
+
+                        {/* Product ID — secondary */}
+                        <div>
+                            <label className="text-[10px] text-muted-foreground mb-1 block">รหัสสินค้า (TikTok)</label>
+                            <input
+                                type="text"
+                                {...register("productId")}
+                                placeholder="ตัวอย่าง 1729384..."
+                                className="w-full neon-input text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    {/* ─── Category 2: รูปภาพ ─── */}
+                    <div className="space-y-3 p-3 rounded-xl bg-muted/15 border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Image className="w-3.5 h-3.5 text-neon-red" />
+                            <span className="text-[11px] font-semibold text-foreground/80">รูปภาพ</span>
+                            <div className="h-px bg-border/50 flex-1" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Product Image */}
+                            <div>
+                                <label className="text-[10px] text-muted-foreground mb-1 block text-center">รูปสินค้า</label>
+                                <button
+                                    onClick={() => onProductImageUpload()}
+                                    className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                                >
+                                    {productImage ? (
+                                        <>
+                                            <img src={productImage} alt="Product" className="w-full h-full object-contain p-1" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <RefreshCw className="w-5 h-5 text-white" />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="w-5 h-5 text-muted-foreground/60" />
+                                            <span className="text-[9px] text-muted-foreground/60 text-center px-2">เลือกรูปสินค้า</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Character Image */}
+                            <div>
+                                <label className="text-[10px] text-muted-foreground mb-1 block text-center">รูปตัวละคร</label>
+                                <button
+                                    onClick={() => onCharacterImageUpload()}
+                                    className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                                >
+                                    {characterImage ? (
+                                        <>
+                                            <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <RefreshCw className="w-5 h-5 text-white" />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="w-5 h-5 text-muted-foreground/60" />
+                                            <span className="text-[9px] text-muted-foreground/60 text-center px-2">เลือกรูปตัวละคร</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── Category 3: ตัวละคร ─── */}
+                    <div className="space-y-3 p-3 rounded-xl bg-muted/15 border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <User className="w-3.5 h-3.5 text-neon-red" />
+                            <span className="text-[11px] font-semibold text-foreground/80">ตัวละคร</span>
+                            <div className="h-px bg-border/50 flex-1" />
+                        </div>
+
+                        {/* Gender */}
+                        <div>
+                            <label className="text-[10px] text-muted-foreground mb-1.5 block">เพศ</label>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setValue("gender", "male")}
+                                    className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                                        gender === "male"
+                                            ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                            : 'bg-background/50 text-muted-foreground border border-border hover:border-neon-red/30'
+                                    }`}
+                                >
+                                    <span className="text-sm">♂</span> ชาย
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setValue("gender", "female")}
+                                    className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                                        gender === "female"
+                                            ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                            : 'bg-background/50 text-muted-foreground border border-border hover:border-neon-red/30'
+                                    }`}
+                                >
+                                    <span className="text-sm">♀</span> หญิง
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── Category 4: TikTok ─── */}
+                    <div className="space-y-2.5 p-3 rounded-xl bg-muted/15 border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <svg className="w-3.5 h-3.5 text-neon-red" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                            </svg>
+                            <span className="text-[11px] font-semibold text-foreground/80">TikTok</span>
+                            <div className="h-px bg-border/50 flex-1" />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={handleSyncProduct}
+                                disabled={isSyncing}
+                                className="flex-1 py-2 rounded-xl font-medium text-white bg-neon-red hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-[11px] disabled:opacity-50"
+                            >
+                                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                                {isSyncing ? "กำลังซิงค์..." : "ซิงค์สินค้า"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => openTikTokStudio()}
+                                className="py-2 px-3 rounded-xl text-[11px] text-muted-foreground border border-border hover:border-neon-red/30 transition-colors flex items-center gap-1.5"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                เปิด TikTok
+                            </button>
+                        </div>
+
+                        {/* Synced product dropdown */}
+                        {syncedProducts.length > 0 && (
                             <div className="relative">
                                 <button
-                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    className="w-full neon-input text-xs flex items-center justify-between"
+                                    type="button"
+                                    onClick={() => setShowProductDropdown(!showProductDropdown)}
+                                    className="w-full flex items-center justify-between py-1.5 px-3 rounded-lg border border-border bg-background/30 text-[11px] text-muted-foreground hover:border-neon-red/30 transition-colors"
                                 >
-                                    <span className={selectedProductId ? "text-foreground" : "text-muted-foreground"}>
-                                        {selectedProductId 
-                                            ? syncedProducts.find(p => p.id === selectedProductId)?.name 
-                                            : "เลือกสินค้าที่ซิงค์ไว้..."}
-                                    </span>
-                                    <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                    <span>สินค้าที่ซิงค์แล้ว ({syncedProducts.length})</span>
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${showProductDropdown ? 'rotate-180' : ''}`} />
                                 </button>
-                                
-                                {isDropdownOpen && (
-                                    <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                                        {syncedProducts.map((product) => (
+                                {showProductDropdown && (
+                                    <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
+                                        {syncedProducts.map((p) => (
                                             <button
-                                                key={product.id}
-                                                onClick={() => handleSelectProduct(product)}
-                                                className={`w-full flex items-center gap-2 p-2 hover:bg-muted/50 transition-colors text-left ${
-                                                    selectedProductId === product.id ? 'bg-neon-red/5 border-l-2 border-neon-red' : ''
-                                                }`}
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => handleSelectSyncedProduct(p)}
+                                                className="w-full flex items-center gap-2 p-2 text-xs hover:bg-muted/50 transition-colors"
                                             >
-                                                {product.imageUrl ? (
-                                                    <img src={product.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                                                {p.imageUrl ? (
+                                                    <img src={p.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
                                                 ) : (
-                                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                                                        <ShoppingBag className="w-4 h-4 text-muted-foreground" />
-                                                    </div>
+                                                    <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                                                 )}
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-medium text-foreground truncate">{product.name}</p>
-                                                    <p className="text-[10px] text-muted-foreground">ID: {product.id}</p>
+                                                <div className="flex-1 min-w-0 text-left">
+                                                    <p className="truncate text-foreground">{p.name}</p>
+                                                    <p className="text-[9px] text-muted-foreground font-mono">{p.id}</p>
                                                 </div>
+                                                {p.price && <span className="text-neon-red text-[10px]">{p.price}</span>}
                                             </button>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                        ) : (
-                            <button
-                                onClick={handleOpenTikTokStudio}
-                                className="w-full py-2.5 rounded-xl text-xs font-medium text-foreground bg-muted border border-border hover:border-neon-red/50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <ExternalLink className="w-3 h-3 text-neon-red" />
-                                ไปที่ TikTok Studio เพื่อซิงค์สินค้า
-                            </button>
                         )}
                     </div>
 
-                    {/* Product ID */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <Link className="w-3 h-3 text-neon-red" />
-                            รหัสสินค้า (TikTok)
-                        </label>
-                        <input
-                            type="text"
-                            {...register("productId")}
-                            placeholder="ตัวอย่าง 1729384..."
-                            className="w-full neon-input text-xs"
-                        />
-                    </div>
-
-                    {/* Product Name */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <FileText className="w-3 h-3 text-neon-red" />
-                            ชื่อสินค้า
-                        </label>
-                        <input
-                            type="text"
-                            {...register("productName")}
-                            placeholder="ระบุชื่อสินค้า..."
-                            className="w-full neon-input text-xs"
-                        />
-                    </div>
-
-                    {/* Product & Character Images — side by side */}
-                    <div className="grid grid-cols-2 gap-3">
-                        {/* Product Image */}
-                        <div>
-                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
-                                <Image className="w-3 h-3 text-neon-red" />
-                                รูปสินค้า
-                            </label>
-                            <button
-                                onClick={() => onProductImageUpload()}
-                                className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
-                            >
-                                {productImage ? (
-                                    <>
-                                        <img src={productImage} alt="Product" className="w-full h-full object-contain p-1" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <RefreshCw className="w-5 h-5 text-white" />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-6 h-6 text-muted-foreground" />
-                                        <span className="text-[10px] text-muted-foreground text-center px-2">เลือกรูปสินค้า</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
-
-                        {/* Character Image */}
-                        <div>
-                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
-                                <Image className="w-3 h-3 text-neon-red" />
-                                รูปตัวละคร
-                            </label>
-                            <button
-                                onClick={() => onCharacterImageUpload()}
-                                className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
-                            >
-                                {characterImage ? (
-                                    <>
-                                        <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <RefreshCw className="w-5 h-5 text-white" />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-6 h-6 text-muted-foreground" />
-                                        <span className="text-[10px] text-muted-foreground text-center px-2">เลือกรูปตัวละคร</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Gender Selection — affects Voice Persona (Fah/Somsak) */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <User className="w-3 h-3 text-neon-red" />
-                            เพศตัวละคร
-                        </label>
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setValue("gender", "male")}
-                                className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${
-                                    gender === "male"
-                                        ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
-                                        : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30'
-                                }`}
-                            >
-                                <span className="text-base">♂</span> เพศชาย
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setValue("gender", "female")}
-                                className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${
-                                    gender === "female"
-                                        ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
-                                        : 'bg-muted/50 text-muted-foreground border border-transparent hover:border-neon-red/30'
-                                }`}
-                            >
-                                <span className="text-base">♀</span> เพศหญิง
-                            </button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5 ml-1 hidden">
-                            {gender === "male" ? "🔊 เสียง: Somsak / Tawan / Prem / Arthit / Beam" : "🔊 เสียง: Fah / Namwan / Somying / Ploy / Minnie"}
-                        </p>
-                    </div>
-
                     {/* Info Note */}
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
-                        <Sparkles className="w-4 h-4 text-neon-red flex-shrink-0" />
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-neon-red/5 border border-neon-red/10">
+                        <Sparkles className="w-3.5 h-3.5 text-neon-red flex-shrink-0" />
                         <p className="text-[10px] text-muted-foreground">
                             AI จะวิเคราะห์ข้อมูลสินค้าเพื่อสร้างคลิปโฆษณาได้ตรงจุด
                         </p>

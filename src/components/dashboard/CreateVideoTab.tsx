@@ -6,6 +6,8 @@ import { createVideoSchema, CreateVideoFormData, createVideoDefaultValues } from
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import { useTheme } from "@/contexts/ThemeContext";
 import { playAutomationSound } from "@/utils/soundEffects";
+import { getSyncedProducts } from "@/services/tiktokProductService";
+import { setTikTokAutoPostEnabled } from "@/services/tiktokUploadService";
 import {
     AiScriptSection,
     ProductDataSection,
@@ -14,6 +16,7 @@ import {
     ResultSection,
     ConsoleLogSection
 } from "./create-video";
+import TikTokStatusCard from "./create-video/TikTokStatusCard";
 
 const CreateVideoTab = () => {
     // React Hook Form setup
@@ -22,12 +25,44 @@ const CreateVideoTab = () => {
         defaultValues: createVideoDefaultValues,
     });
 
-    const { generate, isLoading, result, downloadVideo } = useVideoGeneration();
+    const { generate, isLoading, result, downloadVideo, tiktokPostStatus } = useVideoGeneration();
     const hasVideo = !!result?.data?.videoUrl;
     const hasImage = !!result?.data?.imageUrl;
 
     const { register, control, watch, setValue, getValues } = form;
     const { theme, config: themeConfig } = useTheme();
+
+    // TikTok ready state - true when products are synced
+    const [isTikTokReady, setIsTikTokReady] = useState(false);
+
+    useEffect(() => {
+        const checkTikTokReady = async () => {
+            try {
+                const products = await getSyncedProducts();
+                setIsTikTokReady(products.length > 0);
+            } catch {
+                setIsTikTokReady(false);
+            }
+        };
+        checkTikTokReady();
+
+        // Listen for storage changes (product sync)
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+                if (changes['netflow_tiktok_products']) {
+                    checkTikTokReady();
+                }
+            };
+            chrome.storage.local.onChanged.addListener(listener);
+            return () => chrome.storage.local.onChanged.removeListener(listener);
+        }
+    }, []);
+
+    // When autoPostTikTok changes, persist to storage
+    const autoPostTikTok = watch("autoPostTikTok");
+    useEffect(() => {
+        setTikTokAutoPostEnabled(!!autoPostTikTok);
+    }, [autoPostTikTok]);
 
     // UI State — single image per slot (base64)
     const [productImage, setProductImage] = useState<string | null>(null);
@@ -196,7 +231,10 @@ const CreateVideoTab = () => {
                 onToggle={() => setProductionOpen(!productionOpen)}
                 hasVideo={hasVideo}
                 onDownloadVideo={downloadVideo}
-                isTikTokReady={false}
+                isTikTokReady={isTikTokReady}
+                onTikTokNotReady={() => {
+                    // Navigate user to sync products
+                }}
             />
 
             {/* 5. Generation Settings - การตั้งค่าการสร้าง */}
@@ -263,7 +301,7 @@ const CreateVideoTab = () => {
                                     userScript: data.sceneScriptsRaw || "",
                                     clothingStyles: data.clothingStyles || ["casual"],
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
-                                    sceneBackground: data.sceneBackground || "auto",
+                                    sceneBackground: data.sceneBackground || "studio",
                                 };
 
                                 // Show loading state
@@ -507,6 +545,9 @@ const CreateVideoTab = () => {
                                                 orientation: formData.orientation || "horizontal",
                                                 outputCount: formData.outputCount || 1,
                                                 veoQuality: formData.veoQuality || "fast",
+                                                grokAspectRatio: formData.grokAspectRatio || "9:16",
+                                                grokResolution: formData.grokResolution || "720p",
+                                                grokDuration: formData.grokDuration || "10s",
                                                 theme: localStorage.getItem("netflow_app_theme") || "red",
                                             },
                                             (res) => {
@@ -575,6 +616,9 @@ const CreateVideoTab = () => {
                 hasImage={hasImage}
                 onDownloadVideo={downloadVideo}
             />
+
+            {/* TikTok Auto-Post Status */}
+            <TikTokStatusCard status={tiktokPostStatus} />
 
             {/* Console Log */}
             <ConsoleLogSection logs={flowLogs} />

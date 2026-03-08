@@ -1,6 +1,7 @@
 import { Share2, Youtube, Save } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
+import { useToast } from "@/hooks/use-toast";
 
 const TikTokIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -16,14 +17,20 @@ const ProductionPreviewSection = ({
     hasVideo,
     onDownloadVideo,
     isTikTokReady,
-    onTikTokNotReady
+    onTikTokNotReady,
 }: ProductionPreviewSectionProps) => {
-    const autoPostTikTok = watch("autoPostTikTok");
     const autoPostYoutube = watch("autoPostYoutube");
+    const autoPostTikTok = watch("autoPostTikTok");
+    const { toast } = useToast();
 
     const handleTikTokToggle = () => {
-        if (!isTikTokReady) {
+        if (!isTikTokReady && !autoPostTikTok) {
             onTikTokNotReady?.();
+            toast({
+                title: "⚠️ ยังไม่พร้อมโพสต์ TikTok",
+                description: "กรุณาตั้งค่า TikTok ในแท็บ TikTok ก่อน (ซิงค์สินค้า + บันทึกการตั้งค่า)",
+                variant: "destructive"
+            });
             return;
         }
         setValue("autoPostTikTok", !autoPostTikTok);
@@ -47,20 +54,6 @@ const ProductionPreviewSection = ({
                         <label className="text-xs text-muted-foreground mb-2 block">เลือกแพลตฟอร์ม</label>
                         <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
                             <button
-                                onClick={handleTikTokToggle}
-                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
-                                    !isTikTokReady ? 'text-muted-foreground/40 opacity-40' :
-                                    autoPostTikTok 
-                                        ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
-                                        : 'text-muted-foreground hover:text-white hover:bg-white/5'
-                                }`}
-                                title={!isTikTokReady ? "ตั้งค่า TikTok ก่อน" : autoPostTikTok ? "TikTok: เปิด" : "TikTok: ปิด"}
-                            >
-                                <TikTokIcon className={`w-5 h-5 transition-transform duration-300 ${autoPostTikTok ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
-                                {autoPostTikTok && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-l-xl"></div>}
-                            </button>
-                            <div className="w-px h-8 bg-border z-10" />
-                            <button
                                 onClick={() => setValue("autoPostYoutube", !autoPostYoutube)}
                                 className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
                                     autoPostYoutube 
@@ -70,7 +63,20 @@ const ProductionPreviewSection = ({
                                 title={autoPostYoutube ? "YouTube: เปิด" : "YouTube: ปิด"}
                             >
                                 <Youtube className={`w-5 h-5 transition-transform duration-300 ${autoPostYoutube ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
-                                {autoPostYoutube && <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>}
+                                {autoPostYoutube && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-l-xl"></div>}
+                            </button>
+                            <div className="w-px h-8 bg-border z-10" />
+                            <button
+                                onClick={handleTikTokToggle}
+                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
+                                    autoPostTikTok 
+                                        ? 'text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                                        : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                }`}
+                                title={autoPostTikTok ? "TikTok: เปิด" : "TikTok: ปิด"}
+                            >
+                                <TikTokIcon className={`w-5 h-5 transition-transform duration-300 ${autoPostTikTok ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
+                                {autoPostTikTok && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-xl"></div>}
                             </button>
                             <div className="w-px h-8 bg-border z-10" />
                             <button

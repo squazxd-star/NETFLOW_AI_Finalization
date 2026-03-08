@@ -33,7 +33,7 @@ const buildFullPrompt = (data: ScriptRequest): string => {
         "flash-sale": "Flash Sale: เร่งรีบ, ดุดัน, หมดแล้วหมดเลย, ต้องซื้อเดี๋ยวนี้",
         "tutorial": "How-to: สอนใช้แบบ Step-by-step, เข้าใจง่าย, ทำตามได้เลย",
         "lifestyle": "Vlog/Lifestyle: ถ่ายทอดการใช้งานสินค้าในชีวิตประจำวันแบบเนียนๆ",
-        "trending": "เกาะกระแส: ใช้เพลงฮิต หรือมุกที่กำลังดังใน TikTok ตอนนี้",
+        "trending": "เกาะกระแส: ใช้เพลงฮิต หรือมุกที่กำลังดังในโซเชียลตอนนี้",
         "mini-drama": "ละครสั้น: มีพล็อตเรื่องหักมุม, ดราม่า, หรือตลกคาเฟ่",
         "before-after": "โชว์ผลลัพธ์ Before/After: ให้เห็นความแตกต่างชัดเจนที่สุด"
     };
@@ -249,7 +249,7 @@ const generateWithOpenAI = async (apiKey: string, data: ScriptRequest): Promise<
 };
 
 /**
- * Generates a viral TikTok script using the selected AI Provider (OpenAI or Gemini)
+ * Generates a viral TikTok/Reels script using the selected AI Provider (OpenAI or Gemini)
  */
 export const generateVideoScript = async (
     data: ScriptRequest

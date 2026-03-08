@@ -222,37 +222,40 @@ const AiScriptSection = ({
 
                     {/* ═══ Row 5: Scene Background Picker ═══ */}
                     <div>
-                        <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <label className="text-[11px] mb-2 block font-medium flex items-center gap-1.5 text-muted-foreground">
                             <ImageIcon className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                             ฉากพื้นหลัง (Background)
                         </label>
-                        <div className="grid grid-cols-4 gap-2">
-                            {visibleBackgrounds.map((bg) => {
+
+                        {/* Grid: all backgrounds */}
+                        <div className={`grid grid-cols-5 gap-1.5 ${showAllBackgrounds ? '' : 'max-h-[180px] overflow-hidden'}`}>
+                            {sceneBackgroundOptions.map((bg) => {
                                 const isActive = sceneBackground === bg.value;
                                 return (
                                     <button
                                         key={bg.value}
                                         type="button"
                                         onClick={() => setValue("sceneBackground", bg.value)}
-                                        className={`relative group flex flex-col items-center gap-1 py-2.5 px-1.5 rounded-xl text-center transition-all duration-200 border ${
+                                        className={`relative group flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-center transition-all duration-200 border aspect-square ${
                                             isActive
-                                                ? 'border-primary bg-primary/10 shadow-[0_0_12px_rgba(var(--primary-rgb),0.2)]'
-                                                : 'border-border/60 bg-muted/30 hover:border-primary/40 hover:bg-muted/60'
+                                                ? 'shadow-md'
+                                                : 'border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/30'
                                         }`}
+                                        style={isActive ? {
+                                            borderColor: themeConfig.hex,
+                                            background: `rgba(${themeConfig.hexRgb}, 0.1)`,
+                                            boxShadow: `0 0 10px rgba(${themeConfig.hexRgb}, 0.15)`,
+                                        } : {}}
+                                        title={bg.description}
                                     >
-                                        <span className={`text-lg leading-none transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+                                        <span className={`text-[18px] leading-none transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
                                             {bg.emoji}
                                         </span>
-                                        <span className={`text-[10px] font-medium leading-tight ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                                        <span className={`text-[9px] font-medium leading-tight truncate w-full ${isActive ? '' : 'text-muted-foreground/70'}`} style={isActive ? { color: themeConfig.hex } : {}}>
                                             {bg.label}
                                         </span>
-                                        {bg.value === "studio" && (
-                                            <span className={`text-[7px] font-bold px-1 py-0.5 rounded ${isActive ? 'text-primary bg-primary/15' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
-                                                แนะนำ
-                                            </span>
-                                        )}
                                         {isActive && (
-                                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary flex items-center justify-center">
+                                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center" style={{ background: themeConfig.hex }}>
                                                 <div className="w-1.5 h-1.5 rounded-full bg-white" />
                                             </div>
                                         )}
@@ -261,14 +264,14 @@ const AiScriptSection = ({
                             })}
                         </div>
 
-                        {sceneBackgroundOptions.length > 8 && (
+                        {sceneBackgroundOptions.length > 12 && (
                             <button
                                 type="button"
                                 onClick={() => setShowAllBackgrounds(!showAllBackgrounds)}
-                                className="w-full mt-2 py-1.5 text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
+                                className="w-full mt-1.5 py-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1 rounded-lg hover:bg-muted/30"
                             >
                                 <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAllBackgrounds ? 'rotate-180' : ''}`} />
-                                {showAllBackgrounds ? 'แสดงน้อยลง' : `แสดงทั้งหมด (${sceneBackgroundOptions.length})`}
+                                {showAllBackgrounds ? 'แสดงน้อยลง' : `ดูทั้งหมด (${sceneBackgroundOptions.length - 1} ฉาก)`}
                             </button>
                         )}
 
