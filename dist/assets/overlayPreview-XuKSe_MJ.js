@@ -921,6 +921,8 @@ import"./modulepreload-polyfill-B5Qt9EMX.js";const I={green:{rgb:"0, 255, 65",he
         drop-shadow(0 0 3px rgba(${e},0.7))
         drop-shadow(0 0 8px rgba(${e},0.3));
     opacity: 0.75;
+    border-radius: 50%;
+    overflow: hidden;
 }
 
 .nf-brand-gear-left {
@@ -951,7 +953,7 @@ import"./modulepreload-polyfill-B5Qt9EMX.js";const I={green:{rgb:"0, 255, 65",he
     text-align: center;
 }
 
-.nf-brand-gear-icon svg { overflow: visible; }
+.nf-brand-gear-icon svg { overflow: hidden; }
 
 .nf-kinetic-outer  { animation: nf-k-cw  20s linear infinite; transform-origin: 120px 120px; }
 .nf-kinetic-mid    { animation: nf-k-ccw 14s linear infinite; transform-origin: 120px 120px; }
@@ -1088,16 +1090,10 @@ import"./modulepreload-polyfill-B5Qt9EMX.js";const I={green:{rgb:"0, 255, 65",he
     animation-delay: 0.2s;
 }
 .nf-mod-bl {
-    top: 50%;
-    left: 50%;
-    transform: translate(calc(-100% - 246px), 14px);
-    animation-delay: 0.3s;
+    display: none;
 }
 .nf-mod-br {
-    top: 50%;
-    left: 50%;
-    transform: translate(246px, 14px);
-    animation-delay: 0.4s;
+    display: none;
 }
 
 .nf-mod-header {

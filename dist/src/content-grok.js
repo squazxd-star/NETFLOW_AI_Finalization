@@ -921,6 +921,8 @@
         drop-shadow(0 0 3px rgba(${t},0.7))
         drop-shadow(0 0 8px rgba(${t},0.3));
     opacity: 0.75;
+    border-radius: 50%;
+    overflow: hidden;
 }
 
 .nf-brand-gear-left {
@@ -951,7 +953,7 @@
     text-align: center;
 }
 
-.nf-brand-gear-icon svg { overflow: visible; }
+.nf-brand-gear-icon svg { overflow: hidden; }
 
 .nf-kinetic-outer  { animation: nf-k-cw  20s linear infinite; transform-origin: 120px 120px; }
 .nf-kinetic-mid    { animation: nf-k-ccw 14s linear infinite; transform-origin: 120px 120px; }
@@ -1088,16 +1090,10 @@
     animation-delay: 0.2s;
 }
 .nf-mod-bl {
-    top: 50%;
-    left: 50%;
-    transform: translate(calc(-100% - 246px), 14px);
-    animation-delay: 0.3s;
+    display: none;
 }
 .nf-mod-br {
-    top: 50%;
-    left: 50%;
-    transform: translate(246px, 14px);
-    animation-delay: 0.4s;
+    display: none;
 }
 
 .nf-mod-header {
