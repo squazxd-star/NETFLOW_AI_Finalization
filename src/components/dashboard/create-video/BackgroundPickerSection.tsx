@@ -46,14 +46,14 @@ const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
             {/* Background Grid */}
             <div className="px-3 pb-3">
                 <div className={`grid grid-cols-5 gap-1.5 ${showAll ? '' : 'max-h-[160px] overflow-hidden'}`}>
-                    {/* Auto tile */}
+                    {/* Auto tile — identical structure to other bg tiles */}
                     <button
                         type="button"
                         onClick={handleAutoSelect}
-                        className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square hover:scale-[1.03] ${
+                        className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square ${
                             autoFlash
-                                ? 'scale-[1.02] shadow-lg'
-                                : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12]'
+                                ? 'shadow-lg scale-[1.02]'
+                                : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
                         }`}
                         style={autoFlash ? {
                             borderColor: themeConfig.hex,
@@ -65,11 +65,10 @@ const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
                         <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
                             🪄
                         </span>
-                        <span className={`text-[10px] font-medium leading-tight mt-0.5 ${autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={autoFlash ? { color: themeConfig.hex } : {}}>
+                        <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={autoFlash ? { color: themeConfig.hex } : {}}>
                             Auto
                         </span>
-                        {/* Gold star */}
-                        <div className="absolute top-0.5 right-0.5 text-[8px] leading-none">⭐</div>
+                        <div className="absolute -top-1 -right-1 text-[8px] leading-none drop-shadow">⭐</div>
                     </button>
                     {sceneBackgroundOptions.map((bg) => {
                         const isActive = sceneBackground === bg.value;
