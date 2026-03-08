@@ -3520,8 +3520,21 @@ function refreshStatBar(_stepId: string, status: StepStatus, progress?: number):
     if (stepEl) stepEl.textContent = `${currentStep}/${totalCount}`;
 
     // SCENES
+    let currentScene = 1;
+    for (const ps of processSteps) {
+        if (ps.status === "active" || ps.status === "done") {
+            if (ps.stepId.startsWith("scene")) {
+                const match = ps.stepId.match(/^scene(\d+)-/);
+                if (match) {
+                    currentScene = Math.max(currentScene, parseInt(match[1], 10));
+                }
+            } else if (ps.stepId === "download" || ps.stepId === "upscale" || ps.stepId === "open") {
+                currentScene = currentSceneCount;
+            }
+        }
+    }
     const scenesEl = document.getElementById("nf-stat-scenes");
-    if (scenesEl) scenesEl.textContent = currentSceneCount > 1 ? `1/${currentSceneCount}` : "1/1";
+    if (scenesEl) scenesEl.textContent = currentSceneCount > 1 ? `${currentScene}/${currentSceneCount}` : "1/1";
 
     // STATUS
     if (status === "active") {

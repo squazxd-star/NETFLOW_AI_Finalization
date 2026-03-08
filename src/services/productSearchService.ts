@@ -142,7 +142,7 @@ async function searchWithOpenAI(
             role: "user",
             content: [
                 { type: "text", text: prompt + "\n\n(ดูรูปสินค้าประกอบเพื่อระบุสินค้าให้ถูกต้อง)" },
-                { type: "image_url", image_url: { url: productImage } }
+                { type: "image_url", image_url: { url: productImage, detail: "low" } }
             ]
         });
     } else {

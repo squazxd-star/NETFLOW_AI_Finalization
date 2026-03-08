@@ -629,6 +629,7 @@ const buildSceneVideoPromptJSON = (meta: VideoPromptMeta, sceneScript: string, s
     const pronoun = meta.gender.includes('man') ? 'He' : 'She';
     const parts = [
         `Continuation from previous scene. Same ${meta.gender}, same setting.`,
+        `[CRITICAL] PRODUCT POSITION LOCK: The ${meta.product} MUST remain in the EXACT same position, same size, same scale as scene ${sceneNumber - 1}. NEVER shrink, NEVER fade, NEVER disappear. Product stays on the same spot on the surface, same screen area. Zero size change.`,
         `${pronoun} continues naturally, ${meta.expression}.`,
         cleanScript
             ? `${pronoun} speaks clearly in Thai: "${cleanScript}".`

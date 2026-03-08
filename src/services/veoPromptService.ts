@@ -4969,6 +4969,8 @@ export const buildSceneVideoPromptJSON = (
 
         // ★ [2. PRODUCT IDENTITY] — full product anchor repeated
         `${meta.template} commercial video. ${meta.productAnchor}`,
+        // ★ [2.5. PRODUCT POSITION LOCK — CRITICAL for Extend] — prevents product from shrinking/disappearing across scenes
+        `[CRITICAL] PRODUCT POSITION LOCK: The product MUST remain in the EXACT same position on the surface as the previous scene. Same size, same scale, same placement — NEVER shrink, NEVER fade, NEVER drift off-screen, NEVER disappear. Product occupies the same screen area and proportions as scene ${sceneNumber - 1}. If product was on the table, it stays on the table at the same spot. Zero size change, zero position change.`,
 
         // ★ [3. VOICE PERSONA + SCRIPT] — full voice persona in every scene
         `${meta.voiceoverDescriptor}`,
@@ -4979,6 +4981,7 @@ export const buildSceneVideoPromptJSON = (
         `${meta.productUsageRealism} ${speakingDirective}`,
 
         // ★ [4.5. PRODUCT PRESENTATION] — per-scene visual action (AI-generated if available, otherwise category fallback)
+        `[CRITICAL] PRODUCT INTERACTION: The character MUST actively hold, touch, or gesture towards the ${meta.product} in this scene. The product is the central focus.`,
         sceneVideoAction?.trim()
             ? `VISUAL ACTION FOR THIS SCENE: ${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
             : `${getScenePresentationDirective(meta.category, sceneNumber)}`,
