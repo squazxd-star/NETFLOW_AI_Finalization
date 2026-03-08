@@ -295,6 +295,14 @@ const ProductDataSection = ({
                         </div>
                     </div>
 
+                    {/* Info Note */}
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-neon-red/5 border border-neon-red/10">
+                        <Sparkles className="w-3.5 h-3.5 text-neon-red flex-shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">
+                            AI จะวิเคราะห์ข้อมูลสินค้าเพื่อสร้างคลิปโฆษณาได้ตรงจุด
+                        </p>
+                    </div>
+
                 </div>
             )}
         </section>
