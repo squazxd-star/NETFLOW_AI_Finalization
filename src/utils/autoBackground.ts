@@ -398,8 +398,87 @@ const CATEGORY_BG_MAP: BackgroundMapping[] = [
     },
 ];
 
+/** Valid background values for type-safety */
+const VALID_BACKGROUNDS = new Set([
+    "studio", "living-room", "bedroom", "cafe", "office", "outdoor-nature",
+    "outdoor-city", "kitchen", "gym", "beach", "neon-dark", "white-minimal",
+    "gradient-abstract", "luxury", "night-market", "rooftop", "library",
+    "restaurant", "spa", "hospital", "school", "temple"
+]);
+
 /**
- * วิเคราะห์ชื่อ/คำอธิบายสินค้า แล้วเลือกฉากพื้นหลังที่เหมาะสมที่สุด
+ * AI-powered: วิเคราะห์รูปสินค้า + ชื่อสินค้า ด้วย Gemini Vision แล้วเลือกฉากที่เหมาะสม
+ * Fallback กลับ keyword matching ถ้า AI ไม่พร้อม
+ */
+export async function autoSelectBackgroundWithAI(
+    productName: string,
+    productDescription?: string,
+    productImage?: string | null
+): Promise<string> {
+    // ถ้าไม่มีรูป หรือไม่มี API key → fallback keyword matching
+    if (!productImage) {
+        return autoSelectBackground(productName, productDescription);
+    }
+
+    try {
+        const { getApiKey } = await import("@/services/storageService");
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+
+        const apiKey = await getApiKey("gemini");
+        if (!apiKey) {
+            console.warn("[AutoBG] ไม่มี Gemini API Key → ใช้ keyword matching");
+            return autoSelectBackground(productName, productDescription);
+        }
+
+        const bgList = Array.from(VALID_BACKGROUNDS).join(", ");
+
+        const prompt = `You are a video production background selector. Analyze the product image and name to pick the BEST background scene.
+
+Product name: "${productName}"
+${productDescription ? `Description: "${productDescription}"` : ""}
+
+Available backgrounds (pick EXACTLY one value):
+${bgList}
+
+Rules:
+- Pick the background that creates the BEST visual context for selling this product in a TikTok/Reels video
+- Consider the product category, target audience, and mood
+- Reply with ONLY the background value (e.g. "cafe"), nothing else`;
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+        const base64Data = productImage.includes(",") ? productImage.split(",")[1] : productImage;
+        const mimeType = productImage.includes("png") ? "image/png" : "image/jpeg";
+
+        const result = await model.generateContent([
+            prompt,
+            { inlineData: { data: base64Data, mimeType } }
+        ]);
+
+        const answer = result.response.text().trim().toLowerCase().replace(/[^a-z-]/g, "");
+        console.log(`[AutoBG] AI เลือก: "${answer}"`);
+
+        if (VALID_BACKGROUNDS.has(answer)) {
+            return answer;
+        }
+
+        // AI ตอบไม่ตรง format → หา partial match
+        for (const bg of VALID_BACKGROUNDS) {
+            if (answer.includes(bg)) return bg;
+        }
+
+        console.warn(`[AutoBG] AI ตอบ "${answer}" ไม่ตรง → fallback keyword`);
+        return autoSelectBackground(productName, productDescription);
+
+    } catch (err: any) {
+        console.warn(`[AutoBG] AI error: ${err.message} → fallback keyword`);
+        return autoSelectBackground(productName, productDescription);
+    }
+}
+
+/**
+ * วิเคราะห์ชื่อ/คำอธิบายสินค้า แล้วเลือกฉากพื้นหลังที่เหมาะสมที่สุด (keyword matching)
  */
 export function autoSelectBackground(productName: string, productDescription?: string): string {
     const text = `${productName} ${productDescription || ""}`.toLowerCase();

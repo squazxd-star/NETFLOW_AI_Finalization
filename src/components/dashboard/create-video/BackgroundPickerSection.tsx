@@ -1,17 +1,22 @@
 import { useState } from "react";
-import { ImageIcon, ChevronDown } from "lucide-react";
+import { ImageIcon, ChevronDown, Loader2 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { sceneBackgroundOptions } from "@/types/netflow";
-import { autoSelectBackground } from "@/utils/autoBackground";
+import { autoSelectBackground, autoSelectBackgroundWithAI } from "@/utils/autoBackground";
 import { SectionProps } from "./types";
 
-const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
+interface BackgroundPickerProps extends SectionProps {
+    productImage?: string | null;
+}
+
+const BackgroundPickerSection = ({ setValue, watch, productImage }: BackgroundPickerProps) => {
     const { config: themeConfig } = useTheme();
     const sceneBackground = watch("sceneBackground") || "studio";
     const [showAll, setShowAll] = useState(false);
     const [autoFlash, setAutoFlash] = useState(false);
+    const [isAutoLoading, setIsAutoLoading] = useState(false);
 
-    const handleAutoSelect = () => {
+    const handleAutoSelect = async () => {
         const name = watch("productName") || "";
         const desc = watch("productDescription") || "";
 
@@ -20,12 +25,23 @@ const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
             return;
         }
 
-        const best = autoSelectBackground(name, desc);
-        setValue("sceneBackground", best);
+        setIsAutoLoading(true);
+        try {
+            const best = await autoSelectBackgroundWithAI(name, desc, productImage);
+            setValue("sceneBackground", best);
 
-        // Flash feedback
-        setAutoFlash(true);
-        setTimeout(() => setAutoFlash(false), 800);
+            // Flash feedback
+            setAutoFlash(true);
+            setTimeout(() => setAutoFlash(false), 800);
+        } catch {
+            // Fallback keyword
+            const best = autoSelectBackground(name, desc);
+            setValue("sceneBackground", best);
+            setAutoFlash(true);
+            setTimeout(() => setAutoFlash(false), 800);
+        } finally {
+            setIsAutoLoading(false);
+        }
     };
 
     return (
@@ -50,25 +66,32 @@ const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
                     <button
                         type="button"
                         onClick={handleAutoSelect}
+                        disabled={isAutoLoading}
                         className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square ${
-                            autoFlash
-                                ? 'shadow-lg scale-[1.02]'
-                                : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
+                            isAutoLoading
+                                ? 'shadow-md border-white/[0.15] bg-white/[0.04]'
+                                : autoFlash
+                                    ? 'shadow-lg scale-[1.02]'
+                                    : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
                         }`}
                         style={autoFlash ? {
                             borderColor: themeConfig.hex,
                             background: `linear-gradient(145deg, rgba(${themeConfig.hexRgb}, 0.15), rgba(${themeConfig.hexRgb}, 0.05))`,
                             boxShadow: `0 4px 16px rgba(${themeConfig.hexRgb}, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)`,
                         } : {}}
-                        title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากที่เหมาะสมอัตโนมัติ"
+                        title={productImage ? "AI วิเคราะห์รูป+ชื่อสินค้า แล้วเลือกฉากอัตโนมัติ" : "วิเคราะห์ชื่อสินค้าแล้วเลือกฉากอัตโนมัติ"}
                     >
-                        <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
-                            🪄
+                        {isAutoLoading ? (
+                            <Loader2 className="w-5 h-5 animate-spin" style={{ color: themeConfig.hex }} />
+                        ) : (
+                            <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
+                                🪄
+                            </span>
+                        )}
+                        <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${isAutoLoading ? 'font-bold' : autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={isAutoLoading || autoFlash ? { color: themeConfig.hex } : {}}>
+                            {isAutoLoading ? 'AI...' : 'Auto'}
                         </span>
-                        <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={autoFlash ? { color: themeConfig.hex } : {}}>
-                            Auto
-                        </span>
-                        <div className="absolute -top-1 -right-1 text-[8px] leading-none drop-shadow">⭐</div>
+                        <div className="absolute -top-1 -right-1 text-[8px] leading-none drop-shadow">{productImage ? '🧠' : '⭐'}</div>
                     </button>
                     {sceneBackgroundOptions.map((bg) => {
                         const isActive = sceneBackground === bg.value;

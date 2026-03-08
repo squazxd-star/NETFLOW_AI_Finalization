@@ -40,7 +40,12 @@ const CreateVideoTab = () => {
         const checkTikTokReady = async () => {
             try {
                 const products = await getSyncedProducts();
-                setIsTikTokReady(products.length > 0);
+                const ready = products.length > 0;
+                setIsTikTokReady(ready);
+                // Auto-enable TikTok toggle when products are synced
+                if (ready) {
+                    setValue("autoPostTikTok", true);
+                }
             } catch {
                 setIsTikTokReady(false);
             }

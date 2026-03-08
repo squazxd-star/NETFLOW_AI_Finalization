@@ -92,6 +92,12 @@ const ProductionPreviewSection = ({
                                 <Save className={`w-5 h-5 transition-transform duration-300 ${hasVideo ? 'hover:scale-110 hover:drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
                             </button>
                         </div>
+                        {/* Auto Post description */}
+                        <p className="text-[10px] text-muted-foreground/70 leading-relaxed mt-1">
+                            {autoPostTikTok 
+                                ? "✅ TikTok Auto Post เปิดอยู่ — หลัง Generate คลิปเสร็จ ระบบจะโพสต์ + ปักตะกร้าอัตโนมัติ"
+                                : "เปิด TikTok Auto Post เพื่อโพสต์อัตโนมัติหลัง Generate คลิปเสร็จ"}
+                        </p>
                     </div>
                 </div>
             )}

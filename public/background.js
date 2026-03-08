@@ -100,8 +100,68 @@ function sendToContentScript(tabId, message, scriptFile) {
     });
 }
 
-// Relay messages from sidepanel to content script
+// ─── TikTok Auto-Post: Video blob cache ──────────────────────────────────────
+let _cachedVideoDataUrl = null;
+
+// Relay messages from sidepanel / content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+    // ── PRE_FETCH_VIDEO: Download video and cache as data URL ──
+    if (message?.type === 'PRE_FETCH_VIDEO' && message.url) {
+        (async () => {
+            try {
+                console.log('[Netflow BG] PRE_FETCH_VIDEO:', message.url.substring(0, 80));
+                const resp = await fetch(message.url);
+                if (!resp.ok) { sendResponse({ success: false, error: 'HTTP ' + resp.status }); return; }
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    _cachedVideoDataUrl = reader.result;
+                    console.log('[Netflow BG] Video cached: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB');
+                    sendResponse({ success: true, size: blob.size });
+                };
+                reader.onerror = () => { sendResponse({ success: false, error: 'FileReader error' }); };
+                reader.readAsDataURL(blob);
+            } catch (err) {
+                console.warn('[Netflow BG] PRE_FETCH_VIDEO error:', err.message);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+        return true;
+    }
+
+    // ── GET_CACHED_VIDEO: Return previously cached video data URL ──
+    if (message?.type === 'GET_CACHED_VIDEO') {
+        if (_cachedVideoDataUrl) {
+            console.log('[Netflow BG] Serving cached video data URL');
+            sendResponse({ success: true, data: _cachedVideoDataUrl });
+            _cachedVideoDataUrl = null;
+        } else {
+            sendResponse({ success: false, error: 'No cached video' });
+        }
+        return true;
+    }
+
+    // ── FETCH_VIDEO_BLOB: Fetch video on-demand and return as data URL ──
+    if (message?.type === 'FETCH_VIDEO_BLOB' && message.url) {
+        (async () => {
+            try {
+                console.log('[Netflow BG] FETCH_VIDEO_BLOB:', message.url.substring(0, 80));
+                const resp = await fetch(message.url);
+                if (!resp.ok) { sendResponse({ success: false, error: 'HTTP ' + resp.status }); return; }
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => { sendResponse({ success: true, data: reader.result }); };
+                reader.onerror = () => { sendResponse({ success: false, error: 'FileReader error' }); };
+                reader.readAsDataURL(blob);
+            } catch (err) {
+                console.warn('[Netflow BG] FETCH_VIDEO_BLOB error:', err.message);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+        return true;
+    }
+
     if (message?.action === "GENERATE_IMAGE" || message?.action === "UPLOAD_IMAGES" ||
         message?.action === "PING" || message?.action === "STOP_AUTOMATION" || message?.action === "CLICK_FIRST_IMAGE") {
         (async () => {

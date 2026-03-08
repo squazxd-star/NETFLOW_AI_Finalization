@@ -7,7 +7,7 @@ import {
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
 import { useTheme } from "@/contexts/ThemeContext";
-import { autoSelectBackground } from "@/utils/autoBackground";
+import { autoSelectBackground, autoSelectBackgroundWithAI } from "@/utils/autoBackground";
 import {
     templateOptions,
     voiceToneOptions,
@@ -35,18 +35,29 @@ const AiScriptSection = ({
 
     const [showAllBackgrounds, setShowAllBackgrounds] = useState(false);
     const [autoFlash, setAutoFlash] = useState(false);
+    const [isAutoBgLoading, setIsAutoBgLoading] = useState(false);
 
-    const handleAutoBackground = () => {
+    const handleAutoBackground = async () => {
         const name = watch("productName") || "";
         const desc = watch("productDescription") || "";
         if (!name.trim()) {
             alert("กรุณากรอกชื่อสินค้าก่อน แล้วกด Auto อีกครั้ง");
             return;
         }
-        const best = autoSelectBackground(name, desc);
-        setValue("sceneBackground", best);
-        setAutoFlash(true);
-        setTimeout(() => setAutoFlash(false), 800);
+        setIsAutoBgLoading(true);
+        try {
+            const best = await autoSelectBackgroundWithAI(name, desc, productImage);
+            setValue("sceneBackground", best);
+            setAutoFlash(true);
+            setTimeout(() => setAutoFlash(false), 800);
+        } catch {
+            const best = autoSelectBackground(name, desc);
+            setValue("sceneBackground", best);
+            setAutoFlash(true);
+            setTimeout(() => setAutoFlash(false), 800);
+        } finally {
+            setIsAutoBgLoading(false);
+        }
     };
 
     return (
@@ -244,29 +255,36 @@ const AiScriptSection = ({
                         </div>
 
                         <div className={`grid grid-cols-5 gap-1.5 ${showAllBackgrounds ? '' : 'max-h-[160px] overflow-hidden'}`}>
-                            {/* Auto tile — same style as other bg tiles */}
+                            {/* Auto tile — AI-powered when product image available */}
                             <button
                                 type="button"
                                 onClick={handleAutoBackground}
+                                disabled={isAutoBgLoading}
                                 className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square ${
-                                    autoFlash
-                                        ? 'shadow-lg scale-[1.02]'
-                                        : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
+                                    isAutoBgLoading
+                                        ? 'shadow-md border-white/[0.15] bg-white/[0.04]'
+                                        : autoFlash
+                                            ? 'shadow-lg scale-[1.02]'
+                                            : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
                                 }`}
                                 style={autoFlash ? {
                                     borderColor: themeConfig.hex,
                                     background: `linear-gradient(145deg, rgba(${themeConfig.hexRgb}, 0.15), rgba(${themeConfig.hexRgb}, 0.05))`,
                                     boxShadow: `0 4px 16px rgba(${themeConfig.hexRgb}, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)`,
                                 } : {}}
-                                title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากอัตโนมัติ"
+                                title={productImage ? "AI วิเคราะห์รูป+ชื่อสินค้า แล้วเลือกฉากอัตโนมัติ" : "วิเคราะห์ชื่อสินค้าแล้วเลือกฉากอัตโนมัติ"}
                             >
-                                <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
-                                    🪄
+                                {isAutoBgLoading ? (
+                                    <RefreshCw className="w-5 h-5 animate-spin" style={{ color: themeConfig.hex }} />
+                                ) : (
+                                    <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
+                                        🪄
+                                    </span>
+                                )}
+                                <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${isAutoBgLoading ? 'font-bold' : autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={isAutoBgLoading || autoFlash ? { color: themeConfig.hex } : {}}>
+                                    {isAutoBgLoading ? 'AI...' : 'Auto'}
                                 </span>
-                                <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={autoFlash ? { color: themeConfig.hex } : {}}>
-                                    Auto
-                                </span>
-                                <div className="absolute -top-1 -right-1 text-[8px] leading-none drop-shadow">⭐</div>
+                                <div className="absolute -top-1 -right-1 text-[8px] leading-none drop-shadow">{productImage ? '🧠' : '⭐'}</div>
                             </button>
                             {sceneBackgroundOptions.map((bg) => {
                                 const isActive = sceneBackground === bg.value;
