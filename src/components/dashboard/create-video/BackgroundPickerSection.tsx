@@ -69,7 +69,7 @@ const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
                             Auto
                         </span>
                         {/* Gold star */}
-                        <div className="absolute -top-1 -right-1 text-[10px] leading-none drop-shadow-sm">⭐</div>
+                        <div className="absolute top-0.5 right-0.5 text-[8px] leading-none">⭐</div>
                     </button>
                     {sceneBackgroundOptions.map((bg) => {
                         const isActive = sceneBackground === bg.value;
