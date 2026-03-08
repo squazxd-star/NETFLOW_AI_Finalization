@@ -236,34 +236,38 @@ const AiScriptSection = ({
 
                     {/* ═══ Row 5: Scene Background Picker ═══ */}
                     <div>
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center mb-2">
                             <label className="text-[11px] font-medium flex items-center gap-1.5 text-muted-foreground">
                                 <ImageIcon className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                                 ฉากพื้นหลัง (Background)
                             </label>
-                            <button
-                                type="button"
-                                onClick={handleAutoBackground}
-                                className={`group flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all duration-300 hover:scale-105 active:scale-95 ${autoFlash ? 'animate-pulse' : ''}`}
-                                style={{
-                                    background: autoFlash
-                                        ? `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.4), rgba(${themeConfig.hexRgb}, 0.2))`
-                                        : `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.2), rgba(${themeConfig.hexRgb}, 0.08))`,
-                                    border: `1px solid rgba(${themeConfig.hexRgb}, 0.35)`,
-                                    color: themeConfig.hex,
-                                    boxShadow: autoFlash
-                                        ? `0 0 20px rgba(${themeConfig.hexRgb}, 0.4)`
-                                        : `0 2px 8px rgba(${themeConfig.hexRgb}, 0.1)`,
-                                }}
-                                title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากอัตโนมัติ"
-                            >
-                                <span className="text-sm leading-none group-hover:rotate-12 transition-transform inline-block">🪄</span>
-                                <span>Auto</span>
-                                <span className="text-[8px] leading-none">⭐</span>
-                            </button>
                         </div>
 
                         <div className={`grid grid-cols-5 gap-1.5 ${showAllBackgrounds ? '' : 'max-h-[160px] overflow-hidden'}`}>
+                            {/* Auto tile — same style as other bg tiles */}
+                            <button
+                                type="button"
+                                onClick={handleAutoBackground}
+                                className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square ${
+                                    autoFlash
+                                        ? 'shadow-lg scale-[1.02]'
+                                        : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
+                                }`}
+                                style={autoFlash ? {
+                                    borderColor: themeConfig.hex,
+                                    background: `linear-gradient(145deg, rgba(${themeConfig.hexRgb}, 0.15), rgba(${themeConfig.hexRgb}, 0.05))`,
+                                    boxShadow: `0 4px 16px rgba(${themeConfig.hexRgb}, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)`,
+                                } : {}}
+                                title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากอัตโนมัติ"
+                            >
+                                <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
+                                    🪄
+                                </span>
+                                <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={autoFlash ? { color: themeConfig.hex } : {}}>
+                                    Auto
+                                </span>
+                                <div className="absolute -top-1 -right-1 text-[8px] leading-none drop-shadow">⭐</div>
+                            </button>
                             {sceneBackgroundOptions.map((bg) => {
                                 const isActive = sceneBackground === bg.value;
                                 return (
