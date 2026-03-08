@@ -40,33 +40,37 @@ const BackgroundPickerSection = ({ setValue, watch }: SectionProps) => {
                         <span className="text-xs font-bold text-foreground">ฉากพื้นหลัง</span>
                         <span className="text-[9px] text-muted-foreground/60 font-medium">Background</span>
                     </div>
-                    {/* Auto button — wand emoji + golden star */}
-                    <button
-                        type="button"
-                        onClick={handleAutoSelect}
-                        className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-300 hover:scale-105 active:scale-95 ${autoFlash ? 'animate-pulse' : ''}`}
-                        style={{
-                            background: autoFlash
-                                ? `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.4), rgba(${themeConfig.hexRgb}, 0.2))`
-                                : `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.2), rgba(${themeConfig.hexRgb}, 0.08))`,
-                            border: `1px solid rgba(${themeConfig.hexRgb}, 0.35)`,
-                            color: themeConfig.hex,
-                            boxShadow: autoFlash
-                                ? `0 0 20px rgba(${themeConfig.hexRgb}, 0.4)`
-                                : `0 2px 12px rgba(${themeConfig.hexRgb}, 0.12)`,
-                        }}
-                        title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากที่เหมาะสมอัตโนมัติ"
-                    >
-                        <span className="text-sm leading-none group-hover:rotate-12 transition-transform inline-block">🪄</span>
-                        <span>Auto</span>
-                        <span className="text-[8px] leading-none">⭐</span>
-                    </button>
                 </div>
             </div>
 
             {/* Background Grid */}
             <div className="px-3 pb-3">
                 <div className={`grid grid-cols-5 gap-1.5 ${showAll ? '' : 'max-h-[160px] overflow-hidden'}`}>
+                    {/* Auto tile */}
+                    <button
+                        type="button"
+                        onClick={handleAutoSelect}
+                        className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square hover:scale-[1.03] ${
+                            autoFlash
+                                ? 'scale-[1.02] shadow-lg'
+                                : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12]'
+                        }`}
+                        style={autoFlash ? {
+                            borderColor: themeConfig.hex,
+                            background: `linear-gradient(145deg, rgba(${themeConfig.hexRgb}, 0.15), rgba(${themeConfig.hexRgb}, 0.05))`,
+                            boxShadow: `0 4px 16px rgba(${themeConfig.hexRgb}, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)`,
+                        } : {}}
+                        title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากที่เหมาะสมอัตโนมัติ"
+                    >
+                        <span className={`text-[20px] leading-none transition-all duration-200 ${autoFlash ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
+                            🪄
+                        </span>
+                        <span className={`text-[10px] font-medium leading-tight mt-0.5 ${autoFlash ? 'font-bold' : 'text-muted-foreground/60'}`} style={autoFlash ? { color: themeConfig.hex } : {}}>
+                            Auto
+                        </span>
+                        {/* Gold star */}
+                        <div className="absolute -top-1 -right-1 text-[10px] leading-none drop-shadow-sm">⭐</div>
+                    </button>
                     {sceneBackgroundOptions.map((bg) => {
                         const isActive = sceneBackground === bg.value;
                         return (

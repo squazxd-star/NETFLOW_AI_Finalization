@@ -177,24 +177,24 @@ const ProductDataSection = ({
                             <div className="h-px bg-border/50 flex-1" />
                         </div>
 
-                        {/* Product Name — primary field */}
-                        <div>
-                            <label className="text-[10px] text-muted-foreground mb-1 block">ชื่อสินค้า</label>
-                            <input
-                                type="text"
-                                {...register("productName")}
-                                placeholder="ระบุชื่อสินค้า..."
-                                className="w-full neon-input text-xs"
-                            />
-                        </div>
-
-                        {/* Product ID — secondary */}
+                        {/* Product ID — primary */}
                         <div>
                             <label className="text-[10px] text-muted-foreground mb-1 block">รหัสสินค้า (TikTok)</label>
                             <input
                                 type="text"
                                 {...register("productId")}
                                 placeholder="ตัวอย่าง 1729384..."
+                                className="w-full neon-input text-xs"
+                            />
+                        </div>
+
+                        {/* Product Name */}
+                        <div>
+                            <label className="text-[10px] text-muted-foreground mb-1 block">ชื่อสินค้า</label>
+                            <input
+                                type="text"
+                                {...register("productName")}
+                                placeholder="ระบุชื่อสินค้า..."
                                 className="w-full neon-input text-xs"
                             />
                         </div>
