@@ -94,6 +94,81 @@ const ProductDataSection = ({
             {isOpen && (
                 <div className="px-4 pb-4 space-y-3">
 
+                    {/* ─── TikTok Sync (top) ─── */}
+                    <div className="space-y-2.5 p-3 rounded-xl bg-muted/15 border border-border/50">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-3.5 h-3.5 text-neon-red" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                                </svg>
+                                <span className="text-[11px] font-semibold text-foreground/80">ซิงค์สินค้า</span>
+                            </div>
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
+                                syncedProducts.length > 0
+                                    ? 'bg-green-500/15 text-green-400'
+                                    : 'bg-muted/40 text-muted-foreground'
+                            }`}>
+                                {syncedProducts.length > 0 ? `${syncedProducts.length} สินค้า` : "ยังไม่ซิงค์"}
+                            </span>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleSyncProduct}
+                            disabled={isSyncing}
+                            className="w-full py-2.5 rounded-xl font-medium text-white bg-neon-red hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-xs disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                            {isSyncing ? "กำลังซิงค์..." : "ซิงค์สินค้าจาก TikTok Studio"}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => openTikTokStudio()}
+                            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <ExternalLink className="w-3 h-3" />
+                            เปิด TikTok Studio
+                        </button>
+
+                        {/* Synced product dropdown */}
+                        {syncedProducts.length > 0 && (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowProductDropdown(!showProductDropdown)}
+                                    className="w-full flex items-center justify-between py-1.5 px-3 rounded-lg border border-border bg-background/30 text-[11px] text-muted-foreground hover:border-neon-red/30 transition-colors"
+                                >
+                                    <span>สินค้าที่ซิงค์แล้ว ({syncedProducts.length})</span>
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${showProductDropdown ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showProductDropdown && (
+                                    <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
+                                        {syncedProducts.map((p) => (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => handleSelectSyncedProduct(p)}
+                                                className="w-full flex items-center gap-2 p-2 text-xs hover:bg-muted/50 transition-colors"
+                                            >
+                                                {p.imageUrl ? (
+                                                    <img src={p.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
+                                                ) : (
+                                                    <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                                                )}
+                                                <div className="flex-1 min-w-0 text-left">
+                                                    <p className="truncate text-foreground">{p.name}</p>
+                                                    <p className="text-[9px] text-muted-foreground font-mono">{p.id}</p>
+                                                </div>
+                                                {p.price && <span className="text-neon-red text-[10px]">{p.price}</span>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* ─── Category 1: ข้อมูลสินค้า ─── */}
                     <div className="space-y-3 p-3 rounded-xl bg-muted/15 border border-border/50">
                         <div className="flex items-center gap-2 mb-1">
@@ -220,81 +295,6 @@ const ProductDataSection = ({
                         </div>
                     </div>
 
-                    {/* ─── Category 4: TikTok ─── */}
-                    <div className="space-y-2.5 p-3 rounded-xl bg-muted/15 border border-border/50">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-3.5 h-3.5 text-neon-red" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                            </svg>
-                            <span className="text-[11px] font-semibold text-foreground/80">TikTok</span>
-                            <div className="h-px bg-border/50 flex-1" />
-                        </div>
-
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={handleSyncProduct}
-                                disabled={isSyncing}
-                                className="flex-1 py-2 rounded-xl font-medium text-white bg-neon-red hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-[11px] disabled:opacity-50"
-                            >
-                                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                                {isSyncing ? "กำลังซิงค์..." : "ซิงค์สินค้า"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => openTikTokStudio()}
-                                className="py-2 px-3 rounded-xl text-[11px] text-muted-foreground border border-border hover:border-neon-red/30 transition-colors flex items-center gap-1.5"
-                            >
-                                <ExternalLink className="w-3 h-3" />
-                                เปิด TikTok
-                            </button>
-                        </div>
-
-                        {/* Synced product dropdown */}
-                        {syncedProducts.length > 0 && (
-                            <div className="relative">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowProductDropdown(!showProductDropdown)}
-                                    className="w-full flex items-center justify-between py-1.5 px-3 rounded-lg border border-border bg-background/30 text-[11px] text-muted-foreground hover:border-neon-red/30 transition-colors"
-                                >
-                                    <span>สินค้าที่ซิงค์แล้ว ({syncedProducts.length})</span>
-                                    <ChevronDown className={`w-3 h-3 transition-transform ${showProductDropdown ? 'rotate-180' : ''}`} />
-                                </button>
-                                {showProductDropdown && (
-                                    <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
-                                        {syncedProducts.map((p) => (
-                                            <button
-                                                key={p.id}
-                                                type="button"
-                                                onClick={() => handleSelectSyncedProduct(p)}
-                                                className="w-full flex items-center gap-2 p-2 text-xs hover:bg-muted/50 transition-colors"
-                                            >
-                                                {p.imageUrl ? (
-                                                    <img src={p.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
-                                                ) : (
-                                                    <ShoppingBag className="w-4 h-4 text-muted-foreground" />
-                                                )}
-                                                <div className="flex-1 min-w-0 text-left">
-                                                    <p className="truncate text-foreground">{p.name}</p>
-                                                    <p className="text-[9px] text-muted-foreground font-mono">{p.id}</p>
-                                                </div>
-                                                {p.price && <span className="text-neon-red text-[10px]">{p.price}</span>}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Info Note */}
-                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-neon-red/5 border border-neon-red/10">
-                        <Sparkles className="w-3.5 h-3.5 text-neon-red flex-shrink-0" />
-                        <p className="text-[10px] text-muted-foreground">
-                            AI จะวิเคราะห์ข้อมูลสินค้าเพื่อสร้างคลิปโฆษณาได้ตรงจุด
-                        </p>
-                    </div>
                 </div>
             )}
         </section>
