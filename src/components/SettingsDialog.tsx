@@ -254,8 +254,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     {/* ═══════ Section 2: Connection & Sync ═══════ */}
                     <section className="space-y-3">
                         <div className="flex items-center gap-2.5">
-                            <div className="w-6 h-6 rounded-lg bg-blue-500/15 flex items-center justify-center">
-                                <Link2 className="w-3.5 h-3.5 text-blue-400" />
+                            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: `rgba(${themeConfig.hexRgb}, 0.15)` }}>
+                                <Link2 className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                             </div>
                             <h3 className="text-[13px] font-semibold text-white">การเชื่อมต่อและซิงค์</h3>
                         </div>
@@ -277,7 +277,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                 <Switch
                                     checked={tiktokConnected}
                                     onCheckedChange={setTiktokConnected}
-                                    className="data-[state=checked]:bg-neon-red"
+                                    style={{ '--switch-checked-bg': themeConfig.hex } as React.CSSProperties}
+                                    className="data-[state=checked]:!bg-[--switch-checked-bg]"
                                 />
                             </div>
                             <button
@@ -335,8 +336,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     {/* ═══════ Section 3: AI Provider ═══════ */}
                     <section className="space-y-3">
                         <div className="flex items-center gap-2.5">
-                            <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: `rgba(${themeConfig.hexRgb}, 0.15)` }}>
+                                <Sparkles className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                             </div>
                             <h3 className="text-[13px] font-semibold text-white">เลือก AI สำหรับสร้าง Script</h3>
                         </div>
@@ -353,12 +354,17 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                 }}
                                 className={`p-3 rounded-xl border-2 transition-all duration-200 text-center ${
                                     aiProvider === "openai"
-                                        ? "bg-emerald-500/10 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.1)]"
+                                        ? ""
                                         : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]"
                                 }`}
+                                style={aiProvider === "openai" ? {
+                                    background: `rgba(${themeConfig.hexRgb}, 0.1)`,
+                                    borderColor: `rgba(${themeConfig.hexRgb}, 0.5)`,
+                                    boxShadow: `0 0 12px rgba(${themeConfig.hexRgb}, 0.1)`,
+                                } : {}}
                             >
-                                <div className={`text-sm font-bold ${aiProvider === "openai" ? "text-emerald-400" : "text-white/60"}`}>OpenAI</div>
-                                <div className={`text-[10px] mt-0.5 ${aiProvider === "openai" ? "text-emerald-400/60" : "text-white/25"}`}>GPT-4o-mini</div>
+                                <div className={`text-sm font-bold ${aiProvider === "openai" ? "" : "text-white/60"}`} style={aiProvider === "openai" ? { color: themeConfig.hex } : {}}>OpenAI</div>
+                                <div className={`text-[10px] mt-0.5 ${aiProvider === "openai" ? "" : "text-white/25"}`} style={aiProvider === "openai" ? { color: `rgba(${themeConfig.hexRgb}, 0.6)` } : {}}>GPT-4o-mini</div>
                             </button>
                             <button
                                 onClick={() => {
@@ -371,12 +377,17 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                 }}
                                 className={`p-3 rounded-xl border-2 transition-all duration-200 text-center ${
                                     aiProvider === "gemini"
-                                        ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.1)]"
+                                        ? ""
                                         : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]"
                                 }`}
+                                style={aiProvider === "gemini" ? {
+                                    background: `rgba(${themeConfig.hexRgb}, 0.1)`,
+                                    borderColor: `rgba(${themeConfig.hexRgb}, 0.5)`,
+                                    boxShadow: `0 0 12px rgba(${themeConfig.hexRgb}, 0.1)`,
+                                } : {}}
                             >
-                                <div className={`text-sm font-bold ${aiProvider === "gemini" ? "text-blue-400" : "text-white/60"}`}>Gemini</div>
-                                <div className={`text-[10px] mt-0.5 ${aiProvider === "gemini" ? "text-blue-400/60" : "text-white/25"}`}>Gemini 2.0 Flash</div>
+                                <div className={`text-sm font-bold ${aiProvider === "gemini" ? "" : "text-white/60"}`} style={aiProvider === "gemini" ? { color: themeConfig.hex } : {}}>Gemini</div>
+                                <div className={`text-[10px] mt-0.5 ${aiProvider === "gemini" ? "" : "text-white/25"}`} style={aiProvider === "gemini" ? { color: `rgba(${themeConfig.hexRgb}, 0.6)` } : {}}>Gemini 2.0 Flash</div>
                             </button>
                         </div>
                         <p className="text-[9px] text-white/25 text-center">เลือก AI ที่จะใช้สร้าง Script (ต้องใส่ API Key ด้วย)</p>
@@ -387,8 +398,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     {/* ═══════ Section 4: API Keys ═══════ */}
                     <section className="space-y-3">
                         <div className="flex items-center gap-2.5">
-                            <div className="w-6 h-6 rounded-lg bg-purple-500/15 flex items-center justify-center">
-                                <Key className="w-3.5 h-3.5 text-purple-400" />
+                            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: `rgba(${themeConfig.hexRgb}, 0.15)` }}>
+                                <Key className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
                             </div>
                             <h3 className="text-[13px] font-semibold text-white">API Keys (BYOK)</h3>
                         </div>
@@ -406,11 +417,21 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                         disabled={isTesting || !apiKey || isGeminiVerified}
                                         className={`flex items-center gap-1.5 h-7 text-[11px] px-3 rounded-lg font-medium transition-all duration-300 ${
                                             isGeminiVerified
-                                                ? 'bg-green-500/20 text-green-400 border border-green-500/30 scale-105 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                                                ? 'scale-105'
                                                 : apiKey 
-                                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:scale-[1.02] active:scale-95' 
+                                                    ? 'hover:scale-[1.02] active:scale-95' 
                                                     : 'bg-white/5 text-white/20 border border-white/5 cursor-not-allowed'
                                         }`}
+                                        style={isGeminiVerified ? {
+                                            background: `rgba(${themeConfig.hexRgb}, 0.2)`,
+                                            color: themeConfig.hex,
+                                            border: `1px solid rgba(${themeConfig.hexRgb}, 0.3)`,
+                                            boxShadow: `0 0 10px rgba(${themeConfig.hexRgb}, 0.2)`,
+                                        } : apiKey ? {
+                                            background: `rgba(${themeConfig.hexRgb}, 0.1)`,
+                                            color: themeConfig.hex,
+                                            border: `1px solid rgba(${themeConfig.hexRgb}, 0.2)`,
+                                        } : {}}
                                     >
                                         {isTesting ? (
                                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -433,7 +454,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                     className="bg-white/[0.03] border-white/[0.06] text-white text-xs h-7 placeholder:text-white/15"
                                 />
                                 <p className="text-[9px] text-white/25">
-                                    สมัครฟรีที่ <a href="https://aistudio.google.com/" target="_blank" className="underline text-blue-400/70 hover:text-blue-400">aistudio.google.com</a>
+                                    สมัครฟรีที่ <a href="https://aistudio.google.com/" target="_blank" className="underline" style={{ color: `rgba(${themeConfig.hexRgb}, 0.7)` }} onMouseEnter={e => e.currentTarget.style.color = themeConfig.hex} onMouseLeave={e => e.currentTarget.style.color = `rgba(${themeConfig.hexRgb}, 0.7)`}>aistudio.google.com</a>
                                 </p>
                             </div>
 
@@ -449,11 +470,21 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                                         disabled={isTestingOpenAI || !openaiKey || isOpenAIVerified}
                                         className={`flex items-center gap-1.5 h-7 text-[11px] px-3 rounded-lg font-medium transition-all duration-300 ${
                                             isOpenAIVerified
-                                                ? 'bg-green-500/20 text-green-400 border border-green-500/30 scale-105 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                                                ? 'scale-105'
                                                 : openaiKey 
-                                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:scale-[1.02] active:scale-95' 
+                                                    ? 'hover:scale-[1.02] active:scale-95' 
                                                     : 'bg-white/5 text-white/20 border border-white/5 cursor-not-allowed'
                                         }`}
+                                        style={isOpenAIVerified ? {
+                                            background: `rgba(${themeConfig.hexRgb}, 0.2)`,
+                                            color: themeConfig.hex,
+                                            border: `1px solid rgba(${themeConfig.hexRgb}, 0.3)`,
+                                            boxShadow: `0 0 10px rgba(${themeConfig.hexRgb}, 0.2)`,
+                                        } : openaiKey ? {
+                                            background: `rgba(${themeConfig.hexRgb}, 0.1)`,
+                                            color: themeConfig.hex,
+                                            border: `1px solid rgba(${themeConfig.hexRgb}, 0.2)`,
+                                        } : {}}
                                     >
                                         {isTestingOpenAI ? (
                                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -499,7 +530,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         <Switch
                             checked={watermarkEnabled}
                             onCheckedChange={setWatermarkEnabled}
-                            className="data-[state=checked]:bg-neon-red"
+                            style={{ '--switch-checked-bg': themeConfig.hex } as React.CSSProperties}
+                            className="data-[state=checked]:!bg-[--switch-checked-bg]"
                         />
                     </section>
 

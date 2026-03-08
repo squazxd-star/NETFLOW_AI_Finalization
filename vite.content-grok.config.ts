@@ -10,6 +10,7 @@ export default defineConfig({
     build: {
         outDir: "dist",
         emptyOutDir: false,
+        copyPublicDir: false,
         rollupOptions: {
             input: {
                 "content-grok": path.resolve(__dirname, "src/content-grok.ts"),

@@ -384,6 +384,11 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                             <span className="text-[13px] font-bold tracking-tight">{engine.label}</span>
                                             <span className={`text-[9px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{engine.sub}</span>
                                         </div>
+                                        {engine.value === "veo" && (
+                                            <span className={`absolute top-1 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-md ${isActive ? 'text-white/80 bg-white/15' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
+                                                แนะนำ
+                                            </span>
+                                        )}
                                         {isActive && (
                                             <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 animate-pulse" />
                                         )}
@@ -435,6 +440,11 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                         >
                                             <opt.Icon className="w-3.5 h-3.5" />
                                             {opt.label}
+                                            {opt.value === "vertical" && (
+                                                <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${isActive ? 'text-white/80 bg-white/15' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
+                                                    แนะนำ
+                                                </span>
+                                            )}
                                         </button>
                                     );
                                 })}
@@ -498,6 +508,11 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                                 <span>{opt.label}</span>
                                                 <span className={`text-[8px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{opt.sub}</span>
                                             </div>
+                                            {opt.value === "quality" && (
+                                                <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${isActive ? 'text-white/80 bg-white/15' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
+                                                    แนะนำ
+                                                </span>
+                                            )}
                                         </button>
                                     );
                                 })}

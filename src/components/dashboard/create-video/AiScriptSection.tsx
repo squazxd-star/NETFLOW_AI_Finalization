@@ -62,6 +62,9 @@ const AiScriptSection = ({
                         >
                             <Stars className="w-4 h-4" />
                             AI สร้างอัตโนมัติ
+                            <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${useAiScript ? 'text-white/80 bg-white/15' : ''}`} style={!useAiScript ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
+                                แนะนำ
+                            </span>
                         </button>
                         <button
                             type="button"
@@ -243,6 +246,11 @@ const AiScriptSection = ({
                                         <span className={`text-[10px] font-medium leading-tight ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                                             {bg.label}
                                         </span>
+                                        {bg.value === "studio" && (
+                                            <span className={`text-[7px] font-bold px-1 py-0.5 rounded ${isActive ? 'text-primary bg-primary/15' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
+                                                แนะนำ
+                                            </span>
+                                        )}
                                         {isActive && (
                                             <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary flex items-center justify-center">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-white" />

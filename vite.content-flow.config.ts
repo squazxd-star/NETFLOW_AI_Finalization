@@ -10,6 +10,7 @@ export default defineConfig({
     build: {
         outDir: "dist",
         emptyOutDir: false,
+        copyPublicDir: false,
         rollupOptions: {
             input: {
                 "content-flow": path.resolve(__dirname, "src/content-flow.ts"),

@@ -6,6 +6,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getApiKey } from "./storageService";
 import { TemplateOption } from "@/types/netflow";
+import { ProductCategory, CATEGORY_ENVIRONMENTS } from "@/data/categoryEnvironments";
 
 // Template descriptions for prompt building
 const TEMPLATE_CONFIGS: Record<TemplateOption, { thaiName: string; englishName: string; style: string; focus: string }> = {
@@ -168,7 +169,7 @@ const ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> =
 
 // Part 1: Product Highlight — Technical Layers: [Material/Texture] + [Surface Detail] + [Lighting Response]
 // Uses studio-grade descriptors so AI renders product with maximum physical accuracy
-const PRODUCT_HIGHLIGHT: Record<ProductCategory, string> = {
+const PRODUCT_HIGHLIGHT: Partial<Record<ProductCategory, string>> = {
     food: "appetizing presentation with visible micro-texture, natural steam wisps, vibrant saturated food colors under warm three-point lighting, fresh ingredients with visible moisture droplets, macro-level surface detail",
     beverage: "condensation droplets on polished glass surface, rich translucent liquid color with caustics light refraction, visible pour dynamics or carbonation fizz, crisp rim lighting on glass edges, reflective surface highlights",
     fashion: "premium woven fabric texture with visible thread count, clean precision stitching, natural gravity-driven draping, soft directional lighting revealing fabric weave pattern, matte or satin material finish",
@@ -728,241 +729,10 @@ const USER_BACKGROUND_MAPPING: Record<string, string[]> = {
 // When template doesn't match product type, use category-appropriate setting
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Category-specific environments — 10 randomized variations per category
-const CATEGORY_ENVIRONMENTS: Record<ProductCategory, string[]> = {
-    food: [
-        "warm wooden kitchen counter, cozy home cooking atmosphere, copper pots hanging in background",
-        "trendy café counter with espresso machine, soft ambient café lighting, rustic brick wall",
-        "elegant restaurant table setting, white tablecloth, candlelight ambiance, fine dining backdrop",
-        "outdoor garden picnic setup, natural sunlight through trees, wicker basket and greenery",
-        "modern food truck window, vibrant street food scene, colorful awning overhead",
-        "traditional Thai kitchen, wok station with steam rising, warm terracotta tiles",
-        "minimalist Japanese izakaya counter, warm lantern glow, clean wooden bar top",
-        "bright breakfast nook by a window, morning sunlight streaming in, fresh flowers on table",
-        "night market stall, warm string lights overhead, bustling street food atmosphere",
-        "rooftop dining terrace, city skyline at golden hour, elegant outdoor table setting"
-    ],
-    beverage: [
-        "trendy café counter with espresso machine, latte art visible, rustic wood surface",
-        "rooftop bar terrace at sunset, city skyline backdrop, elegant cocktail setting",
-        "bright juice bar with colorful fruit display, clean white counter, fresh tropical vibe",
-        "cozy living room coffee table, morning light streaming in, warm homey atmosphere",
-        "outdoor garden tea setup, bamboo tray, natural greenery, serene afternoon light",
-        "modern bubble tea shop interior, neon signs, pastel décor, youthful energy",
-        "luxury hotel lounge, marble table, ambient warm lighting, premium drink setting",
-        "night market drink stall, warm string lights, bustling street atmosphere",
-        "minimalist Japanese tea room, tatami mat, wooden low table, zen calm",
-        "beach bar counter, ocean view, sunset glow, tropical vacation vibe"
-    ],
-    beauty: [
-        "elegant vanity counter with round mirror, soft ring-light glow, marble surface",
-        "luxury bathroom counter, white marble with gold fixtures, spa-like atmosphere",
-        "professional beauty salon station, well-lit mirror, sleek modern décor",
-        "minimalist Scandinavian dresser, natural wood, soft diffused window light",
-        "pink-toned boudoir setup, velvet textures, soft glamorous lighting",
-        "clean white studio with floating shelves, premium product display, editorial feel",
-        "chic boutique vanity, art deco mirror, warm rose-gold accents",
-        "tropical spa setting, bamboo accents, natural stone surface, zen atmosphere",
-        "modern Korean-style beauty room, pastel tones, neon accent light, clean aesthetic",
-        "luxury hotel bathroom, large backlit mirror, premium amenities, warm ambient light"
-    ],
-    gadget: [
-        "modern tech workspace with dual monitors, clean cable management, dark desk surface",
-        "minimalist white desk setup, single plant accent, soft overhead LED panel",
-        "gaming setup with RGB accent lighting, dark room, neon glow on product",
-        "sleek coffee shop table, laptop lifestyle scene, natural window light",
-        "industrial loft workspace, exposed brick, Edison bulb hanging, rustic-modern desk",
-        "clean home office with bookshelf background, warm desk lamp, organized setup",
-        "futuristic dark studio with blue LED strips, tech-forward atmosphere, matte surfaces",
-        "co-working space with modern furniture, bright open layout, professional vibe",
-        "bedside nightstand setup, cozy bedroom tech scene, soft warm lamp light",
-        "outdoor urban bench, city street background, casual tech lifestyle setting"
-    ],
-    fashion: [
-        "trendy urban street with graffiti wall, natural daylight, street-style setting",
-        "clean white photography studio, seamless backdrop, professional fashion shoot feel",
-        "modern boutique interior, clothing racks in background, warm spotlight",
-        "rooftop terrace with city view, golden hour light, stylish outdoor setting",
-        "vintage café storefront, European aesthetic, cobblestone sidewalk, warm tones",
-        "modern loft apartment, floor-to-ceiling windows, industrial-chic interior",
-        "botanical garden pathway, lush greenery backdrop, natural soft light",
-        "shopping district walkway, glass storefronts, vibrant urban energy",
-        "beach boardwalk, ocean horizon, natural wind and sunlight, casual resort vibe",
-        "art gallery interior, white walls with abstract art, sophisticated minimal space"
-    ],
-    supplement: [
-        "modern gym interior, dumbbells and weight racks in background, people exercising in the distance, bright motivational lighting, athletic atmosphere",
-        "gym floor with squat rack and bench press, fit people training in background, energetic sporty atmosphere, high-energy environment",
-        "professional fitness center, treadmills and exercise machines visible, athletic people working out behind, clean modern gym lighting",
-        "CrossFit-style gym, barbell plates and kettlebells, people doing exercises in background, raw industrial fitness energy",
-        "gym locker room bench, post-workout scene with gym equipment visible in background, energetic sporty atmosphere",
-        "modern supplement store inside gym, protein shelf display, gym-goers in background, fitness-forward environment",
-        "outdoor calisthenics park, pull-up bars and workout stations, athletic people exercising, bright natural sunlight",
-        "boxing gym with heavy bags, fit people sparring in background, intense focused atmosphere, motivational energy"
-    ],
-    pet: [
-        "cozy living room floor with pet bed, warm ambient light, homey atmosphere",
-        "bright outdoor park with green grass, natural sunlight, playful open space",
-        "modern pet shop interior, colorful shelves, cheerful clean display",
-        "home backyard with garden, fence in background, comfortable pet-friendly space",
-        "veterinary clinic lobby, clean bright waiting area, trustworthy professional setting",
-        "sunny apartment balcony with pet toys, urban pet lifestyle, natural daylight"
-    ],
-    baby: [
-        "soft pastel nursery room, crib in background, gentle diffused window light",
-        "bright playroom with colorful mats, safe rounded furniture, cheerful atmosphere",
-        "cozy bedroom with plush toys, warm lamp glow, nurturing calm environment",
-        "modern baby store display, organized clean shelves, professional retail setting",
-        "outdoor park picnic blanket, gentle sunlight, family-friendly greenery backdrop",
-        "clean white studio with soft pastel props, baby-safe minimalist setting"
-    ],
-    home: [
-        "modern living room with neutral décor, large windows, warm ambient afternoon light",
-        "Scandinavian-style apartment, light wood floors, white walls, clean airy feel",
-        "cozy bedroom with soft bedding, warm reading lamp, relaxing evening atmosphere",
-        "bright open-plan kitchen and living area, natural daylight flooding in",
-        "elegant dining room with centerpiece, warm chandelier glow, family gathering feel",
-        "minimalist home office corner, organized shelf, productive comfortable space",
-        "outdoor patio with potted plants, sunset glow, relaxed homey terrace",
-        "modern bathroom with fresh towels, clean tiles, spa-like comfort"
-    ],
-    kitchen: [
-        "bright modern kitchen with island counter, stainless steel appliances, warm overhead light",
-        "rustic farmhouse kitchen, wooden cutting board, copper pots, cozy cooking atmosphere",
-        "professional chef kitchen, commercial equipment, clean steel surfaces, restaurant quality",
-        "outdoor BBQ station, grill with smoke rising, backyard party setting",
-        "compact apartment kitchen, organized utensils, efficient cozy cooking space",
-        "open kitchen with bar stools, social cooking scene, warm family atmosphere",
-        "Thai home kitchen with wok station, fresh herbs, traditional cooking ambiance"
-    ],
-    fitness: [
-        "modern gym floor with dumbbells and weight machines, fit people exercising in background, bright overhead lighting, motivational athletic space",
-        "professional fitness center, squat rack and bench press area, athletic people training in background, energetic gym atmosphere",
-        "CrossFit box gym, raw concrete walls, barbell plates visible, people doing WOD in background, industrial fitness energy",
-        "boxing gym with heavy bags, fit people sparring in background, intense focused atmosphere, motivational energy",
-        "outdoor running track with athletes, morning sunlight, sporty competitive atmosphere",
-        "gym free-weight area, mirror wall, muscular people lifting in background, high-energy fitness environment"
-    ],
-    auto: [
-        "clean garage workshop, organized tools on wall, professional automotive setting",
-        "outdoor parking lot with car, city background, urban driving lifestyle",
-        "showroom floor, polished concrete, dramatic spotlights on vehicle",
-        "roadside scenic overlook, mountain or coastal view, adventure driving mood",
-        "modern car interior dashboard view, clean leather seats, premium cabin feel",
-        "gas station or car wash, practical everyday automotive scene"
-    ],
-    jewelry: [
-        "dark velvet display surface, single spotlight, luxury showcase atmosphere",
-        "elegant vanity mirror setup, soft warm lighting, feminine luxury feel",
-        "modern jewelry store counter, glass display case, premium retail setting",
-        "white marble surface with fresh flowers, bright natural light, editorial elegance",
-        "romantic candlelit dinner table, soft bokeh lights, special occasion mood",
-        "minimalist dark studio, dramatic single light source, high-end product photography"
-    ],
-    watch: [
-        "dark leather desk surface, vintage map in background, masculine sophisticated feel",
-        "modern executive office desk, clean surface, professional luxury atmosphere",
-        "watch display stand on marble, dramatic side lighting, horological showcase",
-        "outdoor urban setting, wrist visible with cityscape, lifestyle luxury feel",
-        "minimalist dark studio, single spotlight, premium product photography mood",
-        "luxury car interior, steering wheel visible, premium lifestyle integration"
-    ],
-    bag: [
-        "trendy urban street corner, natural daylight, fashion-forward city backdrop",
-        "modern boutique interior, clean shelving display, warm retail spotlight",
-        "airport lounge, travel lifestyle setting, sophisticated professional atmosphere",
-        "outdoor café terrace, European aesthetic, casual chic lifestyle scene",
-        "clean white fashion studio, seamless backdrop, editorial product showcase",
-        "office reception area, modern furniture, professional daily-use setting"
-    ],
-    shoe: [
-        "clean concrete sidewalk, urban street-level angle, natural daylight",
-        "modern shoe store display, organized rack, clean retail spotlighting",
-        "outdoor running trail, natural scenery, active sporty atmosphere",
-        "trendy urban staircase, graffiti wall, street-style fashion backdrop",
-        "gym floor with exercise equipment, sporty energetic environment",
-        "clean white studio, seamless backdrop, professional shoe photography"
-    ],
-    book: [
-        "cozy reading nook with bookshelves, warm lamp light, intellectual atmosphere",
-        "trendy café table with coffee cup, soft afternoon light, relaxed reading scene",
-        "modern library interior, organized shelves, quiet studious ambiance",
-        "outdoor park bench under a tree, natural dappled sunlight, peaceful reading",
-        "minimalist desk with notebook, clean workspace, productive study mood",
-        "bookstore interior, stacked shelves, warm inviting literary atmosphere"
-    ],
-    toy: [
-        "bright colorful playroom, soft foam floor, cheerful kid-friendly setting",
-        "living room floor with play mat, natural daylight, family home atmosphere",
-        "outdoor playground, green grass, sunny day, fun energetic backdrop",
-        "modern toy store shelf, organized colorful display, retail excitement",
-        "bedroom floor with pillows, warm cozy light, imaginative play setting",
-        "birthday party table setup, balloons and decorations, festive joyful scene"
-    ],
-    stationery: [
-        "clean minimalist desk, organized supplies, soft natural window light",
-        "trendy café table, notebook open, creative aesthetic workspace",
-        "modern office desk with laptop, professional organized setting",
-        "art studio worktable, creative tools around, warm inspirational atmosphere",
-        "home study desk with bookshelf, focused productive environment",
-        "bullet journal flat-lay surface, aesthetic arrangement, natural overhead light"
-    ],
-    cleaning: [
-        "bright modern kitchen counter, clean sparkling surface, fresh hygienic feel",
-        "bathroom with white tiles, organized cleaning supplies, spotless professional look",
-        "laundry room with washing machine, organized detergents, practical home setting",
-        "living room being cleaned, before-after contrast visible, real home environment",
-        "commercial office space, professional cleaning scene, corporate hygiene standard",
-        "outdoor deck or patio, power washing scene, satisfying clean transformation"
-    ],
-    outdoor: [
-        "mountain trail overlook, panoramic nature view, golden hour adventure light",
-        "lakeside campsite, tent and campfire, serene wilderness atmosphere",
-        "beach with surfboard, ocean waves, tropical outdoor lifestyle",
-        "forest hiking path, tall trees, dappled natural sunlight, adventure mood",
-        "riverside picnic spot, kayak visible, fresh air outdoor recreation",
-        "rooftop camping setup, city skyline, urban outdoor adventure blend"
-    ],
-    health: [
-        "clean medical office, white surfaces, professional trustworthy atmosphere",
-        "bright pharmacy counter, organized health products, clinical retail setting",
-        "home bathroom medicine cabinet, clean organized wellness space",
-        "modern wellness center lobby, calm zen décor, health-forward environment",
-        "yoga or meditation studio, natural light, holistic health atmosphere",
-        "hospital or clinic corridor, clean professional medical setting"
-    ],
-    craft: [
-        "rustic wooden workshop table, hand tools visible, artisan creative atmosphere",
-        "bright craft studio with supplies, natural window light, inspirational workspace",
-        "outdoor art fair booth, handmade displays, colorful creative market",
-        "home crafting corner, organized materials, cozy DIY environment",
-        "pottery studio with wheel, clay textures, earthy creative ambiance",
-        "sewing room with fabric rolls, vintage machine, warm artisan feel"
-    ],
-    digital: [
-        "modern co-working space, multiple screens, tech-forward professional setting",
-        "home office with ultrawide monitor, clean desk setup, focused digital workspace",
-        "trendy startup office, whiteboard in background, innovative creative vibe",
-        "café laptop lifestyle scene, natural window light, digital nomad atmosphere",
-        "gaming room with RGB lighting, dark ambient, tech entertainment setting",
-        "library study room with tablet, quiet focused digital learning environment"
-    ],
-    other: [
-        "clean white studio with soft gradient background, professional product showcase",
-        "modern living room with neutral décor, warm ambient lighting, lifestyle feel",
-        "outdoor patio with potted plants, natural sunlight, relaxed homey atmosphere",
-        "minimalist concrete surface, dark moody studio, dramatic single spotlight",
-        "bright airy workspace with large windows, natural light flooding in",
-        "cozy reading nook with bookshelves, warm lamp light, inviting atmosphere",
-        "urban rooftop setting, city skyline backdrop, golden hour warmth",
-        "Scandinavian-style room, light wood, white walls, clean modern aesthetic",
-        "professional conference-style setting, sleek table, corporate modern look",
-        "night scene with warm string lights, outdoor terrace, ambient evening glow"
-    ]
-};
+// CATEGORY_ENVIRONMENTS now imported from @/data/categoryEnvironments (100 categories × 80 variations)
 
 // Category-specific lighting enhancement — supplements tone-based lighting
-const CATEGORY_LIGHTING: Record<ProductCategory, string> = {
+const CATEGORY_LIGHTING: Partial<Record<ProductCategory, string>> = {
     food: "warm golden lighting, appetizing warm tones, soft overhead light simulating restaurant ambiance, food looks delicious under this light",
     beverage: "cool refreshing lighting with warm accent, condensation-highlighting backlight, crisp clean illumination, thirst-inducing glow",
     fashion: "fashion editorial lighting, directional key light with soft fill, fabric texture revealing light, stylish shadow play",
@@ -991,7 +761,7 @@ const CATEGORY_LIGHTING: Record<ProductCategory, string> = {
 };
 
 // Templates that naturally match each category (no override needed)
-const TEMPLATE_CATEGORY_MATCH: Record<ProductCategory, string[]> = {
+const TEMPLATE_CATEGORY_MATCH: Partial<Record<ProductCategory, string[]>> = {
     food: ["food-review"],
     beverage: ["food-review"],
     fashion: ["fashion-review"],
@@ -1064,7 +834,7 @@ const getSmartLighting = (
 ): string => {
     if (aiLighting) return aiLighting;
     const toneLighting = LIGHTING_BY_TONE[voiceTone] || LIGHTING_BY_TONE["friendly"];
-    const categoryLighting = CATEGORY_LIGHTING[category];
+    const categoryLighting = CATEGORY_LIGHTING[category] || CATEGORY_LIGHTING["other"] || "balanced professional studio lighting, clean even illumination";
     return `${toneLighting}. ${categoryLighting}`;
 };
 
@@ -1353,7 +1123,7 @@ const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, look
 // to study from the reference image and preserve with 100% fidelity.
 // Without this, AI guesses/imagines product details and gets them wrong.
 // ═══════════════════════════════════════════════════════════════════════════
-const CATEGORY_PRODUCT_ANATOMY: Record<ProductCategory, string> = {
+const CATEGORY_PRODUCT_ANATOMY: Partial<Record<ProductCategory, string>> = {
     beauty: "STUDY REFERENCE: exact bottle silhouette (round/angular/curved), cap/closure distinctive shape (faceted/smooth/dome/sculpted — preserve every geometric facet and angle), liquid color visible through glass (exact hue and saturation), bottle transparency/frosted level, nozzle or spray mechanism shape, any decorative sculpted elements on bottle or cap, metallic ring or collar details, branding placement and embossing style",
     beverage: "STUDY REFERENCE: exact bottle/can silhouette and proportions, cap/tab design and color, liquid color and opacity level visible through container, packaging wrap layout and color bands, bottle neck shape, grip texture or ridges, carbonation bubble density if visible",
     food: "STUDY REFERENCE: exact packaging shape and dimensions, seal/opening mechanism, color bands and stripe patterns on packaging, window cutouts showing product inside, logo placement and size, any embossed or raised lettering, texture of packaging material (matte/glossy/foil)",
@@ -1383,7 +1153,7 @@ const CATEGORY_PRODUCT_ANATOMY: Record<ProductCategory, string> = {
 
 // Build product anatomy directive dynamically based on category
 const buildProductAnatomyDirective = (category: ProductCategory, productName: string): string => {
-    const anatomy = CATEGORY_PRODUCT_ANATOMY[category];
+    const anatomy = CATEGORY_PRODUCT_ANATOMY[category] || CATEGORY_PRODUCT_ANATOMY["other"] || "STUDY REFERENCE: exact product shape, dimensions, material, color, logo placement, distinctive design elements";
     return `PRODUCT ANATOMY CHECKLIST for "${productName}": ${anatomy}. Preserve EVERY distinctive design element exactly as shown in the reference image — do NOT simplify, do NOT reimagine, do NOT substitute with generic shapes. If the reference shows a unique cap shape, that EXACT cap shape must appear. If it shows a specific liquid color, that EXACT color must render.`;
 };
 
@@ -1399,7 +1169,7 @@ const ANTI_TEXT_DIRECTIVE = "CRITICAL NO TEXT DIRECTIVE: Absolutely NO subtitles
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Per-category: HOW presenter holds/touches the product (anatomical constraints)
-const PRODUCT_GRIP_CONTACT: Record<ProductCategory, string> = {
+const PRODUCT_GRIP_CONTACT: Partial<Record<ProductCategory, string>> = {
     food: "Anatomically correct hands, exactly five fingers per hand. Natural food handling: fingers wrapped around cup handle or gripping food firmly. For utensils: proper grip on handle. No extra fingers.",
     beverage: "Anatomically correct hands, exactly five fingers per hand. Natural drink grip: fingers wrapped around glass or cup with visible contact. For bottles: palm grip with thumb on cap. No extra fingers.",
     fashion: "Anatomically correct hands, exactly five fingers per hand. Product display grip: hands smoothing fabric or adjusting fit with simple movements. No distorted joints.",
@@ -1428,7 +1198,7 @@ const PRODUCT_GRIP_CONTACT: Record<ProductCategory, string> = {
 };
 
 // Per-category: PHYSICS, shadows, gravity, contact points
-const PRODUCT_PHYSICS_SHADOW: Record<ProductCategory, string> = {
+const PRODUCT_PHYSICS_SHADOW: Partial<Record<ProductCategory, string>> = {
     food: "Realistic gravity. Food grounded on surface with contact shadows. Steam rises upward. No floating ingredients. Ambient occlusion at table contact.",
     beverage: "Realistic gravity. Liquid stays in container. Condensation follows gravity. Glass sits firmly with contact shadow. No floating cups or bottles.",
     fashion: "Realistic gravity. Fabric drapes naturally with weight. Clothing follows body contours. Contact shadows where items touch body. Ambient occlusion.",
@@ -1461,18 +1231,136 @@ const ANTI_FLOATING_HANDS = "HAND REALISM: Product already held naturally from s
 
 /** Build category-specific contact + physics directive (full — for image prompts) */
 const buildContactPhysicsDirective = (category: ProductCategory): string => {
-    return `${PRODUCT_GRIP_CONTACT[category]} ${PRODUCT_PHYSICS_SHADOW[category]} ${ANTI_FLOATING_HANDS}`;
+    return `${PRODUCT_GRIP_CONTACT[category] || PRODUCT_GRIP_CONTACT["other"]} ${PRODUCT_PHYSICS_SHADOW[category] || PRODUCT_PHYSICS_SHADOW["other"]} ${ANTI_FLOATING_HANDS}`;
 };
 
 // Per-category REALISTIC USAGE STEPS — prevents illogical actions (e.g. spraying perfume with cap still on)
 const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
+    // ── Food & Beverage (10) ──
+    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Tear open bag, peel lid, or remove wrapper first. Show realistic preparation steps: wash, cut, cook in order. Plated food should be served with appropriate utensils.",
+    beverage: "REALISTIC USAGE: If bottle/can has a cap or tab, it MUST be opened BEFORE drinking or pouring. Twist cap off or pull tab first. Pour into glass at natural angle. Never drink through a sealed container.",
+    snack: "REALISTIC USAGE: Tear open snack bag or peel back wrapper BEFORE eating. Show reaching into bag and picking up piece. Bite-size items held between fingers naturally. Never eat through sealed packaging.",
+    bakery: "REALISTIC USAGE: Open bakery box or remove from bag BEFORE displaying or eating. If wrapped, unwrap first. Break bread naturally with hands or slice with knife. Show fresh texture and interior crumb.",
+    coffee: "REALISTIC USAGE: For beans — grind first, then brew. For instant — tear sachet, pour into cup, add hot water, stir. For bottled — twist cap off first. Show steam rising from hot coffee. Never pour without opening container.",
+    tea: "REALISTIC USAGE: Tear open tea sachet, place tea bag in cup, pour hot water over tea bag, steep and wait. For loose leaf — measure leaves into infuser, pour hot water. Show color developing in water. Remove tea bag before drinking.",
+    alcohol: "REALISTIC USAGE: Remove cork with corkscrew or twist off bottle cap BEFORE pouring. Pour at controlled angle into appropriate glass. Show liquid at realistic level. For cocktails — mix ingredients in correct order. Must appear age-appropriate setting.",
+    organic: "REALISTIC USAGE: Open eco-friendly packaging carefully — unfold paper bag, remove from compostable wrap. Wash fresh produce under water first. Show natural, unprocessed preparation steps. Display certification labels visible on packaging.",
+    "frozen-food": "REALISTIC USAGE: Remove from freezer packaging first. If needs thawing — show defrost step or microwave. If cook-from-frozen — place directly in pan/oven. Show temperature change (frost melting, steam rising). Never serve still frozen unless meant to be.",
+    condiment: "REALISTIC USAGE: Remove cap or flip lid open BEFORE squeezing/pouring. For jars — unscrew lid and use spoon to scoop. Shake bottle if needed before dispensing. Apply on food in controlled amount. Replace cap after use.",
+
+    // ── Beauty & Personal Care (10) ──
     beauty: "REALISTIC USAGE: If product has a cap/lid, it MUST be removed or opened BEFORE applying/spraying. Perfume: remove decorative cap first, then press nozzle. Cream/lotion: twist open lid first. Never spray or apply through a closed cap.",
-    beverage: "REALISTIC USAGE: If bottle/can has a cap or tab, it MUST be opened BEFORE drinking or pouring. Twist cap off or pull tab first. Never drink through a sealed container.",
-    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Show realistic preparation steps.",
-    supplement: "REALISTIC USAGE: Open bottle cap or tear sachet BEFORE taking capsules/tablets. Never swallow through closed packaging.",
-    cleaning: "REALISTIC USAGE: Remove safety cap or flip nozzle open BEFORE spraying or pouring cleaning product.",
-    gadget: "REALISTIC USAGE: If device is boxed, unbox first. If it has a power button, press it to turn on. Show logical step-by-step device usage.",
-    kitchen: "REALISTIC USAGE: Show logical cooking steps — prep ingredients before cooking, use utensils in correct order.",
+    skincare: "REALISTIC USAGE: Remove cap or pump lid BEFORE dispensing. Squeeze tube from bottom or press pump 1-2 times. Apply small amount to fingertips first, then spread on skin in gentle upward motions. Show clean face before application.",
+    makeup: "REALISTIC USAGE: Remove cap from lipstick/mascara first, twist up product if needed. Open compact/palette before using brush. Dip brush or applicator, tap off excess, then apply to face. Show mirror reflection for realism.",
+    haircare: "REALISTIC USAGE: Open shampoo/conditioner cap or flip lid BEFORE squeezing. Pour into palm first, then work into hair. For spray — remove cap and press nozzle aimed at hair. Show wet or damp hair for shampoo, dry hair for styling products.",
+    fragrance: "REALISTIC USAGE: Remove decorative cap from perfume bottle BEFORE spraying. Hold bottle 15-20cm from skin. Press nozzle with index finger for single spray. Target pulse points (wrist, neck). Never spray with cap still on.",
+    sunscreen: "REALISTIC USAGE: Flip cap open or remove lid BEFORE squeezing. Squeeze onto fingertips or palm first. Apply in dots on face/body, then spread evenly. Show outdoor/sunny setting for context. Apply BEFORE sun exposure.",
+    nail: "REALISTIC USAGE: Unscrew nail polish cap by twisting. Wipe excess on bottle rim. Apply in thin strokes from base to tip of nail. Show steady hand technique. For nail tools — remove from packaging first. Let layers dry between coats.",
+    soap: "REALISTIC USAGE: For bar soap — unwrap packaging first, wet hands and bar, lather between palms. For liquid soap — press pump to dispense onto wet hands. For body wash — squeeze onto loofah or palm. Show water and foam/lather.",
+    dental: "REALISTIC USAGE: Remove cap from toothpaste, squeeze onto bristles of toothbrush. For mouthwash — unscrew cap, pour measured amount into cap or cup. For floss — pull out strand, wrap around fingers. Show proper brushing/flossing technique.",
+    barbershop: "REALISTIC USAGE: For clippers — attach guard first, turn on with switch. For razor — remove cap, apply shaving cream first then shave in direction of growth. For styling products — open jar/tube, scoop with fingers, work through hair.",
+
+    // ── Health & Wellness (10) ──
+    health: "REALISTIC USAGE: For thermometer — turn on, place sensor correctly. For blood pressure monitor — wrap cuff on arm first, press start. For test kit — open sealed pouch, follow step-by-step instructions. Show clear display reading.",
+    supplement: "REALISTIC USAGE: Open bottle cap or tear sachet BEFORE taking capsules/tablets. Pour capsules into palm or shake out single dose. Take with water — show glass of water and swallowing motion. Never swallow through closed packaging.",
+    vitamin: "REALISTIC USAGE: Twist open childproof cap (press down and turn). Shake out correct dosage into palm. For gummy vitamins — pick one from bottle. For effervescent — drop tablet in water glass, wait for dissolve, then drink.",
+    protein: "REALISTIC USAGE: Open tub lid, use included scoop to measure powder. Pour scoop into shaker bottle with water/milk. Close shaker lid securely, shake vigorously 10-15 seconds. Open flip-top and drink. Show mixing action.",
+    "weight-loss": "REALISTIC USAGE: For meal replacement — open sachet, pour into shaker with liquid, shake well. For capsules — open bottle, take with water. For patches — peel backing off, apply to clean skin. Show before/after lifestyle context.",
+    massage: "REALISTIC USAGE: For massage oil — uncap bottle, pour into palm to warm. For massage tool — grip handle properly, apply to muscle area with rolling/pressing motion. For hot pack — heat in microwave first, then apply to body.",
+    "essential-oil": "REALISTIC USAGE: Remove dropper cap from bottle. Hold bottle at angle, squeeze dropper to fill. Add 2-3 drops to diffuser water tank. For topical — dilute with carrier oil first, never apply undiluted directly on skin. Turn diffuser on.",
+    elderly: "REALISTIC USAGE: Show easy-to-open packaging (large tabs, simple twist caps). Demonstrate with steady, unhurried movements. For mobility aids — adjust to correct height first, demonstrate proper grip and posture. Show clear labels and large print.",
+    medicine: "REALISTIC USAGE: Check label first, remove childproof cap (press and twist). For liquid — use measuring cup/spoon for exact dosage. For tablets — push through blister pack. For topical — open tube, apply to affected area. Follow dosage instructions visible.",
+    "mental-health": "REALISTIC USAGE: For journals — open to blank page, begin writing with pen. For meditation tools — find comfortable seated position, press play on app/device. For aromatherapy — set up diffuser, add drops. Show calm, intentional usage in quiet setting.",
+
+    // ── Fashion & Accessories (10) ──
+    fashion: "REALISTIC USAGE: Remove tags and packaging before wearing. For clothing — put on naturally (pull over head, button up, zip). Show adjusting fit, checking in mirror. For layering — put base layer first, then outer layer.",
+    underwear: "REALISTIC USAGE: Remove from packaging. Show holding up item to display fit and fabric quality. For review — show material close-up, elasticity, and tag with size info. Keep presentation tasteful and non-explicit.",
+    swimwear: "REALISTIC USAGE: Remove tags first. Show putting on over body naturally. Demonstrate stretch and fit. Show in appropriate pool/beach setting. For review — display fabric quality, lining, and strap adjustability.",
+    sportswear: "REALISTIC USAGE: Remove tags and fold-out packaging. Put on athletic wear naturally. Show freedom of movement — stretching, squatting, running in place. Demonstrate moisture-wicking or ventilation features through active movement.",
+    jewelry: "REALISTIC USAGE: Open jewelry box or pouch first. For necklace — unclasp, place around neck, secure clasp at back. For ring — slide onto finger. For earrings — open back/hook, insert through ear. Show sparkle catching light.",
+    watch: "REALISTIC USAGE: Remove from box/case first. Open clasp or buckle, place on wrist, fasten securely. Adjust strap if needed. Show checking time naturally. For smart watch — press crown/button to wake display, swipe screen.",
+    bag: "REALISTIC USAGE: Open zipper or unfasten clasp to show interior. Demonstrate putting items inside (phone, wallet, keys). Show carrying naturally — on shoulder, crossbody, or by handle. Open/close compartments to show organization.",
+    shoe: "REALISTIC USAGE: Remove from box, take out stuffing paper. Loosen laces or open strap BEFORE putting on foot. Slide foot in, then lace up or fasten. Show walking naturally to demonstrate comfort and fit.",
+    sunglasses: "REALISTIC USAGE: Remove from case first. Unfold temples (arms) before putting on. Place on face with both hands, adjust on nose bridge. Show UV protection in bright sunlight setting. Fold and return to case when done.",
+    hat: "REALISTIC USAGE: Remove from packaging or shelf. Place on head naturally, adjust brim angle or strap. For fitted caps — pull down snugly. For adjustable — show snap-back or strap adjustment. Check fit in mirror.",
+
+    // ── Tech & Gadgets (10) ──
+    gadget: "REALISTIC USAGE: If device is boxed, unbox first. If it has a power button, press it to turn on. Wait for boot-up screen. Show logical step-by-step device usage and feature demonstration.",
+    phone: "REALISTIC USAGE: Unbox and remove protective film first. Press power button to turn on. Complete basic setup if new. Show natural one-handed grip, thumb scrolling, taking photo with camera. Demonstrate specific features.",
+    laptop: "REALISTIC USAGE: Open lid to reveal screen. Press power button. Wait for boot screen. Show typing on keyboard naturally with correct finger placement. Demonstrate trackpad gestures. Show screen content clearly.",
+    tablet: "REALISTIC USAGE: Press power button or home button to wake. Unlock screen with swipe or face ID. Hold with one hand at edge or place on stand. Use stylus or finger to interact with screen. Show drawing/browsing naturally.",
+    camera: "REALISTIC USAGE: Remove lens cap BEFORE shooting. Power on camera. Look through viewfinder or at LCD screen. Half-press shutter to focus, then full-press to capture. For lens change — power off, press release button, twist to remove, mount new lens.",
+    audio: "REALISTIC USAGE: Open charging case for earbuds, remove earbuds and place in ears. For headphones — extend headband, place over ears. For speakers — press power button, pair via Bluetooth. Show volume adjustment and playback controls.",
+    gaming: "REALISTIC USAGE: Connect controller or power on console first. Hold controller with proper two-hand grip — thumbs on sticks, fingers on triggers. Show screen with gameplay. For keyboard/mouse gaming — show natural hand positions.",
+    wearable: "REALISTIC USAGE: Charge device first if needed. Strap on wrist securely. Press button or tap screen to wake. Show pairing with phone. Demonstrate fitness tracking during exercise or notification checking on wrist.",
+    drone: "REALISTIC USAGE: Unfold arms/propellers if foldable. Insert battery, ensure it clicks. Place on flat ground. Power on controller first, then drone. Calibrate if needed. Show smooth takeoff from open outdoor area. Always fly in safe open space.",
+    charger: "REALISTIC USAGE: Unbox and uncoil cable. Plug power adapter into wall outlet. Connect cable end to device port — Lightning, USB-C, or micro-USB matching correctly. Show charging indicator light or battery icon on device screen.",
+
+    // ── Home & Living (10) ──
+    home: "REALISTIC USAGE: Unbox and remove protective wrapping. For furniture — assemble if needed following included instructions. Place in intended location. Show styling with existing décor. Demonstrate primary function in realistic home setting.",
+    furniture: "REALISTIC USAGE: Unbox all pieces, lay out hardware. Follow assembly instructions step-by-step — attach legs, tighten bolts with included Allen key. Place in room, adjust leveling feet. Show sitting/using to demonstrate sturdiness.",
+    bedding: "REALISTIC USAGE: Remove from packaging, unfold completely. For fitted sheet — stretch over mattress corners. For duvet — insert into cover, button or zip closed. Fluff pillows before placing. Show making bed in proper layering order.",
+    curtain: "REALISTIC USAGE: Remove from packaging, unfold. Thread curtain rod through rod pocket or attach hooks/rings. Mount rod on brackets above window. Adjust curtain width and drape. Show opening/closing to demonstrate light control.",
+    rug: "REALISTIC USAGE: Unroll on floor surface. Allow to flatten naturally (may take 24-48h). Position in desired location. For non-slip — place rug pad underneath first. Show vacuuming or spot cleaning for maintenance.",
+    "lighting-decor": "REALISTIC USAGE: Unbox and assemble shade/base if separate. Insert correct bulb type (check wattage). Plug in or hardwire per instructions. Flip switch or use remote to turn on. Show adjusting brightness or color temperature if dimmable.",
+    storage: "REALISTIC USAGE: Unbox and assemble if flat-pack. For bins/baskets — remove tags, unfold. Place in closet, shelf, or cabinet. Demonstrate organizing items inside — fold clothes, stack items, label containers. Show before/after organization.",
+    mirror: "REALISTIC USAGE: Carefully unbox (heavy/fragile). Mount on wall using included hardware — measure, mark, drill, insert anchors, hang. Or place on floor/lean against wall for floor mirrors. Show reflection to demonstrate clarity and size.",
+    vase: "REALISTIC USAGE: Unwrap carefully from protective packaging. Place on stable surface. Add water if using fresh flowers — fill 2/3 full. Trim flower stems at angle, arrange in vase. Show as decorative accent in room setting.",
+    frame: "REALISTIC USAGE: Open back of frame, remove protective insert. Place photo or art inside, secure backing. For hanging — attach hook/wire to back, hammer nail into wall at measured spot, hang frame, level. Show finished display on wall.",
+
+    // ── Kitchen & Appliances (10) ──
+    kitchen: "REALISTIC USAGE: Show logical cooking steps — prep ingredients before cooking, use utensils in correct order. Wash produce first, then chop on cutting board, then cook in pan/pot. Season during or after cooking as appropriate.",
+    "rice-cooker": "REALISTIC USAGE: Measure rice with included cup. Rinse rice in inner pot under water. Add correct water level (use markings inside pot). Place inner pot in cooker, close lid securely. Select cooking mode, press start. Wait for completion indicator.",
+    blender: "REALISTIC USAGE: Place blender jar on base, ensure it locks. Add liquid first, then soft ingredients, then hard/frozen items last. Place lid securely with center cap. Select speed or program, press start. Pour from jar after blending stops.",
+    "air-fryer": "REALISTIC USAGE: Pull out basket/tray. Place food in single layer (don't overcrowd). Slide basket back in until it clicks. Set temperature and time using dial/buttons. Press start. Shake basket halfway if needed. Use tongs to remove food when done.",
+    vacuum: "REALISTIC USAGE: Assemble handle and attachments if needed. Check/empty dust bin before use. Plug in (or ensure battery charged for cordless). Press power button. Vacuum in overlapping passes. Switch attachments for different surfaces. Empty bin when indicator shows.",
+    washer: "REALISTIC USAGE: Load clothes into drum (don't overfill). Add detergent to dispenser drawer. Close door securely until it clicks/locks. Select wash cycle and temperature. Press start. Wait for cycle to complete and door unlocks before opening.",
+    fridge: "REALISTIC USAGE: Unbox and let stand upright for 4+ hours before plugging in. Set temperature dial/control. Wait 24h to reach optimal temperature before loading food. Show organizing shelves, drawers, and door bins with appropriate food items.",
+    "air-purifier": "REALISTIC USAGE: Unbox and remove all packaging including plastic wrap on filter. Open panel, insert filter in correct orientation (check arrow). Close panel. Plug in and press power. Select fan speed or auto mode. Show indicator light for air quality.",
+    "water-filter": "REALISTIC USAGE: Rinse new filter cartridge under water for 15 seconds. Insert into pitcher/system housing, twist to lock. Fill reservoir with tap water. Wait for water to filter through. Discard first 1-2 batches. Show clean filtered water pouring.",
+    "smart-home": "REALISTIC USAGE: Unbox device. Plug into power outlet. Download companion app on phone. Follow app pairing instructions (scan QR code or press sync button). Configure settings — WiFi, schedules, automations. Show voice command or app control in action.",
+
+    // ── Auto & Transport (5) ──
+    auto: "REALISTIC USAGE: For accessories — clean installation surface first, peel adhesive backing, apply firmly. For fluids — open hood, locate correct reservoir, unscrew cap, pour to fill line. For tools — demonstrate proper usage technique with correct safety gear.",
+    motorcycle: "REALISTIC USAGE: For accessories — install with correct tools per manual. For helmets — adjust strap length first, place on head, fasten chin strap securely (should fit two fingers). For gear — put on protective layers before riding.",
+    bicycle: "REALISTIC USAGE: For accessories — mount using included bracket or clamp, tighten with Allen key. For lights — attach to handlebar/seatpost, charge via USB first. For helmet — adjust fit dial, place on head level, buckle chin strap snugly.",
+    "car-accessory": "REALISTIC USAGE: For dash cam — mount on windshield with suction cup, connect power cable to cigarette lighter or USB. For seat covers — stretch over seat, secure with hooks underneath. For phone mount — attach to vent or windshield, adjust arm.",
+    ev: "REALISTIC USAGE: For home charger — wall-mount bracket first, connect to electrical panel (show electrician install). Open charge port on vehicle, plug connector firmly until click. Show charge indicator on vehicle/app. For portable — uncoil cable, plug into outlet first.",
+
+    // ── Family & Kids (5) ──
+    baby: "REALISTIC USAGE: For bottles — sterilize first, add formula with scoop, add warm water, secure nipple and cap, shake to mix. For toys — remove from packaging, remove all small parts/tags. For skincare — test on small area first, apply gently.",
+    toy: "REALISTIC USAGE: Remove all packaging, wire ties, and tape. Install batteries if needed (open compartment with screwdriver, insert correct polarity). For assembly toys — follow included instructions step-by-step. Show age-appropriate play interaction.",
+    "kids-education": "REALISTIC USAGE: Unbox and set up learning materials. For electronic — insert batteries/charge, power on. For books/cards — open package, organize by subject. Show child interacting at appropriate developmental level with parental supervision.",
+    maternity: "REALISTIC USAGE: For support belts — wrap around belly at correct height, adjust velcro for comfort. For supplements — check label, take with water after meals. For nursing items — assemble pump parts, sterilize before first use. Show gentle, comfortable usage.",
+    family: "REALISTIC USAGE: Unbox and set up for family activity. For board games — lay out board, distribute pieces, read rules. For picnic items — unfold, set up in outdoor area. Show multiple family members engaging together naturally.",
+
+    // ── Sports & Outdoor (5) ──
+    fitness: "REALISTIC USAGE: For weights — start with proper warm-up, grip handles firmly. For resistance bands — check for tears first, anchor securely, maintain controlled movement. For mats — unroll on flat surface, show exercises with proper form.",
+    sports: "REALISTIC USAGE: For balls — inflate to proper pressure using pump with correct needle. For equipment — assemble and adjust to user's size. For protective gear — put on BEFORE activity, secure all straps. Show proper athletic technique.",
+    outdoor: "REALISTIC USAGE: For tents — lay footprint first, assemble poles, stake corners, attach fly. For gear — adjust straps to body, secure buckles. For tools — check condition before use, handle safely. Show in authentic outdoor environment.",
+    camping: "REALISTIC USAGE: Choose flat ground first. For tent — stake corners, assemble pole frame, attach rainfly. For stove — connect fuel canister, turn valve, ignite. For sleeping bag — unroll, unzip, show insulation. Pack out all items when done.",
+    yoga: "REALISTIC USAGE: Unroll mat on flat surface. For blocks/straps — place within reach before starting. For clothing — change into stretchy activewear. Show proper alignment in poses. For meditation cushion — sit with proper posture. Demonstrate in calm, quiet setting.",
+
+    // ── Office & Education (5) ──
+    digital: "REALISTIC USAGE: Download/install app or software first. Create account if needed. Navigate through setup wizard. Show main interface and key features. Demonstrate core workflow — input data, process, see output. Show save/export results.",
+    stationery: "REALISTIC USAGE: For pens — remove cap or click to extend tip. For notebooks — open to fresh page. For markers — remove cap, test on scratch paper. For organizers — unbox, set up sections. Show writing smoothly with proper grip.",
+    book: "REALISTIC USAGE: Remove shrink wrap if sealed. Open cover, flip to table of contents or first chapter. Hold book open naturally with both hands or place on surface. Show reading posture — seated comfortably with good lighting.",
+    office: "REALISTIC USAGE: For chairs — assemble base, attach seat, adjust height lever. For desk organizers — place items in compartments. For printer — unbox, install ink/toner, load paper, connect to computer. Show in organized workspace.",
+    course: "REALISTIC USAGE: Log in to platform, navigate to course page. Click play on first lesson video. Show taking notes alongside. For physical materials — open workbook, follow along with exercises. Show progress tracking or certificate.",
+
+    // ── Cleaning & Home Care (5) ──
+    cleaning: "REALISTIC USAGE: Remove safety cap or flip nozzle open BEFORE spraying or pouring cleaning product. For spray bottles — switch nozzle from OFF to SPRAY position. Apply to surface, wait if needed, then wipe with cloth. Wear gloves for harsh chemicals.",
+    detergent: "REALISTIC USAGE: Open cap or flip lid. For liquid — pour into cap to measure dose, then pour into washer dispenser. For pods — pick up single pod with dry hands, place directly in drum BEFORE clothes. For powder — use scoop for correct amount.",
+    "air-freshener": "REALISTIC USAGE: For spray — remove cap, press nozzle aimed upward. For plug-in — insert refill into device, plug into wall outlet, adjust intensity. For gel — peel back lid to expose surface. For reed diffuser — pour oil, insert reeds, flip after 1 hour.",
+    insect: "REALISTIC USAGE: For spray — shake can first, remove cap, aim at target area 30cm away, press nozzle. For plug-in — insert liquid refill, plug into wall outlet. For traps — peel backing to expose adhesive, place in target area. Keep away from food.",
+    garden: "REALISTIC USAGE: For seeds — dig holes at correct depth/spacing, place seeds, cover with soil, water gently. For tools — grip handle properly, use correct technique (prune at 45° angle). For fertilizer — measure correct amount, apply evenly, water in.",
+
+    // ── Misc (5) ──
+    pet: "REALISTIC USAGE: For food — tear open bag or peel lid, pour measured amount into bowl. For toys — remove packaging and tags. For grooming — brush in direction of fur growth. For leash — clip to collar/harness, adjust length. Show pet interacting naturally.",
+    craft: "REALISTIC USAGE: Lay out all materials and tools first. Read instructions/pattern before starting. For paint — open containers, squeeze onto palette. For glue — remove cap, apply in thin line. For cutting — use ruler and sharp blade on cutting mat. Show step-by-step creation.",
+    gift: "REALISTIC USAGE: For wrapping — measure and cut paper to size, place item face-down, fold edges neatly, tape securely. Add ribbon by crossing and tying bow. For gift sets — arrange items in box, add tissue paper. For gift cards — insert into envelope or holder.",
+    wedding: "REALISTIC USAGE: For decorations — unbox and fluff artificial flowers, tie ribbons with even loops. For invitations — insert card in envelope, apply seal/sticker. For accessories — try on for fit, adjust clasp/tie. Show in elegant celebration setting.",
+    other: "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage following the product's intended purpose. Demonstrate correct handling and operation sequence.",
 };
 
 /** Build slim contact physics directive (for video prompts — shorter to avoid policy filter) */
@@ -1661,12 +1549,7 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
     return result.replace(/\s{2,}/g, ' ').trim();
 };
 
-type ProductCategory =
-    | "food" | "beverage" | "fashion" | "gadget" | "beauty"
-    | "supplement" | "pet" | "baby" | "home" | "kitchen"
-    | "fitness" | "auto" | "jewelry" | "watch" | "bag"
-    | "shoe" | "book" | "toy" | "stationery" | "cleaning"
-    | "outdoor" | "health" | "craft" | "digital" | "other";
+// ProductCategory now imported from @/data/categoryEnvironments (100 categories)
 
 // Randomized Hook variations per template (many options!)
 const HOOK_VARIATIONS: Record<string, string[]> = {
@@ -1907,173 +1790,531 @@ const detectProductCategory = (productName: string, productAnalysis: string, tem
     if (template === "fashion-review") return "fashion";
     if (template === "gadget-review") return "gadget";
 
-    // ── Specific sub-categories first (before broader parent categories) ──
+    // ═════════════════════════════════════════════════════════════════════
+    // SPECIFIC sub-categories FIRST (before broader parent categories)
+    // Order: most specific → broad parent → "other" fallback
+    // ═════════════════════════════════════════════════════════════════════
 
-    // Jewelry (before fashion/beauty)
+    // ── Wedding (before fashion/gift) ──
+    if (includesAny(t, [
+        "wedding", "bridal", "bride", "groom", "engagement ring", "wedding ring", "wedding dress", "veil",
+        "งานแต่ง", "เจ้าสาว", "เจ้าบ่าว", "แหวนแต่งงาน", "ชุดเจ้าสาว", "การ์ดแต่งงาน"
+    ])) return "wedding";
+
+    // ── Gift (before other) ──
+    if (includesAny(t, [
+        "gift set", "gift box", "gift basket", "gift wrap", "gift card", "present", "gift hamper",
+        "ของขวัญ", "เซ็ตของขวัญ", "กล่องของขวัญ", "ห่อของขวัญ"
+    ])) return "gift";
+
+    // ── Jewelry (before fashion/beauty) ──
     if (includesAny(t, [
         "jewelry", "jewellery", "necklace", "bracelet", "ring", "earring", "pendant", "gemstone", "diamond", "gold chain",
         "เครื่องประดับ", "สร้อยคอ", "สร้อยข้อมือ", "แหวน", "ต่างหู", "จี้", "อัญมณี", "เพชร", "ทอง"
     ])) return "jewelry";
 
-    // Watch (before gadget)
+    // ── Watch (before gadget) ──
     if (includesAny(t, [
         "watch", "wristwatch", "timepiece", "horology", "chronograph", "smartwatch",
         "นาฬิกา", "นาฬิกาข้อมือ", "สมาร์ทวอทช์"
     ])) return "watch";
 
-    // Shoe (before fashion)
+    // ── Sunglasses (before fashion) ──
+    if (includesAny(t, [
+        "sunglasses", "sunglass", "aviator glasses", "polarized glasses", "ray-ban", "oakley",
+        "แว่นกันแดด", "แว่นตากันแดด"
+    ])) return "sunglasses";
+
+    // ── Hat (before fashion) ──
+    if (includesAny(t, [
+        "hat", "cap", "beanie", "bucket hat", "snapback", "visor", "fedora", "beret",
+        "หมวก", "หมวกแก๊ป", "หมวกบีนนี่", "หมวกบักเก็ต"
+    ])) return "hat";
+
+    // ── Shoe (before fashion) ──
     if (includesAny(t, [
         "shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "slipper", "running shoe",
         "รองเท้า", "สนีกเกอร์", "บูท", "รองเท้าแตะ", "รองเท้าวิ่ง", "รองเท้ากีฬา"
     ])) return "shoe";
 
-    // Bag (before fashion)
+    // ── Bag (before fashion) ──
     if (includesAny(t, [
         "bag", "handbag", "backpack", "tote", "clutch", "wallet", "purse", "luggage", "suitcase", "crossbody",
         "กระเป๋า", "กระเป๋าสะพาย", "กระเป๋าเป้", "กระเป๋าถือ", "กระเป๋าเดินทาง", "กระเป๋าสตางค์"
     ])) return "bag";
 
-    // Beverage (before food)
+    // ── Underwear / Swimwear / Sportswear (before fashion) ──
     if (includesAny(t, [
-        "drink", "beverage", "tea", "coffee", "milk", "juice", "soda", "cola", "matcha", "smoothie", "wine", "beer",
-        "cocktail", "water", "energy drink", "protein shake", "bubble tea", "boba",
-        "เครื่องดื่ม", "ชา", "กาแฟ", "นม", "น้ำผลไม้", "น้ำอัดลม", "มัทฉะ", "ชานมไข่มุก", "น้ำ", "เบียร์", "ไวน์"
+        "underwear", "bra", "panties", "boxer", "briefs", "lingerie", "undershirt",
+        "ชุดชั้นใน", "บรา", "กางเกงใน", "บ็อกเซอร์"
+    ])) return "underwear";
+
+    if (includesAny(t, [
+        "swimwear", "swimsuit", "bikini", "swim trunks", "rash guard", "swimming",
+        "ชุดว่ายน้ำ", "บิกินี่", "กางเกงว่ายน้ำ"
+    ])) return "swimwear";
+
+    if (includesAny(t, [
+        "sportswear", "jersey", "track pants", "sports bra", "compression", "athletic wear",
+        "ชุดกีฬา", "เสื้อกีฬา", "กางเกงกีฬา", "ชุดออกกำลังกาย"
+    ])) return "sportswear";
+
+    // ── Coffee / Tea / Alcohol (before beverage) ──
+    if (includesAny(t, [
+        "coffee", "espresso", "latte", "cappuccino", "cold brew", "drip coffee", "coffee bean", "arabica", "robusta",
+        "กาแฟ", "เอสเพรสโซ", "ลาเต้", "คาปูชิโน่", "โคลด์บริว", "เมล็ดกาแฟ"
+    ])) return "coffee";
+
+    if (includesAny(t, [
+        "tea", "green tea", "herbal tea", "oolong", "chamomile", "black tea", "tea bag", "matcha",
+        "ชา", "ชาเขียว", "ชาสมุนไพร", "อู่หลง", "คาโมมายล์", "ชาดำ", "มัทฉะ"
+    ])) return "tea";
+
+    if (includesAny(t, [
+        "alcohol", "wine", "beer", "whisky", "whiskey", "vodka", "rum", "gin", "sake", "cocktail", "champagne",
+        "เหล้า", "เบียร์", "ไวน์", "วิสกี้", "วอดก้า", "รัม", "ค็อกเทล", "สาเก"
+    ])) return "alcohol";
+
+    // ── Beverage (before food) ──
+    if (includesAny(t, [
+        "drink", "beverage", "milk", "juice", "soda", "cola", "smoothie", "water", "energy drink",
+        "protein shake", "bubble tea", "boba",
+        "เครื่องดื่ม", "นม", "น้ำผลไม้", "น้ำอัดลม", "ชานมไข่มุก", "น้ำ"
     ])) return "beverage";
 
-    // Supplement (before health/food)
+    // ── Fragrance (before beauty) ──
     if (includesAny(t, [
-        "supplement", "vitamin", "protein", "collagen", "probiotic", "omega", "fish oil", "whey", "bcaa", "creatine",
-        "multivitamin", "calcium", "zinc", "biotin", "glutathione",
-        "อาหารเสริม", "วิตามิน", "โปรตีน", "คอลลาเจน", "โพรไบโอติก", "น้ำมันปลา", "กลูตาไธโอน", "แคลเซียม"
+        "perfume", "fragrance", "cologne", "eau de", "toilette", "parfum", "body mist",
+        "น้ำหอม", "เพอร์ฟูม", "โคโลญ", "สเปรย์น้ำหอม"
+    ])) return "fragrance";
+
+    // ── Skincare / Makeup / Haircare / Sunscreen / Nail / Dental / Barbershop (before beauty) ──
+    if (includesAny(t, [
+        "skincare", "serum", "toner", "cleanser", "moisturizer", "essence", "ampoule", "retinol", "niacinamide", "hyaluronic",
+        "สกินแคร์", "เซรั่ม", "โทนเนอร์", "คลีนเซอร์", "มอยเจอร์ไรเซอร์", "เอสเซนส์"
+    ])) return "skincare";
+
+    if (includesAny(t, [
+        "makeup", "foundation", "mascara", "lipstick", "lip gloss", "eyeshadow", "blush", "concealer", "primer", "contour", "eyeliner",
+        "เครื่องสำอาง", "รองพื้น", "มาสคาร่า", "ลิปสติก", "อายแชโดว์", "บลัช", "คอนซีลเลอร์", "ไพรเมอร์", "อายไลเนอร์"
+    ])) return "makeup";
+
+    if (includesAny(t, [
+        "shampoo", "conditioner", "hair serum", "hair mask", "hair oil", "hair spray", "hair dryer", "hair straightener", "hair curler",
+        "แชมพู", "ครีมนวด", "เซรั่มผม", "มาสก์ผม", "น้ำมันผม", "สเปรย์ผม", "ไดร์เป่าผม"
+    ])) return "haircare";
+
+    if (includesAny(t, [
+        "sunscreen", "sunblock", "spf", "uv protection", "sun cream",
+        "กันแดด", "ครีมกันแดด", "ซันสกรีน"
+    ])) return "sunscreen";
+
+    if (includesAny(t, [
+        "nail polish", "nail art", "gel nail", "manicure", "pedicure", "nail file", "cuticle",
+        "ยาทาเล็บ", "เล็บเจล", "ทำเล็บ", "ตะไบเล็บ"
+    ])) return "nail";
+
+    if (includesAny(t, [
+        "soap", "bar soap", "liquid soap", "body wash", "hand wash", "shower gel",
+        "สบู่", "ครีมอาบน้ำ", "เจลอาบน้ำ", "สบู่เหลว", "สบู่ล้างมือ"
+    ])) return "soap";
+
+    if (includesAny(t, [
+        "toothpaste", "toothbrush", "mouthwash", "dental floss", "teeth whitening", "dental",
+        "ยาสีฟัน", "แปรงสีฟัน", "น้ำยาบ้วนปาก", "ไหมขัดฟัน", "ฟอกฟันขาว"
+    ])) return "dental";
+
+    if (includesAny(t, [
+        "barbershop", "barber", "clipper", "hair clipper", "razor", "shaving cream", "aftershave", "trimmer", "beard",
+        "บาร์เบอร์", "ปัตตาเลี่ยน", "มีดโกน", "ครีมโกนหนวด", "เคราะ", "หนวด"
+    ])) return "barbershop";
+
+    // ── Vitamin / Protein / Weight-loss (before supplement) ──
+    if (includesAny(t, [
+        "vitamin", "multivitamin", "vitamin c", "vitamin d", "vitamin e", "vitamin b",
+        "วิตามิน", "มัลติวิตามิน", "วิตามินซี"
+    ])) return "vitamin";
+
+    if (includesAny(t, [
+        "protein powder", "whey protein", "whey", "bcaa", "creatine", "mass gainer", "protein shake",
+        "โปรตีน", "เวย์โปรตีน", "บีซีเอเอ", "ครีเอทีน"
+    ])) return "protein";
+
+    if (includesAny(t, [
+        "weight loss", "diet pill", "fat burner", "slimming", "appetite suppressant", "meal replacement",
+        "ลดน้ำหนัก", "ยาลดความอ้วน", "เบิร์นไขมัน", "ทดแทนมื้ออาหาร"
+    ])) return "weight-loss";
+
+    // ── Supplement (before health/food) ──
+    if (includesAny(t, [
+        "supplement", "collagen", "probiotic", "omega", "fish oil", "biotin", "glutathione", "calcium", "zinc",
+        "อาหารเสริม", "คอลลาเจน", "โพรไบโอติก", "น้ำมันปลา", "กลูตาไธโอน", "แคลเซียม"
     ])) return "supplement";
 
-    // Baby (before home)
+    // ── Massage / Essential-oil / Elderly / Medicine / Mental-health (before health) ──
+    if (includesAny(t, [
+        "massage", "massage oil", "massage ball", "massage gun", "spa", "hot pack", "cold pack",
+        "นวด", "น้ำมันนวด", "ปืนนวด", "สปา", "ประคบ"
+    ])) return "massage";
+
+    if (includesAny(t, [
+        "essential oil", "aromatherapy", "diffuser", "lavender oil", "tea tree oil", "eucalyptus",
+        "น้ำมันหอมระเหย", "อโรมา", "ดิฟฟิวเซอร์", "ลาเวนเดอร์"
+    ])) return "essential-oil";
+
+    if (includesAny(t, [
+        "elderly", "senior", "walker", "cane", "wheelchair", "adult diaper", "hearing aid",
+        "ผู้สูงอายุ", "คนชรา", "ไม้เท้า", "รถเข็น", "ผ้าอ้อมผู้ใหญ่", "เครื่องช่วยฟัง"
+    ])) return "elderly";
+
+    if (includesAny(t, [
+        "medicine", "drug", "antibiotic", "painkiller", "cough syrup", "nasal spray", "eye drops", "ointment", "capsule",
+        "ยา", "ยาแก้ปวด", "ยาแก้ไอ", "สเปรย์จมูก", "ยาหยอดตา", "ขี้ผึ้ง"
+    ])) return "medicine";
+
+    if (includesAny(t, [
+        "mental health", "meditation", "mindfulness", "stress relief", "anxiety", "journal", "therapy",
+        "สุขภาพจิต", "สมาธิ", "ลดความเครียด", "บำบัด", "ไดอารี่บำบัด"
+    ])) return "mental-health";
+
+    // ── Phone / Laptop / Tablet / Camera / Audio / Gaming / Wearable / Drone / Charger (before gadget) ──
+    if (includesAny(t, [
+        "phone", "iphone", "samsung galaxy", "smartphone", "mobile phone", "phone case", "screen protector",
+        "โทรศัพท์", "มือถือ", "ไอโฟน", "ซัมซุง", "เคสมือถือ", "ฟิล์มกันรอย"
+    ])) return "phone";
+
+    if (includesAny(t, [
+        "laptop", "notebook", "macbook", "chromebook", "ultrabook", "laptop stand",
+        "แล็ปท็อป", "โน้ตบุ๊ค", "แมคบุ๊ค"
+    ])) return "laptop";
+
+    if (includesAny(t, [
+        "tablet", "ipad", "galaxy tab", "drawing tablet", "wacom", "stylus",
+        "แท็บเล็ต", "ไอแพด", "ปากกาสไตลัส"
+    ])) return "tablet";
+
+    if (includesAny(t, [
+        "camera", "dslr", "mirrorless", "lens", "tripod", "gopro", "action cam",
+        "กล้อง", "เลนส์", "ขาตั้งกล้อง", "กล้องแอคชั่น"
+    ])) return "camera";
+
+    if (includesAny(t, [
+        "headphone", "earbuds", "earphone", "speaker", "soundbar", "amplifier", "dac", "audio", "airpods",
+        "หูฟัง", "ลำโพง", "ซาวด์บาร์", "แอร์พอด"
+    ])) return "audio";
+
+    if (includesAny(t, [
+        "gaming", "game console", "playstation", "xbox", "nintendo", "game controller", "gaming mouse", "gaming keyboard",
+        "เกมมิ่ง", "คอนโซล", "จอย", "เพลย์สเตชั่น"
+    ])) return "gaming";
+
+    if (includesAny(t, [
+        "wearable", "fitness tracker", "smart band", "apple watch", "garmin", "fitbit",
+        "สมาร์ทแบนด์", "ฟิตเนสแทรคเกอร์"
+    ])) return "wearable";
+
+    if (includesAny(t, [
+        "drone", "quadcopter", "fpv", "dji", "aerial camera",
+        "โดรน", "กล้องบินได้"
+    ])) return "drone";
+
+    if (includesAny(t, [
+        "charger", "powerbank", "power bank", "charging cable", "usb cable", "wireless charger", "fast charger",
+        "ชาร์จ", "พาวเวอร์แบงค์", "สายชาร์จ", "ที่ชาร์จไร้สาย"
+    ])) return "charger";
+
+    // ── Furniture / Bedding / Curtain / Rug / Lighting-decor / Storage / Mirror / Vase / Frame (before home) ──
+    if (includesAny(t, [
+        "furniture", "sofa", "table", "chair", "desk", "cabinet", "bookshelf", "wardrobe", "dresser",
+        "เฟอร์นิเจอร์", "โซฟา", "โต๊ะ", "เก้าอี้", "ตู้", "ชั้นหนังสือ", "ตู้เสื้อผ้า"
+    ])) return "furniture";
+
+    if (includesAny(t, [
+        "bedding", "bed sheet", "duvet", "comforter", "pillow", "mattress", "bed cover",
+        "ผ้าปูที่นอน", "ผ้านวม", "หมอน", "ที่นอน", "ผ้าห่ม"
+    ])) return "bedding";
+
+    if (includesAny(t, [
+        "curtain", "blinds", "drape", "window shade", "blackout curtain",
+        "ผ้าม่าน", "มู่ลี่", "ม่านกันแดด", "ม่านทึบ"
+    ])) return "curtain";
+
+    if (includesAny(t, [
+        "rug", "carpet", "floor mat", "doormat", "area rug",
+        "พรม", "พรมเช็ดเท้า", "พรมปูพื้น"
+    ])) return "rug";
+
+    if (includesAny(t, [
+        "lamp", "light fixture", "chandelier", "string lights", "led strip", "night light", "fairy lights",
+        "โคมไฟ", "โคมระย้า", "ไฟ led", "ไฟประดับ"
+    ])) return "lighting-decor";
+
+    if (includesAny(t, [
+        "storage box", "organizer", "shelf", "basket", "container", "drawer organizer",
+        "กล่องเก็บของ", "ที่จัดระเบียบ", "ชั้นวาง", "ตะกร้า"
+    ])) return "storage";
+
+    if (includesAny(t, [
+        "mirror", "wall mirror", "vanity mirror", "floor mirror", "compact mirror",
+        "กระจก", "กระจกแต่งตัว", "กระจกติดผนัง"
+    ])) return "mirror";
+
+    if (includesAny(t, [
+        "vase", "flower vase", "ceramic vase", "glass vase",
+        "แจกัน", "แจกันดอกไม้"
+    ])) return "vase";
+
+    if (includesAny(t, [
+        "picture frame", "photo frame", "wall frame", "art frame",
+        "กรอบรูป", "กรอบรูปติดผนัง"
+    ])) return "frame";
+
+    // ── Rice-cooker / Blender / Air-fryer / Vacuum / Washer / Fridge / Air-purifier / Water-filter / Smart-home (before kitchen) ──
+    if (includesAny(t, [
+        "rice cooker", "หม้อหุงข้าว"
+    ])) return "rice-cooker";
+
+    if (includesAny(t, [
+        "blender", "food processor", "juicer", "mixer",
+        "เครื่องปั่น", "เครื่องคั้นน้ำ"
+    ])) return "blender";
+
+    if (includesAny(t, [
+        "air fryer", "หม้อทอดไร้น้ำมัน", "แอร์ฟรายเออร์"
+    ])) return "air-fryer";
+
+    if (includesAny(t, [
+        "vacuum", "vacuum cleaner", "robot vacuum", "handheld vacuum",
+        "เครื่องดูดฝุ่น", "หุ่นยนต์ดูดฝุ่น"
+    ])) return "vacuum";
+
+    if (includesAny(t, [
+        "washing machine", "washer", "dryer", "laundry machine",
+        "เครื่องซักผ้า", "เครื่องอบผ้า"
+    ])) return "washer";
+
+    if (includesAny(t, [
+        "refrigerator", "fridge", "freezer", "mini fridge",
+        "ตู้เย็น", "ตู้แช่", "ตู้แช่แข็ง"
+    ])) return "fridge";
+
+    if (includesAny(t, [
+        "air purifier", "เครื่องฟอกอากาศ"
+    ])) return "air-purifier";
+
+    if (includesAny(t, [
+        "water filter", "water purifier", "water dispenser",
+        "เครื่องกรองน้ำ", "ตู้กดน้ำ"
+    ])) return "water-filter";
+
+    if (includesAny(t, [
+        "smart home", "smart plug", "smart light", "smart lock", "alexa", "google home", "home assistant",
+        "สมาร์ทโฮม", "ปลั๊กอัจฉริยะ", "ล็อคอัจฉริยะ"
+    ])) return "smart-home";
+
+    // ── Motorcycle / Bicycle / Car-accessory / EV (before auto) ──
+    if (includesAny(t, [
+        "motorcycle", "motorbike", "scooter", "moped", "helmet", "motorcycle jacket",
+        "มอเตอร์ไซค์", "รถจักรยานยนต์", "สกู๊ตเตอร์", "หมวกกันน็อค"
+    ])) return "motorcycle";
+
+    if (includesAny(t, [
+        "bicycle", "bike", "cycling", "mountain bike", "road bike", "bike light", "bike lock",
+        "จักรยาน", "ปั่นจักรยาน", "เสือภูเขา", "ไฟจักรยาน"
+    ])) return "bicycle";
+
+    if (includesAny(t, [
+        "dash cam", "car charger", "car mount", "seat cover", "car freshener", "car vacuum", "car accessory",
+        "กล้องติดรถ", "ที่ชาร์จในรถ", "ที่จับมือถือในรถ", "ผ้าคลุมเบาะ"
+    ])) return "car-accessory";
+
+    if (includesAny(t, [
+        "ev", "electric vehicle", "ev charger", "charging station", "tesla", "ev adapter",
+        "รถไฟฟ้า", "ที่ชาร์จรถไฟฟ้า", "สถานีชาร์จ"
+    ])) return "ev";
+
+    // ── Kids-education / Maternity / Family (before baby) ──
+    if (includesAny(t, [
+        "kids education", "learning toy", "flash card", "kids tablet", "educational", "abc",
+        "ของเล่นเสริมพัฒนาการ", "แฟลชการ์ด", "สื่อการเรียน"
+    ])) return "kids-education";
+
+    if (includesAny(t, [
+        "maternity", "pregnancy", "prenatal", "nursing", "breast pump", "maternity belt", "postnatal",
+        "คนท้อง", "ตั้งครรภ์", "ให้นม", "เครื่องปั๊มนม", "เข็มขัดพยุงครรภ์"
+    ])) return "maternity";
+
+    if (includesAny(t, [
+        "family game", "family activity", "family picnic", "family set",
+        "กิจกรรมครอบครัว", "เซ็ตครอบครัว"
+    ])) return "family";
+
+    // ── Sports / Camping / Yoga (before fitness/outdoor) ──
+    if (includesAny(t, [
+        "sports", "ball", "football", "basketball", "badminton", "tennis", "golf", "soccer",
+        "กีฬา", "ฟุตบอล", "บาสเก็ตบอล", "แบดมินตัน", "เทนนิส", "กอล์ฟ"
+    ])) return "sports";
+
+    if (includesAny(t, [
+        "camping", "tent", "sleeping bag", "camp stove", "camping chair", "cooler box", "lantern",
+        "แคมปิ้ง", "เต็นท์", "ถุงนอน", "เตาแคมป์", "โคมไฟแคมป์"
+    ])) return "camping";
+
+    if (includesAny(t, [
+        "yoga", "yoga mat", "yoga block", "yoga strap", "meditation cushion", "pilates",
+        "โยคะ", "เสื่อโยคะ", "บล็อคโยคะ", "พิลาทิส"
+    ])) return "yoga";
+
+    // ── Office / Course (before digital/stationery) ──
+    if (includesAny(t, [
+        "office chair", "office desk", "printer", "scanner", "paper shredder", "whiteboard", "projector",
+        "เก้าอี้สำนักงาน", "โต๊ะทำงาน", "เครื่องพิมพ์", "กระดานไวท์บอร์ด"
+    ])) return "office";
+
+    if (includesAny(t, [
+        "course", "online course", "class", "workshop", "training", "certification", "tutorial video",
+        "คอร์ส", "คอร์สออนไลน์", "เวิร์คช็อป", "คลาสเรียน", "ใบรับรอง"
+    ])) return "course";
+
+    // ── Detergent / Air-freshener / Insect / Garden (before cleaning) ──
+    if (includesAny(t, [
+        "detergent", "laundry detergent", "fabric softener", "washing powder", "laundry pod",
+        "ผงซักฟอก", "น้ำยาซักผ้า", "น้ำยาปรับผ้านุ่ม", "น้ำยาซักผ้าเด็ก"
+    ])) return "detergent";
+
+    if (includesAny(t, [
+        "air freshener", "room spray", "reed diffuser", "scented candle", "car freshener",
+        "สเปรย์ปรับอากาศ", "น้ำหอมปรับอากาศ", "เทียนหอม", "ก้านหอม"
+    ])) return "air-freshener";
+
+    if (includesAny(t, [
+        "insect repellent", "mosquito", "bug spray", "ant killer", "cockroach", "insecticide", "pest control",
+        "ยากันยุง", "สเปรย์กันแมลง", "ยาฆ่ามด", "ยาฆ่าแมลงสาบ", "กำจัดแมลง"
+    ])) return "insect";
+
+    if (includesAny(t, [
+        "garden", "plant pot", "seed", "fertilizer", "gardening tool", "watering can", "pruning shears", "soil",
+        "สวน", "กระถาง", "เมล็ดพันธุ์", "ปุ๋ย", "อุปกรณ์สวน", "บัวรดน้ำ", "กรรไกรตัดกิ่ง", "ดิน"
+    ])) return "garden";
+
+    // ── Snack / Bakery / Organic / Frozen-food / Condiment (before food) ──
+    if (includesAny(t, [
+        "snack", "chips", "cookie", "candy", "popcorn", "cracker", "granola bar", "dried fruit",
+        "ขนม", "มันฝรั่ง", "คุกกี้", "ลูกอม", "ป๊อปคอร์น", "แครกเกอร์", "ผลไม้อบแห้ง"
+    ])) return "snack";
+
+    if (includesAny(t, [
+        "bakery", "bread", "cake", "pastry", "croissant", "donut", "muffin", "pie", "tart",
+        "เบเกอรี่", "ขนมปัง", "เค้ก", "ครัวซองต์", "โดนัท", "มัฟฟิน", "พาย"
+    ])) return "bakery";
+
+    if (includesAny(t, [
+        "organic", "organic food", "non-gmo", "pesticide-free", "farm-to-table",
+        "ออร์แกนิค", "อาหารออร์แกนิค", "ปลอดสารเคมี"
+    ])) return "organic";
+
+    if (includesAny(t, [
+        "frozen food", "frozen", "ice cream", "frozen meal", "frozen pizza",
+        "อาหารแช่แข็ง", "แช่แข็ง", "ไอศกรีม"
+    ])) return "frozen-food";
+
+    if (includesAny(t, [
+        "condiment", "sauce", "seasoning", "ketchup", "mayonnaise", "soy sauce", "chili sauce", "dressing",
+        "เครื่องปรุง", "ซอส", "เครื่องเทศ", "ซีอิ๊ว", "น้ำปลา", "ซอสพริก", "น้ำสลัด"
+    ])) return "condiment";
+
+    // ── Existing broad checks ──
     if (includesAny(t, [
         "baby", "infant", "toddler", "newborn", "diaper", "pacifier", "stroller", "baby bottle", "baby food",
         "เด็ก", "ทารก", "ผ้าอ้อม", "จุกนม", "รถเข็นเด็ก", "ขวดนม", "อาหารเด็ก", "แม่และเด็ก"
     ])) return "baby";
 
-    // Pet
     if (includesAny(t, [
         "pet", "dog", "cat", "puppy", "kitten", "pet food", "pet toy", "collar", "leash", "aquarium",
         "สัตว์เลี้ยง", "หมา", "แมว", "สุนัข", "อาหารสัตว์", "ปลอกคอ", "สายจูง", "ตู้ปลา"
     ])) return "pet";
 
-    // Fitness (before fashion)
     if (includesAny(t, [
-        "fitness", "gym", "workout", "exercise", "dumbbell", "yoga mat", "resistance band", "kettlebell",
-        "treadmill", "sports", "athletic",
-        "ฟิตเนส", "ออกกำลังกาย", "ยิม", "ดัมเบล", "เสื่อโยคะ", "ยางยืด", "กีฬา"
+        "fitness", "gym", "workout", "exercise", "dumbbell", "resistance band", "kettlebell", "treadmill",
+        "ฟิตเนส", "ออกกำลังกาย", "ยิม", "ดัมเบล", "ยางยืด"
     ])) return "fitness";
 
-    // Auto
     if (includesAny(t, [
-        "car", "auto", "automotive", "vehicle", "motorcycle", "motorbike", "tire", "engine", "dash cam",
-        "car accessories", "gps", "car charger",
-        "รถยนต์", "รถ", "มอเตอร์ไซค์", "ยาง", "กล้องติดรถ", "อุปกรณ์รถ", "น้ำมันเครื่อง"
+        "car", "auto", "automotive", "vehicle", "tire", "engine",
+        "รถยนต์", "รถ", "ยาง", "อุปกรณ์รถ", "น้ำมันเครื่อง"
     ])) return "auto";
 
-    // Kitchen (before home)
     if (includesAny(t, [
-        "kitchen", "cookware", "pan", "pot", "wok", "knife", "blender", "air fryer", "rice cooker",
-        "cutting board", "spatula", "oven",
-        "เครื่องครัว", "กระทะ", "หม้อ", "มีด", "เขียง", "เตาอบ", "หม้อทอดไร้น้ำมัน", "หม้อหุงข้าว"
+        "kitchen", "cookware", "pan", "pot", "wok", "knife", "cutting board", "spatula", "oven",
+        "เครื่องครัว", "กระทะ", "หม้อ", "มีด", "เขียง", "เตาอบ"
     ])) return "kitchen";
 
-    // Cleaning
     if (includesAny(t, [
-        "cleaning", "cleaner", "detergent", "soap", "disinfectant", "mop", "broom", "vacuum",
-        "laundry", "fabric softener", "bleach",
-        "ทำความสะอาด", "น้ำยา", "ผงซักฟอก", "สบู่", "ไม้ถูพื้น", "เครื่องดูดฝุ่น", "น้ำยาปรับผ้านุ่ม"
+        "cleaning", "cleaner", "disinfectant", "mop", "broom", "bleach",
+        "ทำความสะอาด", "น้ำยา", "ไม้ถูพื้น"
     ])) return "cleaning";
 
-    // Book
     if (includesAny(t, [
-        "book", "novel", "manga", "comic", "textbook", "ebook", "audiobook", "journal", "diary",
-        "หนังสือ", "นิยาย", "มังงะ", "การ์ตูน", "ตำรา", "ไดอารี่", "สมุดบันทึก"
+        "book", "novel", "manga", "comic", "textbook", "audiobook",
+        "หนังสือ", "นิยาย", "มังงะ", "การ์ตูน", "ตำรา"
     ])) return "book";
 
-    // Toy
     if (includesAny(t, [
         "toy", "toys", "lego", "action figure", "board game", "puzzle", "plush", "doll", "rc car",
         "ของเล่น", "เลโก้", "ตุ๊กตา", "บอร์ดเกม", "จิ๊กซอว์", "โมเดล"
     ])) return "toy";
 
-    // Stationery
     if (includesAny(t, [
-        "stationery", "pen", "pencil", "notebook", "planner", "marker", "highlighter", "eraser",
-        "ruler", "sticky note", "washi tape",
-        "เครื่องเขียน", "ปากกา", "ดินสอ", "สมุด", "แพลนเนอร์", "ไฮไลท์", "ยางลบ", "เทปวาชิ"
+        "stationery", "pen", "pencil", "notebook", "planner", "marker", "highlighter",
+        "เครื่องเขียน", "ปากกา", "ดินสอ", "สมุด", "แพลนเนอร์"
     ])) return "stationery";
 
-    // Outdoor
     if (includesAny(t, [
-        "outdoor", "camping", "tent", "hiking", "backpacking", "sleeping bag", "flashlight", "compass",
-        "fishing", "hammock", "camp stove",
-        "แคมปิ้ง", "เต็นท์", "เดินป่า", "ถุงนอน", "ไฟฉาย", "ตกปลา", "เปลญวน", "เอาท์ดอร์"
+        "outdoor", "hiking", "backpacking", "flashlight", "compass", "fishing", "hammock",
+        "เดินป่า", "ไฟฉาย", "ตกปลา", "เปลญวน", "เอาท์ดอร์"
     ])) return "outdoor";
 
-    // Health (before beauty — medical devices, not cosmetics)
     if (includesAny(t, [
-        "health", "medical", "thermometer", "blood pressure", "oximeter", "first aid", "bandage",
-        "mask", "face mask", "sanitizer",
-        "สุขภาพ", "เครื่องวัดความดัน", "เทอร์โมมิเตอร์", "ปฐมพยาบาล", "ผ้าปิดแผล", "หน้ากาก", "เจลล้างมือ"
+        "health", "medical", "thermometer", "blood pressure", "oximeter", "first aid", "bandage", "sanitizer",
+        "สุขภาพ", "เครื่องวัดความดัน", "เทอร์โมมิเตอร์", "ปฐมพยาบาล", "หน้ากาก", "เจลล้างมือ"
     ])) return "health";
 
-    // Craft
     if (includesAny(t, [
-        "craft", "diy", "handmade", "knitting", "crochet", "sewing", "embroidery", "resin",
-        "pottery", "clay", "candle making",
-        "งานฝีมือ", "ถักโครเชต์", "ถักนิตติ้ง", "เย็บปักถักร้อย", "เรซิน", "ปั้นดิน", "ทำเทียน", "แฮนด์เมด"
+        "craft", "diy", "handmade", "knitting", "crochet", "sewing", "embroidery", "resin", "pottery", "clay",
+        "งานฝีมือ", "ถักโครเชต์", "เย็บปักถักร้อย", "เรซิน", "ปั้นดิน", "แฮนด์เมด"
     ])) return "craft";
 
-    // Digital
     if (includesAny(t, [
-        "digital", "software", "app", "online course", "subscription", "saas", "template", "preset",
-        "plugin", "license", "ebook",
-        "ดิจิทัล", "ซอฟต์แวร์", "แอป", "คอร์สออนไลน์", "เทมเพลต", "พรีเซ็ต", "ปลั๊กอิน"
+        "digital", "software", "app", "subscription", "saas", "template", "preset", "plugin",
+        "ดิจิทัล", "ซอฟต์แวร์", "แอป", "เทมเพลต", "พรีเซ็ต", "ปลั๊กอิน"
     ])) return "digital";
 
     // ── Broad parent categories (checked after specific sub-categories) ──
-
-    // Food (broad)
     if (includesAny(t, [
-        "food", "snack", "chips", "cookie", "chocolate", "cake", "bread", "noodle", "ramen", "rice",
-        "candy", "ice cream", "sauce", "seasoning", "instant",
-        "อาหาร", "ขนม", "ของกิน", "บะหมี่", "ก๋วยเตี๋ยว", "ข้าว", "ซอส", "เครื่องปรุง", "ไอศกรีม"
+        "food", "noodle", "ramen", "rice", "chocolate", "instant",
+        "อาหาร", "ของกิน", "บะหมี่", "ก๋วยเตี๋ยว", "ข้าว"
     ])) return "food";
 
-    // Fashion (broad)
     if (includesAny(t, [
         "shirt", "t-shirt", "hoodie", "jacket", "pants", "jeans", "dress", "skirt",
         "fashion", "outfit", "fabric", "clothing", "apparel", "wear",
-        "เสื้อ", "กางเกง", "เดรส", "กระโปรง", "ชุด", "ผ้า", "ฟิตติ้ง", "ไซส์", "แฟชั่น"
+        "เสื้อ", "กางเกง", "เดรส", "กระโปรง", "ชุด", "ผ้า", "แฟชั่น"
     ])) return "fashion";
 
-    // Gadget (broad)
     if (includesAny(t, [
-        "gadget", "device", "camera", "phone", "headphone", "earbuds", "charger", "powerbank",
-        "keyboard", "mouse", "laptop", "electronics", "bluetooth", "usb", "speaker", "monitor",
-        "แกดเจ็ต", "กล้อง", "มือถือ", "หูฟัง", "พาวเวอร์แบงค์", "คีย์บอร์ด", "เมาส์", "ชาร์จ", "บลูทูธ", "ลำโพง"
+        "gadget", "device", "electronics", "bluetooth", "usb", "monitor",
+        "แกดเจ็ต", "อิเล็กทรอนิกส์"
     ])) return "gadget";
 
-    // Beauty (broad)
     if (includesAny(t, [
-        "skincare", "makeup", "serum", "cream", "cleanser", "sunscreen",
-        "cosmetic", "beauty", "perfume", "fragrance", "cologne", "eau de", "toilette", "parfum",
-        "lotion", "moisturizer", "foundation", "mascara", "blush", "concealer", "primer",
-        "shampoo", "conditioner", "body wash", "deodorant",
-        "crystal", "bright crystal", "versace",
-        "สกินแคร์", "เครื่องสำอาง", "ลิป", "เซรั่ม", "ครีม", "กันแดด", "โฟม", "บำรุง",
-        "น้ำหอม", "เพอร์ฟูม", "โคโลญ", "โลชั่น", "แชมพู", "ครีมอาบน้ำ", "มอยเจอร์ไรเซอร์",
-        "รองพื้น", "มาสคาร่า", "บลัช", "คอนซีลเลอร์", "ไพรเมอร์"
+        "beauty", "cosmetic", "lotion", "cream",
+        "ความงาม", "เครื่องสำอาง", "ลิป", "ครีม", "โฟม", "บำรุง", "โลชั่น",
+        "crystal", "bright crystal", "versace"
     ])) return "beauty";
 
-    // Home (broad catch-all before other)
     if (includesAny(t, [
-        "home", "furniture", "decor", "pillow", "curtain", "lamp", "shelf", "rug", "candle",
-        "storage", "organizer", "bedding",
-        "บ้าน", "เฟอร์นิเจอร์", "ตกแต่ง", "หมอน", "ผ้าม่าน", "โคมไฟ", "ชั้นวาง", "พรม", "เทียนหอม", "ที่เก็บของ"
+        "home", "decor", "candle",
+        "บ้าน", "ตกแต่ง", "เทียนหอม", "ที่เก็บของ"
     ])) return "home";
 
     return "other";
@@ -2111,7 +2352,7 @@ const buildStoryboardSection = (config: PromptGenerationConfig, category: Produc
     const hook = ensureMentionsProductName(rawHook, productName);
     const cta = ensureMentionsProductName(rawCta, productName);
 
-    const scene2CoreByCategory: Record<ProductCategory, string> = {
+    const scene2CoreByCategory: Partial<Record<ProductCategory, string>> = {
         food: "โชว์เนื้อสัมผัส/ไอน้ำ/ความนัว + คำแรก/คำต่อไปให้เห็น reaction",
         beverage: "โชว์การเท/ริน/ชง + สีสันของเครื่องดื่ม + reaction จิบคำแรก",
         fashion: "โชว์ฟิตติ้ง/ทรง/เนื้อผ้า + before/after look + เดิน/หมุนให้เห็น movement",
@@ -2142,7 +2383,7 @@ const buildStoryboardSection = (config: PromptGenerationConfig, category: Produc
     const scene1Text = `0-8s: HOOK (หยุดนิ้ว)\n- Visual: Close-up + reveal\n- Voice: "${hook}"`;
 
     const scene2Text = sceneCount >= 2
-        ? `8-16s: DEMO / KEY MESSAGE\n- Visual: ${scene2CoreByCategory[category]}\n- Key message: (ต้องมีชื่อสินค้า ${productName} + ประโยชน์หลัก 1 ข้อ)`
+        ? `8-16s: DEMO / KEY MESSAGE\n- Visual: ${scene2CoreByCategory[category] || scene2CoreByCategory["other"]}\n- Key message: (ต้องมีชื่อสินค้า ${productName} + ประโยชน์หลัก 1 ข้อ)`
         : "";
 
     const scene3Text = sceneCount >= 3
@@ -2164,7 +2405,7 @@ const buildStoryboardSection = (config: PromptGenerationConfig, category: Produc
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Category-specific Power Words — คำที่กระตุ้นความสนใจตรงกลุ่มเป้าหมาย
-const CATEGORY_POWER_WORDS: Record<ProductCategory, string[]> = {
+const CATEGORY_POWER_WORDS: Partial<Record<ProductCategory, string[]>> = {
     food: ["อร่อยมาก", "รสชาติเข้มข้น", "ฟินสุดๆ", "กินแล้วหยุดไม่ได้", "รสดีเกินคาด", "เข้มข้นลงตัว", "อร่อยจนต้องซ้ำ"],
     beverage: ["ชื่นใจมาก", "รสชาติกลมกล่อม", "สดชื่นทันที", "ดื่มแล้วฟิน", "หอมละมุน", "รสเข้มข้น", "ซดแล้วสะใจ"],
     fashion: ["ใส่แล้วดูดี", "เนื้อผ้าดีมาก", "สวยเกินราคา", "ทรงสวยมาก", "แมตช์ง่าย", "ดูแพงมาก", "ใส่สบายมาก"],
@@ -2193,7 +2434,7 @@ const CATEGORY_POWER_WORDS: Record<ProductCategory, string[]> = {
 };
 
 // Category-specific Benefits — ประโยชน์เฉพาะกลุ่มสินค้า
-const CATEGORY_BENEFITS: Record<ProductCategory, string[]> = {
+const CATEGORY_BENEFITS: Partial<Record<ProductCategory, string[]>> = {
     food: ["รสชาติถูกปาก ทุกคำฟินหมด", "วัตถุดิบคุณภาพ อร่อยจริง", "ทานแล้วอิ่มอร่อย คุ้มค่า", "กินง่าย อร่อยทุกมื้อ"],
     beverage: ["ดื่มแล้วสดชื่น ตื่นตัวทันที", "รสชาติลงตัว หอมกลมกล่อม", "ชงง่าย ได้รสเข้มข้น", "ดื่มทุกวันก็ไม่เบื่อ"],
     fashion: ["ใส่แมตช์ได้ทุกวัน ทุกโอกาส", "เนื้อผ้าดี ใส่สบายตลอดวัน", "ทรงสวย ใส่แล้วดูดีทันที", "สวมใส่ง่าย ดูมีสไตล์"],
@@ -2222,7 +2463,7 @@ const CATEGORY_BENEFITS: Record<ProductCategory, string[]> = {
 };
 
 // Category-specific Urgency — ความเร่งด่วนเฉพาะกลุ่ม
-const CATEGORY_URGENCY: Record<ProductCategory, string[]> = {
+const CATEGORY_URGENCY: Partial<Record<ProductCategory, string[]>> = {
     food: ["สั่งเลย ก่อนล็อตนี้หมด!", "อย่าปล่อยให้ท้องรอ!", "กดสั่งเลย วันนี้!", "รีบเลย ของมีจำกัด!"],
     beverage: ["สั่งวันนี้ ส่งเร็ว!", "กดสั่งเลย ก่อนหมด!", "โปรพิเศษ วันนี้เท่านั้น!", "อย่าพลาด!"],
     fashion: ["สั่งเลย ก่อนไซส์หมด!", "โปรนี้มีจำกัด!", "ไม่รีบ หมดนะ!", "กดสั่งวันนี้!"],
@@ -2820,7 +3061,7 @@ const buildImagePrompt = (
 
     // ── Product description: user-provided > AI-analyzed > template default ──
     const ai = parseAiAnalysis(productAnalysis);
-    const fallbackHighlight = PRODUCT_HIGHLIGHT[category];
+    const fallbackHighlight = PRODUCT_HIGHLIGHT[category] || PRODUCT_HIGHLIGHT["other"];
     const productDesc = config.productDescription?.trim()
         ? `${config.productDescription}. ${ai.product || fallbackHighlight}`
         : (ai.product || fallbackHighlight);
@@ -2975,7 +3216,7 @@ const buildVideoPrompt = (
     const ai = parseAiAnalysis(productAnalysis);
 
     // ── 6-Part Hierarchical Lookups (AI-analyzed > template default) ──
-    const productHighlight = ai.product || PRODUCT_HIGHLIGHT[category];
+    const productHighlight = ai.product || PRODUCT_HIGHLIGHT[category] || PRODUCT_HIGHLIGHT["other"];
     const dynamics = ai.character || CHARACTER_DYNAMICS[template] || CHARACTER_DYNAMICS["product-review"];
     const environment = getSmartEnvironment(template, category, ai.environment, config.sceneBackground);
     const lighting = getSmartLighting(voiceTone, category, ai.lighting);
