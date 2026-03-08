@@ -1363,6 +1363,1589 @@ const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     other: "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage following the product's intended purpose. Demonstrate correct handling and operation sequence.",
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT PRESENTATION GUIDE — Deep per-category knowledge + per-scene
+// visual action directives for professional multi-scene video production.
+// Tells the AI EXACTLY how to showcase each product type in each scene.
+// Without this, AI defaults to generic "holding product" which produces
+// bad results (e.g. showing laptop lid/back instead of open screen).
+// ═══════════════════════════════════════════════════════════════════════════
+const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
+    knowledge: string;
+    sceneActions: string[];
+}>> = {
+    // ── Tech & Gadgets ──
+    laptop: {
+        knowledge: "Laptops MUST be shown with lid OPEN and screen ON in EVERY scene. The screen display is the hero feature. Showing a closed laptop or just the back/lid is WRONG — like showing a TV that's off. Key features: screen quality, keyboard, trackpad, thin profile, ports, hinge design.",
+        sceneActions: [
+            "Presenter holds laptop open with BOTH hands, screen facing camera showing bright colorful display. Hero reveal shot — screen is the star.",
+            "Presenter typing naturally on keyboard, screen showing content. Camera shows hands on keyboard + trackpad. Screen MUST stay visible and ON.",
+            "Presenter tilts laptop to show how thin and light it is. Lifts with one hand to demonstrate portability. Screen still OPEN.",
+            "Close-up of screen — vibrant colors, sharp details. Presenter points at screen features or scrolls through content.",
+            "Presenter shows side ports (USB, HDMI, etc). Then demonstrates opening/closing the smooth hinge mechanism. Returns to screen-facing view.",
+            "Presenter uses laptop naturally at desk — typing, using trackpad, multitasking on screen. Professional workspace setting.",
+            "Presenter holds laptop at slight angle showing both screen AND keyboard in one frame. Premium build quality visible.",
+            "Final beauty shot — presenter proudly displays the open laptop to camera with satisfied expression. Screen bright and colorful.",
+            "Presenter demonstrates portability — picks up laptop, walks with it, shows it fits in bag. Thin lightweight emphasis.",
+            "Closing shot — presenter at desk with laptop open, working productively. Screen ON showing content. Professional lifestyle."
+        ]
+    },
+    phone: {
+        knowledge: "Phones MUST show the screen facing camera in most scenes. Screen-on display is essential. Key features: camera system, screen quality, thin profile, Face ID/unlock, app demos. Show both front screen and camera module but prioritize screen-facing shots.",
+        sceneActions: [
+            "Presenter holds phone in one hand, screen facing camera showing home screen. Bright display clearly visible. Hero product shot.",
+            "Presenter demonstrates scrolling, tapping apps on screen. Natural one-handed use with thumb. Screen content visible to camera.",
+            "Presenter flips phone to show camera module briefly, then flips back to show photo/video just taken on screen.",
+            "Close-up of screen quality — vibrant colors, smooth scrolling. Presenter swipes through photos or apps.",
+            "Presenter shows thin profile from side angle. Then demonstrates Face ID or fingerprint unlock — screen lights up.",
+            "Presenter uses phone naturally — taking selfie, video call, or browsing. Screen visible throughout.",
+            "Presenter shows phone case/accessories. Demonstrates grip and button placement. Screen ON.",
+            "Presenter holds phone up proudly, screen facing camera with satisfied expression. Beauty shot of the display.",
+            "Split attention: presenter compares screen size to hand, shows comfortable grip and reachability.",
+            "Closing lifestyle shot — presenter using phone naturally in daily setting. Screen bright and ON."
+        ]
+    },
+    tablet: {
+        knowledge: "Tablets MUST show screen ON and facing camera. Key features: large display, stylus/pen support, drawing/note capability, split-screen multitasking. Show both landscape and portrait orientations.",
+        sceneActions: [
+            "Presenter holds tablet in landscape, screen facing camera showing vibrant display. Both hands supporting edges.",
+            "Presenter uses stylus/finger to draw, write, or navigate on screen. Close-up of screen interaction.",
+            "Presenter props tablet on stand/case, shows typing with keyboard attachment or on-screen keyboard.",
+            "Close-up of screen — color accuracy, detail, smooth touch response. Presenter swipes through content.",
+            "Presenter holds tablet in portrait mode for reading or browsing. Comfortable one-handed grip visible.",
+            "Presenter demonstrates split-screen multitasking — two apps visible simultaneously on the large display.",
+            "Presenter shows thin profile and light weight. Lifts easily with one hand. Premium build quality.",
+            "Final shot — presenter watching video or creating art on tablet screen. Display is the hero.",
+            "Presenter shows tablet in various use cases — desk, lap, hand-held. Versatility demonstration.",
+            "Closing lifestyle — presenter enjoying content on tablet in cozy setting. Screen bright and engaging."
+        ]
+    },
+    camera: {
+        knowledge: "Cameras must be shown with lens cap OFF and viewfinder/LCD active. Key features: lens system, viewfinder, LCD screen, grip, controls, image quality. Show the photographer's perspective AND the resulting photos.",
+        sceneActions: [
+            "Presenter holds camera with proper two-hand grip, lens facing slightly outward. Camera body and lens clearly visible.",
+            "Presenter looks through viewfinder, frames a shot, half-presses shutter to focus, then captures. Natural shooting motion.",
+            "Presenter shows LCD screen with a photo just taken — impressive image quality visible on screen.",
+            "Close-up of lens and camera controls — dial, buttons, settings. Presenter adjusts settings expertly.",
+            "Presenter changes angle — shows camera from top/side, demonstrating compact form factor or rugged build.",
+            "Presenter reviews photos on LCD, zooming in to show detail and sharpness. Satisfied expression.",
+            "Presenter demonstrates lens change or zoom range — smooth mechanical precision.",
+            "Presenter shooting in different lighting — shows camera adaptability. Flash or low-light capability.",
+            "Presenter holds camera at arm's length for scale, then brings to eye for another shot.",
+            "Closing — presenter holding camera with proud smile, lens facing forward. Professional photographer aesthetic."
+        ]
+    },
+    audio: {
+        knowledge: "Headphones/earbuds must be shown WORN on ears/in ears for most scenes. Speakers must show active LED/vibration. Key features: sound quality reaction, comfort fit, noise cancellation, controls, case/charging.",
+        sceneActions: [
+            "Presenter opens charging case, removes earbuds/unfolds headphones. Product reveal with premium packaging visible.",
+            "Presenter places earbuds in ears / headphones over ears. Shows comfortable fit. Adjusts for perfect positioning.",
+            "Presenter's expression shows enjoying music — slight head bobbing, closed eyes, smile. Sound quality reaction.",
+            "Close-up of earbud in ear / headphone on ear — snug fit, premium materials visible. Touch control demonstration.",
+            "Presenter demonstrates noise cancellation — covers one ear, shows ambient mode toggle via tap gesture.",
+            "Presenter shows pairing with phone — Bluetooth connection demonstrated. Controls volume with touch/button.",
+            "Presenter takes out one earbud for conversation, then puts back in — practical daily use scenario.",
+            "Presenter shows charging case — LED indicator, magnetic snap closure. Premium build quality.",
+            "Presenter wearing headphones during workout/commute — shows secure fit during movement.",
+            "Closing — presenter wearing product with satisfied smile, thumbs up. Premium audio lifestyle."
+        ]
+    },
+    gaming: {
+        knowledge: "Gaming gear must show IN USE with game context. Controllers held properly, keyboards lit up with RGB, mice on mousepad. Screen with gameplay visible when possible.",
+        sceneActions: [
+            "Presenter holds gaming controller with proper two-hand grip OR shows keyboard/mouse setup. RGB lighting visible.",
+            "Presenter actively playing — focused expression, thumbs on sticks/fingers on keys. Screen with gameplay in background.",
+            "Close-up of controller buttons/keyboard switches — satisfying click, responsive feedback. Premium materials.",
+            "Presenter shows reaction to game moment — excited, competitive expression. Product enhancing the experience.",
+            "Presenter demonstrates special features — customizable buttons, DPI switch, macro keys.",
+            "Presenter shows comfort during extended session — ergonomic grip, wrist position, breathable materials.",
+            "Presenter connects peripherals — USB, wireless dongle, Bluetooth. Quick setup demonstration.",
+            "Presenter shows RGB customization — color changing, effects, breathing patterns.",
+            "Presenter in gaming setup context — monitor, chair, desk, full battle station aesthetic.",
+            "Closing — presenter with victory pose, product prominently featured. Gaming lifestyle."
+        ]
+    },
+    wearable: {
+        knowledge: "Smartwatches/fitness trackers MUST show screen ON with watch face or data visible. Show on wrist in most scenes. Key features: health tracking, notifications, activity tracking, watch faces, band comfort.",
+        sceneActions: [
+            "Presenter straps wearable on wrist, presses button to wake display. Watch face lights up clearly visible.",
+            "Presenter checks wrist naturally — shows watch face with time, health data, or notification on screen.",
+            "Close-up of display — heart rate, steps, or fitness metrics visible. Bright clear screen.",
+            "Presenter demonstrates touch screen — swipes between apps, checks messages, controls music playback.",
+            "Presenter shows band/strap — comfortable fit, easy to adjust, premium material. Band swap demonstration.",
+            "Presenter during exercise — wrist tracking movement, screen showing workout metrics.",
+            "Presenter receives notification — glances at wrist, reads message on screen. Seamless phone integration.",
+            "Presenter shows sleep tracking or health feature — always-on display, gentle glow.",
+            "Close-up of charging — magnetic attachment, wireless pad. Quick charge demonstration.",
+            "Closing — presenter checking wrist with satisfied smile. Daily lifestyle essential."
+        ]
+    },
+    charger: {
+        knowledge: "Chargers/powerbanks must show the CHARGING PROCESS — cable plugged in, LED indicators lit, device being charged. Show charge speed, port types, capacity.",
+        sceneActions: [
+            "Presenter holds powerbank/charger, shows size compared to hand. Compact portable design. LED indicators visible.",
+            "Presenter plugs cable into charger, connects to phone/device. Charging indicator lights up on both devices.",
+            "Close-up of ports — USB-C, Lightning, etc. Multiple port options visible. Cable quality demonstration.",
+            "Presenter shows fast charging — battery percentage going up on device screen. Speed demonstration.",
+            "Presenter demonstrates portability — slips into pocket/bag easily. Lightweight yet powerful.",
+            "Presenter charges multiple devices simultaneously — shows multi-port capability.",
+            "Close-up of LED battery indicator — shows remaining capacity. Premium build quality.",
+            "Presenter uses phone while charging — demonstrates pass-through or wireless charging convenience.",
+            "Presenter shows safety features — overcharge protection indicator, heat management.",
+            "Closing — presenter with fully charged device and charger, ready to go. Essential daily carry."
+        ]
+    },
+    drone: {
+        knowledge: "Drones must show UNFOLDED with propellers visible and in-flight footage. Key features: camera gimbal, flight stability, compact folding, controller, aerial perspective.",
+        sceneActions: [
+            "Presenter unfolds drone arms, propellers extend. Shows full drone from above — camera gimbal visible.",
+            "Presenter places drone on flat ground, powers on. LED lights activate, gimbal calibrates.",
+            "Presenter holds controller with phone mounted, shows pre-flight screen/app. Confident pilot ready to fly.",
+            "Drone takes off — smooth vertical ascent. Presenter watches with amazed expression.",
+            "Aerial footage from drone camera — stunning landscape/cityscape. Camera quality demonstration.",
+            "Presenter demonstrates obstacle avoidance or tracking mode via controller. Smart features.",
+            "Drone returns to land — precise landing near presenter. Follow-me mode demonstration.",
+            "Presenter folds drone back to compact size — pocketable/packable portability.",
+            "Presenter reviews aerial photos/video on phone screen — impressive quality.",
+            "Closing — presenter holding folded drone with sunset/scenic backdrop. Adventure lifestyle."
+        ]
+    },
+
+    // ── Fashion & Accessories ──
+    fashion: {
+        knowledge: "Clothing must be shown WORN on body in most scenes. Show fabric texture, fit, movement, styling. Avoid just holding garment flat — it must be shown how it looks when worn and in motion.",
+        sceneActions: [
+            "Presenter shows garment on hanger or folded — first impression of design, color, fabric quality.",
+            "Presenter wearing the garment — full outfit visible. Turns slightly to show fit from front and side.",
+            "Close-up of fabric texture, stitching quality, button/zipper hardware. Premium material visible.",
+            "Presenter moves naturally in the garment — walks, sits, reaches. Shows comfort and flexibility.",
+            "Presenter styles the piece with accessories — shows outfit combination potential.",
+            "Presenter shows garment details — collar, cuffs, pockets, lining. Craftsmanship focus.",
+            "Presenter adjusts fit — shows size flexibility, elastic, adjustable elements.",
+            "Mirror check — presenter looks in mirror, satisfied with how the outfit looks. Try-on moment.",
+            "Presenter in lifestyle setting wearing the outfit — cafe, street, office. Context styling.",
+            "Closing — presenter confidently posing in complete outfit. Fashion editorial feel."
+        ]
+    },
+    bag: {
+        knowledge: "Bags must show BOTH exterior design AND interior organization. Show carrying on body — shoulder, crossbody, or hand. Open compartments to demonstrate functionality. Don't just hold it closed.",
+        sceneActions: [
+            "Presenter holds bag front-facing to camera — shows full exterior design, logo, hardware. Hero beauty shot.",
+            "Presenter opens main compartment — shows interior lining, pockets, organization. Camera peers inside.",
+            "Presenter demonstrates putting items inside — phone, wallet, keys, water bottle. Shows capacity and organization.",
+            "Presenter carries bag naturally — on shoulder, crossbody, or by handle. Shows strap adjustment.",
+            "Close-up of hardware — zipper, buckle, clasp, logo plate. Premium metal finish catching light.",
+            "Presenter shows multiple compartments — front pocket, side pocket, hidden pocket. Functional design.",
+            "Presenter walks with bag — shows comfortable carry, strap length, how bag moves with body.",
+            "Presenter styles bag with outfit — shows versatility as fashion accessory.",
+            "Presenter demonstrates closing mechanism — magnetic snap, zipper, drawstring. Secure closure.",
+            "Closing — presenter with bag on shoulder, walking confidently. Lifestyle accessory shot."
+        ]
+    },
+    shoe: {
+        knowledge: "Shoes must show ON FEET walking/moving in most scenes. Show sole tread, side profile, interior comfort, lacing, and walking demonstration. Don't just hold shoes in hands.",
+        sceneActions: [
+            "Presenter holds shoe showing side profile — clean lines, material quality, design visible. Hero product shot.",
+            "Presenter puts shoe on foot — shows easy entry, lacing up or strap fastening. Natural process.",
+            "Presenter stands wearing shoes — full view from front showing both shoes on feet. Fit visible.",
+            "Presenter walks naturally — shows comfort, cushion, natural gait. Movement demonstration.",
+            "Close-up of sole — tread pattern, cushioning technology, brand logo on outsole.",
+            "Presenter shows shoe from multiple angles while wearing — top view, side, back heel.",
+            "Presenter demonstrates flexibility — bends shoe to show sole flex, or squeezes to show cushion.",
+            "Presenter in lifestyle context wearing shoes — sport, casual, urban. Appropriate activity setting.",
+            "Close-up of material quality — leather grain, knit texture, stitching detail. Premium craftsmanship.",
+            "Closing — presenter walking confidently in shoes, lifestyle shot. Comfortable stride visible."
+        ]
+    },
+    jewelry: {
+        knowledge: "Jewelry must show WORN on body catching light with sparkle/reflection. Show clasp mechanism, gemstone facets, metal polish. Close-ups essential for detail. Don't just lay flat — show on neck, wrist, finger, ear.",
+        sceneActions: [
+            "Presenter opens jewelry box — reveals piece with dramatic lighting catching sparkle. First impression.",
+            "Presenter picks up jewelry with delicate pinch grip — shows craftsmanship detail, size, weight.",
+            "Presenter puts on jewelry — clasps necklace, slides on ring, inserts earring, fastens bracelet.",
+            "Presenter shows jewelry on body catching light — sparkle and shine visible. Elegant pose.",
+            "Extreme close-up — gemstone facets, metalwork detail, hallmark. Macro photography feel.",
+            "Presenter moves naturally — jewelry catches light from different angles, creating sparkle flashes.",
+            "Presenter shows clasp/closure mechanism — secure, easy to use. Build quality demonstration.",
+            "Presenter styles jewelry with outfit — shows how it elevates the overall look.",
+            "Presenter admires jewelry on self — checks in mirror, touches piece gently. Emotional connection.",
+            "Closing — presenter with jewelry beautifully displayed on body, elegant confident pose. Luxury feel."
+        ]
+    },
+    watch: {
+        knowledge: "Watches MUST show dial/face VISIBLE and readable in most scenes. Show on wrist with face-up angle. Don't show only the strap back or case back. Key features: dial design, bezel, crown, strap, clasp.",
+        sceneActions: [
+            "Presenter holds watch showing dial face — time visible, indices clear, hands sharp. Hero product shot.",
+            "Presenter straps watch on wrist — fastens buckle or clasp. Shows comfortable fit on wrist.",
+            "Presenter shows watch on wrist face-up — natural wrist-check gesture. Dial clearly readable.",
+            "Close-up of dial — minute markers, subdials, date window, hands. Exquisite craftsmanship detail.",
+            "Presenter demonstrates crown operation — sets time, winds mechanism. Mechanical precision.",
+            "Presenter shows watch catching light — sapphire crystal reflection, polished case, bezel detail.",
+            "Presenter shows strap/bracelet — material quality, links, easy adjustment mechanism.",
+            "Presenter checks watch in lifestyle context — business meeting, casual outing. Versatile elegance.",
+            "Close-up of case back — exhibition or engraving visible. Premium finishing.",
+            "Closing — presenter's wrist prominently showing watch dial, confident professional gesture."
+        ]
+    },
+    sunglasses: {
+        knowledge: "Sunglasses must be shown WORN on face in most scenes. Show UV protection in sunlight, frame design, lens quality. Demonstrate folding mechanism and case.",
+        sceneActions: [
+            "Presenter holds sunglasses open, showing frame design and lens color. Premium quality visible.",
+            "Presenter puts on sunglasses — slides onto face naturally. Stylish first impression.",
+            "Presenter wearing sunglasses outdoors in sunlight — UV protection demonstrated. Cool confident look.",
+            "Close-up of lens — reflections, polarization effect, lens clarity. Premium optics.",
+            "Presenter shows frame details — hinge, temple tip, nose pads. Build quality.",
+            "Presenter removes and folds sunglasses — smooth hinge mechanism. Places in case.",
+            "Presenter wears sunglasses in different settings — driving, beach, city. Versatility.",
+            "Presenter shows fit from side profile — frame shape complements face structure.",
+            "Presenter pushes sunglasses up/adjusts on nose — comfortable everyday wear.",
+            "Closing — presenter confidently wearing sunglasses, walking toward camera. Style statement."
+        ]
+    },
+    hat: {
+        knowledge: "Hats must be shown WORN on head. Show fit adjustment, brim angle, material quality. Demonstrate with different hair styles and outfits.",
+        sceneActions: [
+            "Presenter holds hat showing design, logo, material quality. Front-facing hero shot.",
+            "Presenter puts hat on head — adjusts angle and position. Natural styling moment.",
+            "Presenter wearing hat — front view showing how it frames the face. Stylish appearance.",
+            "Close-up of material, stitching, logo embroidery, brim quality. Craftsmanship detail.",
+            "Presenter shows size adjustment — snapback, strap, flex-fit mechanism.",
+            "Presenter turns to show hat from side and back angle — profile and rear design.",
+            "Presenter styles hat with complete outfit — shows hat as fashion accessory.",
+            "Presenter in outdoor setting wearing hat — sun protection, practical use.",
+            "Presenter removes hat briefly, runs hand over material, puts back on. Premium feel.",
+            "Closing — presenter wearing hat confidently, walking lifestyle shot."
+        ]
+    },
+
+    // ── Beauty & Personal Care ──
+    beauty: {
+        knowledge: "Beauty products must show the FULL usage ritual: display packaging → remove cap → apply/spray → show result on skin. Never show spraying with cap on. Show texture, color, finish of the product.",
+        sceneActions: [
+            "Presenter holds product showing packaging design, bottle shape, branding. Hero beauty shot.",
+            "Presenter removes cap/lid — reveals applicator, nozzle, or opening. Satisfying reveal moment.",
+            "Presenter applies product — spray on wrist/neck, dab cream, apply makeup. Natural application.",
+            "Close-up of product texture — liquid, cream, powder, or mist. Color and consistency visible.",
+            "Presenter shows result on skin — dewy finish, color payoff, fragrance enjoyment expression.",
+            "Presenter displays bottle/packaging from another angle — side view, back with ingredients.",
+            "Presenter demonstrates technique — blending, layering, or proper application method.",
+            "Presenter reacts positively — smells wrist, touches skin, admires result in mirror.",
+            "Presenter shows before/after or comparison — visible difference from using the product.",
+            "Closing — presenter holding product with glowing skin/satisfied expression. Beauty ritual complete."
+        ]
+    },
+    fragrance: {
+        knowledge: "Perfume bottles MUST show cap removal before spraying. Key showcase: bottle design, cap shape, spray nozzle, mist in air, wrist/neck application, enjoying the scent. Never spray with cap on.",
+        sceneActions: [
+            "Presenter holds perfume bottle showing design — ornate cap, glass shape, liquid color visible.",
+            "Presenter removes decorative cap — reveals spray nozzle. Satisfying cap-off moment.",
+            "Presenter sprays on wrist — visible mist in air catching light. One or two sprays.",
+            "Presenter brings wrist to nose — closes eyes, smiles, enjoys the scent. Genuine reaction.",
+            "Close-up of bottle — liquid level, glass transparency, light refraction through fragrance.",
+            "Presenter sprays on neck/pulse point — proper fragrance application technique.",
+            "Presenter shows cap detail — ornate design, magnetic closure, premium feel.",
+            "Presenter places bottle on vanity/display — beauty of bottle as decorative object.",
+            "Presenter puts cap back on, holds bottle proudly — complete ritual.",
+            "Closing — presenter with confident satisfied expression, bottle prominent in frame."
+        ]
+    },
+    skincare: {
+        knowledge: "Skincare must show APPLICATION on skin — squeeze, pump, spread, massage in. Show clean skin before, product texture close-up, and glowing result after. Key: dispense correctly, apply to face/hand, blend in.",
+        sceneActions: [
+            "Presenter holds skincare product showing label, packaging design. Clean minimalist beauty shot.",
+            "Presenter opens/pumps product — dispenses onto fingertip or palm. Texture visible.",
+            "Presenter applies to face/hand — gentle upward motions, natural skincare routine.",
+            "Close-up of product texture on skin — serum droplet, cream spread, gel consistency.",
+            "Presenter blends product into skin — massage motions, patting technique.",
+            "Presenter shows result — dewy hydrated skin, healthy glow. Satisfied expression.",
+            "Presenter reads ingredients label — points to key active ingredients.",
+            "Presenter shows product in bathroom/vanity context — part of skincare routine.",
+            "Presenter demonstrates layering — where this product fits in routine order.",
+            "Closing — presenter with glowing skin holding product. Skincare goals achieved."
+        ]
+    },
+    makeup: {
+        knowledge: "Makeup must show APPLICATION process — open palette/tube, use brush/applicator, apply to face, blend, show final result. Color payoff must be visible. Show mirror use and blending technique.",
+        sceneActions: [
+            "Presenter shows makeup product closed — packaging design, color, brand. Premium beauty product.",
+            "Presenter opens product — twists lipstick up, opens palette, uncaps mascara. Satisfying reveal.",
+            "Presenter applies makeup — brush to face, lipstick to lips, mascara to lashes. Technique visible.",
+            "Close-up of color payoff — pigment on skin, shimmer, matte finish. True color visible.",
+            "Presenter blends/builds — shows layering, blending edges, professional technique.",
+            "Presenter checks result in mirror — satisfied with the look. Before/after contrast.",
+            "Presenter shows multiple shades/options in palette — variety and versatility.",
+            "Presenter shows product compared to skin — swatches on hand for color matching.",
+            "Presenter in final full-makeup look — product's contribution to overall beauty.",
+            "Closing — presenter with finished makeup look, holding product. Beauty transformation complete."
+        ]
+    },
+
+    // ── Food & Beverage ──
+    food: {
+        knowledge: "Food must show UNPACKING → PREPARATION → TASTING ritual. Show food texture, steam, freshness, first bite reaction. Don't just hold sealed packaging — open it, prepare, and taste.",
+        sceneActions: [
+            "Presenter shows food packaging — brand, design, appetizing food photo on package.",
+            "Presenter opens packaging — tears bag, peels lid, unwraps. Fresh food revealed.",
+            "Presenter prepares food — plates it, adds garnish, heats up. Appetizing presentation.",
+            "Close-up of food — texture, color, steam rising, moisture glistening. Macro food shot.",
+            "Presenter takes first bite/taste — genuine reaction, chewing, eyes widen with delight.",
+            "Presenter describes flavor — gestures, nods, points at food. Enthusiastic review.",
+            "Presenter shows another angle of food — cross-section, layers, ingredients visible.",
+            "Presenter shares with friend or takes another bite — can't stop eating reaction.",
+            "Presenter shows value — portion size, remaining food, price-to-quality ratio.",
+            "Closing — presenter with food, satisfied smile, thumbs up. Delicious recommendation."
+        ]
+    },
+    beverage: {
+        knowledge: "Beverages must show OPENING → POURING → DRINKING ritual. Show condensation, liquid color, pour dynamics, carbonation. Don't just hold a closed bottle — open and pour/drink it.",
+        sceneActions: [
+            "Presenter holds cold beverage — condensation droplets visible. Refreshing first impression.",
+            "Presenter opens bottle/can — twist cap, pull tab, pop top. Satisfying opening sound implied.",
+            "Presenter pours into glass — liquid color, carbonation fizz, pour height visible. Dynamic pour.",
+            "Close-up of glass — ice cubes, bubbles rising, rich color. Thirst-inducing macro shot.",
+            "Presenter takes first sip — refreshing reaction, satisfied expression. Genuine enjoyment.",
+            "Presenter shows label/ingredients — turns bottle to show branding and nutritional info.",
+            "Presenter in context setting — outdoor heat, after exercise, social gathering. Need for beverage.",
+            "Presenter offers to camera — as if sharing with viewer. Social recommendation gesture.",
+            "Presenter finishes drink — shows satisfaction, maybe second pour.",
+            "Closing — presenter holding drink with refreshed happy expression. Recommendation."
+        ]
+    },
+    coffee: {
+        knowledge: "Coffee must show BREWING process — beans, grinding, brewing, pouring, sipping. Show crema, steam, aroma enjoyment. The ritual IS the content.",
+        sceneActions: [
+            "Presenter shows coffee package — beans or ground visible through window. Origin/brand shown.",
+            "Presenter opens bag — aroma reaction, shows beans/grounds close-up. Deep inhale.",
+            "Presenter brews — grinding beans, filling filter, operating machine. Brewing ritual.",
+            "Close-up of coffee pouring — crema forming, steam rising, rich dark color. Sensory shot.",
+            "Presenter cups mug with both hands — inhales aroma, eyes closed, blissful expression.",
+            "Presenter takes first sip — taste reaction, nods appreciatively. Flavor enjoyment.",
+            "Presenter shows coffee from above — latte art or crema pattern visible in cup.",
+            "Presenter adds milk/sugar (optional) — shows customization, stirs gently.",
+            "Presenter in morning routine context — kitchen or cafe, newspaper, sunlight.",
+            "Closing — presenter with coffee mug, warm satisfied morning smile. Daily ritual essential."
+        ]
+    },
+
+    // ── Health & Wellness ──
+    supplement: {
+        knowledge: "Supplements must show OPENING bottle → DISPENSING dose → TAKING with water. Show capsule/tablet close-up, dosage, and health-conscious lifestyle context.",
+        sceneActions: [
+            "Presenter holds supplement bottle showing label — health claims, brand, ingredients visible.",
+            "Presenter opens cap — childproof twist, shows proper opening technique.",
+            "Presenter shakes out dosage into palm — correct number of capsules/tablets visible.",
+            "Close-up of capsules/tablets in hand — size, color, quality visible. Clean presentation.",
+            "Presenter takes supplement with glass of water — natural swallowing motion.",
+            "Presenter shows ingredient list — points to key active ingredients on label.",
+            "Presenter in healthy lifestyle context — gym, morning routine, healthy meal alongside.",
+            "Presenter shows results/energy — active, vibrant expression after daily use.",
+            "Presenter compares bottle size to hand — shows supply duration, value.",
+            "Closing — presenter with bottle and healthy smile. Wellness lifestyle recommendation."
+        ]
+    },
+
+    // ── Home & Kitchen ──
+    home: {
+        knowledge: "Home products must show IN CONTEXT — placed in the home setting they belong to. Show functionality, sizing, integration with existing decor. Don't just hold items — show them in use in a room.",
+        sceneActions: [
+            "Presenter shows product packaging or product itself — first impression of design and quality.",
+            "Presenter places/installs product in home setting — shelf, wall, table. Natural positioning.",
+            "Presenter demonstrates primary function — how product works, what it does.",
+            "Close-up of material quality — finish, texture, build quality. Premium detail.",
+            "Presenter shows product integrated with existing room decor — stylistic harmony.",
+            "Presenter interacts with product daily-use way — adjusting, cleaning, operating.",
+            "Presenter shows size/scale in room context — proportions, space efficiency.",
+            "Presenter shows multiple use cases or positions — versatility demonstration.",
+            "Presenter steps back to show full room with product — lifestyle context.",
+            "Closing — presenter gesturing at product in beautiful home setting. Home upgrade feel."
+        ]
+    },
+    kitchen: {
+        knowledge: "Kitchen products must show COOKING process — prep, cook, serve. Show the tool in action making food. Steam, sizzle, fresh ingredients. The product enables delicious results.",
+        sceneActions: [
+            "Presenter shows kitchen product — utensil, appliance, or tool. Design and build quality.",
+            "Presenter begins food prep using the product — chopping, mixing, measuring.",
+            "Presenter uses product during cooking — stirring, flipping, temperature control.",
+            "Close-up of product in action — food sizzling, steam rising, precise control.",
+            "Presenter shows result — perfectly cooked food made possible by the product.",
+            "Presenter demonstrates cleaning/maintenance — easy to clean, dishwasher-safe.",
+            "Presenter shows product features — adjustable settings, safety mechanisms.",
+            "Presenter plates food from cooking — beautiful plated result from the cooking process.",
+            "Presenter tastes the cooked result — satisfied expression. Product delivered.",
+            "Closing — presenter with product and beautifully plated food. Kitchen essential."
+        ]
+    },
+
+    // ── Fitness ──
+    fitness: {
+        knowledge: "Fitness gear must be shown IN USE during exercise. Show proper form, muscle engagement, sweat, effort. Don't just hold equipment — demonstrate workout movements with correct technique.",
+        sceneActions: [
+            "Presenter holds fitness equipment showing design, build quality, features. Gym setting.",
+            "Presenter demonstrates proper grip/setup — correct form and positioning.",
+            "Presenter performs exercise with equipment — full range of motion, controlled movement.",
+            "Close-up of grip, material, adjustment mechanism during use. Quality under stress.",
+            "Presenter shows effort — slight sweat, focused expression, muscles engaged.",
+            "Presenter demonstrates alternate exercise — versatility of the equipment.",
+            "Presenter adjusts settings — weight, resistance, difficulty. Customization.",
+            "Presenter shows durability — equipment handling intense use without issue.",
+            "Presenter in post-workout — satisfied, accomplished expression. Product delivered results.",
+            "Closing — presenter with equipment in gym, athletic confident pose. Fitness lifestyle."
+        ]
+    },
+
+    // ── Baby & Pet ──
+    baby: {
+        knowledge: "Baby products must show GENTLE safe handling and age-appropriate use. Demonstrate safety features, soft materials, BPA-free quality. Show parent's care and baby's comfort.",
+        sceneActions: [
+            "Presenter shows baby product packaging — safety certifications, age recommendation visible.",
+            "Presenter opens package carefully — reveals soft, safe product. Gentle handling.",
+            "Presenter demonstrates product features — safety locks, soft edges, easy grip.",
+            "Close-up of material quality — smooth, BPA-free, soft-touch surface. Safe for baby.",
+            "Presenter shows product in use context — feeding, bathing, playing appropriately.",
+            "Presenter demonstrates ease of cleaning — dishwasher-safe, easy-wipe, sterilizable.",
+            "Presenter shows size/ergonomics — fits small hands, parent-friendly design.",
+            "Presenter expresses trust in product — reads safety labels, satisfied with quality.",
+            "Presenter shows complete set/accessories — everything included for use.",
+            "Closing — presenter holding baby product with warm parental smile. Safe choice."
+        ]
+    },
+    pet: {
+        knowledge: "Pet products must show WITH the pet whenever possible. Show pet's reaction, enjoyment, interaction. Demonstrate portion sizes for food, durability for toys.",
+        sceneActions: [
+            "Presenter shows pet product — packaging, design, brand. Pet curious in background.",
+            "Presenter opens product — pet shows interest, approaches, sniffs.",
+            "Presenter offers product to pet — food in bowl, toy to play, treats from hand.",
+            "Close-up of pet enjoying product — eating happily, playing enthusiastically.",
+            "Presenter shows product quality — ingredient label, durable construction.",
+            "Presenter and pet interact using product — bonding moment, training, play.",
+            "Presenter shows portion/usage guidance — correct amount for pet size.",
+            "Presenter shows pet's positive reaction — wagging tail, purring, excited energy.",
+            "Presenter stores/organizes product — proper food storage, toy basket.",
+            "Closing — presenter with happy pet and product. Pet parent recommendation."
+        ]
+    },
+
+    // ── Craft & Stationery ──
+    book: {
+        knowledge: "Books must be shown OPEN with pages visible in reading scenes. Show cover design, spine, page quality. Demonstrate actually reading — flipping pages, engaged expression.",
+        sceneActions: [
+            "Presenter holds book showing front cover design — title, author, artwork clearly visible.",
+            "Presenter opens book — flips through pages showing paper quality, layout.",
+            "Presenter reads book — engaged expression, turning pages naturally.",
+            "Close-up of interior pages — typography, illustrations, print quality.",
+            "Presenter shows back cover — synopsis, reviews, ISBN. Complete package.",
+            "Presenter reads specific passage — absorbed in content, genuine interest.",
+            "Presenter shows book in reading context — cozy chair, cafe, bed. Lifestyle reading.",
+            "Presenter marks favorite page — bookmark, tab, or fold corner (gentle).",
+            "Presenter holds book open to recommend — sharing enthusiasm for content.",
+            "Closing — presenter with book in cozy reading setting. Must-read recommendation."
+        ]
+    },
+    stationery: {
+        knowledge: "Writing instruments must show WRITING on paper — ink flow, line quality, smooth gliding. Show cap removal, grip comfort, and the actual mark/writing produced.",
+        sceneActions: [
+            "Presenter holds pen/pencil showing design, barrel, clip. Premium writing instrument.",
+            "Presenter removes cap or clicks mechanism — ready to write. Satisfying action.",
+            "Presenter writes on paper — smooth ink flow, beautiful handwriting visible.",
+            "Close-up of nib/tip on paper — ink line quality, smoothness, precision.",
+            "Presenter shows grip comfort — proper writing position, ergonomic barrel.",
+            "Presenter writes different styles — notes, signatures, drawings. Versatility.",
+            "Presenter shows color — ink shade, consistency, vibrancy on paper.",
+            "Presenter in workspace context — desk, notebook, organized stationery setup.",
+            "Presenter caps pen or retracts — satisfying closure mechanism.",
+            "Closing — presenter with writing instrument and beautifully written page. Quality tool."
+        ]
+    },
+
+    // ── Cleaning ──
+    cleaning: {
+        knowledge: "Cleaning products must show BEFORE → DURING → AFTER cleaning. Show dirty surface, product application, wiping/scrubbing, and sparkling clean result. The transformation is the content.",
+        sceneActions: [
+            "Presenter shows cleaning product — spray bottle, liquid, or tool. Design and brand.",
+            "Presenter shows dirty/messy surface that needs cleaning — realistic before state.",
+            "Presenter opens/prepares product — flip nozzle, squeeze, dilute. Ready to clean.",
+            "Presenter sprays/applies product to surface — visible application.",
+            "Presenter wipes/scrubs — cleaning action with cloth or tool. Effort visible.",
+            "Close-up of surface transformation — dirt dissolving, stain lifting, grease cutting.",
+            "Presenter shows clean result — sparkling surface compared to before. Dramatic difference.",
+            "Presenter shows product efficiency — how little product needed for great results.",
+            "Presenter shows safety/eco-friendly — ingredients, certifications, gentle on surfaces.",
+            "Closing — presenter with product and sparkling clean background. Effective solution."
+        ]
+    },
+
+    // ── Outdoor & Sports ──
+    outdoor: {
+        knowledge: "Outdoor gear must be shown IN NATURE — camping, hiking, traveling. Show setup, weather resistance, durability in outdoor conditions. Don't just hold gear indoors.",
+        sceneActions: [
+            "Presenter shows outdoor gear/product — design, portability, packed state.",
+            "Presenter unpacks/sets up in outdoor setting — tent, gear, equipment deployment.",
+            "Presenter uses product in nature — demonstrates function in actual outdoor conditions.",
+            "Close-up of durability features — waterproof zippers, reinforced stitching, buckles.",
+            "Presenter shows weather resistance — product handling wind, sun, or rain.",
+            "Presenter demonstrates versatility — multiple uses or configurations.",
+            "Presenter shows portability — packing back up, compact size, lightweight carry.",
+            "Presenter in full outdoor adventure context — trail, campsite, summit.",
+            "Presenter shows comfort during extended outdoor use — breathable, adjustable.",
+            "Closing — presenter with gear in stunning natural landscape. Adventure ready."
+        ]
+    },
+
+    // ── Auto ──
+    auto: {
+        knowledge: "Auto products must show ON/IN vehicle. Show installation process, before/after difference, compatibility with car. Don't just hold auto accessories in hand indoors.",
+        sceneActions: [
+            "Presenter shows auto product — packaging, design, compatibility info.",
+            "Presenter approaches vehicle — shows where product will be installed/used.",
+            "Presenter installs product — mounting, connecting, applying. Step-by-step process.",
+            "Close-up of installed product — secure fit, clean integration with vehicle.",
+            "Presenter demonstrates function — product working as intended on vehicle.",
+            "Presenter shows before/after — improvement visible after installation.",
+            "Presenter tests product — driving, using controls, showing features work.",
+            "Presenter shows build quality — durable materials, weather resistance.",
+            "Presenter shows convenience — easy to use daily, quick access.",
+            "Closing — presenter with vehicle and installed product. Upgrade complete."
+        ]
+    },
+
+    // ── Food & Beverage (sub-categories) ──
+    snack: {
+        knowledge: "Snacks must show OPENING package → EATING → REACTION. Show crispy texture, seasoning, sharing format. Don't just hold sealed bag.",
+        sceneActions: [
+            "Presenter shows snack package — brand, flavor, appetizing photo. Sealed fresh.",
+            "Presenter tears open package — satisfying opening, snack visible inside.",
+            "Presenter reaches in, picks up piece — shows size, texture, seasoning coating.",
+            "Close-up of snack — crispy texture, seasoning detail, crunch appeal.",
+            "Presenter takes first bite — crunchy reaction, flavor enjoyment, genuine delight.",
+            "Presenter shows handful — portion size, variety of shapes and pieces.",
+            "Presenter offers to share — social snacking, fun casual vibe.",
+            "Presenter reads flavor info — points at ingredients, flavor description on bag.",
+            "Presenter shows bag size — value, resealable feature if applicable.",
+            "Closing — presenter munching happily, holding bag. Irresistible snack recommendation."
+        ]
+    },
+    bakery: {
+        knowledge: "Bakery items must show FRESH texture — flaky layers, soft crumb, golden crust, steam if warm. Show cross-section to reveal interior.",
+        sceneActions: [
+            "Presenter shows bakery item — beautiful golden exterior, packaging if boxed.",
+            "Presenter unwraps or opens box — reveals fresh baked goods. Warm steam rises.",
+            "Presenter breaks bread or pastry in half — shows fluffy interior, layers, filling.",
+            "Close-up of texture — flaky crust, soft crumb, melted butter, cream filling.",
+            "Presenter takes first bite — soft texture, flavor reaction, closes eyes savoring.",
+            "Presenter shows variety — multiple flavors or types in the set.",
+            "Presenter adds topping or spread — butter, jam, cream. Enhancement ritual.",
+            "Presenter pairs with coffee or tea — perfect combination lifestyle shot.",
+            "Presenter shows freshness — still warm, aromatic, just-baked appeal.",
+            "Closing — presenter enjoying pastry with warm beverage. Bakery heaven."
+        ]
+    },
+    tea: {
+        knowledge: "Tea must show STEEPING ritual — boil water, steep leaves or bag, watch color develop, sip. Aroma and color change are key visual elements.",
+        sceneActions: [
+            "Presenter shows tea packaging — variety, origin, blend description visible.",
+            "Presenter opens package — reveals tea bags or loose leaves. Aroma reaction.",
+            "Presenter places tea in cup or teapot — bag dipped or leaves in infuser.",
+            "Presenter pours hot water over tea — steam rises, first color appears.",
+            "Close-up of steeping — tea color developing beautifully in clear cup.",
+            "Presenter waits patiently — shows steeping time, calm ritual moment.",
+            "Presenter removes bag or infuser — perfect amber or green color achieved.",
+            "Presenter cups warm mug — inhales aroma, first gentle sip. Peaceful expression.",
+            "Presenter adds honey or milk optional — shows customization, stirs gently.",
+            "Closing — presenter in cozy setting with tea, serene satisfied smile."
+        ]
+    },
+    alcohol: {
+        knowledge: "Alcohol must show PROPER POUR and GLASS selection. Show bottle label, cork or cap removal, measured pour into correct glassware, color, aroma, tasting.",
+        sceneActions: [
+            "Presenter shows bottle — label, vintage, brand clearly visible. Premium presentation.",
+            "Presenter opens — removes cork, twists cap, or cracks seal. Satisfying opening.",
+            "Presenter pours into correct glass — wine glass, tumbler, flute. Controlled pour.",
+            "Close-up of liquid — color, clarity, legs on glass, bubbles. Beautiful pour.",
+            "Presenter swirls glass gently — shows color depth, body, viscosity.",
+            "Presenter inhales aroma — nose over glass, eyes close, appreciating bouquet.",
+            "Presenter takes measured sip — tasting expression, savoring flavor notes.",
+            "Presenter shows food pairing — cheese, charcuterie, or meal alongside.",
+            "Presenter examines label closely — origin, age, tasting notes on back.",
+            "Closing — presenter raises glass in toast gesture, sophisticated ambiance."
+        ]
+    },
+    organic: {
+        knowledge: "Organic products must show NATURAL purity — clean ingredients, eco packaging, certification labels, farm-fresh feel. Emphasize sustainable choices.",
+        sceneActions: [
+            "Presenter shows organic product — eco packaging, certification logos visible.",
+            "Presenter opens package — reveals natural unprocessed product. Fresh and clean.",
+            "Presenter reads ingredients — points to organic certification, simple ingredient list.",
+            "Close-up of product — natural colors, no artificial additives visible.",
+            "Presenter prepares or uses product — washes produce, mixes ingredients naturally.",
+            "Presenter shows eco-friendly packaging — recyclable, biodegradable, minimal waste.",
+            "Presenter compares to regular version — cleaner, more natural, fewer additives.",
+            "Presenter in healthy kitchen — fresh produce, natural light, wholesome setting.",
+            "Presenter shows farm or origin story — sustainability, ethical sourcing on label.",
+            "Closing — presenter with organic product in healthy lifestyle setting. Clean living."
+        ]
+    },
+    "frozen-food": {
+        knowledge: "Frozen food must show FROZEN → COOK → SERVE transformation. Show frost on package, cooking process, and steaming hot final result.",
+        sceneActions: [
+            "Presenter shows frozen package from freezer — frost visible, appetizing photo on box.",
+            "Presenter reads cooking instructions — time, temperature, method on packaging.",
+            "Presenter removes from packaging — shows frozen food items arranged for cooking.",
+            "Presenter cooks — places in microwave, oven, or pan. Timer set, heat applied.",
+            "Close-up during cooking — frost melting, steam starting, sizzling implied.",
+            "Presenter checks doneness — opens oven or microwave, steam billows out.",
+            "Presenter plates hot food — steaming, golden, appetizing. Complete transformation.",
+            "Presenter takes first bite — surprised by quality from frozen. Delicious reaction.",
+            "Presenter shows convenience — entire process took just minutes. Quick and easy.",
+            "Closing — presenter with perfectly cooked meal. Frozen food elevated."
+        ]
+    },
+    condiment: {
+        knowledge: "Condiments must show APPLICATION on food. Open cap, pour or squeeze onto dish, show flavor enhancement. The before and after on food is the key visual.",
+        sceneActions: [
+            "Presenter shows condiment bottle or jar — label, flavor, brand clearly visible.",
+            "Presenter opens cap or lid — flip top, unscrew, or peel seal. Ready to use.",
+            "Presenter drizzles or squeezes onto food — controlled stream, appetizing application.",
+            "Close-up of condiment on food — sauce pooling, texture, color contrast with dish.",
+            "Presenter mixes condiment into food — even distribution, enhanced appearance.",
+            "Presenter tastes food with condiment — flavor reaction, nods approvingly.",
+            "Presenter shows versatility — uses on different dishes, multiple applications.",
+            "Presenter shows ingredients and quality — natural, premium, special recipe on label.",
+            "Presenter compares food before and after condiment — dramatic flavor upgrade.",
+            "Closing — presenter with condiment and delicious dish. Essential flavor enhancer."
+        ]
+    },
+
+    // ── Beauty & Personal Care (sub-categories) ──
+    haircare: {
+        knowledge: "Haircare must show APPLICATION in hair — lather, rinse, condition, style. Show wet hair for shampoo, dry hair for styling. Before and after hair texture is key.",
+        sceneActions: [
+            "Presenter shows haircare product — bottle design, key ingredients on label.",
+            "Presenter opens cap or pump — dispenses product into palm. Texture visible.",
+            "Presenter applies to hair — works shampoo into lather, or spreads serum through strands.",
+            "Close-up of hair with product — lather foam, serum coating strands, treatment absorption.",
+            "Presenter massages scalp or distributes through hair — proper technique shown.",
+            "Presenter rinses or styles — water flowing through hair, or blow-dry and styling.",
+            "Presenter shows hair result — shiny, smooth, voluminous, healthy-looking after treatment.",
+            "Presenter runs fingers through transformed hair — silky, touchable, bouncy.",
+            "Presenter shows product amount needed — demonstrates correct dosage for hair length.",
+            "Closing — presenter with beautiful hair, holding product. Hair goals achieved."
+        ]
+    },
+    sunscreen: {
+        knowledge: "Sunscreen must show APPLICATION outdoors — squeeze onto fingers, dot on face or body, spread evenly, show outdoor sun context. SPF label must be visible.",
+        sceneActions: [
+            "Presenter shows sunscreen — SPF rating, brand, tube or bottle clearly visible.",
+            "Presenter opens cap — squeezes onto fingertips. White or clear texture visible.",
+            "Presenter dots sunscreen on face — forehead, cheeks, nose, chin. Five-dot method.",
+            "Presenter spreads evenly — gentle circular motions, blending into skin.",
+            "Close-up of application — smooth texture, no white cast, absorbed into skin.",
+            "Presenter shows result — skin protected, dewy or matte finish as product type.",
+            "Presenter in outdoor sun — demonstrates product in actual sun exposure context.",
+            "Presenter shows water resistance — splash or sweat, product stays on skin.",
+            "Presenter reapplies after time — shows proper reapplication routine.",
+            "Closing — presenter outdoors in sun with protected glowing skin. Sun-safe lifestyle."
+        ]
+    },
+    nail: {
+        knowledge: "Nail products must show APPLICATION on nails — brush strokes, color building, precision work. Show steady hand technique, color payoff, glossy finish.",
+        sceneActions: [
+            "Presenter shows nail polish bottle — color visible through glass, cap design.",
+            "Presenter unscrews cap — pulls out brush loaded with color. First look at shade.",
+            "Presenter applies first stroke on nail — from base to tip, steady hand technique.",
+            "Close-up of nail being painted — smooth application, even color coverage.",
+            "Presenter shows second coat — building color depth and opacity.",
+            "Presenter displays painted nails — fanned fingers showing color on all nails.",
+            "Presenter shows color accuracy — matches expectation, true to bottle shade.",
+            "Presenter demonstrates durability — taps nails, shows chip-resistant finish.",
+            "Presenter shows nail in different lighting — color shift, shimmer, glossy shine.",
+            "Closing — presenter with beautifully painted nails, elegant hand pose. Salon quality."
+        ]
+    },
+    soap: {
+        knowledge: "Soap must show LATHER and FOAM. Wet hands or body, rub soap, build rich lather, show bubbles and foam. Show clean refreshed result after rinsing.",
+        sceneActions: [
+            "Presenter shows soap — bar or bottle, packaging design, scent description.",
+            "Presenter wets hands or unwraps bar — prepares for use under running water.",
+            "Presenter lathers — rubs bar between palms or pumps liquid soap. Foam building.",
+            "Close-up of lather — rich foam, bubbles, creamy texture on hands.",
+            "Presenter washes thoroughly — between fingers, wrists, proper hand hygiene.",
+            "Presenter rinses — water cascading over hands, soap washing away cleanly.",
+            "Presenter shows clean result — fresh, moisturized hands after washing.",
+            "Presenter smells hands — enjoys lingering scent. Satisfied with freshness.",
+            "Presenter shows moisturizing effect — no dry skin, soft smooth hands.",
+            "Closing — presenter with clean hands and soap product. Daily hygiene essential."
+        ]
+    },
+    dental: {
+        knowledge: "Dental products must show PROPER TECHNIQUE — squeeze toothpaste onto brush, brush in correct motions, or pour mouthwash into cap. Show clean teeth result.",
+        sceneActions: [
+            "Presenter shows dental product — toothpaste tube, mouthwash bottle, or toothbrush.",
+            "Presenter opens and prepares — squeezes paste onto brush, or pours mouthwash.",
+            "Presenter uses product — brushing teeth with correct technique, or swishing mouthwash.",
+            "Close-up of technique — brush angle on teeth, paste foaming, thorough coverage.",
+            "Presenter rinses and spits — clean fresh mouth, minty fresh expression.",
+            "Presenter shows bright smile — clean white teeth result. Fresh and confident.",
+            "Presenter reads product features — fluoride, whitening, sensitivity protection.",
+            "Presenter demonstrates daily routine — morning or evening dental care ritual.",
+            "Presenter shows product longevity — tube or bottle will last, good value.",
+            "Closing — presenter with bright confident smile holding product. Oral care essential."
+        ]
+    },
+    barbershop: {
+        knowledge: "Barbershop products must show GROOMING ritual — apply cream, shave with direction, use clippers with guard, style with product. Show masculine grooming precision.",
+        sceneActions: [
+            "Presenter shows grooming product — clipper, razor, cream, or styling product.",
+            "Presenter prepares — turns on clipper, attaches guard, or lathers shaving cream.",
+            "Presenter applies — shaving cream on face, or positions clipper at hairline.",
+            "Presenter grooms — shaving with grain, clipping with steady hand, styling hair.",
+            "Close-up of technique — clean razor strokes, precise clipper lines, product application.",
+            "Presenter shows result — clean shave, fresh hairline, styled hair.",
+            "Presenter applies aftershave or styling product — finishing touch.",
+            "Presenter checks result in mirror — satisfied with groomed appearance.",
+            "Presenter shows tool quality — blade sharpness, clipper power, product premium feel.",
+            "Closing — presenter looking sharp and groomed. Professional barbershop results at home."
+        ]
+    },
+
+    // ── Health & Wellness (sub-categories) ──
+    health: {
+        knowledge: "Health devices must show MEASUREMENT process — power on device, position correctly on body, wait for reading, display result. Show clear digital readout.",
+        sceneActions: [
+            "Presenter shows health device — thermometer, blood pressure monitor, oximeter.",
+            "Presenter powers on device — press button, screen lights up. Ready to use.",
+            "Presenter positions device — on arm, in ear, on finger. Correct placement shown.",
+            "Device measuring — wait indicator, processing animation on screen.",
+            "Close-up of display — clear reading, numbers, health metrics visible.",
+            "Presenter reads result — interprets the number, nods with understanding.",
+            "Presenter shows ease of use — simple one-button operation, portable design.",
+            "Presenter demonstrates storage — memory function, previous readings recall.",
+            "Presenter shows device compared to hand — compact, portable size.",
+            "Closing — presenter with health device, confident about health monitoring."
+        ]
+    },
+    vitamin: {
+        knowledge: "Vitamins must show DAILY ROUTINE — open bottle, take correct dose, swallow with water. Show label with vitamin type and benefits. Health-conscious lifestyle.",
+        sceneActions: [
+            "Presenter shows vitamin bottle — type (C, D, multi), dosage, brand visible.",
+            "Presenter opens childproof cap — press and twist technique shown.",
+            "Presenter pours vitamins into palm — correct daily dose, colorful capsules or gummies.",
+            "Close-up of vitamins in hand — size, shape, color. Quality visible.",
+            "Presenter takes with water — natural swallowing motion. Easy daily routine.",
+            "Presenter shows label — key vitamins, daily value percentage, benefits listed.",
+            "Presenter in morning routine — vitamins alongside healthy breakfast.",
+            "Presenter shows energy and vitality — active, bright expression after daily use.",
+            "Presenter shows bottle supply — how many days per bottle, value proposition.",
+            "Closing — presenter with vitamin bottle in healthy morning setting. Daily wellness."
+        ]
+    },
+    protein: {
+        knowledge: "Protein powder must show MIXING ritual — scoop powder, pour into shaker with liquid, shake vigorously, drink. Show powder texture, mixing action, and post-workout context.",
+        sceneActions: [
+            "Presenter shows protein tub — flavor, brand, protein amount per serving visible.",
+            "Presenter opens tub — reveals powder, uses included scoop to measure dose.",
+            "Presenter adds scoop to shaker bottle — powder falling into liquid visible.",
+            "Presenter adds water or milk — liquid pouring into shaker over powder.",
+            "Presenter shakes vigorously — firm grip on shaker, back and forth 10-15 seconds.",
+            "Presenter opens shaker flip-top — smooth mixed shake visible, no clumps.",
+            "Presenter drinks protein shake — refreshing post-workout sip, energy refueling.",
+            "Close-up of shake consistency — smooth, creamy, well-mixed in glass.",
+            "Presenter in gym or post-workout context — fitness lifestyle, muscle recovery.",
+            "Closing — presenter with shaker in gym, strong confident fitness lifestyle."
+        ]
+    },
+    "weight-loss": {
+        knowledge: "Weight management products must show HEALTHY routine — meal replacement prep, capsule with water, active lifestyle context. Emphasize sustainable healthy approach.",
+        sceneActions: [
+            "Presenter shows weight management product — packaging, key claims visible.",
+            "Presenter opens and prepares — opens sachet, shakes bottle, or opens capsule container.",
+            "Presenter uses product — mixes shake, takes capsule with water, applies patch.",
+            "Close-up of product — texture, color, quality visible. Clean presentation.",
+            "Presenter in active lifestyle — exercise, healthy eating, positive energy.",
+            "Presenter shows meal context — product as part of balanced diet plan.",
+            "Presenter reads instructions — dosage, timing, how to use effectively.",
+            "Presenter shows progress mindset — motivated, disciplined, healthy routine.",
+            "Presenter combines with exercise — product plus active lifestyle together.",
+            "Closing — presenter with product, healthy active lifestyle. Wellness journey."
+        ]
+    },
+    massage: {
+        knowledge: "Massage products must show APPLICATION to muscle areas — apply oil, use tool with pressure, rolling or pressing motions. Show relaxation and tension relief.",
+        sceneActions: [
+            "Presenter shows massage product — oil bottle, massage gun, roller, or tool.",
+            "Presenter prepares — uncaps oil, turns on device, positions tool.",
+            "Presenter applies to body — oil on shoulders, gun on muscle, roller on back.",
+            "Close-up of technique — pressure applied, rolling motion, oil spreading on skin.",
+            "Presenter shows relaxation — tension releasing, shoulders dropping, relief expression.",
+            "Presenter demonstrates on different body areas — neck, back, legs, arms.",
+            "Presenter shows intensity settings — adjustable speed, pressure, or heat levels.",
+            "Presenter in relaxation context — dim lighting, calm setting, spa atmosphere.",
+            "Presenter shows portability — compact, rechargeable, travel-friendly design.",
+            "Closing — presenter relaxed and refreshed with massage product. Tension released."
+        ]
+    },
+    "essential-oil": {
+        knowledge: "Essential oils must show DIFFUSING or DILUTING ritual — add drops to diffuser, mix with carrier oil, show mist and aroma. Calming wellness atmosphere.",
+        sceneActions: [
+            "Presenter shows essential oil bottle — small amber glass, dropper cap, label visible.",
+            "Presenter opens dropper — removes cap, squeezes bulb to fill pipette.",
+            "Presenter adds drops to diffuser water — 2 to 3 drops falling into tank.",
+            "Presenter turns on diffuser — mist begins flowing, soft LED light activates.",
+            "Close-up of mist — gentle vapor rising from diffuser, atmospheric and calming.",
+            "Presenter inhales deeply — aroma reaching, eyes close, peaceful expression.",
+            "Presenter shows dilution with carrier oil — drops into palm, mixes for skin use.",
+            "Presenter applies diluted oil to wrists or temples — gentle dabbing motion.",
+            "Presenter in calm setting — candles, soft lighting, meditation or yoga space.",
+            "Closing — presenter in zen atmosphere with diffuser misting. Aromatherapy wellness."
+        ]
+    },
+    elderly: {
+        knowledge: "Elderly products must show EASY usage — large buttons, simple design, comfortable grip. Demonstrate with unhurried gentle movements. Show safety and accessibility.",
+        sceneActions: [
+            "Presenter shows elderly product — large print, easy-grip design, safety features visible.",
+            "Presenter demonstrates easy opening — large tabs, simple twist, accessible packaging.",
+            "Presenter uses product — steady unhurried movements, comfortable natural pace.",
+            "Close-up of accessibility features — large buttons, clear labels, non-slip grip.",
+            "Presenter shows safety mechanisms — locked wheels, sturdy construction, fall prevention.",
+            "Presenter demonstrates adjustability — height, grip angle, seat position.",
+            "Presenter shows comfort — padded grip, ergonomic shape, lightweight design.",
+            "Presenter reads clear instructions — large font, simple steps, visual guides.",
+            "Presenter shows independence — product enables self-sufficiency, dignity in daily tasks.",
+            "Closing — presenter with product showing ease of use. Quality of life improvement."
+        ]
+    },
+    medicine: {
+        knowledge: "Medicine must show CORRECT DOSAGE — read label, measure precisely, take as directed. Show dosage measurement, timing, and proper storage. Safety first.",
+        sceneActions: [
+            "Presenter shows medicine packaging — drug name, dosage, warnings clearly visible.",
+            "Presenter reads label carefully — dosage instructions, active ingredients, warnings.",
+            "Presenter opens package — childproof cap twist, blister pack push, or seal peel.",
+            "Presenter measures dose — pour into cap, push tablet from blister, use dropper.",
+            "Close-up of dosage — correct amount measured, clear and precise.",
+            "Presenter takes medicine — with water, at correct time, as label directs.",
+            "Presenter shows proper storage — cool dry place, away from sunlight, child-safe.",
+            "Presenter checks expiry date — shows awareness of medication safety.",
+            "Presenter shows relief or improvement — the medicine helping as intended.",
+            "Closing — presenter with medicine stored properly. Responsible health management."
+        ]
+    },
+    "mental-health": {
+        knowledge: "Mental health products must show CALM intentional usage — journaling, meditating, aromatherapy. Show quiet setting, mindful practice, emotional wellbeing.",
+        sceneActions: [
+            "Presenter shows mental health product — journal, meditation tool, or wellness item.",
+            "Presenter finds quiet space — sits comfortably, creates calm environment.",
+            "Presenter begins practice — opens journal, presses play on meditation, lights candle.",
+            "Close-up of engagement — pen on paper, deep breathing, peaceful closed eyes.",
+            "Presenter shows mindful interaction — writing thoughts, following guided breathing.",
+            "Presenter demonstrates routine — this product as part of daily wellness habit.",
+            "Presenter shows emotional shift — tension releasing, peaceful calm settling in.",
+            "Presenter in serene environment — natural light, plants, quiet minimalist space.",
+            "Presenter reflects — satisfied with practice, feeling centered and grounded.",
+            "Closing — presenter in peaceful state with product. Mental wellness ritual."
+        ]
+    },
+
+    // ── Fashion (sub-categories) ──
+    underwear: {
+        knowledge: "Underwear must show FABRIC quality, fit, and comfort. Show material close-up, elasticity, tag with size info. Keep presentation tasteful and non-explicit. Focus on comfort and quality.",
+        sceneActions: [
+            "Presenter shows underwear packaging — brand, size, material info visible.",
+            "Presenter removes from package — shows folded item, fabric quality, color.",
+            "Presenter holds up item — shows shape, cut, elastic waistband quality.",
+            "Close-up of fabric — softness, breathability, stitching quality visible.",
+            "Presenter demonstrates elasticity — stretches waistband, shows recovery and flexibility.",
+            "Presenter shows tag — material composition, care instructions, size.",
+            "Presenter shows multiple colors or styles in the set — variety options.",
+            "Presenter folds neatly — shows how compact and organized it stores.",
+            "Presenter shows comfort features — seamless edges, tagless design, moisture-wicking.",
+            "Closing — presenter with neatly displayed underwear set. Quality comfort essentials."
+        ]
+    },
+    swimwear: {
+        knowledge: "Swimwear must show FIT, FABRIC, and WATER context. Show stretch, lining quality, strap adjustability. Pool or beach setting for context.",
+        sceneActions: [
+            "Presenter shows swimwear — design, color, pattern visible. Fresh from package.",
+            "Presenter holds up — shows cut, shape, coverage, back design.",
+            "Close-up of fabric — UV protection, chlorine resistance, lining quality.",
+            "Presenter demonstrates stretch — elastic recovery, comfortable fit material.",
+            "Presenter shows strap adjustment — ties, clips, adjustable features.",
+            "Presenter shows lining — double layer, opaque when wet, quality construction.",
+            "Presenter displays front and back — complete design view.",
+            "Presenter in beach or pool context — appropriate water activity setting.",
+            "Presenter shows quick-dry feature — water droplets rolling off fabric.",
+            "Closing — presenter with swimwear in sunny beach or pool setting. Summer ready."
+        ]
+    },
+    sportswear: {
+        knowledge: "Sportswear must show IN MOTION during exercise. Show moisture-wicking, stretch, ventilation. Don't just hold still — demonstrate active movement and performance.",
+        sceneActions: [
+            "Presenter shows sportswear item — design, brand, technical features on tag.",
+            "Presenter wearing sportswear — shows athletic fit, range of motion ready.",
+            "Presenter performs exercise — stretching, squatting, running. Freedom of movement.",
+            "Close-up of fabric technology — mesh ventilation, moisture-wicking texture.",
+            "Presenter shows sweat management — fabric stays dry, no cling, breathable.",
+            "Presenter demonstrates stretch — squats, lunges, full range of motion without restriction.",
+            "Presenter shows reflective elements — safety features for outdoor training.",
+            "Presenter in gym or outdoor training context — authentic athletic setting.",
+            "Presenter shows pocket or storage — phone pocket, key loop, functional design.",
+            "Closing — presenter in active athletic pose wearing sportswear. Performance ready."
+        ]
+    },
+
+    // ── Tech General ──
+    gadget: {
+        knowledge: "Tech gadgets must show POWER ON and FUNCTION demonstration. Unbox, power on, wait for boot, demonstrate key features step by step. Screen or display must be ON and visible.",
+        sceneActions: [
+            "Presenter shows gadget — design, packaging, brand. First impression of technology.",
+            "Presenter unboxes — reveals device, accessories, manual. Premium unboxing experience.",
+            "Presenter powers on — press button, LED lights, screen activates. Boot sequence.",
+            "Close-up of device features — buttons, ports, display, build materials.",
+            "Presenter demonstrates primary function — the main feature that makes this gadget special.",
+            "Presenter shows interface — screen, app, controls. User-friendly interaction.",
+            "Presenter shows connectivity — pairs with phone, connects to WiFi, Bluetooth.",
+            "Presenter demonstrates secondary features — bonus functions, customization options.",
+            "Presenter shows portability or setup — compact design, easy installation.",
+            "Closing — presenter with powered-on gadget, satisfied with technology. Smart purchase."
+        ]
+    },
+
+    // ── Home & Living (sub-categories) ──
+    furniture: {
+        knowledge: "Furniture must show ASSEMBLY if needed, then IN-ROOM placement. Show build quality, materials, comfort testing. Must be shown in actual room context.",
+        sceneActions: [
+            "Presenter shows furniture piece or box — design preview, dimensions visible.",
+            "Presenter begins assembly — lays out pieces, hardware, follows instructions.",
+            "Presenter assembles key steps — attaches legs, tightens bolts, connects panels.",
+            "Close-up of material quality — wood grain, metal finish, fabric texture.",
+            "Presenter places finished furniture in room — proper positioning, decor integration.",
+            "Presenter tests function — sits on chair, opens drawer, adjusts shelf height.",
+            "Presenter shows sturdiness — no wobble, solid construction, weight capacity.",
+            "Presenter styles with decor — pillows, books, plants on or around furniture.",
+            "Presenter shows room transformation — before empty space, now styled with furniture.",
+            "Closing — presenter in beautifully furnished room. Home upgrade complete."
+        ]
+    },
+    bedding: {
+        knowledge: "Bedding must show ON BED — fitted sheet stretched on mattress, duvet fluffed, pillows arranged. Show fabric softness, thread count quality, layering order.",
+        sceneActions: [
+            "Presenter shows bedding set — packaging, thread count, fabric type visible.",
+            "Presenter removes from package — unfolds, shows fabric drape, color richness.",
+            "Presenter makes bed — fitted sheet first, stretches over mattress corners.",
+            "Presenter adds flat sheet — smooth layer, tucked at bottom.",
+            "Presenter adds duvet or comforter — fluffy, even coverage, inviting.",
+            "Close-up of fabric — thread texture, softness, premium weave quality.",
+            "Presenter arranges pillows — standard, decorative, proper layering order.",
+            "Presenter touches fabric — shows softness, smooth hand feel, comfort appeal.",
+            "Presenter shows complete bed — hotel-quality made bed, inviting sleep setting.",
+            "Closing — presenter beside beautifully made bed. Luxury sleep upgrade."
+        ]
+    },
+    curtain: {
+        knowledge: "Curtains must show HUNG on window with light filtering. Show fabric drape, rod installation, opening and closing mechanism, light control.",
+        sceneActions: [
+            "Presenter shows curtain fabric — color, texture, pattern, weight quality.",
+            "Presenter threads rod through curtain — rod pocket or ring attachment.",
+            "Presenter hangs curtain on brackets — mounting above window frame.",
+            "Close-up of fabric drape — natural fall, pleats, texture catching light.",
+            "Presenter adjusts curtain width — pulls open and closed smoothly.",
+            "Presenter shows light filtering — sunlight through sheer, or blackout darkness.",
+            "Presenter shows room transformation — window dressed, elegant room upgrade.",
+            "Presenter demonstrates easy removal — for washing, maintenance.",
+            "Presenter shows curtain from outside — how it looks from exterior view.",
+            "Closing — presenter in room with beautifully hung curtains. Window dressing complete."
+        ]
+    },
+    rug: {
+        knowledge: "Rugs must show ON FLOOR in room context. Show texture underfoot, pattern, size scale, and how it anchors room furniture.",
+        sceneActions: [
+            "Presenter shows rolled rug — pattern edge visible, size indication.",
+            "Presenter unrolls on floor — pattern reveals beautifully, colors rich.",
+            "Presenter positions in room — under table, beside bed, in living area.",
+            "Close-up of texture — pile depth, weave pattern, fiber quality visible.",
+            "Presenter walks on rug barefoot — shows softness, comfort underfoot.",
+            "Presenter shows rug with furniture — anchors seating area, defines space.",
+            "Presenter shows non-slip backing — safety, stays in place on floor.",
+            "Presenter shows size and scale — proportional to room, good coverage.",
+            "Presenter vacuums or spot-cleans — easy maintenance demonstration.",
+            "Closing — presenter in room with rug creating warm inviting floor space."
+        ]
+    },
+    "lighting-decor": {
+        knowledge: "Lighting must show ON with warm glow. Show assembly, bulb installation, switch operation, brightness adjustment. The light effect on the room is the hero visual.",
+        sceneActions: [
+            "Presenter shows light fixture — design, shade, base, style visible.",
+            "Presenter assembles if needed — attaches shade to base, inserts bulb.",
+            "Presenter plugs in and turns on — warm glow activates, room transforms.",
+            "Close-up of light quality — warm tone, brightness, shadow patterns.",
+            "Presenter shows dimmer or brightness adjustment — sets mood lighting.",
+            "Presenter shows light in room context — reading nook, bedside, living area.",
+            "Presenter shows different angles — how light disperses, creates ambiance.",
+            "Presenter demonstrates switch or remote — easy on and off, smart features.",
+            "Presenter shows room before and after lighting — dramatic atmosphere change.",
+            "Closing — presenter in beautifully lit room with warm inviting ambiance."
+        ]
+    },
+    storage: {
+        knowledge: "Storage must show ORGANIZING items inside. Show compartments, capacity, before and after organization. The transformation from messy to tidy is the content.",
+        sceneActions: [
+            "Presenter shows storage product — bins, shelves, organizer, closet system.",
+            "Presenter shows messy before state — cluttered space that needs organizing.",
+            "Presenter assembles or unfolds storage — sets up in target location.",
+            "Presenter organizes items inside — folds clothes, stacks items, labels containers.",
+            "Close-up of compartments — dividers, pockets, adjustable shelves.",
+            "Presenter shows capacity — how much fits inside, maximized space usage.",
+            "Presenter shows labeled or categorized items — everything has a place.",
+            "Presenter shows before vs after — dramatic tidiness transformation.",
+            "Presenter shows easy access — pull out drawer, lift lid, find items quickly.",
+            "Closing — presenter with organized space. Storage solution success."
+        ]
+    },
+    mirror: {
+        knowledge: "Mirrors must show REFLECTION quality. Show mounting process, clarity, size. The reflection of the room and person in the mirror is the hero visual.",
+        sceneActions: [
+            "Presenter shows mirror — shape, frame design, size. Carefully handled.",
+            "Presenter positions mirror — wall mount, lean against wall, or tabletop placement.",
+            "Presenter shows reflection — clear, undistorted, true-color reflection quality.",
+            "Close-up of frame — material quality, finish, edge detail.",
+            "Presenter checks appearance in mirror — hair, outfit, makeup. Practical use.",
+            "Presenter shows mirror reflecting room — makes space look bigger, brighter.",
+            "Presenter demonstrates mounting hardware — included hooks, anchors, installation.",
+            "Presenter adjusts angle — shows different viewing positions, versatility.",
+            "Presenter shows light interaction — reflects natural and artificial light beautifully.",
+            "Closing — presenter admiring reflection in beautiful mirror. Room elevated."
+        ]
+    },
+    vase: {
+        knowledge: "Vases must show WITH FLOWERS arranged inside. Show vase shape, add water, trim stems, arrange flowers. The complete arrangement is the hero visual.",
+        sceneActions: [
+            "Presenter shows vase — shape, material, color, craftsmanship detail.",
+            "Presenter adds water — fills two-thirds, clear water through glass if transparent.",
+            "Presenter trims flower stems — cuts at angle for better water absorption.",
+            "Presenter arranges flowers in vase — one by one, creating balanced arrangement.",
+            "Close-up of arrangement — colorful blooms, greenery, balanced composition.",
+            "Presenter places vase in room — on table, shelf, or entryway. Decor context.",
+            "Presenter shows vase from different angles — shape silhouette, proportions.",
+            "Presenter adjusts arrangement — tweaks flower positions for perfect display.",
+            "Presenter shows vase as standalone decor — beautiful even without flowers.",
+            "Closing — presenter with stunning flower arrangement in vase. Room brightened."
+        ]
+    },
+    frame: {
+        knowledge: "Frames must show WITH photo or art inside, HUNG on wall. Show inserting photo, closing back, hanging process. The framed image on the wall is the hero visual.",
+        sceneActions: [
+            "Presenter shows frame — design, material, size, glass clarity.",
+            "Presenter opens frame back — removes clips or turns latches.",
+            "Presenter inserts photo or art — places carefully, centered in frame.",
+            "Presenter secures back — closes clips, ensures photo stays in place.",
+            "Close-up of framed image — glass protection, mat border, clean presentation.",
+            "Presenter hangs on wall — nail, hook, or adhesive strip mounting.",
+            "Presenter levels frame — adjusts until perfectly straight on wall.",
+            "Presenter shows gallery arrangement — multiple frames creating wall display.",
+            "Presenter steps back to admire — framed art enhancing the wall space.",
+            "Closing — presenter with beautifully framed display on wall. Memories preserved."
+        ]
+    },
+
+    // ── Kitchen Appliances (sub-categories) ──
+    "rice-cooker": {
+        knowledge: "Rice cookers must show FULL COOKING cycle — measure rice, rinse, add water to line, close lid, select mode, press start, steam release, serve fluffy rice.",
+        sceneActions: [
+            "Presenter shows rice cooker — design, digital display, included accessories.",
+            "Presenter measures rice with cup — correct portions, included measuring cup.",
+            "Presenter rinses rice in inner pot — water runs clear, proper technique.",
+            "Presenter adds water to line marking — exact water level for perfect rice.",
+            "Presenter places pot in cooker, closes lid — secure click, ready to cook.",
+            "Presenter selects mode and starts — button press, timer begins, indicator light.",
+            "Close-up of cooking progress — steam escaping, indicator changing as rice cooks.",
+            "Presenter opens lid — steam rises, perfectly fluffy white rice revealed.",
+            "Presenter scoops rice — fluffy, separate grains, perfect texture with paddle.",
+            "Closing — presenter serving perfect rice from cooker. Essential kitchen appliance."
+        ]
+    },
+    blender: {
+        knowledge: "Blenders must show FULL BLEND cycle — add ingredients in order (liquid first, soft, then hard), secure lid, blend, pour smooth result. Show ingredient transformation.",
+        sceneActions: [
+            "Presenter shows blender — jar, base, blades, controls, design.",
+            "Presenter places jar on base — locks securely with twist or click.",
+            "Presenter adds ingredients — liquid first, fruits, ice last. Layering order.",
+            "Presenter secures lid — locks center cap, ready to blend.",
+            "Presenter selects speed and starts — blending action, ingredients swirling.",
+            "Close-up through jar — ingredients breaking down, color mixing, smooth transition.",
+            "Presenter stops blending — opens lid, thick smooth consistency achieved.",
+            "Presenter pours from jar — smooth stream into glass, vibrant color.",
+            "Presenter tastes — smooth, delicious, no chunks. Perfect blend result.",
+            "Closing — presenter with smoothie in glass and blender. Healthy blending lifestyle."
+        ]
+    },
+    "air-fryer": {
+        knowledge: "Air fryers must show FULL COOK cycle — load food in basket, set temp and time, cook, remove crispy result. Show golden crispy texture without oil.",
+        sceneActions: [
+            "Presenter shows air fryer — design, basket, digital display, compact size.",
+            "Presenter pulls out basket — shows non-stick interior, capacity.",
+            "Presenter places food inside — single layer, not overcrowded, proper loading.",
+            "Presenter slides basket in — clicks securely into air fryer body.",
+            "Presenter sets temperature and time — digital controls, presets available.",
+            "Close-up during cooking — timer counting, heat indicator, cooking sounds implied.",
+            "Presenter opens to check — golden, crispy food visible. Shakes basket halfway.",
+            "Presenter removes finished food — golden crispy exterior, no oil needed.",
+            "Presenter tastes — crispy and delicious, healthier than deep-fried.",
+            "Closing — presenter with crispy air-fried food. Healthy cooking revolution."
+        ]
+    },
+    vacuum: {
+        knowledge: "Vacuums must show CLEANING in action — on carpet, hard floor, corners. Show dust pickup, maneuverability, and clean result. Before and after visible dirt removal.",
+        sceneActions: [
+            "Presenter shows vacuum — design, attachments, cord or battery, features.",
+            "Presenter assembles — attaches handle, hose, nozzle. Ready to clean.",
+            "Presenter vacuums carpet — overlapping passes, visible debris pickup.",
+            "Close-up of suction — dust and debris disappearing into nozzle. Powerful suction.",
+            "Presenter switches to hard floor — smooth gliding, dust captured effectively.",
+            "Presenter uses attachments — crevice tool for corners, brush for upholstery.",
+            "Presenter shows dustbin — collected dirt visible, easy-empty mechanism.",
+            "Presenter demonstrates maneuverability — around furniture, under tables, flexible.",
+            "Presenter shows clean result — spotless floor compared to before.",
+            "Closing — presenter with vacuum in sparkling clean home. Deep clean achieved."
+        ]
+    },
+    washer: {
+        knowledge: "Washers must show FULL WASH cycle — load clothes, add detergent, select cycle, start, show clean fresh result. Don't just show the machine exterior.",
+        sceneActions: [
+            "Presenter shows washing machine — design, door, control panel, capacity.",
+            "Presenter loads clothes into drum — proper amount, not overfilled.",
+            "Presenter adds detergent to dispenser — measured amount, correct compartment.",
+            "Presenter closes door — secure click or lock indicator.",
+            "Presenter selects wash cycle — temperature, spin speed, program on display.",
+            "Presenter presses start — machine begins, water filling, drum rotating.",
+            "Close-up of cycle progress — timer counting, wash action visible through door.",
+            "Presenter opens door after cycle — clean fresh clothes, steam or fresh scent.",
+            "Presenter removes clean clothes — holds up fresh, clean garment with satisfaction.",
+            "Closing — presenter with fresh laundry from washer. Laundry made easy."
+        ]
+    },
+    fridge: {
+        knowledge: "Fridges must show INTERIOR organization — shelves, drawers, door bins with food. Show temperature controls, capacity, and food freshness preservation.",
+        sceneActions: [
+            "Presenter shows fridge exterior — design, finish, handles, display panel.",
+            "Presenter opens door — LED lights illuminate organized interior.",
+            "Presenter loads shelves — placing food items, organized by category.",
+            "Close-up of features — adjustable shelves, humidity drawer, temperature zones.",
+            "Presenter shows door bins — bottles, condiments, eggs neatly organized.",
+            "Presenter shows freezer section — frozen items, ice maker, frost-free design.",
+            "Presenter adjusts temperature — digital controls, precise degree setting.",
+            "Presenter shows capacity — loaded with family groceries, still room to spare.",
+            "Presenter shows fresh food after storage — crisp vegetables, cold drinks.",
+            "Closing — presenter opening fully stocked organized fridge. Kitchen essential."
+        ]
+    },
+    "air-purifier": {
+        knowledge: "Air purifiers must show FILTER installation, power on, air quality indicator changing. Show clean air result via indicator light change from red to blue or green.",
+        sceneActions: [
+            "Presenter shows air purifier — design, size, air quality indicator display.",
+            "Presenter opens filter panel — removes old or installs new HEPA filter.",
+            "Presenter inserts filter correctly — checks arrow direction, secures panel.",
+            "Presenter powers on — display activates, fan starts, initial air reading.",
+            "Close-up of air quality indicator — shows current air quality level and color.",
+            "Presenter shows fan speed adjustment — auto mode, manual speed, quiet sleep mode.",
+            "Presenter shows air quality improving — indicator changing from poor to good.",
+            "Presenter in room context — living room, bedroom, office. Clean air environment.",
+            "Presenter shows filter life indicator — replacement reminder, maintenance easy.",
+            "Closing — presenter breathing easy in clean air room with purifier running."
+        ]
+    },
+    "water-filter": {
+        knowledge: "Water filters must show FILTER installation, water flowing through, and clean filtered result. Show before and after water clarity, taste test.",
+        sceneActions: [
+            "Presenter shows water filter — pitcher, faucet mount, or under-sink system.",
+            "Presenter installs or replaces filter — rinses new cartridge, inserts correctly.",
+            "Presenter fills reservoir with tap water — water entering filter section.",
+            "Close-up of filtration — water passing through, dripping into clean reservoir.",
+            "Presenter pours filtered water — clear, clean water flowing from pitcher or tap.",
+            "Presenter drinks filtered water — fresh, clean taste. Satisfied expression.",
+            "Presenter shows filter indicator — tracks usage, replacement reminder.",
+            "Presenter compares filtered vs tap — clarity difference visible in glasses.",
+            "Presenter shows capacity — how much water filtered per fill, daily usage.",
+            "Closing — presenter drinking clean filtered water. Pure hydration."
+        ]
+    },
+    "smart-home": {
+        knowledge: "Smart home devices must show SETUP and APP CONTROL. Unbox, plug in, pair with app, demonstrate voice or app control. Show the smart automation in action.",
+        sceneActions: [
+            "Presenter shows smart home device — design, compact form, modern tech aesthetic.",
+            "Presenter unboxes and plugs in — connects to power, LED indicator activates.",
+            "Presenter opens companion app — downloads if needed, creates account or logs in.",
+            "Presenter pairs device — scans QR code or follows pairing wizard in app.",
+            "Close-up of app interface — device connected, settings available, status shown.",
+            "Presenter demonstrates voice command — speaks to device, it responds and acts.",
+            "Presenter shows app control — turns on/off, adjusts settings from phone screen.",
+            "Presenter sets automation — schedules, timers, routines configured in app.",
+            "Presenter shows integration — works with other smart devices, ecosystem.",
+            "Closing — presenter controlling smart home from phone or voice. Future living."
+        ]
+    },
+
+    // ── Auto & Transport (sub-categories) ──
+    motorcycle: {
+        knowledge: "Motorcycle products must show ON BIKE. Show installation with correct tools, helmet fitting with strap, gear worn while riding. Safety and style.",
+        sceneActions: [
+            "Presenter shows motorcycle product — helmet, accessory, or gear. Design and brand.",
+            "Presenter inspects quality — shell hardness, visor clarity, strap strength.",
+            "Presenter puts on or installs — helmet on head, accessory on bike, gear on body.",
+            "Close-up of fit — secure fastening, proper positioning, comfort padding.",
+            "Presenter adjusts for perfect fit — strap tightened, visor position, mirror angle.",
+            "Presenter shows safety features — certification, impact absorption, reflective elements.",
+            "Presenter on or beside motorcycle — product in riding context.",
+            "Presenter demonstrates function — visor flip, ventilation open, storage access.",
+            "Presenter shows build quality — durable materials, weather resistance.",
+            "Closing — presenter with motorcycle and product. Ride safe and stylish."
+        ]
+    },
+    bicycle: {
+        knowledge: "Bicycle products must show MOUNTED on bike or WORN while cycling. Show installation, adjustment, and riding demonstration.",
+        sceneActions: [
+            "Presenter shows bicycle product — light, lock, helmet, or accessory.",
+            "Presenter installs on bike — clamps, mounts, or straps to handlebar or seatpost.",
+            "Close-up of mounting — secure attachment, tool-free or Allen key install.",
+            "Presenter adjusts — angle, tightness, position for optimal use.",
+            "Presenter demonstrates function — light turns on, lock secures, bell rings.",
+            "Presenter tests while riding — product works during actual cycling.",
+            "Presenter shows durability — weather resistance, vibration resistance on road.",
+            "Presenter shows ease of removal — quick detach for storage or charging.",
+            "Presenter shows compatibility — fits different bike types, universal mount.",
+            "Closing — presenter with equipped bicycle ready to ride. Cycling upgraded."
+        ]
+    },
+    "car-accessory": {
+        knowledge: "Car accessories must show IN-CAR installation and use. Show mounting on dashboard, windshield, or vent. Demonstrate while driving or parked.",
+        sceneActions: [
+            "Presenter shows car accessory — dash cam, phone mount, seat cover, organizer.",
+            "Presenter enters car — shows where product will be installed.",
+            "Presenter installs — mounts on windshield, clips to vent, covers seat.",
+            "Close-up of secure attachment — suction cup, clip, or adhesive holding firm.",
+            "Presenter adjusts — angle, position, height for optimal viewing or reach.",
+            "Presenter demonstrates function — camera recording, phone mounted, seat covered.",
+            "Presenter shows while driving — product stable, functional, not obstructing view.",
+            "Presenter shows ease of use — one-hand operation, quick access, intuitive.",
+            "Presenter shows interior upgrade — car looks cleaner, more organized with accessory.",
+            "Closing — presenter in well-equipped car. Driving experience improved."
+        ]
+    },
+    ev: {
+        knowledge: "EV products must show CHARGING process. Show cable connection, charge port, indicator lights, app monitoring. Clean energy and technology focus.",
+        sceneActions: [
+            "Presenter shows EV charging product — charger, cable, adapter, or wall unit.",
+            "Presenter installs or sets up — wall mount, outlet connection, cable management.",
+            "Presenter opens vehicle charge port — reveals connector port on vehicle.",
+            "Presenter plugs in connector — clicks securely into charge port. LED confirms.",
+            "Close-up of charging indicator — LED light, app notification, charge percentage.",
+            "Presenter shows app monitoring — charge level, estimated time, cost tracking.",
+            "Presenter demonstrates safety features — weatherproof, overcharge protection.",
+            "Presenter shows charge speed — fast charge progress, time comparison.",
+            "Presenter unplugs and stores — cable organized, neat storage solution.",
+            "Closing — presenter with fully charged EV. Clean energy driving."
+        ]
+    },
+
+    // ── Family & Kids (sub-categories) ──
+    toy: {
+        knowledge: "Toys must show PLAY interaction — unbox, assemble if needed, demonstrate play action. Show age-appropriate engagement, fun reactions, and durability.",
+        sceneActions: [
+            "Presenter shows toy — colorful packaging, age recommendation, brand visible.",
+            "Presenter unboxes — removes packaging, wire ties, protective wrapping.",
+            "Presenter assembles if needed — follows instructions, connects pieces.",
+            "Presenter demonstrates play — shows how toy works, moves, lights up, makes sound.",
+            "Close-up of toy features — details, moving parts, colors, build quality.",
+            "Presenter shows interactive play — pressing buttons, steering, building, creating.",
+            "Presenter shows durability — sturdy construction, safe materials, no sharp edges.",
+            "Presenter shows battery or power — installs batteries, charges, or wind-up mechanism.",
+            "Presenter shows educational value — learning through play, skill development.",
+            "Closing — presenter with toy in fun play setting. Joy and entertainment."
+        ]
+    },
+    "kids-education": {
+        knowledge: "Kids education products must show LEARNING interaction. Show age-appropriate engagement, parental supervision, skill development through fun activities.",
+        sceneActions: [
+            "Presenter shows educational product — learning kit, cards, electronic toy, workbook.",
+            "Presenter opens and sets up — lays out materials, powers on device if electronic.",
+            "Presenter demonstrates learning activity — matching, reading, counting, creating.",
+            "Close-up of content quality — print quality, illustrations, interactive elements.",
+            "Presenter shows engagement — child-friendly interface, fun learning approach.",
+            "Presenter demonstrates progressive difficulty — levels, stages, advancement.",
+            "Presenter shows curriculum alignment — subjects covered, age-appropriate content.",
+            "Presenter shows parental features — progress tracking, parental controls.",
+            "Presenter shows durability — kid-proof design, washable, drop-resistant.",
+            "Closing — presenter with educational product. Smart learning investment."
+        ]
+    },
+    maternity: {
+        knowledge: "Maternity products must show COMFORTABLE supportive use. Show gentle adjustment, proper positioning, comfort features. Emphasize care and wellbeing.",
+        sceneActions: [
+            "Presenter shows maternity product — support belt, pillow, supplement, or clothing.",
+            "Presenter opens package — soft, safe, comfortable materials revealed.",
+            "Presenter demonstrates wearing or using — wraps belt, places pillow, takes supplement.",
+            "Close-up of comfort features — soft padding, adjustable straps, breathable material.",
+            "Presenter adjusts for comfort — velcro, elastic, positioning for support.",
+            "Presenter shows support effect — back relief, comfortable positioning, proper posture.",
+            "Presenter demonstrates daily use — wearing at home, during errands, while resting.",
+            "Presenter shows ease of cleaning — removable cover, machine washable, easy care.",
+            "Presenter reads safety info — safe materials, recommended usage, certifications.",
+            "Closing — presenter comfortable with maternity product. Care and support."
+        ]
+    },
+    family: {
+        knowledge: "Family products must show TOGETHER activity — multiple people engaging, sharing, bonding. Show inclusive fun, setup, and group interaction.",
+        sceneActions: [
+            "Presenter shows family product — board game, picnic set, activity kit.",
+            "Presenter sets up — unpacks, arranges pieces, prepares space for activity.",
+            "Presenter invites family or group — everyone gathers, excited anticipation.",
+            "Presenter demonstrates activity — playing game, setting up picnic, doing activity.",
+            "Close-up of product quality — game pieces, material quality, included items.",
+            "Presenter shows group engagement — everyone participating, laughing, bonding.",
+            "Presenter shows rules or instructions — easy to understand, inclusive of all ages.",
+            "Presenter shows versatile settings — indoors, outdoors, various locations.",
+            "Presenter shows memorable moments — family joy, shared experiences, connection.",
+            "Closing — presenter with family product in happy group setting. Quality time."
+        ]
+    },
+
+    // ── Sports & Outdoor (sub-categories) ──
+    sports: {
+        knowledge: "Sports equipment must show IN PLAY — proper technique, athletic use, competitive or training context. Show equipment performance and proper form.",
+        sceneActions: [
+            "Presenter shows sports equipment — ball, racket, protective gear, training tool.",
+            "Presenter prepares equipment — inflates ball, strings racket, adjusts gear size.",
+            "Presenter demonstrates proper use — correct grip, stance, technique, form.",
+            "Close-up of equipment quality — material, stitching, grip texture, brand detail.",
+            "Presenter performs athletic action — throwing, hitting, kicking, blocking.",
+            "Presenter shows protective features — padding, shock absorption, safety design.",
+            "Presenter in sports context — court, field, gym, training ground.",
+            "Presenter shows versatility — different drills, exercises, skill levels.",
+            "Presenter shows durability — equipment handling intense athletic use.",
+            "Closing — presenter with sports equipment in athletic setting. Game on."
+        ]
+    },
+    camping: {
+        knowledge: "Camping gear must show OUTDOOR SETUP — pitch tent, start stove, unroll sleeping bag. Show in actual outdoor or nature setting. Demonstrate setup process.",
+        sceneActions: [
+            "Presenter shows camping gear — packed state, compact, portable design.",
+            "Presenter at campsite — selects flat ground, begins setup.",
+            "Presenter sets up — pitches tent, assembles stove, unrolls sleeping bag.",
+            "Close-up of construction — stake insertion, pole connection, zipper quality.",
+            "Presenter shows completed setup — tent standing, camp organized, fire ready.",
+            "Presenter demonstrates comfort — sits in tent, tests sleeping bag warmth.",
+            "Presenter shows cooking — lights stove, heats water, prepares camp meal.",
+            "Presenter shows weather protection — rainfly on, wind resistance, insulation.",
+            "Presenter packs up — compact fold, back into carry bag, lightweight.",
+            "Closing — presenter at beautiful campsite with gear. Outdoor adventure ready."
+        ]
+    },
+    yoga: {
+        knowledge: "Yoga products must show IN PRACTICE — on mat, proper alignment, poses demonstrated. Show calm setting, mindful use, and correct form.",
+        sceneActions: [
+            "Presenter shows yoga product — mat, block, strap, bolster, or clothing.",
+            "Presenter unrolls mat or sets up props — on flat surface, calm environment.",
+            "Presenter begins practice — sits on mat, centers breath, begins poses.",
+            "Close-up of product in use — grip on mat, support from block, stretch with strap.",
+            "Presenter demonstrates pose — proper alignment, product providing support.",
+            "Presenter shows non-slip quality — hands and feet stable on mat surface.",
+            "Presenter shows flexibility range — product enables deeper stretch, better form.",
+            "Presenter in meditation — seated on mat or cushion, peaceful calm expression.",
+            "Presenter shows portability — rolls mat, packs props, carries to class.",
+            "Closing — presenter in peaceful yoga pose on mat. Mindful practice essentials."
+        ]
+    },
+
+    // ── Office & Education (sub-categories) ──
+    digital: {
+        knowledge: "Digital products must show SCREEN interface — app navigation, features demo, results output. Show setup process, UI interaction, and what the software achieves.",
+        sceneActions: [
+            "Presenter shows digital product — app icon, website, or software interface.",
+            "Presenter opens and navigates — launches app, shows main dashboard or home screen.",
+            "Presenter demonstrates core feature — inputs data, creates content, runs function.",
+            "Close-up of interface — clean UI, buttons, menus, responsive design.",
+            "Presenter shows results — output, report, creation, or processed content.",
+            "Presenter demonstrates workflow — step by step from input to output.",
+            "Presenter shows settings — customization options, preferences, account features.",
+            "Presenter shows cross-device — works on phone, tablet, desktop. Responsive.",
+            "Presenter shows saved work — export, share, download, or publish results.",
+            "Closing — presenter with digital product on screen. Productivity enhanced."
+        ]
+    },
+    office: {
+        knowledge: "Office products must show IN WORKSPACE — on desk, assembled, organized. Show how product improves the work environment and productivity.",
+        sceneActions: [
+            "Presenter shows office product — chair, desk organizer, printer, monitor stand.",
+            "Presenter assembles if needed — follows instructions, attaches components.",
+            "Presenter places in workspace — proper positioning on or beside desk.",
+            "Close-up of build quality — materials, adjustments, ergonomic features.",
+            "Presenter uses product — sits in chair, organizes desk, prints document.",
+            "Presenter shows ergonomic benefit — posture improvement, comfort, reduced strain.",
+            "Presenter demonstrates adjustability — height, angle, tilt, position options.",
+            "Presenter shows workspace before and after — productivity improvement visible.",
+            "Presenter in full work session — product enhancing comfort and efficiency.",
+            "Closing — presenter in organized productive workspace. Office upgraded."
+        ]
+    },
+    course: {
+        knowledge: "Courses must show LEARNING experience — login, navigate lessons, watch content, take notes, show progress. Demonstrate value of knowledge gained.",
+        sceneActions: [
+            "Presenter shows course — platform, title, instructor, curriculum overview.",
+            "Presenter logs in — navigates to course page, shows lesson structure.",
+            "Presenter plays lesson — video or content playing, engaging material.",
+            "Close-up of content — clear instruction, quality visuals, professional production.",
+            "Presenter takes notes alongside — active learning, engaged studying.",
+            "Presenter completes exercise — quiz, assignment, or hands-on practice.",
+            "Presenter shows progress — completion percentage, achievements, certificates.",
+            "Presenter demonstrates skills learned — applying knowledge from the course.",
+            "Presenter shows community — forum, Q&A, peer interaction features.",
+            "Closing — presenter with course certificate or new skill demonstrated. Knowledge gained."
+        ]
+    },
+
+    // ── Cleaning (sub-categories) ──
+    detergent: {
+        knowledge: "Detergent must show MEASURING dose and ADDING to washer. Show correct amount, dispensing method (liquid pour, pod placement, powder scoop). Clean laundry result.",
+        sceneActions: [
+            "Presenter shows detergent — bottle, pods, or powder. Brand and type visible.",
+            "Presenter opens container — flips cap, opens pod bag, or removes powder lid.",
+            "Presenter measures dose — pours into cap, picks up single pod, scoops powder.",
+            "Presenter adds to washer — pours in dispenser, places pod in drum, adds scoop.",
+            "Presenter loads clothes and starts wash — machine begins cleaning cycle.",
+            "Close-up of product features — concentrated formula, scent beads, stain removal.",
+            "Presenter shows fresh clean laundry — removes from washer, holds up, smells.",
+            "Presenter shows stain removal result — before dirty, after spotless and fresh.",
+            "Presenter shows value — concentration means less product needed per load.",
+            "Closing — presenter with fresh-scented clean laundry. Effective clean."
+        ]
+    },
+    "air-freshener": {
+        knowledge: "Air fresheners must show ACTIVATION and SCENT dispersal. Show spray, plug-in, or diffuser setup. Room transformation from stale to fresh.",
+        sceneActions: [
+            "Presenter shows air freshener — spray can, plug-in, gel, or reed diffuser.",
+            "Presenter activates — sprays upward, plugs into outlet, peels gel lid, inserts reeds.",
+            "Presenter shows scent dispersal — spray mist in air, plug-in indicator light, reed absorption.",
+            "Close-up of product in action — mist particles, oil wicking up reeds, gel surface.",
+            "Presenter inhales — fresh scent reaching, pleasant reaction, room smells better.",
+            "Presenter shows room context — living room, bathroom, bedroom. Freshness everywhere.",
+            "Presenter demonstrates intensity control — adjustable spray, scent level settings.",
+            "Presenter shows longevity — how long scent lasts, refill options, value.",
+            "Presenter shows variety — different scents available, seasonal options.",
+            "Closing — presenter in fresh-smelling room with air freshener. Home refreshed."
+        ]
+    },
+    insect: {
+        knowledge: "Insect control products must show SAFE application — spray from distance, plug in, place trap. Show effectiveness and safety precautions.",
+        sceneActions: [
+            "Presenter shows insect product — spray, plug-in, trap, or repellent.",
+            "Presenter reads instructions — safe usage, distance, precautions visible.",
+            "Presenter prepares — shakes can, removes trap backing, inserts refill.",
+            "Presenter applies — sprays at distance, plugs into outlet, places trap in area.",
+            "Close-up of product working — spray coverage, indicator light, adhesive trap.",
+            "Presenter shows target area — entry points, corners, outdoor boundaries.",
+            "Presenter shows safety — keeps away from food, pets, children as labeled.",
+            "Presenter shows effectiveness — clean area, no more pest concerns.",
+            "Presenter shows duration — how long protection lasts, when to reapply.",
+            "Closing — presenter in pest-free home with product. Protection achieved."
+        ]
+    },
+    garden: {
+        knowledge: "Garden products must show OUTDOOR use in soil or garden context. Show planting, watering, pruning. Hands in dirt, green growing results.",
+        sceneActions: [
+            "Presenter shows garden product — seeds, tools, fertilizer, or planter.",
+            "Presenter prepares garden area — soil, pot, or garden bed ready.",
+            "Presenter uses product — plants seeds, applies fertilizer, prunes with tool.",
+            "Close-up of technique — seed depth, fertilizer distribution, clean pruning cut.",
+            "Presenter waters — gentle watering after planting, proper technique.",
+            "Presenter shows tool quality — sharp blade, comfortable grip, durable construction.",
+            "Presenter shows growth results — healthy plants from proper gardening.",
+            "Presenter demonstrates maintenance — regular care, ongoing garden upkeep.",
+            "Presenter shows garden beauty — flowers blooming, vegetables growing, lush green.",
+            "Closing — presenter in beautiful thriving garden. Green thumb success."
+        ]
+    },
+
+    // ── Misc ──
+    craft: {
+        knowledge: "Craft products must show CREATION process — materials laid out, step-by-step making, finished piece. Show hands creating, artistic skill, and final result.",
+        sceneActions: [
+            "Presenter shows craft supplies — materials, tools, patterns, kit contents.",
+            "Presenter lays out workspace — organized materials, tools within reach.",
+            "Presenter begins creating — cutting, gluing, painting, assembling first steps.",
+            "Close-up of technique — precise cuts, even paint strokes, careful assembly.",
+            "Presenter shows progress — piece taking shape, design becoming visible.",
+            "Presenter demonstrates skill — detailed work, artistic decisions, craftsmanship.",
+            "Presenter adds finishing touches — final details, embellishments, polish.",
+            "Presenter shows completed creation — finished piece, proud of handmade result.",
+            "Presenter shows versatility — different projects possible with same supplies.",
+            "Closing — presenter with handmade creation. DIY creativity achieved."
+        ]
+    },
+    gift: {
+        knowledge: "Gift products must show WRAPPING and PRESENTATION. Show beautiful packaging, ribbon tying, gift arrangement. The unboxing experience and presentation is the content.",
+        sceneActions: [
+            "Presenter shows gift product — gift set, wrapping supplies, or gift box.",
+            "Presenter opens and arranges — lays out items, organizes gift components.",
+            "Presenter wraps — measures paper, folds neatly, tapes securely. Clean technique.",
+            "Presenter adds ribbon — crosses, ties bow, curls ends. Decorative finishing.",
+            "Close-up of finished wrapping — neat folds, straight edges, beautiful bow.",
+            "Presenter shows gift tag or card — personal touch, heartfelt message option.",
+            "Presenter arranges gift basket or box — tissue paper, items displayed beautifully.",
+            "Presenter shows presentation — how gift looks ready to give. Premium appearance.",
+            "Presenter simulates giving — offers wrapped gift to camera. Generous gesture.",
+            "Closing — presenter with beautifully wrapped gift. Perfect giving moment."
+        ]
+    },
+    wedding: {
+        knowledge: "Wedding products must show ELEGANT presentation — ceremony and reception context. Show delicate handling, romantic styling, and celebration atmosphere.",
+        sceneActions: [
+            "Presenter shows wedding product — invitation, decoration, accessory, or favor.",
+            "Presenter opens or unpacks — reveals elegant design, quality materials.",
+            "Presenter demonstrates use — arranges decoration, assembles favor, addresses invitation.",
+            "Close-up of detail — calligraphy, lace, ribbon, pearl, crystal elements.",
+            "Presenter shows in ceremony context — altar, table setting, venue decoration.",
+            "Presenter shows color coordination — matches wedding palette, complementary styling.",
+            "Presenter demonstrates assembly — step by step setup for event day.",
+            "Presenter shows quantity or set — enough for guest count, coordinated collection.",
+            "Presenter shows personalization — custom names, dates, monograms available.",
+            "Closing — presenter with wedding product in elegant celebration setting. Perfect day."
+        ]
+    },
+
+    // ── Fallback ──
+    other: {
+        knowledge: "Show the product's PRIMARY FUNCTION in action. Don't just hold it — demonstrate what it does, how it works, and the result it delivers.",
+        sceneActions: [
+            "Presenter shows product — design, packaging, first impression. Hero product shot.",
+            "Presenter opens/unpacks product — reveals features, build quality.",
+            "Presenter demonstrates primary function — product doing what it's designed to do.",
+            "Close-up of key feature — detail, quality, craftsmanship.",
+            "Presenter shows product in real use context — practical application.",
+            "Presenter shows result/benefit — what the product achieves for the user.",
+            "Presenter shows additional features — versatility, bonus functions.",
+            "Presenter demonstrates ease of use — intuitive, user-friendly design.",
+            "Presenter shows value — quality, durability, included accessories.",
+            "Closing — presenter with product, satisfied recommendation expression."
+        ]
+    }
+};
+
+/**
+ * Get scene-specific presentation directive for a category.
+ * Returns the visual action directive for a specific scene number.
+ * Cycles through available directives if sceneNumber exceeds array length.
+ */
+const getScenePresentationDirective = (
+    category: ProductCategory,
+    sceneNumber: number,
+    _totalScenes?: number
+): string => {
+    const guide = PRODUCT_PRESENTATION_GUIDE[category] || PRODUCT_PRESENTATION_GUIDE["other"];
+    if (!guide) return "";
+
+    const idx = Math.min(sceneNumber - 1, guide.sceneActions.length - 1);
+    const sceneAction = guide.sceneActions[idx] || guide.sceneActions[guide.sceneActions.length - 1];
+
+    return `PRODUCT PRESENTATION KNOWLEDGE: ${guide.knowledge} VISUAL ACTION FOR THIS SCENE: ${sceneAction}`;
+};
+
 /** Build slim contact physics directive (for video prompts — shorter to avoid policy filter) */
 const buildContactPhysicsDirectiveSlim = (category: ProductCategory): string => {
     const usageRealism = PRODUCT_USAGE_REALISM[category] || "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage.";
@@ -2680,6 +4263,7 @@ export interface VideoPromptMeta {
     personaName: string;           // Voice persona name (e.g. "Mint", "First") for voice lock
     clothingDesc: string;          // Clothing description for character consistency
     productUsageRealism: string;   // Category-specific usage realism (e.g. open cap before spray)
+    category: ProductCategory;     // Product category for per-scene presentation guide lookup
 }
 
 /**
@@ -3291,8 +4875,10 @@ const buildVideoPrompt = (
         `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
         // ★ [3. PRODUCT IDENTITY] — product anchor with usage realism
         `${templateConfig.englishName} commercial video. ${productAnchor}`,
-        // [4. ACTION] — character interaction
+        // [4. ACTION] — character interaction + product presentation
         `${contactPhysics} ${speakingDirective}`,
+        // [4.5. PRODUCT PRESENTATION] — category-specific visual action for this scene
+        `${getScenePresentationDirective(category, 1)}`,
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
@@ -3324,7 +4910,8 @@ const buildVideoPrompt = (
         characterAnchor,
         personaName: persona.name,
         clothingDesc,
-        productUsageRealism
+        productUsageRealism,
+        category
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -3376,6 +4963,9 @@ export const buildSceneVideoPromptJSON = (
 
         // ★ [4. ACTION + USAGE REALISM] — prevents illogical actions like spraying with cap on
         `${meta.productUsageRealism} ${speakingDirective}`,
+
+        // ★ [4.5. PRODUCT PRESENTATION] — category-specific visual action for THIS scene
+        `${getScenePresentationDirective(meta.category, sceneNumber)}`,
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
