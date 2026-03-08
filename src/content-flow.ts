@@ -45,6 +45,66 @@ function closeAutomationTab(delayMs: number = 3000): void {
     }, delayMs);
 }
 
+// ─── TikTok Auto-Post: Capture video URL and notify React hook ──────────────
+/** Grab <video> src from the current page and pre-fetch via background for TikTok auto-post */
+async function captureVideoUrlAndPreFetch(): Promise<string | null> {
+    try {
+        const videos = document.querySelectorAll<HTMLVideoElement>("video");
+        let videoUrl: string | null = null;
+        for (const v of videos) {
+            if (v.src && v.src.startsWith("http") && v.getBoundingClientRect().width > 100) {
+                videoUrl = v.src;
+                break;
+            }
+        }
+        if (!videoUrl) {
+            for (const v of videos) {
+                if (v.src && v.getBoundingClientRect().width > 50) {
+                    videoUrl = v.src;
+                    break;
+                }
+            }
+        }
+        if (!videoUrl) { LOG("[TikTok] ไม่พบ video URL บนหน้า"); return null; }
+        LOG(`[TikTok] พบ video URL: ${videoUrl.substring(0, 80)}...`);
+
+        // Pre-fetch via background (only works for https:// URLs)
+        if (videoUrl.startsWith("https://")) {
+            try {
+                await new Promise<void>((resolve) => {
+                    chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: videoUrl }, (resp) => {
+                        if (chrome.runtime.lastError) {
+                            LOG(`[TikTok] PRE_FETCH_VIDEO error: ${chrome.runtime.lastError.message}`);
+                        } else if (resp?.success) {
+                            LOG(`[TikTok] Video pre-fetched: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
+                        } else {
+                            LOG(`[TikTok] PRE_FETCH_VIDEO failed: ${resp?.error}`);
+                        }
+                        resolve();
+                    });
+                });
+            } catch (_) { /* silent */ }
+        }
+        return videoUrl;
+    } catch (e: any) {
+        LOG(`[TikTok] captureVideoUrl error: ${e.message}`);
+        return null;
+    }
+}
+
+/** Send VIDEO_GENERATION_COMPLETE to React hook so TikTok auto-post can trigger */
+function sendVideoGenerationComplete(videoUrl: string | null): void {
+    if (!videoUrl) return;
+    try {
+        chrome.runtime.sendMessage({
+            type: "VIDEO_GENERATION_COMPLETE",
+            videoUrl,
+            source: "veo"
+        });
+        LOG(`[TikTok] Sent VIDEO_GENERATION_COMPLETE (source=veo)`);
+    } catch (_) { /* popup/sidepanel closed */ }
+}
+
 // ─── Platform Detection ─────────────────────────────────────────────────────
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isWindows = /Win/i.test(navigator.userAgent);
@@ -2598,6 +2658,9 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("⚠️ ไม่พบปุ่มปิดเสียง — ข้าม");
     }
 
+    // ── Capture video URL for TikTok auto-post (before download starts) ──
+    const tiktokVideoUrl = await captureVideoUrlAndPreFetch();
+
     // ── 2+ scenes: paste remaining scene prompts, generate each, then download Full Video 720p ──
     if (sceneCount >= 2) {
         LOG(`═══ ${sceneCount} ฉาก — เริ่มต่อฉาก ═══`);
@@ -2917,6 +2980,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
+        sendVideoGenerationComplete(tiktokVideoUrl);
         closeAutomationTab(2000);
         return;
     }
@@ -3078,6 +3142,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     }
 
     LOG("═══ ดาวน์โหลดเสร็จสิ้น ═══");
+    sendVideoGenerationComplete(tiktokVideoUrl);
     closeAutomationTab(2000);
 }
 
@@ -3504,6 +3569,9 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     if (!opened) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
     try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
     LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
+    // Capture video URL for TikTok auto-post (after page navigate, video may be on new page)
+    const tiktokVideoUrlNav = await captureVideoUrlAndPreFetch();
+    sendVideoGenerationComplete(tiktokVideoUrlNav);
     closeAutomationTab(2000);
 }
 
