@@ -4174,18 +4174,31 @@ const generateThaiScript = (
     const reviewPhrase = CATEGORY_REVIEW_PHRASE[category] ? pickRandom(CATEGORY_REVIEW_PHRASE[category]!) : `${action} ${productName} แล้วบอกเลย`;
 
     if (sceneCount === 1) {
-        scriptParts.push(`🎬 ฉาก1: "${openingHook} ${powerWord}!"`);
+        scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} ${powerWord}!"`);
     } else if (sceneCount === 2) {
         scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
         scriptParts.push(`🎬 ฉาก2: "${benefit} ${powerWord} ${closingCTA} ${urgency}"`);
     } else {
-        // 3+ scenes: hook → category-specific review → closing CTA
+        // 3+ scenes: hook → review with variety → closing CTA
+        // Build middle scene variety pool so each scene covers a different topic
+        const middleTopics = [
+            `${reviewPhrase} ${productName} ${powerWord} ${benefit}`,
+            `${action} ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ดีมากจริงๆ`,
+            `${productName} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} เลย`,
+            `ที่ชอบมากคือ ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)}`,
+            `${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ใช้แล้วติดใจ`,
+            `บอกเลย ${productName} ตัวนี้ ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)}`,
+            `ลองมาแล้ว ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} จริงๆ`,
+            `${productName} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} ${pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other)}`,
+        ];
+
         scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
-        scriptParts.push(`🎬 ฉาก2: "${reviewPhrase} ${productName} ${powerWord} ${benefit}"`);
-        scriptParts.push(`🎬 ฉาก3: "${closingCTA} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ${urgency}"`);
-        for (let i = 3; i < sceneCount; i++) {
-            scriptParts.push(`🎬 ฉาก${i + 1}: "${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ${pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other)}"`);
+        // Fill middle scenes (2 to sceneCount-1) with distinct topics
+        for (let i = 1; i < sceneCount - 1; i++) {
+            const topicIdx = (i - 1) % middleTopics.length;
+            scriptParts.push(`🎬 ฉาก${i + 1}: "${middleTopics[topicIdx]}"`);
         }
+        scriptParts.push(`🎬 ฉาก${sceneCount}: "${closingCTA} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ${urgency}"`);
     }
     
     return scriptParts.join("\n");
@@ -4933,7 +4946,8 @@ const buildVideoPrompt = (
 export const buildSceneVideoPromptJSON = (
     meta: VideoPromptMeta,
     sceneScript: string,
-    sceneNumber: number
+    sceneNumber: number,
+    sceneVideoAction?: string
 ): string => {
     const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
     const aspectDirective = meta.aspectRatio === '9:16'
@@ -4964,8 +4978,10 @@ export const buildSceneVideoPromptJSON = (
         // ★ [4. ACTION + USAGE REALISM] — prevents illogical actions like spraying with cap on
         `${meta.productUsageRealism} ${speakingDirective}`,
 
-        // ★ [4.5. PRODUCT PRESENTATION] — category-specific visual action for THIS scene
-        `${getScenePresentationDirective(meta.category, sceneNumber)}`,
+        // ★ [4.5. PRODUCT PRESENTATION] — per-scene visual action (AI-generated if available, otherwise category fallback)
+        sceneVideoAction?.trim()
+            ? `VISUAL ACTION FOR THIS SCENE: ${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
+            : `${getScenePresentationDirective(meta.category, sceneNumber)}`,
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,

@@ -427,7 +427,8 @@ const generatePrompts = async (config: PromptGenerationConfig): Promise<Generate
                 characterAnchor: '',
                 personaName: '',
                 clothingDesc: '',
-                productUsageRealism: ''
+                productUsageRealism: '',
+                category: 'other' as any
             }
         };
     }
@@ -611,7 +612,8 @@ const buildVideoPrompt = (
         characterAnchor: '',
         personaName: '',
         clothingDesc: '',
-        productUsageRealism: ''
+        productUsageRealism: '',
+        category: 'other' as any
     };
 
     console.log(`📝 [Grok] Video prompt (${prompt.length} chars):`, prompt);
@@ -622,7 +624,7 @@ const buildVideoPrompt = (
 // Scene 2+ Prompt & Quick Prompts
 // ═══════════════════════════════════════════════════════════
 
-const buildSceneVideoPromptJSON = (meta: VideoPromptMeta, sceneScript: string, sceneNumber: number): string => {
+const buildSceneVideoPromptJSON = (meta: VideoPromptMeta, sceneScript: string, sceneNumber: number, sceneVideoAction?: string): string => {
     const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
     const pronoun = meta.gender.includes('man') ? 'He' : 'She';
     const parts = [
@@ -631,8 +633,11 @@ const buildSceneVideoPromptJSON = (meta: VideoPromptMeta, sceneScript: string, s
         cleanScript
             ? `${pronoun} speaks clearly in Thai: "${cleanScript}".`
             : `${pronoun} continues showing ${meta.product} enthusiastically.`,
+        sceneVideoAction?.trim()
+            ? `VISUAL ACTION: ${sceneVideoAction.trim()}.`
+            : '',
         `Warm studio lighting, quiet room ambience. (no subtitles)`
-    ];
+    ].filter(Boolean);
     return parts.join(' ');
 };
 
@@ -667,7 +672,7 @@ export const grokPromptBuilder: EnginePromptBuilder = {
         return analyzeProductImage(imageBase64, productName);
     },
 
-    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number): string {
-        return buildSceneVideoPromptJSON(meta, sceneScript, sceneNumber);
+    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number, sceneVideoAction?: string): string {
+        return buildSceneVideoPromptJSON(meta, sceneScript, sceneNumber, sceneVideoAction);
     },
 };

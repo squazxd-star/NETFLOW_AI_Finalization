@@ -51,8 +51,8 @@ const veoPromptBuilder: EnginePromptBuilder = {
         return veoAnalyzeProductImage(imageBase64, productName);
     },
 
-    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number): string {
-        return veoBuildScenePrompt(meta, sceneScript, sceneNumber);
+    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number, sceneVideoAction?: string): string {
+        return veoBuildScenePrompt(meta, sceneScript, sceneNumber, sceneVideoAction);
     },
 };
 
@@ -120,9 +120,10 @@ export const buildScenePromptByEngine = (
     engine: VideoEngine,
     meta: VideoPromptMeta,
     sceneScript: string,
-    sceneNumber: number
+    sceneNumber: number,
+    sceneVideoAction?: string
 ): string => {
-    return getPromptBuilder(engine).buildScenePrompt(meta, sceneScript, sceneNumber);
+    return getPromptBuilder(engine).buildScenePrompt(meta, sceneScript, sceneNumber, sceneVideoAction);
 };
 
 /**

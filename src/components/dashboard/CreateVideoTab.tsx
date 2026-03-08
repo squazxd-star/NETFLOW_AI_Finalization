@@ -299,9 +299,28 @@ const CreateVideoTab = () => {
                                     // Pre-build all scene video prompts
                                     if (prompts.sceneScripts && prompts.videoPromptMeta && prompts.sceneScripts.length > 1) {
                                         const { buildSceneVideoPromptJSON } = await import("@/services/veoPromptService");
-                                        const allScenePrompts = [prompts.videoPrompt]; // Scene 1 is the main videoPrompt
+                                        // Parse per-scene video actions (generated alongside scripts)
+                                        const videoActionsRaw = data.sceneVideoActions || "";
+                                        const videoActions = videoActionsRaw.split(/\n{2,}/).map((s: string) => s.trim());
+                                        // Inject Scene 1 videoAction into Scene 1 prompt
+                                        let scene1Prompt = prompts.videoPrompt;
+                                        if (videoActions[0]?.trim()) {
+                                            const scene1Action = videoActions[0].trim();
+                                            // Insert AI videoAction before the generic PRODUCT PRESENTATION KNOWLEDGE
+                                            if (scene1Prompt.includes('PRODUCT PRESENTATION KNOWLEDGE')) {
+                                                scene1Prompt = scene1Prompt.replace(
+                                                    'PRODUCT PRESENTATION KNOWLEDGE',
+                                                    `VISUAL ACTION FOR THIS SCENE: ${scene1Action}. PRODUCT PRESENTATION KNOWLEDGE`
+                                                );
+                                            } else {
+                                                // Fallback: append to end if marker not found
+                                                scene1Prompt += ` VISUAL ACTION FOR THIS SCENE: ${scene1Action}.`;
+                                            }
+                                            console.log("🎬 Scene 1 videoAction injected:", scene1Action);
+                                        }
+                                        const allScenePrompts = [scene1Prompt]; // Scene 1 with videoAction
                                         for (let i = 1; i < prompts.sceneScripts.length; i++) {
-                                            allScenePrompts.push(buildSceneVideoPromptJSON(prompts.videoPromptMeta, prompts.sceneScripts[i], i + 1));
+                                            allScenePrompts.push(buildSceneVideoPromptJSON(prompts.videoPromptMeta, prompts.sceneScripts[i], i + 1, videoActions[i] || ""));
                                         }
                                         setVideoScenePrompts(allScenePrompts);
                                     } else {

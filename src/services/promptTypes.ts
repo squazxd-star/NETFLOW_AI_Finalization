@@ -46,5 +46,5 @@ export interface EnginePromptBuilder {
      * สร้าง prompt สำหรับฉากที่ 2+ (ต่อฉาก)
      * ใช้ meta จากฉากแรกเพื่อรักษาความต่อเนื่อง
      */
-    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number): string;
+    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number, sceneVideoAction?: string): string;
 }

@@ -68,6 +68,12 @@ export const createVideoSchema = z.object({
     // Keywords
     mustUseKeywords: z.string().default(""),
     avoidKeywords: z.string().default(""),
+
+    // Per-scene video action descriptions (generated alongside scripts)
+    sceneVideoActions: z.string().default(""),
+
+    // Cached real product info from search (JSON string)
+    cachedProductInfo: z.string().default(""),
 });
 
 export type CreateVideoFormData = z.infer<typeof createVideoSchema>;
@@ -108,4 +114,6 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     sceneBackground: "studio",
     mustUseKeywords: "",
     avoidKeywords: "",
+    sceneVideoActions: "",
+    cachedProductInfo: "",
 };
