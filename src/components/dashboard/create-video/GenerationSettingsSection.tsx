@@ -36,10 +36,22 @@ const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string
 const GrokLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => {
     const color = active ? "#ffffff" : "#9e9e9e";
     return (
-        <svg viewBox="0 0 100 100" className={className} opacity={active ? 1 : 0.6}>
+        <svg viewBox="0 0 256 256" fill="none" className={className} opacity={active ? 1 : 0.6}>
             <path
-                d="M50,0 L42,36 L8,26 L32,50 L8,74 L42,64 L50,100 L58,64 L92,74 L68,50 L92,26 L58,36 Z"
-                fill={color}
+                d="M200 56 A 90 90 0 1 0 190 190"
+                stroke={color}
+                strokeWidth="22"
+                strokeLinecap="round"
+                fill="none"
+            />
+            <line
+                x1="205"
+                y1="28"
+                x2="75"
+                y2="228"
+                stroke={color}
+                strokeWidth="22"
+                strokeLinecap="round"
             />
         </svg>
     );
