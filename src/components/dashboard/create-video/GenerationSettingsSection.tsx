@@ -36,24 +36,10 @@ const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string
 const GrokLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => {
     const color = active ? "#ffffff" : "#9e9e9e";
     return (
-        <svg viewBox="0 0 256 256" fill="none" className={className} opacity={active ? 1 : 0.6}>
-            {/* Outer circle with gap (open arc) */}
+        <svg viewBox="0 0 100 100" className={className} opacity={active ? 1 : 0.6}>
             <path
-                d="M 208 60 A 100 100 0 1 0 196 196"
-                stroke={color}
-                strokeWidth="24"
-                strokeLinecap="round"
-                fill="none"
-            />
-            {/* Diagonal slash through center */}
-            <line
-                x1="210"
-                y1="30"
-                x2="80"
-                y2="230"
-                stroke={color}
-                strokeWidth="24"
-                strokeLinecap="round"
+                d="M50,0 L42,36 L8,26 L32,50 L8,74 L42,64 L50,100 L58,64 L92,74 L68,50 L92,26 L58,36 Z"
+                fill={color}
             />
         </svg>
     );

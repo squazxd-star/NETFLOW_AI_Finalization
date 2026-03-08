@@ -16,6 +16,7 @@ import {
     ResultSection,
     ConsoleLogSection
 } from "./create-video";
+import BackgroundPickerSection from "./create-video/BackgroundPickerSection";
 import TikTokStatusCard from "./create-video/TikTokStatusCard";
 
 const CreateVideoTab = () => {

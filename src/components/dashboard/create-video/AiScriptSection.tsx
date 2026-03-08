@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Controller } from "react-hook-form";
 import {
     FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe,
-    ImageIcon, ChevronDown, Tag, ShieldAlert, Wand2
+    ImageIcon, ChevronDown, Tag, ShieldAlert
 } from "lucide-react";
-import { autoSelectBackground } from "@/utils/autoBackground";
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
 import { useTheme } from "@/contexts/ThemeContext";
+import { autoSelectBackground } from "@/utils/autoBackground";
 import {
     templateOptions,
     voiceToneOptions,
@@ -34,7 +34,20 @@ const AiScriptSection = ({
     const isAiMode = useAiScript;
 
     const [showAllBackgrounds, setShowAllBackgrounds] = useState(false);
-    const visibleBackgrounds = showAllBackgrounds ? sceneBackgroundOptions : sceneBackgroundOptions.slice(0, 8);
+    const [autoFlash, setAutoFlash] = useState(false);
+
+    const handleAutoBackground = () => {
+        const name = watch("productName") || "";
+        const desc = watch("productDescription") || "";
+        if (!name.trim()) {
+            alert("กรุณากรอกชื่อสินค้าก่อน แล้วกด Auto อีกครั้ง");
+            return;
+        }
+        const best = autoSelectBackground(name, desc);
+        setValue("sceneBackground", best);
+        setAutoFlash(true);
+        setTimeout(() => setAutoFlash(false), 800);
+    };
 
     return (
         <section className="glass-card overflow-hidden">
@@ -223,38 +236,34 @@ const AiScriptSection = ({
 
                     {/* ═══ Row 5: Scene Background Picker ═══ */}
                     <div>
-                        <label className="text-[11px] mb-2 block font-medium flex items-center gap-1.5 text-muted-foreground">
-                            <ImageIcon className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
-                            ฉากพื้นหลัง (Background)
-                        </label>
-
-                        {/* Grid: all backgrounds */}
-                        <div className={`grid grid-cols-5 gap-1.5 ${showAllBackgrounds ? '' : 'max-h-[180px] overflow-hidden'}`}>
-                            {/* Auto — first tile */}
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-[11px] font-medium flex items-center gap-1.5 text-muted-foreground">
+                                <ImageIcon className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
+                                ฉากพื้นหลัง (Background)
+                            </label>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    const name = watch("productName") || "";
-                                    const desc = watch("productDescription") || "";
-                                    const best = autoSelectBackground(name, desc);
-                                    setValue("sceneBackground", best);
-                                }}
-                                className="relative group flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-center transition-all duration-200 border aspect-square border-border/40 hover:bg-muted/50 hover:border-primary/30"
+                                onClick={handleAutoBackground}
+                                className={`group flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all duration-300 hover:scale-105 active:scale-95 ${autoFlash ? 'animate-pulse' : ''}`}
                                 style={{
-                                    background: `rgba(${themeConfig.hexRgb}, 0.08)`,
-                                    borderColor: `rgba(${themeConfig.hexRgb}, 0.3)`,
+                                    background: autoFlash
+                                        ? `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.4), rgba(${themeConfig.hexRgb}, 0.2))`
+                                        : `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.2), rgba(${themeConfig.hexRgb}, 0.08))`,
+                                    border: `1px solid rgba(${themeConfig.hexRgb}, 0.35)`,
+                                    color: themeConfig.hex,
+                                    boxShadow: autoFlash
+                                        ? `0 0 20px rgba(${themeConfig.hexRgb}, 0.4)`
+                                        : `0 2px 8px rgba(${themeConfig.hexRgb}, 0.1)`,
                                 }}
-                                title="เลือกฉากอัตโนมัติจากประเภทสินค้า"
+                                title="วิเคราะห์ชื่อสินค้าแล้วเลือกฉากอัตโนมัติ"
                             >
-                                <Wand2 className="w-[18px] h-[18px] transition-transform duration-200 group-hover:scale-110" style={{ color: themeConfig.hex }} />
-                                <span className="text-[9px] font-bold leading-tight truncate w-full" style={{ color: themeConfig.hex }}>
-                                    Auto
-                                </span>
-                                {/* Golden star badge top-right */}
-                                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center bg-gradient-to-br from-amber-400 to-yellow-500 shadow-sm shadow-amber-500/30">
-                                    <span className="text-[8px] leading-none">⭐</span>
-                                </div>
+                                <span className="text-sm leading-none group-hover:rotate-12 transition-transform inline-block">🪄</span>
+                                <span>Auto</span>
+                                <span className="text-[8px] leading-none">⭐</span>
                             </button>
+                        </div>
+
+                        <div className={`grid grid-cols-5 gap-1.5 ${showAllBackgrounds ? '' : 'max-h-[160px] overflow-hidden'}`}>
                             {sceneBackgroundOptions.map((bg) => {
                                 const isActive = sceneBackground === bg.value;
                                 return (
@@ -262,26 +271,26 @@ const AiScriptSection = ({
                                         key={bg.value}
                                         type="button"
                                         onClick={() => setValue("sceneBackground", bg.value)}
-                                        className={`relative group flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-center transition-all duration-200 border aspect-square ${
+                                        className={`relative group flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl text-center transition-all duration-200 border aspect-square ${
                                             isActive
-                                                ? 'shadow-md'
-                                                : 'border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/30'
+                                                ? 'shadow-lg scale-[1.02]'
+                                                : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] hover:scale-[1.03]'
                                         }`}
                                         style={isActive ? {
                                             borderColor: themeConfig.hex,
-                                            background: `rgba(${themeConfig.hexRgb}, 0.1)`,
-                                            boxShadow: `0 0 10px rgba(${themeConfig.hexRgb}, 0.15)`,
+                                            background: `linear-gradient(145deg, rgba(${themeConfig.hexRgb}, 0.15), rgba(${themeConfig.hexRgb}, 0.05))`,
+                                            boxShadow: `0 4px 16px rgba(${themeConfig.hexRgb}, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)`,
                                         } : {}}
                                         title={bg.description}
                                     >
-                                        <span className={`text-[18px] leading-none transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                                        <span className={`text-[20px] leading-none transition-all duration-200 ${isActive ? 'scale-110 drop-shadow-lg' : 'group-hover:scale-110'}`}>
                                             {bg.emoji}
                                         </span>
-                                        <span className={`text-[9px] font-medium leading-tight truncate w-full ${isActive ? '' : 'text-muted-foreground/70'}`} style={isActive ? { color: themeConfig.hex } : {}}>
+                                        <span className={`text-[10px] font-medium leading-tight truncate w-full mt-0.5 ${isActive ? 'font-bold' : 'text-muted-foreground/60'}`} style={isActive ? { color: themeConfig.hex } : {}}>
                                             {bg.label}
                                         </span>
                                         {isActive && (
-                                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center" style={{ background: themeConfig.hex }}>
+                                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md" style={{ background: themeConfig.hex }}>
                                                 <div className="w-1.5 h-1.5 rounded-full bg-white" />
                                             </div>
                                         )}
@@ -290,14 +299,14 @@ const AiScriptSection = ({
                             })}
                         </div>
 
-                        {sceneBackgroundOptions.length > 12 && (
+                        {sceneBackgroundOptions.length > 10 && (
                             <button
                                 type="button"
                                 onClick={() => setShowAllBackgrounds(!showAllBackgrounds)}
-                                className="w-full mt-1.5 py-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1 rounded-lg hover:bg-muted/30"
+                                className="w-full mt-2 py-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-1 rounded-lg hover:bg-white/[0.03]"
                             >
-                                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAllBackgrounds ? 'rotate-180' : ''}`} />
-                                {showAllBackgrounds ? 'แสดงน้อยลง' : `ดูทั้งหมด (${sceneBackgroundOptions.length - 1} ฉาก)`}
+                                <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showAllBackgrounds ? 'rotate-180' : ''}`} />
+                                {showAllBackgrounds ? 'แสดงน้อยลง' : `ดูทั้งหมด (${sceneBackgroundOptions.length} ฉาก)`}
                             </button>
                         )}
 
@@ -307,13 +316,11 @@ const AiScriptSection = ({
                                 placeholder="พิมพ์ฉากที่ต้องการ เช่น ร้านขายยา, สระว่ายน้ำ..."
                                 className="w-full neon-input text-xs mt-2"
                                 onChange={(e) => {
-                                    // Store custom value in a data attribute or extend schema
                                     const input = e.target as HTMLInputElement;
                                     input.dataset.customBg = e.target.value;
                                 }}
                             />
                         )}
-
                     </div>
 
                     {/* ═══ Row 6: Hook & CTA (compact) ═══ */}
