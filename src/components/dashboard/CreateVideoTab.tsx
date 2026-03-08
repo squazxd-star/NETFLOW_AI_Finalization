@@ -438,7 +438,7 @@ const CreateVideoTab = () => {
                         onClick={() => {
                             const engine = getValues("videoEngine") || "veo";
                             const url = engine === "grok"
-                                ? 'https://grok.com'
+                                ? 'https://grok.com/imagine'
                                 : 'https://labs.google/fx/tools/flow';
                             window.open(url, '_blank');
                             setFlowOpened(true);

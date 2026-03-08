@@ -1357,7 +1357,7 @@ interface GenerateImageRequest {
     imagePrompt: string;
     videoPrompt?: string;
     videoScenePrompts?: string[];  // Pre-built prompts for each scene [scene1, scene2, scene3]
-    sceneCount?: number;           // 1, 2, or 3
+    sceneCount?: number;           // 1-10
     productImage?: string;
     characterImage?: string;
     orientation?: "horizontal" | "vertical";
@@ -2525,7 +2525,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     if (pendingCheck.action === "mute_video") {
                         await standaloneMuteAndDownload(pendingCheck.sceneCount || 1, pendingCheck.scenePrompts || [], pendingCheck.theme);
                     } else if (pendingCheck.action === "wait_scene_gen_and_download") {
-                        await waitForSceneGenAndDownload(pendingCheck.sceneCount || 2, pendingCheck.currentScene || 2, pendingCheck.theme);
+                        await waitForSceneGenAndDownload(pendingCheck.sceneCount || 2, pendingCheck.currentScene || 2, pendingCheck.theme, pendingCheck.scenePrompts || []);
                     }
                 }
             }
@@ -2701,7 +2701,8 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                         action: "wait_scene_gen_and_download",
                         theme: theme,
                         sceneCount: sceneCount,
-                        currentScene: scene
+                        currentScene: scene,
+                        scenePrompts: scenePrompts
                     }
                 }, () => resolve());
             });
@@ -3084,7 +3085,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
  * Called when page navigated during scene N generation.
  * Tracks generation % on the new page, then downloads Full Video 720p.
  */
-async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: number = 2, theme?: string): Promise<void> {
+async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: number = 2, theme?: string, scenePrompts: string[] = []): Promise<void> {
     LOG(`═══ Pending: รอ scene ${currentScene}/${sceneCount} gen เสร็จ + ดาวน์โหลด ═══`);
 
     // Re-show overlay with correct theme AND scene count (page navigation destroyed both)
@@ -3195,9 +3196,151 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         }
         await sleep(2000);
     }
-    if (!sceneGenDone) { LOG(`⚠️ scene ${currentScene} หมดเวลา — ลองดาวน์โหลดต่อ`); }
+    if (!sceneGenDone) { LOG(`⚠️ scene ${currentScene} หมดเวลา — ลองต่อไป`); }
     try { updateStep(`scene${currentScene}-wait`, "done", 100); } catch (_) {}
-    LOG(`✅ scene ${currentScene} เสร็จ — เริ่มดาวน์โหลด`);
+    LOG(`✅ scene ${currentScene} เสร็จ`);
+
+    // ── Continue remaining scenes (if any) before downloading ──
+    if (currentScene < sceneCount && scenePrompts.length > 0) {
+        LOG(`═══ ยังเหลืออีก ${sceneCount - currentScene} ฉาก — ต่อฉากถัดไป ═══`);
+        await sleep(2000);
+
+        for (let scene = currentScene + 1; scene <= sceneCount; scene++) {
+            const prompt = scenePrompts[scene - 1];
+            if (!prompt) { LOG(`⚠️ ไม่พบ prompt สำหรับฉากที่ ${scene} — ข้าม`); continue; }
+
+            LOG(`── ฉากที่ ${scene}/${sceneCount}: วาง prompt + generate (pending recovery) ──`);
+
+            // Find Slate prompt editor
+            let slateEditor: HTMLElement | null = null;
+            const taPollStart2 = Date.now();
+            while (!slateEditor && Date.now() - taPollStart2 < 10000) {
+                const slateEditors = document.querySelectorAll<HTMLElement>("[data-slate-editor='true']");
+                if (slateEditors.length > 0) slateEditor = slateEditors[slateEditors.length - 1];
+                if (!slateEditor) {
+                    const textboxes = document.querySelectorAll<HTMLElement>("[role='textbox'][contenteditable='true']");
+                    if (textboxes.length > 0) slateEditor = textboxes[textboxes.length - 1];
+                }
+                if (!slateEditor) await sleep(1000);
+            }
+            if (!slateEditor) { LOG(`⚠️ ไม่พบ Slate editor สำหรับฉาก ${scene}`); break; }
+
+            await setPromptText(slateEditor, prompt);
+            LOG(`วาง prompt ฉาก ${scene} (${prompt.length} ตัวอักษร) ✅`);
+            try { updateStep(`scene${scene}-prompt`, "done"); updateStep(`scene${scene}-gen`, "active"); } catch (_) {}
+            await sleep(1000);
+
+            // Find generate/send button nearest to editor
+            const editorRect2 = slateEditor.getBoundingClientRect();
+            let sendBtn2: HTMLElement | null = null;
+            let bestDist2 = Infinity;
+            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                if ((btn as HTMLButtonElement).disabled) continue;
+                const icons = btn.querySelectorAll("i");
+                let hasArrow = false;
+                for (const icon of icons) { if ((icon.textContent || "").trim() === "arrow_forward") { hasArrow = true; break; } }
+                if (!hasArrow) continue;
+                const r = btn.getBoundingClientRect();
+                if (r.width <= 0 || r.height <= 0) continue;
+                const dist = Math.abs(r.top - editorRect2.top) + Math.abs(r.right - editorRect2.right);
+                if (dist < bestDist2) { bestDist2 = dist; sendBtn2 = btn; }
+            }
+            if (!sendBtn2) {
+                for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                    const icons = btn.querySelectorAll("i");
+                    for (const icon of icons) {
+                        if ((icon.textContent || "").trim() === "arrow_forward") {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { sendBtn2 = btn; break; }
+                        }
+                    }
+                    if (sendBtn2) break;
+                }
+            }
+            if (!sendBtn2) { LOG(`⚠️ ไม่พบปุ่ม Generate สำหรับฉาก ${scene}`); break; }
+
+            // Save pending action before clicking (in case page navigates again)
+            await new Promise<void>((resolve) => {
+                chrome.storage.local.set({
+                    netflow_pending_action: {
+                        timestamp: Date.now(),
+                        action: "wait_scene_gen_and_download",
+                        theme: theme,
+                        sceneCount: sceneCount,
+                        currentScene: scene,
+                        scenePrompts: scenePrompts
+                    }
+                }, () => resolve());
+            });
+
+            await robustClick(sendBtn2);
+            LOG(`คลิก Generate ฉาก ${scene} ✅`);
+            try { updateStep(`scene${scene}-gen`, "done"); updateStep(`scene${scene}-wait`, "active"); } catch (_) {}
+
+            // Track % for this scene
+            await sleep(5000);
+            let lastPct2 = 0;
+            let pctGoneAt2 = 0;
+            const scenePollStart2 = Date.now();
+            let sceneGenDone2 = false;
+            let noPctCount2 = 0;
+
+            while (Date.now() - scenePollStart2 < 600000) {
+                let foundPct2: number | null = null;
+                const els2 = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
+                for (const el of els2) {
+                    if (el.closest("#netflow-engine-overlay")) continue;
+                    const txt = (el.textContent || "").trim();
+                    const m = txt.match(/^(\d{1,3})%$/);
+                    if (m) {
+                        const r = el.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0 && r.width < 120 && r.height < 60) {
+                            foundPct2 = parseInt(m[1], 10);
+                            break;
+                        }
+                    }
+                }
+                if (foundPct2 !== null) {
+                    noPctCount2 = 0;
+                    if (foundPct2 !== lastPct2) {
+                        LOG(`🎬 ฉาก ${scene} ความคืบหน้า: ${foundPct2}%`);
+                        lastPct2 = foundPct2;
+                        try { updateStep(`scene${scene}-wait`, "active", foundPct2); } catch (_) {}
+                    }
+                    pctGoneAt2 = 0;
+                } else if (lastPct2 > 0) {
+                    if (pctGoneAt2 === 0) {
+                        pctGoneAt2 = Date.now();
+                    } else if (Date.now() - pctGoneAt2 >= 5000) {
+                        LOG(`✅ ฉาก ${scene}: เจนเสร็จ!`);
+                        sceneGenDone2 = true;
+                        break;
+                    }
+                } else {
+                    noPctCount2++;
+                    if (noPctCount2 >= 15) {
+                        const videoEls = document.querySelectorAll<HTMLVideoElement>("video");
+                        let hasPlayingVideo = false;
+                        for (const v of videoEls) {
+                            if (v.readyState >= 2 && !v.paused && v.getBoundingClientRect().width > 200) { hasPlayingVideo = true; break; }
+                        }
+                        if (hasPlayingVideo) { LOG(`✅ ฉาก ${scene}: พบวิดีโอเล่นอยู่ — เสร็จ`); sceneGenDone2 = true; break; }
+                        if (noPctCount2 >= 30) { LOG(`✅ ฉาก ${scene}: ไม่พบ % 60 วินาที — ถือว่าเสร็จ`); sceneGenDone2 = true; break; }
+                    }
+                }
+                await sleep(2000);
+            }
+            if (!sceneGenDone2) { LOG(`⚠️ ฉาก ${scene} หมดเวลา`); }
+            try { updateStep(`scene${scene}-wait`, "done", 100); } catch (_) {}
+            LOG(`✅ ฉาก ${scene} เสร็จแล้ว`);
+
+            // Clear pending action — completed on this page
+            chrome.storage.local.remove("netflow_pending_action");
+            await sleep(2000);
+        }
+    }
+
+    LOG(`✅ ทุกฉากเสร็จ — เริ่มดาวน์โหลด`);
     await sleep(3000);
 
     // ── Helper: find visible element by text ──
@@ -3425,7 +3568,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         if (result.action === "mute_video") {
             await standaloneMuteAndDownload(result.sceneCount || 1, result.scenePrompts || [], result.theme);
         } else if (result.action === "wait_scene_gen_and_download" || result.action === "wait_scene2_gen_and_download") {
-            await waitForSceneGenAndDownload(result.sceneCount || 2, result.currentScene || 2, result.theme);
+            await waitForSceneGenAndDownload(result.sceneCount || 2, result.currentScene || 2, result.theme, result.scenePrompts || []);
         } else {
             LOG(`⚠️ ไม่รู้จัก pending action: ${result.action}`);
         }
