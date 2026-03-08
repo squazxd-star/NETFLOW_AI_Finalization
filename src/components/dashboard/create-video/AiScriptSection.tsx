@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Controller } from "react-hook-form";
 import {
     FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe,
-    ImageIcon, ChevronDown, Tag, ShieldAlert
+    ImageIcon, ChevronDown, Tag, ShieldAlert, Wand2
 } from "lucide-react";
+import { autoSelectBackground } from "@/utils/autoBackground";
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -229,6 +230,31 @@ const AiScriptSection = ({
 
                         {/* Grid: all backgrounds */}
                         <div className={`grid grid-cols-5 gap-1.5 ${showAllBackgrounds ? '' : 'max-h-[180px] overflow-hidden'}`}>
+                            {/* Auto — first tile */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const name = watch("productName") || "";
+                                    const desc = watch("productDescription") || "";
+                                    const best = autoSelectBackground(name, desc);
+                                    setValue("sceneBackground", best);
+                                }}
+                                className="relative group flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-center transition-all duration-200 border aspect-square border-border/40 hover:bg-muted/50 hover:border-primary/30"
+                                style={{
+                                    background: `rgba(${themeConfig.hexRgb}, 0.08)`,
+                                    borderColor: `rgba(${themeConfig.hexRgb}, 0.3)`,
+                                }}
+                                title="เลือกฉากอัตโนมัติจากประเภทสินค้า"
+                            >
+                                <Wand2 className="w-[18px] h-[18px] transition-transform duration-200 group-hover:scale-110" style={{ color: themeConfig.hex }} />
+                                <span className="text-[9px] font-bold leading-tight truncate w-full" style={{ color: themeConfig.hex }}>
+                                    Auto
+                                </span>
+                                {/* Golden star badge top-right */}
+                                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center bg-gradient-to-br from-amber-400 to-yellow-500 shadow-sm shadow-amber-500/30">
+                                    <span className="text-[8px] leading-none">⭐</span>
+                                </div>
+                            </button>
                             {sceneBackgroundOptions.map((bg) => {
                                 const isActive = sceneBackground === bg.value;
                                 return (

@@ -36,9 +36,25 @@ const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string
 const GrokLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => {
     const color = active ? "#ffffff" : "#9e9e9e";
     return (
-        <svg viewBox="0 0 24 24" fill="none" className={className} opacity={active ? 1 : 0.6}>
-            <path d="M18.5 7.4 A8 8 0 1 0 16 5.1" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-            <line x1="19" y1="3" x2="8" y2="20.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+        <svg viewBox="0 0 256 256" fill="none" className={className} opacity={active ? 1 : 0.6}>
+            {/* Outer circle with gap (open arc) */}
+            <path
+                d="M 208 60 A 100 100 0 1 0 196 196"
+                stroke={color}
+                strokeWidth="24"
+                strokeLinecap="round"
+                fill="none"
+            />
+            {/* Diagonal slash through center */}
+            <line
+                x1="210"
+                y1="30"
+                x2="80"
+                y2="230"
+                stroke={color}
+                strokeWidth="24"
+                strokeLinecap="round"
+            />
         </svg>
     );
 };
@@ -583,7 +599,7 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                     { value: "480p", label: "480p", sub: "ฟรี", premium: false },
                                     { value: "720p", label: "720p", sub: "HD", premium: true }
                                 ] as const).map((opt) => {
-                                    const isActive = (watch("grokResolution") || "720p") === opt.value;
+                                    const isActive = (watch("grokResolution") || "480p") === opt.value;
                                     return (
                                         <div key={opt.value} className="flex-1 relative group">
                                             <button
@@ -605,18 +621,34 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                                     <span className={`text-[8px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{opt.sub}</span>
                                                 </div>
                                                 {opt.premium && (
-                                                    <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-sm">
-                                                        ⚡SuperGrok
+                                                    <span
+                                                        className="relative text-[7px] font-extrabold px-1.5 py-0.5 rounded-md text-transparent bg-clip-text"
+                                                        style={{
+                                                            backgroundImage: 'linear-gradient(135deg, #D4AF37, #FFD700, #F5E6A3, #D4AF37)',
+                                                            WebkitBackgroundClip: 'text',
+                                                            WebkitTextFillColor: 'transparent',
+                                                            border: '1px solid rgba(212, 175, 55, 0.5)',
+                                                            boxShadow: '0 0 8px rgba(212, 175, 55, 0.25), inset 0 0 4px rgba(212, 175, 55, 0.1)',
+                                                            letterSpacing: '0.03em',
+                                                        }}
+                                                    >
+                                                        SuperGrok
                                                     </span>
                                                 )}
                                             </button>
                                             {opt.premium && (
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 rounded-xl bg-black/95 border border-amber-500/30 shadow-xl shadow-amber-500/10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-50 backdrop-blur-sm">
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        <span className="text-amber-400 text-[10px] font-bold">⚡ SuperGrok Required</span>
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 z-50 backdrop-blur-md"
+                                                    style={{
+                                                        background: 'linear-gradient(145deg, rgba(15,12,8,0.97), rgba(25,20,10,0.97))',
+                                                        border: '1px solid rgba(212, 175, 55, 0.35)',
+                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(212, 175, 55, 0.08)',
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <span className="text-[10px] font-bold" style={{ background: 'linear-gradient(135deg, #D4AF37, #FFD700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>✦ SuperGrok Required</span>
                                                     </div>
-                                                    <p className="text-[9px] text-white/70 leading-relaxed">720p HD ต้องใช้ SuperGrok ($30/mo) — ถ้าไม่มี Grok จะ fallback เป็น 480p อัตโนมัติ</p>
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-black/95 border-r border-b border-amber-500/30 transform rotate-45 -mt-1"></div>
+                                                    <p className="text-[9px] text-white/60 leading-relaxed">HD 720p ต้องสมัคร <span className="font-semibold text-amber-400/90">SuperGrok</span> ($30/mo) — ถ้าไม่มีจะ fallback เป็น 480p</p>
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 transform rotate-45 -mt-1" style={{ background: 'rgba(15,12,8,0.97)', borderRight: '1px solid rgba(212, 175, 55, 0.35)', borderBottom: '1px solid rgba(212, 175, 55, 0.35)' }}></div>
                                                 </div>
                                             )}
                                         </div>
@@ -633,7 +665,7 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                     { value: "6s", label: "6s", sub: "ฟรี", premium: false },
                                     { value: "10s", label: "10s", sub: "ยาวขึ้น", premium: true }
                                 ] as const).map((opt) => {
-                                    const isActive = (watch("grokDuration") || "10s") === opt.value;
+                                    const isActive = (watch("grokDuration") || "6s") === opt.value;
                                     return (
                                         <div key={opt.value} className="flex-1 relative group">
                                             <button
@@ -655,18 +687,34 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}: [คำพ�
                                                     <span className={`text-[8px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{opt.sub}</span>
                                                 </div>
                                                 {opt.premium && (
-                                                    <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-sm">
-                                                        ⚡SuperGrok
+                                                    <span
+                                                        className="relative text-[7px] font-extrabold px-1.5 py-0.5 rounded-md text-transparent bg-clip-text"
+                                                        style={{
+                                                            backgroundImage: 'linear-gradient(135deg, #D4AF37, #FFD700, #F5E6A3, #D4AF37)',
+                                                            WebkitBackgroundClip: 'text',
+                                                            WebkitTextFillColor: 'transparent',
+                                                            border: '1px solid rgba(212, 175, 55, 0.5)',
+                                                            boxShadow: '0 0 8px rgba(212, 175, 55, 0.25), inset 0 0 4px rgba(212, 175, 55, 0.1)',
+                                                            letterSpacing: '0.03em',
+                                                        }}
+                                                    >
+                                                        SuperGrok
                                                     </span>
                                                 )}
                                             </button>
                                             {opt.premium && (
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 rounded-xl bg-black/95 border border-amber-500/30 shadow-xl shadow-amber-500/10 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-50 backdrop-blur-sm">
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        <span className="text-amber-400 text-[10px] font-bold">⚡ SuperGrok Required</span>
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 z-50 backdrop-blur-md"
+                                                    style={{
+                                                        background: 'linear-gradient(145deg, rgba(15,12,8,0.97), rgba(25,20,10,0.97))',
+                                                        border: '1px solid rgba(212, 175, 55, 0.35)',
+                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(212, 175, 55, 0.08)',
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <span className="text-[10px] font-bold" style={{ background: 'linear-gradient(135deg, #D4AF37, #FFD700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>✦ SuperGrok Required</span>
                                                     </div>
-                                                    <p className="text-[9px] text-white/70 leading-relaxed">วิดีโอ 10 วินาทีต้องใช้ SuperGrok ($30/mo) — ถ้าไม่มี Grok จะสร้างได้แค่ 6 วินาที</p>
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-black/95 border-r border-b border-amber-500/30 transform rotate-45 -mt-1"></div>
+                                                    <p className="text-[9px] text-white/60 leading-relaxed">วิดีโอ 10 วินาทีต้องสมัคร <span className="font-semibold text-amber-400/90">SuperGrok</span> ($30/mo) — ถ้าไม่มีจะสร้างได้แค่ 6 วินาที</p>
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 transform rotate-45 -mt-1" style={{ background: 'rgba(15,12,8,0.97)', borderRight: '1px solid rgba(212, 175, 55, 0.35)', borderBottom: '1px solid rgba(212, 175, 55, 0.35)' }}></div>
                                                 </div>
                                             )}
                                         </div>

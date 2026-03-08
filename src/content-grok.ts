@@ -1132,8 +1132,8 @@ async function handleGrokGenerate(req: GrokGenerateRequest): Promise<{ success: 
         productName: req.productName,
         autoPostTikTok: req.autoPostTikTok,
         theme: req.theme,
-        resolution: req.grokResolution || '720p',
-        duration: req.grokDuration || '10s',
+        resolution: req.grokResolution || '480p',
+        duration: req.grokDuration || '6s',
     };
 
     try {

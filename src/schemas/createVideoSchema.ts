@@ -55,8 +55,8 @@ export const createVideoSchema = z.object({
 
     // Grok Settings
     grokAspectRatio: z.enum(["16:9", "9:16", "1:1", "3:2", "2:3"]).default("9:16"),
-    grokResolution: z.enum(["480p", "720p"]).default("720p"),
-    grokDuration: z.enum(["6s", "10s"]).default("10s"),
+    grokResolution: z.enum(["480p", "720p"]).default("480p"),
+    grokDuration: z.enum(["6s", "10s"]).default("6s"),
 
     // Posting Settings
     autoPostYoutube: z.boolean().default(false),
@@ -101,8 +101,8 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     veoQuality: "fast" as const,
     sceneCount: 2,
     grokAspectRatio: "9:16" as const,
-    grokResolution: "720p" as const,
-    grokDuration: "10s" as const,
+    grokResolution: "480p" as const,
+    grokDuration: "6s" as const,
     autoPostYoutube: false,
     autoPostTikTok: false,
     sceneBackground: "studio",

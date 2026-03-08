@@ -165,45 +165,8 @@ const CreateVideoTab = () => {
         watch: watch as <T extends keyof CreateVideoFormData>(name: T) => CreateVideoFormData[T]
     };
 
-    // Auto ครบ — set all recommended values
-    const applyRecommended = () => {
-        setValue("videoEngine", "veo");
-        setValue("orientation", "vertical");
-        setValue("outputCount", 1);
-        setValue("veoQuality", "quality");
-        setValue("sceneCount", 2);
-        setValue("useAiScript", true);
-        setValue("template", "product-review");
-        setValue("voiceTone", "energetic");
-        setValue("saleStyle", "storytelling");
-        setValue("language", "th-central");
-        setValue("gender", "female");
-        setValue("hookEnabled", true);
-        setValue("ctaEnabled", true);
-        setValue("sceneBackground", "studio");
-    };
-
     return (
         <div className="p-4 space-y-3 relative">
-            {/* Auto ครบ — One-click recommended settings */}
-            <div className="flex justify-end mb-1">
-                <button
-                    type="button"
-                    onClick={applyRecommended}
-                    className="group relative flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
-                    style={{
-                        background: `linear-gradient(135deg, rgba(${themeConfig.hexRgb}, 0.15), rgba(${themeConfig.hexRgb}, 0.08))`,
-                        border: `1px solid rgba(${themeConfig.hexRgb}, 0.3)`,
-                        color: themeConfig.hex,
-                        boxShadow: `0 0 16px rgba(${themeConfig.hexRgb}, 0.12)`,
-                    }}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer" />
-                    <Sparkles className="w-3.5 h-3.5 group-hover:animate-spin" style={{ animationDuration: '2s' }} />
-                    <span>Auto ครบ</span>
-                    <span className="text-[9px] font-normal opacity-60">ค่าแนะนำ</span>
-                </button>
-            </div>
 
             {/* 1. Product Data Section - ข้อมูลสินค้า */}
             <ProductDataSection
@@ -546,8 +509,8 @@ const CreateVideoTab = () => {
                                                 outputCount: formData.outputCount || 1,
                                                 veoQuality: formData.veoQuality || "fast",
                                                 grokAspectRatio: formData.grokAspectRatio || "9:16",
-                                                grokResolution: formData.grokResolution || "720p",
-                                                grokDuration: formData.grokDuration || "10s",
+                                                grokResolution: formData.grokResolution || "480p",
+                                                grokDuration: formData.grokDuration || "6s",
                                                 theme: localStorage.getItem("netflow_app_theme") || "red",
                                             },
                                             (res) => {
