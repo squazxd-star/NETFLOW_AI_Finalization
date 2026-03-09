@@ -144,7 +144,12 @@ function isGenerationFailed(): string | null {
         "unable to generate", "ไม่สามารถสร้างวิดีโอ",
         "couldn't generate video", "couldn't generate image",
     ];
-    const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3, li");
+    // Use textContent body scan first (fast, no reflow) before falling back to element scan
+    const bodyText = (document.body.textContent || "").toLowerCase();
+    const hasAnyPattern = failurePatterns.some(p => bodyText.includes(p));
+    if (!hasAnyPattern) return null; // fast exit: no failure text anywhere on page
+    // Only do targeted element scan if a pattern exists somewhere
+    const allEls = document.querySelectorAll<HTMLElement>("span, p, h1, h2, h3, li");
     for (const el of allEls) {
         if (el.closest("#netflow-engine-overlay")) continue;
         const txt = (el.textContent || "").trim().toLowerCase();
@@ -2350,14 +2355,34 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
         LOG(`=== ขั้น 6: รอวิดีโอ + ${totalScenes > 1 ? `ต่อ ${totalScenes} ฉาก` : 'ดาวน์โหลด'} ===`);
 
-        // ── Shared: Scan for "X%" by querying ALL elements directly ──
+        // ── Shared: Scan for "X%" — optimized to avoid expensive full-DOM scans ──
+        let _lastPctEl: HTMLElement | null = null; // cache last-found % element
         const scanForPct = (): number | null => {
-            const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
+            // Fast path: re-check the last element that had % text
+            if (_lastPctEl && _lastPctEl.isConnected && !_lastPctEl.closest("#netflow-engine-overlay")) {
+                const txt = (_lastPctEl.textContent || "").trim();
+                if (txt.length <= 10) {
+                    const m = txt.match(/(\d{1,3})\s*%/);
+                    if (m) {
+                        const pct = parseInt(m[1], 10);
+                        if (pct >= 1 && pct <= 100) return pct;
+                    }
+                }
+                _lastPctEl = null; // element no longer valid
+            }
+            // Targeted scan: use aria-valuenow first (cheapest)
+            const progressBars = document.querySelectorAll('[role="progressbar"]');
+            for (const pb of progressBars) {
+                if ((pb as HTMLElement).closest("#netflow-engine-overlay")) continue;
+                const val = pb.getAttribute('aria-valuenow');
+                if (val) { const pct = parseFloat(val); if (pct >= 1 && pct <= 100) return pct; }
+            }
+            // Fallback: scan small text elements for "XX%" pattern
+            const els = document.querySelectorAll<HTMLElement>("span, small, label, p");
             for (const el of els) {
-                // Skip elements inside our own overlay (they echo the % back, causing feedback loop)
                 if (el.closest("#netflow-engine-overlay")) continue;
                 const txt = (el.textContent || "").trim();
-                if (txt.length > 10) continue;
+                if (txt.length > 10 || txt.length < 2) continue;
                 const m = txt.match(/(\d{1,3})\s*%/);
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
@@ -2365,6 +2390,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.width > 150) continue;
                 if (rect.top < 0 || rect.top > window.innerHeight) continue;
+                _lastPctEl = el; // cache for fast re-check
                 return pct;
             }
             return null;
@@ -2416,9 +2442,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             let lastPct = -1;
             let lastPctTime = 0;
             let completed = false;
+            let pollIter = 0; // throttle counter for expensive checks
 
             // Poll until completion
             while (Date.now() - start < timeoutMs) {
+                pollIter++;
                 const pct = scanForPct();
                 if (pct !== null) {
                     if (pct !== lastPct) {
@@ -2432,8 +2460,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         completed = true;
                         break;
                     }
-                } else if (lastPct > 30) {
-                    // % disappeared = video generation finished
+                } else if (lastPct > 0) {
+                    // % disappeared = video generation likely finished (confirm after 5s)
                     const lostFor = Math.floor((Date.now() - lastPctTime) / 1000);
                     if (lostFor >= 5) {
                         LOG(`✅ % หายไปที่ ${lastPct}% (หาย ${lostFor} วินาที) — วิดีโอเสร็จ!`);
@@ -2449,7 +2477,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 }
 
                 // Secondary completion signal: if a video card appeared, video is done
-                if (!completed && lastPct > 0) {
+                // Throttled: check every 5th iteration (~15s) to avoid expensive DOM traversal
+                if (!completed && lastPct > 0 && pollIter % 5 === 0) {
                     const newCard = findFirstVideoCard(true);
                     if (newCard && !earlyVideoCard) {
                         LOG(`✅ การ์ดวิดีโอปรากฏขึ้นที่ ${lastPct}% — วิดีโอเสร็จ!`);
@@ -2463,7 +2492,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     LOG("⛔ ผู้ใช้สั่งหยุดระหว่างรอวิดีโอ");
                     return null;
                 }
-                if (lastPct < 1) {
+                // Throttle isGenerationFailed: check every 5th iteration (~15s)
+                if (lastPct < 1 && pollIter % 5 === 0) {
                     const failMsg = isGenerationFailed();
                     if (failMsg) {
                         WARN(`❌ สร้างวิดีโอล้มเหลว: ${failMsg}`);
@@ -3192,7 +3222,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         LOG("⚠️ ไม่พบปุ่มปิดเสียง — ข้าม");
     }
 
-    // ── Track generation % ──
+    // ── Track generation % (optimized: cached element + targeted selectors) ──
     LOG(`── รอวิดีโอ scene ${currentScene} gen เสร็จ (หลัง page navigate) ──`);
     let lastPct = 0;
     let pctGoneAt = 0;
@@ -3201,19 +3231,39 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     const PCT_GONE_CONFIRM = 5000;
     let sceneGenDone = false;
     let noPctCount = 0;
+    let _scenePctEl: HTMLElement | null = null; // cache last-found % element
 
     while (Date.now() - scenePollStart < SCENE_TIMEOUT) {
         let foundPct: number | null = null;
-        const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
-        for (const el of els) {
-            if (el.closest("#netflow-engine-overlay")) continue;
-            const txt = (el.textContent || "").trim();
+        // Fast path: re-check cached element
+        if (_scenePctEl && _scenePctEl.isConnected && !_scenePctEl.closest("#netflow-engine-overlay")) {
+            const txt = (_scenePctEl.textContent || "").trim();
             const m = txt.match(/^(\d{1,3})%$/);
-            if (m) {
-                const r = el.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0 && r.width < 120 && r.height < 60) {
-                    foundPct = parseInt(m[1], 10);
-                    break;
+            if (m) { foundPct = parseInt(m[1], 10); }
+            else { _scenePctEl = null; }
+        }
+        // Targeted scan: aria-valuenow first, then small text elements
+        if (foundPct === null) {
+            const progressBars = document.querySelectorAll('[role="progressbar"]');
+            for (const pb of progressBars) {
+                if ((pb as HTMLElement).closest("#netflow-engine-overlay")) continue;
+                const val = pb.getAttribute('aria-valuenow');
+                if (val) { const pct = parseFloat(val); if (pct >= 1 && pct <= 100) { foundPct = pct; break; } }
+            }
+        }
+        if (foundPct === null) {
+            const els = document.querySelectorAll<HTMLElement>("span, small, label, p");
+            for (const el of els) {
+                if (el.closest("#netflow-engine-overlay")) continue;
+                const txt = (el.textContent || "").trim();
+                const m = txt.match(/^(\d{1,3})%$/);
+                if (m) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0 && r.width < 120 && r.height < 60) {
+                        foundPct = parseInt(m[1], 10);
+                        _scenePctEl = el; // cache for fast re-check
+                        break;
+                    }
                 }
             }
         }

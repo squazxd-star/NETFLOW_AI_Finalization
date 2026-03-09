@@ -607,7 +607,8 @@ const findMainVideo = (): HTMLVideoElement | null => {
 
 /** Check if Grok is still showing "Generating XX%", progress bar, or Cancel button */
 const _isGrokStillGenerating = (): boolean => {
-    const bodyText = document.body.innerText;
+    // Use textContent instead of innerText — innerText forces expensive synchronous layout reflow
+    const bodyText = document.body.textContent || '';
     if (/generating\s*\d+%/i.test(bodyText)) return true;
     const progressBars = document.querySelectorAll('[role="progressbar"], progress');
     for (const pb of progressBars) {
@@ -627,8 +628,8 @@ const _detectGrokVideoProgress = (): number => {
         const val = pb.getAttribute('aria-valuenow');
         if (val) return parseFloat(val);
     }
-    // Method 2: Text scan "Generating XX%"
-    const bodyText = document.body.innerText;
+    // Method 2: Text scan "Generating XX%" (use textContent — no layout reflow)
+    const bodyText = document.body.textContent || '';
     const match = bodyText.match(/generating\s*(\d+)%/i);
     if (match) return parseInt(match[1], 10);
     // Method 3: CSS width of progress bar
