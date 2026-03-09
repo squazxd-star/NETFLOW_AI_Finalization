@@ -1971,9 +1971,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     LOG(`บันทึกรูปเดิม: ${existingImageSrcs.size} รูปก่อน Generate`);
 
     // ── Step 3: ALWAYS click Generate → (even if some steps failed) ──
-    LOG("=== ขั้น 3: คลิก Generate → ===");
+    LOG("=== ขั้น 3: รอ 5 วินาทีก่อนคลิก Generate → ===");
     updateStep("img-generate", "active");
-    await sleep(500);
+    await sleep(5000); // ★ Add 5 seconds delay before generate to let UI settle
     const genBtn = findGenerateButton();
     if (genBtn) {
         // React needs full mouse event sequence, not just .click()
@@ -2682,7 +2682,6 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait"];
         for (const s of doneSteps) updateStep(s, "done");
         if (sceneCount >= 2) updateStep("scene2-prompt", "active");
-        LOG(`✅ overlay restored: ${doneSteps.length} steps done, sceneCount=${sceneCount}`);
     } catch (e: any) { LOG(`⚠️ overlay restore error: ${e.message}`); }
 
     // ── Step A: Mute video ──
