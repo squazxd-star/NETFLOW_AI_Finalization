@@ -904,7 +904,7 @@ const runGrokPipeline = async (config: GrokPipelineConfig): Promise<{ success: b
     // Initialize overlay
     try {
         if (theme) setOverlayTheme(theme);
-        showOverlay(sceneCount, 'grok');
+        showOverlay(sceneCount);
     } catch (e: any) { LOG(`⚠️ Overlay error: ${e.message}`); }
 
     // ═══ Step 1: Wait for Imagine page ═══
