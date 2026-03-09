@@ -1868,6 +1868,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.characterImage) {
         updateStep("upload-char", "active");
+        const thumbsBefore = countPromptBarThumbnails();
         try {
             const ok = await uploadImageToPromptBar(req.characterImage, "character.png");
             steps.push(ok ? "✅ ตัวละคร" : "⚠️ ตัวละคร");
@@ -1880,12 +1881,26 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("upload-char", "error");
         }
         await waitForUploadsComplete("character");
+
+        // ★ Retry: if thumbnail count didn't increase, the upload silently failed — try once more
+        const thumbsAfterChar = countPromptBarThumbnails();
+        if (thumbsAfterChar <= thumbsBefore) {
+            LOG("⚠️ ตัวละครอัพโหลดไม่เพิ่มรูปย่อ — ลองอีกครั้ง...");
+            await sleep(2000);
+            try {
+                const retryOk = await uploadImageToPromptBar(req.characterImage, "character.png");
+                if (retryOk) LOG("✅ ลองอัพโหลดตัวละครซ้ำสำเร็จ");
+                else WARN("⚠️ ลองอัพโหลดตัวละครซ้ำไม่สำเร็จ");
+                await waitForUploadsComplete("character-retry");
+            } catch (_) { /* ignore retry error */ }
+        }
     } else {
         skipStep("upload-char");
     }
 
     if (req.productImage) {
         updateStep("upload-prod", "active");
+        const thumbsBeforeProd = countPromptBarThumbnails();
         try {
             const ok = await uploadImageToPromptBar(req.productImage, "product.png");
             steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
@@ -1898,6 +1913,19 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("upload-prod", "error");
         }
         await waitForUploadsComplete("product");
+
+        // ★ Retry: if thumbnail count didn't increase, try once more
+        const thumbsAfterProd = countPromptBarThumbnails();
+        if (thumbsAfterProd <= thumbsBeforeProd) {
+            LOG("⚠️ สินค้าอัพโหลดไม่เพิ่มรูปย่อ — ลองอีกครั้ง...");
+            await sleep(2000);
+            try {
+                const retryOk = await uploadImageToPromptBar(req.productImage, "product.png");
+                if (retryOk) LOG("✅ ลองอัพโหลดสินค้าซ้ำสำเร็จ");
+                else WARN("⚠️ ลองอัพโหลดสินค้าซ้ำไม่สำเร็จ");
+                await waitForUploadsComplete("product-retry");
+            } catch (_) { /* ignore retry error */ }
+        }
     } else {
         skipStep("upload-prod");
     }
@@ -2478,12 +2506,33 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 // Secondary completion signal: if a video card appeared, video is done
                 // Throttled: check every 5th iteration (~15s) to avoid expensive DOM traversal
-                if (!completed && lastPct > 0 && pollIter % 5 === 0) {
+                // Also run when no % ever found after 30s grace period
+                const elapsedSec = Math.floor((Date.now() - start) / 1000);
+                if (!completed && (lastPct > 0 || elapsedSec >= 30) && pollIter % 5 === 0) {
                     const newCard = findFirstVideoCard(true);
                     if (newCard && !earlyVideoCard) {
-                        LOG(`✅ การ์ดวิดีโอปรากฏขึ้นที่ ${lastPct}% — วิดีโอเสร็จ!`);
+                        LOG(`✅ การ์ดวิดีโอปรากฏขึ้น${lastPct > 0 ? `ที่ ${lastPct}%` : ' (ไม่พบ %)'} — วิดีโอเสร็จ!`);
                         completed = true;
                         break;
+                    }
+                    // Fallback: check for playing <video> element when no % was ever detected
+                    if (lastPct <= 0) {
+                        const vids = document.querySelectorAll<HTMLVideoElement>('video');
+                        for (const v of vids) {
+                            const r = v.getBoundingClientRect();
+                            if (r.width > 200 && r.height > 100 && v.readyState >= 2 && v.src) {
+                                LOG(`✅ พบ <video> พร้อมเล่น (ไม่พบ %) — วิดีโอเสร็จ!`);
+                                completed = true;
+                                break;
+                            }
+                        }
+                        if (completed) break;
+                        // Ultimate fallback: no % found for 90s — assume gen is done
+                        if (elapsedSec >= 90) {
+                            LOG(`✅ ไม่พบ % มานาน ${elapsedSec} วินาที — ถือว่าเสร็จ`);
+                            completed = true;
+                            break;
+                        }
                     }
                 }
 
