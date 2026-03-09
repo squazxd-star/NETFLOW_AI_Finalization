@@ -1818,18 +1818,21 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 1: Upload reference images ──
     LOG("=== ขั้น 1: อัพโหลดรูปอ้างอิง ===");
 
-    /** Check if any upload is still in progress (look for % text on thumbnails) */
+    /** Check if any upload is still in progress (look for % text on thumbnails in prompt bar area) */
     const isUploadInProgress = (): string | null => {
-        const allElements = document.querySelectorAll<HTMLElement>("span, div, p, label");
+        // Only check small leaf-like elements in the bottom half of the screen (prompt bar area)
+        const allElements = document.querySelectorAll<HTMLElement>("span, small, label");
         for (const el of allElements) {
+            if (el.closest("#netflow-engine-overlay")) continue;
             const txt = (el.textContent || "").trim();
-            if (/^\d{1,3}%$/.test(txt)) {
-                // 100% means upload finished — treat as complete
-                if (txt === "100%") return null;
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0 && rect.top > 0 && rect.top < window.innerHeight) {
-                    return txt;
-                }
+            // Must be EXACTLY "XX%" with nothing else — avoid matching container elements
+            if (txt.length > 5 || !/^\d{1,3}%$/.test(txt)) continue;
+            if (txt === "100%") return null;
+            const rect = el.getBoundingClientRect();
+            // Must be in prompt bar area (bottom 50% of screen), small element, visible
+            if (rect.width > 0 && rect.height > 0 && rect.width < 80 && rect.height < 40
+                && rect.top > window.innerHeight * 0.5 && rect.top < window.innerHeight) {
+                return txt;
             }
         }
         return null;
@@ -3748,6 +3751,13 @@ async function checkAndRunPendingAction(): Promise<void> {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "GENERATE_IMAGE") {
+        // ★ Concurrency guard: prevent duplicate execution from multiple script instances
+        if ((window as any).__NETFLOW_RUNNING__) {
+            LOG("⚠️ GENERATE_IMAGE ถูกเรียกซ้ำ — ข้าม (มี instance ทำงานอยู่แล้ว)");
+            sendResponse({ success: false, message: "Already running" });
+            return false;
+        }
+        (window as any).__NETFLOW_RUNNING__ = true;
         (window as any).__NETFLOW_STOP__ = false;
         LOG("ได้รับคำสั่ง GENERATE_IMAGE");
         // Respond immediately to prevent MV3 service-worker message-channel timeout
@@ -3763,13 +3773,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                 } else {
                     console.error("[Netflow AI] Generate error:", err);
                 }
-            });
+            })
+            .finally(() => { (window as any).__NETFLOW_RUNNING__ = false; });
         return false;
     }
 
     if (message?.action === "STOP_AUTOMATION") {
         LOG("⛔ ได้รับ STOP_AUTOMATION — ตั้งค่าสถานะหยุด");
         (window as any).__NETFLOW_STOP__ = true;
+        (window as any).__NETFLOW_RUNNING__ = false; // allow re-trigger after stop
         sendResponse({ success: true, message: "Stop signal sent" });
         return false;
     }
