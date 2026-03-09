@@ -1871,7 +1871,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.characterImage) {
         updateStep("upload-char", "active");
-        const thumbsBefore = countPromptBarThumbnails();
         try {
             const ok = await uploadImageToPromptBar(req.characterImage, "character.png");
             steps.push(ok ? "✅ ตัวละคร" : "⚠️ ตัวละคร");
@@ -1884,26 +1883,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("upload-char", "error");
         }
         await waitForUploadsComplete("character");
-
-        // ★ Retry: if thumbnail count didn't increase, the upload silently failed — try once more
-        const thumbsAfterChar = countPromptBarThumbnails();
-        if (thumbsAfterChar <= thumbsBefore) {
-            LOG("⚠️ ตัวละครอัพโหลดไม่เพิ่มรูปย่อ — ลองอีกครั้ง...");
-            await sleep(2000);
-            try {
-                const retryOk = await uploadImageToPromptBar(req.characterImage, "character.png");
-                if (retryOk) LOG("✅ ลองอัพโหลดตัวละครซ้ำสำเร็จ");
-                else WARN("⚠️ ลองอัพโหลดตัวละครซ้ำไม่สำเร็จ");
-                await waitForUploadsComplete("character-retry");
-            } catch (_) { /* ignore retry error */ }
-        }
     } else {
         skipStep("upload-char");
     }
 
     if (req.productImage) {
         updateStep("upload-prod", "active");
-        const thumbsBeforeProd = countPromptBarThumbnails();
         try {
             const ok = await uploadImageToPromptBar(req.productImage, "product.png");
             steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
@@ -1916,19 +1901,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("upload-prod", "error");
         }
         await waitForUploadsComplete("product");
-
-        // ★ Retry: if thumbnail count didn't increase, try once more
-        const thumbsAfterProd = countPromptBarThumbnails();
-        if (thumbsAfterProd <= thumbsBeforeProd) {
-            LOG("⚠️ สินค้าอัพโหลดไม่เพิ่มรูปย่อ — ลองอีกครั้ง...");
-            await sleep(2000);
-            try {
-                const retryOk = await uploadImageToPromptBar(req.productImage, "product.png");
-                if (retryOk) LOG("✅ ลองอัพโหลดสินค้าซ้ำสำเร็จ");
-                else WARN("⚠️ ลองอัพโหลดสินค้าซ้ำไม่สำเร็จ");
-                await waitForUploadsComplete("product-retry");
-            } catch (_) { /* ignore retry error */ }
-        }
     } else {
         skipStep("upload-prod");
     }
