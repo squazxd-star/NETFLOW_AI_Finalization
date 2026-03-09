@@ -327,12 +327,14 @@ THAI DIALOGUE RULES (for AI-speakable clarity):
 - Use simple, common Thai words ONLY — no slang, no complex compounds
 - ONE idea per sentence — never concatenate multiple phrases
 - Each scene script must be standalone, natural spoken Thai
+- CRITICAL: MUST use facts from the provided Product Description. NEVER invent or hallucinate features that are not in the description.
 
 Output ONLY valid JSON, no explanation.`;
 
     const userPrompt = `Generate prompts for a ${template.thaiName} video ad:
 
 Product: "${config.productName}"
+${config.productDescription ? `Product Description (USE THESE FACTS ONLY): ${config.productDescription}` : ''}
 ${productAnalysis ? `Product visual: ${productAnalysis.substring(0, 150)}` : ''}
 Character: ${gender}, ${config.expression || 'smiling'}
 Style: ${template.style}
@@ -341,6 +343,7 @@ Scenes needed: ${sceneCount} (each ~8 seconds)
 ${config.hookText ? `Opening hook: ${config.hookText}` : ''}
 ${config.ctaText ? `Closing CTA: ${config.ctaText}` : ''}
 ${config.userScript ? `User's own script: ${config.userScript}` : ''}
+${config.mustUseKeywords ? `Keywords that MUST be included in the Thai dialogue: ${config.mustUseKeywords}` : ''}
 
 Return this exact JSON structure:
 {

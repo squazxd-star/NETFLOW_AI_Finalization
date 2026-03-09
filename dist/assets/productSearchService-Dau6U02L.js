@@ -1,4 +1,4 @@
-import{g as u,G as m}from"./main-BEi-NGLs.js";import"./modulepreload-polyfill-B5Qt9EMX.js";const g=`คุณเป็นผู้เชี่ยวชาญรีวิวสินค้า ค้นหาข้อมูลจริงของสินค้านี้จากอินเทอร์เน็ต
+import{g as u,G as m}from"./main-Dx2KAg3M.js";import"./modulepreload-polyfill-B5Qt9EMX.js";const g=`คุณเป็นผู้เชี่ยวชาญรีวิวสินค้า ค้นหาข้อมูลจริงของสินค้านี้จากอินเทอร์เน็ต
 
 ชื่อสินค้า: "{PRODUCT_NAME}"
 
