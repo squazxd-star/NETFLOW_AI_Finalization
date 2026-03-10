@@ -77,6 +77,9 @@ const CreateVideoTab = () => {
     const youtubeDescription = watch("youtubeDescription");
     const youtubeMadeForKids = watch("youtubeMadeForKids");
     const youtubeVisibility = watch("youtubeVisibility");
+    const youtubeScheduleEnabled = watch("youtubeScheduleEnabled");
+    const youtubeScheduleDate = watch("youtubeScheduleDate");
+    const youtubeScheduleTime = watch("youtubeScheduleTime");
     useEffect(() => {
         setYouTubeAutoPostEnabled(!!autoPostYoutube);
     }, [autoPostYoutube]);
@@ -87,9 +90,12 @@ const CreateVideoTab = () => {
                 description: youtubeDescription || '',
                 madeForKids: !!youtubeMadeForKids,
                 visibility: youtubeVisibility || 'public',
+                scheduleEnabled: !!youtubeScheduleEnabled,
+                scheduleDate: youtubeScheduleDate || '',
+                scheduleTime: youtubeScheduleTime || '',
             });
         }
-    }, [autoPostYoutube, youtubeTitle, youtubeDescription, youtubeMadeForKids, youtubeVisibility]);
+    }, [autoPostYoutube, youtubeTitle, youtubeDescription, youtubeMadeForKids, youtubeVisibility, youtubeScheduleEnabled, youtubeScheduleDate, youtubeScheduleTime]);
 
     // UI State — single image per slot (base64)
     const [productImage, setProductImage] = useState<string | null>(null);

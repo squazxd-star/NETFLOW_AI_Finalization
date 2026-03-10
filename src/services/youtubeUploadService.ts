@@ -13,6 +13,9 @@ export interface YouTubeUploadConfig {
     description: string;
     madeForKids: boolean;
     visibility: 'public' | 'unlisted' | 'private';
+    scheduleEnabled?: boolean;
+    scheduleDate?: string;
+    scheduleTime?: string;
 }
 
 /**
@@ -94,6 +97,9 @@ export const uploadToYouTube = async (params: {
             description: params.config.description,
             madeForKids: params.config.madeForKids,
             visibility: params.config.visibility,
+            scheduleEnabled: params.config.scheduleEnabled || false,
+            scheduleDate: params.config.scheduleDate || '',
+            scheduleTime: params.config.scheduleTime || '',
         }, (response) => {
             if (chrome.runtime.lastError) {
                 resolve({ success: false, error: chrome.runtime.lastError.message });

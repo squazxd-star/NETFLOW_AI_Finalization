@@ -68,6 +68,9 @@ export const createVideoSchema = z.object({
     youtubeDescription: z.string().default(""),
     youtubeMadeForKids: z.boolean().default(false),
     youtubeVisibility: z.enum(["public", "unlisted", "private"]).default("public"),
+    youtubeScheduleEnabled: z.boolean().default(false),
+    youtubeScheduleDate: z.string().default(""),
+    youtubeScheduleTime: z.string().default(""),
 
     // Scene Background
     sceneBackground: z.string().default("studio"),
@@ -122,6 +125,9 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     youtubeDescription: "",
     youtubeMadeForKids: false,
     youtubeVisibility: "public" as const,
+    youtubeScheduleEnabled: false,
+    youtubeScheduleDate: "",
+    youtubeScheduleTime: "",
     sceneBackground: "studio",
     mustUseKeywords: "",
     avoidKeywords: "",

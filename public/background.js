@@ -241,6 +241,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     description: message.description || '',
                     madeForKids: message.madeForKids || false,
                     visibility: message.visibility || 'public',
+                    scheduleEnabled: message.scheduleEnabled || false,
+                    scheduleDate: message.scheduleDate || '',
+                    scheduleTime: message.scheduleTime || '',
                 }, (resp) => {
                     if (chrome.runtime.lastError) {
                         console.warn('[Netflow BG] YT sendMessage error:', chrome.runtime.lastError.message);

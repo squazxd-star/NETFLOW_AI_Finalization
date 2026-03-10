@@ -1,4 +1,4 @@
-import { Share2, Youtube, Save, Globe, Lock, EyeOff } from "lucide-react";
+import { Share2, Youtube, Save, Globe, Lock, EyeOff, Calendar, Clock } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ const ProductionPreviewSection = ({
     const autoPostTikTok = watch("autoPostTikTok");
     const youtubeVisibility = watch("youtubeVisibility");
     const youtubeMadeForKids = watch("youtubeMadeForKids");
+    const youtubeScheduleEnabled = watch("youtubeScheduleEnabled");
     const { toast } = useToast();
 
     const handleTikTokToggle = () => {
@@ -189,6 +190,54 @@ const ProductionPreviewSection = ({
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Schedule Toggle + Date/Time */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                                        <Calendar className="w-3 h-3" />
+                                        ตั้งเวลาเผยแพร่
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setValue("youtubeScheduleEnabled", !youtubeScheduleEnabled)}
+                                        className={`px-3 py-1 text-[10px] rounded-md transition-all ${
+                                            youtubeScheduleEnabled
+                                                ? 'bg-primary/20 text-primary border border-primary/30'
+                                                : 'bg-background text-muted-foreground border border-border hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {youtubeScheduleEnabled ? 'เปิด' : 'ปิด'}
+                                    </button>
+                                </div>
+
+                                {youtubeScheduleEnabled && (
+                                    <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="flex-1">
+                                            <label className="text-[10px] text-muted-foreground/70 mb-0.5 block flex items-center gap-1">
+                                                <Calendar className="w-2.5 h-2.5" />
+                                                วันที่ (เช่น 12 พ.ย. 2026)
+                                            </label>
+                                            <input
+                                                {...register("youtubeScheduleDate")}
+                                                placeholder="12 พ.ย. 2026"
+                                                className="w-full px-2.5 py-1.5 text-[10px] bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                            />
+                                        </div>
+                                        <div className="w-24">
+                                            <label className="text-[10px] text-muted-foreground/70 mb-0.5 block flex items-center gap-1">
+                                                <Clock className="w-2.5 h-2.5" />
+                                                เวลา
+                                            </label>
+                                            <input
+                                                {...register("youtubeScheduleTime")}
+                                                placeholder="12:00"
+                                                className="w-full px-2.5 py-1.5 text-[10px] bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Shorts Info Tip */}
