@@ -5,11 +5,23 @@ import { useTheme } from "@/contexts/ThemeContext";
 
 const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
     const bottomRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const userScrolledUp = useRef(false);
     const [expanded, setExpanded] = useState(false);
     const { config: themeConfig } = useTheme();
 
+    const handleScroll = () => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        // If user is within 60px of bottom, consider them "at bottom"
+        const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+        userScrolledUp.current = !atBottom;
+    };
+
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (!userScrolledUp.current) {
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
     }, [logs]);
 
     const getColor = (log: string) => {
@@ -74,7 +86,7 @@ const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
             </div>
 
             {/* Logs Area */}
-            <div className={`relative z-10 px-3 py-2 space-y-[3px] overflow-y-auto font-mono text-[10px] leading-relaxed nf-console-scroll ${expanded ? "h-64" : "h-36"} transition-all duration-300`}>
+            <div ref={scrollContainerRef} onScroll={handleScroll} className={`relative z-10 px-3 py-2 space-y-[3px] overflow-y-auto font-mono text-[10px] leading-relaxed nf-console-scroll ${expanded ? "h-64" : "h-36"} transition-all duration-300`}>
                 {logs.map((log, index) => (
                     <div
                         key={index}
