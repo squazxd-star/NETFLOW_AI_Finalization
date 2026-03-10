@@ -1257,7 +1257,7 @@ const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     // ── Beauty & Personal Care (10) ──
     beauty: "REALISTIC USAGE: If product has a cap/lid, it MUST be removed or opened BEFORE applying/spraying. Perfume: remove decorative cap first, then press nozzle. Cream/lotion: twist open lid first. Never spray or apply through a closed cap.",
     skincare: "REALISTIC USAGE: Remove cap or pump lid BEFORE dispensing. Squeeze tube from bottom or press pump 1-2 times. Apply small amount to fingertips first, then spread on skin in gentle upward motions. Show clean face before application.",
-    makeup: "REALISTIC USAGE: Remove cap from lipstick/mascara first, twist up product if needed. Open compact/palette before using brush. Dip brush or applicator, tap off excess, then apply to face. Show mirror reflection for realism.",
+    makeup: "REALISTIC USAGE: Remove cap from lipstick/mascara first, twist up product if needed. Open compact/palette before using brush. Dip brush or applicator, tap off excess, then apply to face. Show precise application technique.",
     haircare: "REALISTIC USAGE: Open shampoo/conditioner cap or flip lid BEFORE squeezing. Pour into palm first, then work into hair. For spray — remove cap and press nozzle aimed at hair. Show wet or damp hair for shampoo, dry hair for styling products.",
     fragrance: "REALISTIC USAGE: Remove decorative cap from perfume bottle BEFORE spraying. Hold bottle 15-20cm from skin. Press nozzle with index finger for single spray. Target pulse points (wrist, neck). Never spray with cap still on.",
     sunscreen: "REALISTIC USAGE: Flip cap open or remove lid BEFORE squeezing. Squeeze onto fingertips or palm first. Apply in dots on face/body, then spread evenly. Show outdoor/sunny setting for context. Apply BEFORE sun exposure.",
@@ -1279,7 +1279,7 @@ const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     "mental-health": "REALISTIC USAGE: For journals — open to blank page, begin writing with pen. For meditation tools — find comfortable seated position, press play on app/device. For aromatherapy — set up diffuser, add drops. Show calm, intentional usage in quiet setting.",
 
     // ── Fashion & Accessories (10) ──
-    fashion: "REALISTIC USAGE: Remove tags and packaging before wearing. For clothing — put on naturally (pull over head, button up, zip). Show adjusting fit, checking in mirror. For layering — put base layer first, then outer layer.",
+    fashion: "REALISTIC USAGE: Remove tags and packaging before wearing. For clothing — put on naturally (pull over head, button up, zip). Show adjusting fit, smoothing fabric. For layering — put base layer first, then outer layer.",
     underwear: "REALISTIC USAGE: Remove from packaging. Show holding up item to display fit and fabric quality. For review — show material close-up, elasticity, and tag with size info. Keep presentation tasteful and non-explicit.",
     swimwear: "REALISTIC USAGE: Remove tags first. Show putting on over body naturally. Demonstrate stretch and fit. Show in appropriate pool/beach setting. For review — display fabric quality, lining, and strap adjustability.",
     sportswear: "REALISTIC USAGE: Remove tags and fold-out packaging. Put on athletic wear naturally. Show freedom of movement — stretching, squatting, running in place. Demonstrate moisture-wicking or ventilation features through active movement.",
@@ -1288,7 +1288,7 @@ const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     bag: "REALISTIC USAGE: Open zipper or unfasten clasp to show interior. Demonstrate putting items inside (phone, wallet, keys). Show carrying naturally — on shoulder, crossbody, or by handle. Open/close compartments to show organization.",
     shoe: "REALISTIC USAGE: Remove from box, take out stuffing paper. Loosen laces or open strap BEFORE putting on foot. Slide foot in, then lace up or fasten. Show walking naturally to demonstrate comfort and fit.",
     sunglasses: "REALISTIC USAGE: Remove from case first. Unfold temples (arms) before putting on. Place on face with both hands, adjust on nose bridge. Show UV protection in bright sunlight setting. Fold and return to case when done.",
-    hat: "REALISTIC USAGE: Remove from packaging or shelf. Place on head naturally, adjust brim angle or strap. For fitted caps — pull down snugly. For adjustable — show snap-back or strap adjustment. Check fit in mirror.",
+    hat: "REALISTIC USAGE: Remove from packaging or shelf. Place on head naturally, adjust brim angle or strap. For fitted caps — pull down snugly. For adjustable — show snap-back or strap adjustment. Adjust angle confidently.",
 
     // ── Tech & Gadgets (10) ──
     gadget: "REALISTIC USAGE: If device is boxed, unbox first. If it has a power button, press it to turn on. Wait for boot-up screen. Show logical step-by-step device usage and feature demonstration.",
@@ -1384,44 +1384,44 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
     laptop: {
         knowledge: "Laptops MUST be shown with lid OPEN and screen ON in EVERY scene. The screen display is the hero feature. Showing a closed laptop or just the back/lid is WRONG — like showing a TV that's off. Key features: screen quality, keyboard, trackpad, thin profile, ports, hinge design.",
         sceneActions: [
-            "Presenter holds laptop open with BOTH hands, screen facing camera showing bright colorful display. Hero reveal shot — screen is the star.",
-            "Presenter typing naturally on keyboard, screen showing content. Camera shows hands on keyboard + trackpad. Screen MUST stay visible and ON.",
+            "Presenter holds laptop open with BOTH hands, screen facing camera with display glowing vibrant colors. Hero reveal shot — screen is the star.",
+            "Presenter typing naturally on keyboard, screen bright and active. Camera shows hands on keyboard and trackpad.",
             "Presenter tilts laptop to show how thin and light it is. Lifts with one hand to demonstrate portability. Screen still OPEN.",
-            "Close-up of screen — vibrant colors, sharp details. Presenter points at screen features or scrolls through content.",
+            "Close-up of screen — vibrant glow, sharp display quality. Presenter points at screen, gesturing at features.",
             "Presenter shows side ports (USB, HDMI, etc). Then demonstrates opening/closing the smooth hinge mechanism. Returns to screen-facing view.",
-            "Presenter uses laptop naturally at desk — typing, using trackpad, multitasking on screen. Professional workspace setting.",
+            "Presenter uses laptop naturally at desk — typing, using trackpad, working productively. Professional workspace setting.",
             "Presenter holds laptop at slight angle showing both screen AND keyboard in one frame. Premium build quality visible.",
             "Final beauty shot — presenter proudly displays the open laptop to camera with satisfied expression. Screen bright and colorful.",
             "Presenter demonstrates portability — picks up laptop, walks with it, shows it fits in bag. Thin lightweight emphasis.",
-            "Closing shot — presenter at desk with laptop open, working productively. Screen ON showing content. Professional lifestyle."
+            "Closing shot — presenter at desk with laptop open, working productively. Screen bright and active. Professional lifestyle."
         ]
     },
     phone: {
         knowledge: "Phones MUST show the screen facing camera in most scenes. Screen-on display is essential. Key features: camera system, screen quality, thin profile, Face ID/unlock, app demos. Show both front screen and camera module but prioritize screen-facing shots.",
         sceneActions: [
-            "Presenter holds phone in one hand, screen facing camera showing home screen. Bright display clearly visible. Hero product shot.",
-            "Presenter demonstrates scrolling, tapping apps on screen. Natural one-handed use with thumb. Screen content visible to camera.",
-            "Presenter flips phone to show camera module briefly, then flips back to show photo/video just taken on screen.",
-            "Close-up of screen quality — vibrant colors, smooth scrolling. Presenter swipes through photos or apps.",
-            "Presenter shows thin profile from side angle. Then demonstrates Face ID or fingerprint unlock — screen lights up.",
-            "Presenter uses phone naturally — taking selfie, video call, or browsing. Screen visible throughout.",
-            "Presenter shows phone case/accessories. Demonstrates grip and button placement. Screen ON.",
+            "Presenter holds phone in one hand, screen facing camera with bright glowing display. Premium screen quality visible. Hero product shot.",
+            "Presenter demonstrates scrolling and tapping on bright screen. Natural one-handed use with thumb. Smooth responsive touch.",
+            "Presenter flips phone to show camera module briefly, then flips back to show bright active screen.",
+            "Close-up of screen quality — vibrant colors, smooth responsive display. Presenter swipes naturally on screen.",
+            "Presenter shows thin profile from side angle. Touches screen to wake — display lights up brightly.",
+            "Presenter uses phone naturally — holds up for photo, taps and swipes. Screen glowing throughout.",
+            "Presenter shows phone build quality. Demonstrates comfortable grip and button placement. Screen glowing.",
             "Presenter holds phone up proudly, screen facing camera with satisfied expression. Beauty shot of the display.",
-            "Split attention: presenter compares screen size to hand, shows comfortable grip and reachability.",
-            "Closing lifestyle shot — presenter using phone naturally in daily setting. Screen bright and ON."
+            "Presenter compares screen size to hand, shows comfortable grip and easy one-handed reachability.",
+            "Closing lifestyle shot — presenter using phone naturally in daily setting. Screen bright and glowing."
         ]
     },
     tablet: {
         knowledge: "Tablets MUST show screen ON and facing camera. Key features: large display, stylus/pen support, drawing/note capability, split-screen multitasking. Show both landscape and portrait orientations.",
         sceneActions: [
-            "Presenter holds tablet in landscape, screen facing camera showing vibrant display. Both hands supporting edges.",
-            "Presenter uses stylus/finger to draw, write, or navigate on screen. Close-up of screen interaction.",
-            "Presenter props tablet on stand/case, shows typing with keyboard attachment or on-screen keyboard.",
-            "Close-up of screen — color accuracy, detail, smooth touch response. Presenter swipes through content.",
+            "Presenter holds tablet in landscape, screen facing camera with bright vibrant glow. Both hands supporting edges.",
+            "Presenter uses stylus or finger to interact with screen naturally. Close-up of smooth touch gestures.",
+            "Presenter props tablet on stand/case, shows typing with keyboard attachment. Productive setup.",
+            "Close-up of screen — color accuracy, vivid glow, smooth touch response. Presenter swipes naturally.",
             "Presenter holds tablet in portrait mode for reading or browsing. Comfortable one-handed grip visible.",
-            "Presenter demonstrates split-screen multitasking — two apps visible simultaneously on the large display.",
+            "Presenter demonstrates multitasking — taps and swipes between tasks on the large bright display.",
             "Presenter shows thin profile and light weight. Lifts easily with one hand. Premium build quality.",
-            "Final shot — presenter watching video or creating art on tablet screen. Display is the hero.",
+            "Final shot — presenter enjoying tablet screen with engaged expression. Display is the hero.",
             "Presenter shows tablet in various use cases — desk, lap, hand-held. Versatility demonstration.",
             "Closing lifestyle — presenter enjoying content on tablet in cozy setting. Screen bright and engaging."
         ]
@@ -1431,7 +1431,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         sceneActions: [
             "Presenter holds camera with proper two-hand grip, lens facing slightly outward. Camera body and lens clearly visible.",
             "Presenter looks through viewfinder, frames a shot, half-presses shutter to focus, then captures. Natural shooting motion.",
-            "Presenter shows LCD screen with a photo just taken — impressive image quality visible on screen.",
+            "Presenter shows LCD screen glowing, reviews captured shot — impressed expression at quality.",
             "Close-up of lens and camera controls — dial, buttons, settings. Presenter adjusts settings expertly.",
             "Presenter changes angle — shows camera from top/side, demonstrating compact form factor or rugged build.",
             "Presenter reviews photos on LCD, zooming in to show detail and sharpness. Satisfied expression.",
@@ -1460,7 +1460,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         knowledge: "Gaming gear must show IN USE with game context. Controllers held properly, keyboards lit up with RGB, mice on mousepad. Screen with gameplay visible when possible.",
         sceneActions: [
             "Presenter holds gaming controller with proper two-hand grip OR shows keyboard/mouse setup. RGB lighting visible.",
-            "Presenter actively playing — focused expression, thumbs on sticks/fingers on keys. Screen with gameplay in background.",
+            "Presenter actively playing — focused expression, thumbs on sticks/fingers on keys. Gaming display glowing in background.",
             "Close-up of controller buttons/keyboard switches — satisfying click, responsive feedback. Premium materials.",
             "Presenter shows reaction to game moment — excited, competitive expression. Product enhancing the experience.",
             "Presenter demonstrates special features — customizable buttons, DPI switch, macro keys.",
@@ -1474,13 +1474,13 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
     wearable: {
         knowledge: "Smartwatches/fitness trackers MUST show screen ON with watch face or data visible. Show on wrist in most scenes. Key features: health tracking, notifications, activity tracking, watch faces, band comfort.",
         sceneActions: [
-            "Presenter straps wearable on wrist, presses button to wake display. Watch face lights up clearly visible.",
+            "Presenter straps wearable on wrist, presses button to wake display. Screen lights up with colorful glow.",
             "Presenter checks wrist naturally — shows watch face with time, health data, or notification on screen.",
-            "Close-up of display — heart rate, steps, or fitness metrics visible. Bright clear screen.",
-            "Presenter demonstrates touch screen — swipes between apps, checks messages, controls music playback.",
+            "Close-up of display — colorful health data glowing on screen. Bright clear display quality.",
+            "Presenter demonstrates touch screen — swipes and taps smoothly, controls features with natural gestures.",
             "Presenter shows band/strap — comfortable fit, easy to adjust, premium material. Band swap demonstration.",
             "Presenter during exercise — wrist tracking movement, screen showing workout metrics.",
-            "Presenter receives notification — glances at wrist, reads message on screen. Seamless phone integration.",
+            "Presenter receives notification — glances at wrist naturally, screen glowing with alert. Seamless connectivity.",
             "Presenter shows sleep tracking or health feature — always-on display, gentle glow.",
             "Close-up of charging — magnetic attachment, wireless pad. Quick charge demonstration.",
             "Closing — presenter checking wrist with satisfied smile. Daily lifestyle essential."
@@ -1492,7 +1492,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Presenter holds powerbank/charger, shows size compared to hand. Compact portable design. LED indicators visible.",
             "Presenter plugs cable into charger, connects to phone/device. Charging indicator lights up on both devices.",
             "Close-up of ports — USB-C, Lightning, etc. Multiple port options visible. Cable quality demonstration.",
-            "Presenter shows fast charging — battery percentage going up on device screen. Speed demonstration.",
+            "Presenter shows fast charging — device charging indicator light glowing. Speed demonstration.",
             "Presenter demonstrates portability — slips into pocket/bag easily. Lightweight yet powerful.",
             "Presenter charges multiple devices simultaneously — shows multi-port capability.",
             "Close-up of LED battery indicator — shows remaining capacity. Premium build quality.",
@@ -1508,11 +1508,11 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Presenter places drone on flat ground, powers on. LED lights activate, gimbal calibrates.",
             "Presenter holds controller with phone mounted, shows pre-flight screen/app. Confident pilot ready to fly.",
             "Drone takes off — smooth vertical ascent. Presenter watches with amazed expression.",
-            "Aerial footage from drone camera — stunning landscape/cityscape. Camera quality demonstration.",
+            "Presenter watches drone fly overhead — amazed expression, points up at drone in sky.",
             "Presenter demonstrates obstacle avoidance or tracking mode via controller. Smart features.",
             "Drone returns to land — precise landing near presenter. Follow-me mode demonstration.",
             "Presenter folds drone back to compact size — pocketable/packable portability.",
-            "Presenter reviews aerial photos/video on phone screen — impressive quality.",
+            "Presenter holds phone, impressed expression at captured footage — gestures excitedly.",
             "Closing — presenter holding folded drone with sunset/scenic backdrop. Adventure lifestyle."
         ]
     },
@@ -1528,7 +1528,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Presenter styles the piece with accessories — shows outfit combination potential.",
             "Presenter shows garment details — collar, cuffs, pockets, lining. Craftsmanship focus.",
             "Presenter adjusts fit — shows size flexibility, elastic, adjustable elements.",
-            "Mirror check — presenter looks in mirror, satisfied with how the outfit looks. Try-on moment.",
+            "Presenter adjusts outfit, checks fit from different angles — smooths fabric, satisfied expression. Try-on moment.",
             "Presenter in lifestyle setting wearing the outfit — cafe, street, office. Context styling.",
             "Closing — presenter confidently posing in complete outfit. Fashion editorial feel."
         ]
@@ -1574,7 +1574,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Presenter moves naturally — jewelry catches light from different angles, creating sparkle flashes.",
             "Presenter shows clasp/closure mechanism — secure, easy to use. Build quality demonstration.",
             "Presenter styles jewelry with outfit — shows how it elevates the overall look.",
-            "Presenter admires jewelry on self — checks in mirror, touches piece gently. Emotional connection.",
+            "Presenter admires jewelry on self — touches piece gently, tilts to catch light. Emotional connection.",
             "Closing — presenter with jewelry beautifully displayed on body, elegant confident pose. Luxury feel."
         ]
     },
@@ -1664,21 +1664,21 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Close-up of product texture on skin — serum droplet, cream spread, gel consistency.",
             "Presenter blends product into skin — massage motions, patting technique.",
             "Presenter shows result — dewy hydrated skin, healthy glow. Satisfied expression.",
-            "Presenter reads ingredients label — points to key active ingredients.",
+            "Presenter shows packaging details — points at key areas on the bottle, highlighting quality.",
             "Presenter shows product in bathroom/vanity context — part of skincare routine.",
             "Presenter demonstrates layering — where this product fits in routine order.",
             "Closing — presenter with glowing skin holding product. Skincare goals achieved."
         ]
     },
     makeup: {
-        knowledge: "Makeup must show APPLICATION process — open palette/tube, use brush/applicator, apply to face, blend, show final result. Color payoff must be visible. Show mirror use and blending technique.",
+        knowledge: "Makeup must show APPLICATION process — open palette/tube, use brush/applicator, apply to face, blend, show final result. Color payoff must be visible. Show precise blending technique.",
         sceneActions: [
             "Presenter shows makeup product closed — packaging design, color, brand. Premium beauty product.",
             "Presenter opens product — twists lipstick up, opens palette, uncaps mascara. Satisfying reveal.",
             "Presenter applies makeup — brush to face, lipstick to lips, mascara to lashes. Technique visible.",
             "Close-up of color payoff — pigment on skin, shimmer, matte finish. True color visible.",
             "Presenter blends/builds — shows layering, blending edges, professional technique.",
-            "Presenter checks result in mirror — satisfied with the look. Before/after contrast.",
+            "Presenter admires the finished look — touches cheek, satisfied expression. Transformation visible.",
             "Presenter shows multiple shades/options in palette — variety and versatility.",
             "Presenter shows product compared to skin — swatches on hand for color matching.",
             "Presenter in final full-makeup look — product's contribution to overall beauty.",
@@ -1697,7 +1697,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Presenter takes first bite/taste — genuine reaction, chewing, eyes widen with delight.",
             "Presenter describes flavor — gestures, nods, points at food. Enthusiastic review.",
             "Presenter shows another angle of food — cross-section, layers, ingredients visible.",
-            "Presenter shares with friend or takes another bite — can't stop eating reaction.",
+            "Presenter takes another enthusiastic bite — can't stop eating, reaches for more.",
             "Presenter shows value — portion size, remaining food, price-to-quality ratio.",
             "Closing — presenter with food, satisfied smile, thumbs up. Delicious recommendation."
         ]
@@ -1819,13 +1819,13 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         knowledge: "Pet products must show WITH the pet whenever possible. Show pet's reaction, enjoyment, interaction. Demonstrate portion sizes for food, durability for toys.",
         sceneActions: [
             "Presenter shows pet product — packaging, design, brand. Pet curious in background.",
-            "Presenter opens product — pet shows interest, approaches, sniffs.",
-            "Presenter offers product to pet — food in bowl, toy to play, treats from hand.",
-            "Close-up of pet enjoying product — eating happily, playing enthusiastically.",
+            "Presenter opens product — shows contents enthusiastically, demonstrates appeal and quality.",
+            "Presenter prepares product for use — pours food in bowl, demonstrates toy, shows treats in hand.",
+            "Close-up of product ready to serve — food in bowl, toy displayed, treat presented appealingly.",
             "Presenter shows product quality — ingredient label, durable construction.",
-            "Presenter and pet interact using product — bonding moment, training, play.",
+            "Presenter demonstrates product features — shows how to use for bonding and play activities.",
             "Presenter shows portion/usage guidance — correct amount for pet size.",
-            "Presenter shows pet's positive reaction — wagging tail, purring, excited energy.",
+            "Presenter shows excitement about product quality — enthusiastic recommendation gesture.",
             "Presenter stores/organizes product — proper food storage, toy basket.",
             "Closing — presenter with happy pet and product. Pet parent recommendation."
         ]
@@ -1924,7 +1924,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Close-up of snack — crispy texture, seasoning detail, crunch appeal.",
             "Presenter takes first bite — crunchy reaction, flavor enjoyment, genuine delight.",
             "Presenter shows handful — portion size, variety of shapes and pieces.",
-            "Presenter offers to share — social snacking, fun casual vibe.",
+            "Presenter gestures snack toward camera — recommending to viewer, fun enthusiastic vibe.",
             "Presenter reads flavor info — points at ingredients, flavor description on bag.",
             "Presenter shows bag size — value, resealable feature if applicable.",
             "Closing — presenter munching happily, holding bag. Irresistible snack recommendation."
@@ -2087,9 +2087,9 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         sceneActions: [
             "Presenter shows dental product — toothpaste tube, mouthwash bottle, or toothbrush.",
             "Presenter opens and prepares — squeezes paste onto brush, or pours mouthwash.",
-            "Presenter uses product — brushing teeth with correct technique, or swishing mouthwash.",
-            "Close-up of technique — brush angle on teeth, paste foaming, thorough coverage.",
-            "Presenter rinses and spits — clean fresh mouth, minty fresh expression.",
+            "Presenter uses product — demonstrates brushing motion near mouth, or pours mouthwash into cap.",
+            "Close-up of product in hand — toothpaste on brush, mouthwash in cap, floss ready. Clean preparation.",
+            "Presenter finishes routine — wipes mouth, fresh minty expression, clean and refreshed.",
             "Presenter shows bright smile — clean white teeth result. Fresh and confident.",
             "Presenter reads product features — fluoride, whitening, sensitivity protection.",
             "Presenter demonstrates daily routine — morning or evening dental care ritual.",
@@ -2107,7 +2107,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Close-up of technique — clean razor strokes, precise clipper lines, product application.",
             "Presenter shows result — clean shave, fresh hairline, styled hair.",
             "Presenter applies aftershave or styling product — finishing touch.",
-            "Presenter checks result in mirror — satisfied with groomed appearance.",
+            "Presenter touches smooth skin, runs hand over styled hair — satisfied with groomed result.",
             "Presenter shows tool quality — blade sharpness, clipper power, product premium feel.",
             "Closing — presenter looking sharp and groomed. Professional barbershop results at home."
         ]
@@ -2121,8 +2121,8 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Presenter powers on device — press button, screen lights up. Ready to use.",
             "Presenter positions device — on arm, in ear, on finger. Correct placement shown.",
             "Device measuring — wait indicator, processing animation on screen.",
-            "Close-up of display — clear reading, numbers, health metrics visible.",
-            "Presenter reads result — interprets the number, nods with understanding.",
+            "Close-up of display — screen glowing with measurement result, indicator light active.",
+            "Presenter checks result on display — nods with understanding, satisfied expression.",
             "Presenter shows ease of use — simple one-button operation, portable design.",
             "Presenter demonstrates storage — memory function, previous readings recall.",
             "Presenter shows device compared to hand — compact, portable size.",
@@ -2179,10 +2179,10 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         sceneActions: [
             "Presenter shows massage product — oil bottle, massage gun, roller, or tool.",
             "Presenter prepares — uncaps oil, turns on device, positions tool.",
-            "Presenter applies to body — oil on shoulders, gun on muscle, roller on back.",
-            "Close-up of technique — pressure applied, rolling motion, oil spreading on skin.",
+            "Presenter applies to arm or hand area — demonstrates oil application, positions tool on forearm.",
+            "Close-up of technique — gentle pressure applied, rolling motion on arm, product working effectively.",
             "Presenter shows relaxation — tension releasing, shoulders dropping, relief expression.",
-            "Presenter demonstrates on different body areas — neck, back, legs, arms.",
+            "Presenter demonstrates on arm and hand areas — shows versatility of product on different muscles.",
             "Presenter shows intensity settings — adjustable speed, pressure, or heat levels.",
             "Presenter in relaxation context — dim lighting, calm setting, spa atmosphere.",
             "Presenter shows portability — compact, rechargeable, travel-friendly design.",
@@ -2577,12 +2577,12 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         sceneActions: [
             "Presenter shows smart home device — design, compact form, modern tech aesthetic.",
             "Presenter unboxes and plugs in — connects to power, LED indicator activates.",
-            "Presenter opens companion app — downloads if needed, creates account or logs in.",
+            "Presenter holds phone near device — pairing process, connection indicator glowing.",
             "Presenter pairs device — scans QR code or follows pairing wizard in app.",
-            "Close-up of app interface — device connected, settings available, status shown.",
+            "Close-up of device responding — LED indicator confirms connection, smart features active.",
             "Presenter demonstrates voice command — speaks to device, it responds and acts.",
-            "Presenter shows app control — turns on/off, adjusts settings from phone screen.",
-            "Presenter sets automation — schedules, timers, routines configured in app.",
+            "Presenter controls device — taps phone, device responds instantly. Smart automation.",
+            "Presenter sets up automation — device activates on schedule, LED indicator changes.",
             "Presenter shows integration — works with other smart devices, ecosystem.",
             "Closing — presenter controlling smart home from phone or voice. Future living."
         ]
@@ -2701,13 +2701,13 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         sceneActions: [
             "Presenter shows family product — board game, picnic set, activity kit.",
             "Presenter sets up — unpacks, arranges pieces, prepares space for activity.",
-            "Presenter invites family or group — everyone gathers, excited anticipation.",
+            "Presenter excitedly prepares activity — sets out pieces, shows how fun it will be.",
             "Presenter demonstrates activity — playing game, setting up picnic, doing activity.",
             "Close-up of product quality — game pieces, material quality, included items.",
-            "Presenter shows group engagement — everyone participating, laughing, bonding.",
+            "Presenter demonstrates how activity works — enthusiastic presentation, shows fun factor.",
             "Presenter shows rules or instructions — easy to understand, inclusive of all ages.",
             "Presenter shows versatile settings — indoors, outdoors, various locations.",
-            "Presenter shows memorable moments — family joy, shared experiences, connection.",
+            "Presenter shows heartfelt recommendation — gestures enthusiastically about shared activity potential.",
             "Closing — presenter with family product in happy group setting. Quality time."
         ]
     },
@@ -2763,15 +2763,15 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
     digital: {
         knowledge: "Digital products must show SCREEN interface — app navigation, features demo, results output. Show setup process, UI interaction, and what the software achieves.",
         sceneActions: [
-            "Presenter shows digital product — app icon, website, or software interface.",
-            "Presenter opens and navigates — launches app, shows main dashboard or home screen.",
+            "Presenter shows digital product on glowing screen — holds device confidently.",
+            "Presenter opens and navigates — taps and swipes through interface smoothly.",
             "Presenter demonstrates core feature — inputs data, creates content, runs function.",
-            "Close-up of interface — clean UI, buttons, menus, responsive design.",
-            "Presenter shows results — output, report, creation, or processed content.",
+            "Close-up of interaction — smooth responsive gestures, clean modern device.",
+            "Presenter shows results — satisfied expression at the output, productive achievement.",
             "Presenter demonstrates workflow — step by step from input to output.",
             "Presenter shows settings — customization options, preferences, account features.",
-            "Presenter shows cross-device — works on phone, tablet, desktop. Responsive.",
-            "Presenter shows saved work — export, share, download, or publish results.",
+            "Presenter shows device versatility — holds product confidently, demonstrates portability.",
+            "Presenter shows final result — gestures proudly at completed work. Productivity tool.",
             "Closing — presenter with digital product on screen. Productivity enhanced."
         ]
     },

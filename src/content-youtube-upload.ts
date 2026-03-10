@@ -351,15 +351,16 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
 
         // Strategy 1: Use the file input inside ytcp-uploads-file-picker
         const fileInput = await waitForElement(() => {
-            // YouTube Studio's file input: inside <ytcp-uploads-file-picker>
+            // YouTube Studio's file input: <input type="file" name="Filedata"> inside <ytcp-uploads-file-picker>
             const picker = document.querySelector('ytcp-uploads-file-picker');
             if (picker) {
-                const inp = picker.querySelector<HTMLInputElement>('input[type="file"]');
+                const inp = picker.querySelector<HTMLInputElement>('input[type="file"]') ||
+                            picker.querySelector<HTMLInputElement>('input[name="Filedata"]');
                 if (inp) return inp;
             }
-            // Fallback: any file input on page
-            const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-            return inputs.length > 0 ? inputs[0] : null;
+            // Fallback: direct selectors
+            return document.querySelector<HTMLInputElement>('input[name="Filedata"]') ||
+                   document.querySelector<HTMLInputElement>('ytcp-uploads-dialog input[type="file"]');
         }, 10000) as HTMLInputElement | null;
 
         if (fileInput) {
@@ -564,15 +565,15 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
         log('รอการอัพโหลดเสร็จก่อนเผยแพร่...');
         const uploadDoneStart = Date.now();
         while (Date.now() - uploadDoneStart < 300000) { // Max 5 minutes
+            // Check page text for TH/EN completion indicators
             const progressText = document.body.innerText;
-            if (progressText.includes('การตรวจสอบเสร็จสมบูรณ์') ||
-                progressText.includes('ตรวจสอบเสร็จแล้ว') ||
-                progressText.includes('Checks complete') ||
-                progressText.includes('การประมวลผลเสร็จสมบูรณ์') ||
-                progressText.includes('Finished processing') ||
-                progressText.includes('Upload complete') ||
-                progressText.includes('ไม่พบปัญหา') ||
-                progressText.includes('No issues found')) {
+            const doneKeywords = [
+                'การตรวจสอบเสร็จสมบูรณ์', 'ตรวจสอบเสร็จแล้ว', 'Checks complete',
+                'การประมวลผลเสร็จสมบูรณ์', 'Finished processing', 'Upload complete',
+                'ไม่พบปัญหา', 'No issues found',
+                'การอัปโหลดเสร็จสมบูรณ์', 'อัปโหลดเสร็จแล้ว'
+            ];
+            if (doneKeywords.some(kw => progressText.includes(kw))) {
                 log('✅ อัพโหลด/ตรวจสอบเสร็จ');
                 break;
             }
@@ -581,7 +582,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             if (doneBtn) {
                 const innerBtn = doneBtn.querySelector('button');
                 if (innerBtn && !innerBtn.disabled) {
-                    log('✅ ปุ่มเผยแพร่พร้อมใช้งาน');
+                    log('✅ ปุ่มเผยแพร่/ตั้งเวลา พร้อมใช้งาน');
                     break;
                 }
             }
@@ -594,133 +595,165 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             log('── โหมดตั้งเวลา ──');
 
             // Click the schedule expand chevron (#second-container-expand-button)
+            // User HTML: <ytcp-icon-button id="second-container-expand-button" ...>
             const expandBtn = await waitForElement(() => {
-                return document.querySelector('#second-container-expand-button') ||
-                       findByTexts(['ตั้งเวลา', 'Schedule'], '#second-container, .early-access-header');
+                // Primary: direct ID
+                const byId = document.querySelector('#second-container-expand-button');
+                if (byId) {
+                    const rect = (byId as HTMLElement).getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) return byId;
+                }
+                // Fallback: find the chevron near "ตั้งเวลา"/"Schedule" header
+                return findByTexts(['ตั้งเวลา', 'Schedule'], 'ytcp-icon-button, .early-access-header');
             }, 5000);
 
             if (expandBtn) {
                 clickElement(expandBtn);
-                log('คลิกเปิด "ตั้งเวลา"');
-                await delay(1500);
+                log('คลิกเปิด "ตั้งเวลา" chevron');
+                await delay(2000);
             } else {
                 warn('ไม่พบปุ่มเปิดตั้งเวลา');
             }
 
             // ── Set Date ──
-            // Find the date dropdown trigger inside ytcp-datetime-picker
+            // Click the date dropdown trigger (shows current date like "12 พ.ย. 2026")
+            // User HTML: <ytcp-text-dropdown-trigger> → <div role="button" class="container style-scope ytcp-dropdown-trigger">
             const dateTrigger = await waitForElement(() => {
                 const picker = document.querySelector('ytcp-datetime-picker');
                 if (!picker) return null;
-                const triggers = picker.querySelectorAll('ytcp-dropdown-trigger, ytcp-text-dropdown-trigger');
-                // The first dropdown trigger is usually the date
-                return triggers.length > 0 ? triggers[0] : null;
+                // Primary: ytcp-text-dropdown-trigger or ytcp-dropdown-trigger
+                const trigger = picker.querySelector('ytcp-text-dropdown-trigger') ||
+                                picker.querySelector('ytcp-dropdown-trigger');
+                if (trigger) {
+                    const rect = (trigger as HTMLElement).getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) return trigger;
+                }
+                // Fallback: div[role="button"] inside the picker container
+                return picker.querySelector('div[role="button"].container');
             }, 5000);
 
             if (dateTrigger) {
                 clickElement(dateTrigger);
-                log('คลิกเลือกวันที่');
-                await delay(1000);
+                log('คลิกเปิด date dropdown');
+                await delay(1500);
 
-                // Find the date input field that appears after clicking
-                // It's a <input> inside <tp-yt-paper-input> within the calendar popup
+                // Find the date input field inside ytcp-date-picker popup
+                // User HTML: <tp-yt-iron-input> → <input class="style-scope tp-yt-paper-input" autofocus>
                 const dateInput = await waitForElement(() => {
-                    // Look for the input that shows the date with error validation
-                    const inputs = document.querySelectorAll<HTMLInputElement>('tp-yt-paper-input input.style-scope');
-                    for (const inp of inputs) {
-                        const container = inp.closest('tp-yt-paper-input-container');
-                        if (container && container.querySelector('#labelAndInputContainer')) {
-                            // Check if this is the date input (near the calendar)
-                            const parentPicker = inp.closest('ytcp-date-picker');
-                            if (parentPicker) return inp;
-                        }
-                    }
-                    // Fallback: find an autofocus input in a date picker context
-                    const autofocusInput = document.querySelector('ytcp-date-picker tp-yt-paper-input input[autofocus]') ||
-                                           document.querySelector('ytcp-date-picker input.style-scope');
-                    return autofocusInput;
+                    // Primary: input inside ytcp-date-picker
+                    return document.querySelector('ytcp-date-picker tp-yt-iron-input input') ||
+                           document.querySelector('ytcp-date-picker tp-yt-paper-input input[autofocus]') ||
+                           document.querySelector('ytcp-date-picker tp-yt-paper-input input') ||
+                           document.querySelector('ytcp-date-picker input.style-scope');
                 }, 5000) as HTMLInputElement | null;
 
                 if (dateInput) {
-                    // Clear existing value, wait for error state, then type date
+                    // Clear existing value to trigger error state
                     dateInput.focus();
-                    dateInput.select();
                     await delay(200);
+                    dateInput.select();
+                    await delay(100);
                     dateInput.value = '';
                     dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    dateInput.dispatchEvent(new Event('change', { bubbles: true }));
                     await delay(500);
 
-                    // Wait for "วันที่ไม่ถูกต้อง" / "Invalid date" error to appear
-                    await waitForElement(() => {
-                        return findByTexts(['วันที่ไม่ถูกต้อง', 'Invalid date'], 'div, tp-yt-paper-input-error');
+                    // Wait for "วันที่ไม่ถูกต้อง" / "Invalid date" error
+                    // User HTML: <div id="a11yWrapper" ...>วันที่ไม่ถูกต้อง</div>
+                    const errorEl = await waitForElement(() => {
+                        return findByTexts(
+                            ['วันที่ไม่ถูกต้อง', 'Invalid date'],
+                            'div, tp-yt-paper-input-error, #a11yWrapper'
+                        );
                     }, 3000);
-                    log('พบ error "วันที่ไม่ถูกต้อง" — พร้อมใส่วันที่');
+                    if (errorEl) {
+                        log('พบ error "วันที่ไม่ถูกต้อง" — พร้อมใส่วันที่');
+                    }
 
                     // Type the date (format: "12 พ.ย. 2026")
-                    await typeIntoInput(dateInput, config.scheduleDate);
+                    await typeIntoInput(dateInput, config.scheduleDate!);
                     log(`ใส่วันที่: "${config.scheduleDate}"`);
-                    await delay(300);
+                    await delay(500);
 
-                    // Press Enter to confirm
-                    dateInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-                    dateInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+                    // Press Enter to confirm date
+                    dateInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+                    dateInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+                    dateInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
                     await delay(1000);
+                    log('กด Enter ยืนยันวันที่');
                 } else {
                     warn('ไม่พบช่อง input วันที่');
                 }
+            } else {
+                warn('ไม่พบ date dropdown trigger');
             }
 
             // ── Set Time ──
-            // Find the time input inside ytcp-datetime-picker
+            // User HTML: <ytcp-form-input-container id="time-of-day-container"> → <tp-yt-paper-input id="textbox"> → <tp-yt-iron-input> → <input>
             const timeInput = await waitForElement(() => {
                 const picker = document.querySelector('ytcp-datetime-picker');
                 if (!picker) return null;
                 const timeContainer = picker.querySelector('#time-of-day-container');
                 if (timeContainer) {
-                    return timeContainer.querySelector('tp-yt-paper-input input.style-scope') ||
+                    // Primary: input inside tp-yt-iron-input inside time container
+                    return timeContainer.querySelector('tp-yt-iron-input input') ||
+                           timeContainer.querySelector('tp-yt-paper-input input') ||
                            timeContainer.querySelector('input');
                 }
-                // Fallback: find the textbox in time section
-                return picker.querySelector('#textbox input');
+                // Fallback: find the textbox#textbox input in time section
+                return picker.querySelector('tp-yt-paper-input#textbox input') ||
+                       picker.querySelector('#time-of-day-container input');
             }, 5000) as HTMLInputElement | null;
 
             if (timeInput) {
-                // Click to open the time dropdown
+                // Click to open the time dropdown/popup
                 timeInput.focus();
                 timeInput.click();
-                await delay(500);
+                await delay(800);
 
-                // Clear existing and type new time
+                // Clear existing time value
                 timeInput.select();
                 await delay(200);
                 timeInput.value = '';
                 timeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                timeInput.dispatchEvent(new Event('change', { bubbles: true }));
                 await delay(300);
 
                 // Type the time (format: "12:12")
-                await typeIntoInput(timeInput, config.scheduleTime);
+                await typeIntoInput(timeInput, config.scheduleTime!);
                 log(`ใส่เวลา: "${config.scheduleTime}"`);
-                await delay(300);
+                await delay(500);
 
-                // Press Enter to confirm
-                timeInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-                timeInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+                // Press Enter to confirm time
+                timeInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+                timeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+                timeInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
                 await delay(1000);
+                log('กด Enter ยืนยันเวลา');
             } else {
                 warn('ไม่พบช่อง input เวลา');
             }
 
             // ── Click "ตั้งเวลา"/"Schedule" button ──
+            // User HTML: <button aria-label="ตั้งเวลา"> inside #done-button
             const scheduleBtn = await waitForElement(() => {
-                // Look for the done-button which now says "ตั้งเวลา"/"Schedule"
+                // Primary: #done-button inner button with schedule label
                 const btn = document.querySelector('#done-button');
                 if (btn) {
                     const inner = btn.querySelector('button[aria-label="ตั้งเวลา"]') ||
                                   btn.querySelector('button[aria-label="Schedule"]');
                     if (inner && !(inner as HTMLButtonElement).disabled) return inner;
+                    // Also check if inner button text contains the keyword
+                    const anyBtn = btn.querySelector('button:not([disabled])');
+                    if (anyBtn) {
+                        const txt = (anyBtn.textContent || '').trim();
+                        if (txt.includes('ตั้งเวลา') || txt.includes('Schedule')) return anyBtn;
+                    }
                 }
-                // Fallback: find by text
-                return findByTexts(['ตั้งเวลา', 'Schedule'], 'button');
+                // Fallback: find by aria-label directly
+                return document.querySelector('button[aria-label="ตั้งเวลา"]:not([disabled])') ||
+                       document.querySelector('button[aria-label="Schedule"]:not([disabled])') ||
+                       findByTexts(['ตั้งเวลา', 'Schedule'], 'button');
             }, 10000);
 
             if (scheduleBtn) {
@@ -736,7 +769,8 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             // ── PUBLISH IMMEDIATELY ──
             log('── โหมดเผยแพร่ทันที ──');
 
-            // Click "เผยแพร่"/"Publish" or "บันทึก"/"Save"
+            // Click "เผยแพร่"/"Publish" button
+            // User HTML: <button aria-label="เผยแพร่"> inside #done-button
             const publishBtn = await waitForElement(() => {
                 const btn = document.querySelector('#done-button');
                 if (btn) {
@@ -745,13 +779,22 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                                   btn.querySelector('button[aria-label="บันทึก"]') ||
                                   btn.querySelector('button[aria-label="Save"]');
                     if (inner && !(inner as HTMLButtonElement).disabled) return inner;
+                    // Also check button text
+                    const anyBtn = btn.querySelector('button:not([disabled])');
+                    if (anyBtn) {
+                        const txt = (anyBtn.textContent || '').trim();
+                        if (['เผยแพร่', 'Publish', 'บันทึก', 'Save'].some(k => txt.includes(k))) return anyBtn;
+                    }
                 }
-                return findByTexts(['เผยแพร่', 'Publish', 'บันทึก', 'Save'], 'button');
+                // Fallback: find by aria-label directly
+                return document.querySelector('button[aria-label="เผยแพร่"]:not([disabled])') ||
+                       document.querySelector('button[aria-label="Publish"]:not([disabled])') ||
+                       findByTexts(['เผยแพร่', 'Publish', 'บันทึก', 'Save'], 'button');
             }, 10000);
 
             if (publishBtn) {
                 clickElement(publishBtn);
-                log(`✅ คลิก "เผยแพร่/Publish"`);
+                log('✅ คลิก "เผยแพร่/Publish"');
                 hudUpdate(5, 'done');
             } else {
                 hudUpdate(5, 'error');
@@ -765,31 +808,46 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
         await delay(3000);
 
         // Find and close the success/confirmation dialog
-        // Dialog title: "วิดีโอที่เผยแพร่"/"Video published" or "วิดีโอที่ตั้งเวลาไว้"/"Scheduled video"
+        // Dialog titles: "วิดีโอที่เผยแพร่"/"Video published" or "วิดีโอที่ตั้งเวลาไว้"/"Scheduled video"
+        // User HTML: <tp-yt-paper-dialog> → <ytcp-video-share-dialog> → <ytcp-button#close-button> → <button aria-label="ปิด">
         const closeBtn = await waitForElement(() => {
-            // Look for close button inside the share dialog
+            // Strategy 1: close-button inside share dialog (TH/EN)
             const dialog = document.querySelector('ytcp-video-share-dialog');
             if (dialog) {
-                const btn = dialog.querySelector('#close-button button') ||
-                            dialog.querySelector('ytcp-button#close-button button');
-                if (btn) return btn;
+                // Primary: the "ปิด"/"Close" button at the footer
+                const btn = dialog.querySelector('#close-button button[aria-label="ปิด"]') ||
+                            dialog.querySelector('#close-button button[aria-label="Close"]') ||
+                            dialog.querySelector('#close-button button');
+                if (btn) {
+                    const rect = (btn as HTMLElement).getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) return btn;
+                }
             }
-            // Fallback: any close button with aria-label "ปิด"/"Close" inside a dialog
-            return document.querySelector('ytcp-video-share-dialog button[aria-label="ปิด"]') ||
-                   document.querySelector('ytcp-video-share-dialog button[aria-label="Close"]') ||
-                   findByTexts(['ปิด', 'Close'], 'ytcp-video-share-dialog button');
-        }, 8000);
+            // Strategy 2: any button with aria-label "ปิด"/"Close" inside a paper-dialog
+            return document.querySelector('tp-yt-paper-dialog button[aria-label="ปิด"]') ||
+                   document.querySelector('tp-yt-paper-dialog button[aria-label="Close"]') ||
+                   document.querySelector('ytcp-video-share-dialog button[aria-label="ปิด"]') ||
+                   document.querySelector('ytcp-video-share-dialog button[aria-label="Close"]');
+        }, 10000);
 
         if (closeBtn) {
             clickElement(closeBtn);
             log('ปิด dialog สำเร็จ');
         } else {
-            // Try the X button on the dialog
+            // Fallback: try X icon button or findByTexts
             const xBtn = document.querySelector('ytcp-video-share-dialog #close-icon-button') ||
-                         document.querySelector('ytcp-video-share-dialog ytcp-icon-button[icon="close"]');
+                         document.querySelector('ytcp-video-share-dialog ytcp-icon-button[icon="close"]') ||
+                         document.querySelector('tp-yt-paper-dialog ytcp-icon-button[icon="close"]');
             if (xBtn) {
                 clickElement(xBtn);
                 log('ปิด dialog ผ่าน X button');
+            } else {
+                // Last resort: find "ปิด"/"Close" text button anywhere in dialog
+                const textBtn = findByTexts(['ปิด', 'Close'], 'tp-yt-paper-dialog button, ytcp-video-share-dialog button');
+                if (textBtn) {
+                    clickElement(textBtn);
+                    log('ปิด dialog ผ่าน text match');
+                }
             }
         }
 
