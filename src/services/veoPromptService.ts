@@ -6800,11 +6800,11 @@ const buildVideoPrompt = (
         // [7. STYLE/MOOD + REALISM]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
         // [8. CONSTRAINTS] — policy + anti-addition (PRODUCT LOCK + FACE LOCK already in productAnchor + characterAnchor, not repeated here)
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ZERO INVENTION: Do NOT add glasses, hats, earphones, jewelry, tattoos, or ANY accessory not in reference images. Single product only — no duplicate products. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product frontal, centered, consistent size relative to character. Photorealistic only. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), veoSafeProductName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
-    const MAX_SCENE1_PROMPT_LENGTH = 3500;
+    const MAX_SCENE1_PROMPT_LENGTH = 5500;
     if (prompt.length > MAX_SCENE1_PROMPT_LENGTH) {
         console.warn(`⚠️ Scene 1 prompt too long (${prompt.length} chars), trimming to ${MAX_SCENE1_PROMPT_LENGTH}`);
         prompt = prompt.substring(0, MAX_SCENE1_PROMPT_LENGTH).replace(/\s\S*$/, '');
@@ -6916,18 +6916,18 @@ export const buildSceneVideoPromptJSON = (
         // [4.6. SCREEN CONTENT DIRECTIVE — what must appear ON the product's display]
         getScreenContentDirective(meta.category, cleanScript),
 
-        // [5. CAMERA & LIGHTING] — per-scene camera variety from CINEMATIC_CAMERA_POOL
-        `${meta.camera}. ${pickSceneCamera().camera}. ${meta.lighting}.`,
+        // [5. CAMERA & LIGHTING]
+        `${meta.camera}. ${meta.lighting}.`,
 
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
 
         // [7. CONSTRAINTS + LOCKS] (FACE LOCK already in characterAnchor, not repeated)
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add glasses, hats, earphones, jewelry, tattoos, or ANY accessory not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. ${pickSceneCamera().camera}. Photorealistic only.`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
-    const MAX_SCENE_PROMPT_LENGTH = 2500;
+    const MAX_SCENE_PROMPT_LENGTH = 4500;
     if (prompt.length > MAX_SCENE_PROMPT_LENGTH) {
         console.warn(`⚠️ Scene ${sceneNumber} prompt too long (${prompt.length} chars), trimming to ${MAX_SCENE_PROMPT_LENGTH}`);
         return prompt.substring(0, MAX_SCENE_PROMPT_LENGTH).replace(/\s\S*$/, '');

@@ -167,16 +167,16 @@
 
         /* Body: ~32% of card */
         .card-body {
-            padding: 20px 20px 24px; flex: 1;
-            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 20px 20px 22px; flex: 1;
+            display: flex; flex-direction: column; justify-content: flex-start;
             background: #0a0a0c;
         }
         .card-info-wrap {
-            margin-bottom: 16px;
+            margin-bottom: auto; /* Pushes action buttons down */
         }
         .card-meta {
             display: flex; align-items: center; gap: 0;
-            font-size: 11px; color: #71717a; margin-top: 6px;
+            font-size: 11px; color: #71717a; margin-top: 8px;
             font-weight: 500;
         }
         .card-meta .dot {
@@ -185,17 +185,17 @@
             margin: 0 6px;
         }
         .card-title-row {
-            display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
         }
         .card-title-row .card-title { 
             flex: 1; min-width: 0; 
             font-size: 18px; font-weight: 700; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            line-height: 1;
+            line-height: 1.1;
             letter-spacing: -0.025em;
         }
         .btn-rename {
-            width: 28px; height: 28px; border-radius: 8px;
+            width: 32px; height: 32px; border-radius: 10px;
             background: rgba(99,102,241,0.1); /* indigo-500/10 */
             color: #818cf8; /* indigo-400 */
             cursor: pointer; border: none;
@@ -207,12 +207,12 @@
 
         /* Actions */
         .card-actions {
-            display: flex; align-items: center; gap: 12px;
-            margin-top: auto;
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 20px;
         }
         .btn-icon {
             width: 44px; height: 44px; border: none;
-            border-radius: 16px; cursor: pointer;
+            border-radius: 14px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
         }
@@ -302,6 +302,198 @@
         .btn-delete { background: rgba(var(--danger-rgb), 0.12); color: var(--danger); border-color: rgba(var(--danger-rgb), 0.25); }
         .btn-delete:hover { background: rgba(var(--danger-rgb), 0.25); }
 
+        /* ── YouTube Shorts Popup ── */
+        .yt-popup-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.78); backdrop-filter: blur(10px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .yt-popup-overlay.active { display: flex; }
+        .yt-popup-box {
+            background: #111118;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            width: 92%; max-width: 420px;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+            animation: ytPopIn 0.25s ease-out;
+        }
+        @keyframes ytPopIn {
+            from { opacity: 0; transform: scale(0.95) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .yt-popup-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 20px 22px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .yt-popup-header svg { width: 22px; height: 22px; color: #ff0000; flex-shrink: 0; }
+        .yt-popup-header h3 {
+            font-size: 16px; font-weight: 700; color: #fff;
+            letter-spacing: -0.01em;
+        }
+        .yt-popup-body { padding: 16px 22px 20px; }
+        .yt-popup-body .yt-section { margin-bottom: 16px; }
+        .yt-popup-body .yt-section:last-child { margin-bottom: 0; }
+
+        /* AI Generate All button */
+        .yt-ai-all-btn {
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 0; border-radius: 12px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid rgba(var(--primary-rgb),0.3);
+            background: linear-gradient(135deg, rgba(var(--primary-rgb),0.12), rgba(139,92,246,0.12));
+            color: var(--primary); transition: all 0.2s;
+        }
+        .yt-ai-all-btn:hover {
+            background: linear-gradient(135deg, rgba(var(--primary-rgb),0.22), rgba(139,92,246,0.22));
+            box-shadow: 0 0 16px rgba(var(--primary-rgb),0.15);
+        }
+        .yt-ai-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .yt-ai-all-btn .yt-sparkle { font-size: 14px; }
+
+        /* Labels + inputs */
+        .yt-label-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .yt-label {
+            font-size: 12px; color: #a1a1aa; font-weight: 500;
+        }
+        .yt-ai-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 6px;
+            font-size: 10px; font-weight: 600;
+            cursor: pointer; border: 1px solid rgba(var(--primary-rgb),0.2);
+            background: rgba(var(--primary-rgb),0.08);
+            color: rgba(var(--primary-rgb),0.85); transition: all 0.2s;
+        }
+        .yt-ai-btn:hover { background: rgba(var(--primary-rgb),0.18); color: var(--primary); }
+        .yt-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .yt-input, .yt-textarea {
+            width: 100%; padding: 10px 14px; border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #fff; font-size: 13px; font-family: inherit;
+            outline: none; transition: border-color 0.2s;
+        }
+        .yt-input:focus, .yt-textarea:focus { border-color: rgba(var(--primary-rgb),0.4); }
+        .yt-input::placeholder, .yt-textarea::placeholder { color: #52525b; }
+        .yt-textarea { resize: none; min-height: 72px; }
+        .yt-char-count {
+            text-align: right; font-size: 10px; color: #52525b; margin-top: 3px;
+        }
+
+        /* Made for Kids */
+        .yt-toggle-row {
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .yt-toggle-group { display: flex; gap: 8px; }
+        .yt-toggle-btn {
+            padding: 6px 16px; border-radius: 8px;
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: #71717a; transition: all 0.2s;
+        }
+        .yt-toggle-btn.active {
+            background: rgba(var(--primary-rgb),0.12);
+            color: var(--primary);
+            border-color: rgba(var(--primary-rgb),0.3);
+        }
+
+        /* Visibility */
+        .yt-vis-group { display: flex; gap: 6px; }
+        .yt-vis-btn {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 8px 0; border-radius: 10px;
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: #71717a; transition: all 0.2s;
+        }
+        .yt-vis-btn.active {
+            background: rgba(var(--primary-rgb),0.12);
+            color: var(--primary);
+            border-color: rgba(var(--primary-rgb),0.3);
+        }
+        .yt-vis-btn svg { width: 14px; height: 14px; }
+
+        /* Schedule */
+        .yt-schedule-row {
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .yt-schedule-label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: #a1a1aa; font-weight: 500;
+        }
+        .yt-schedule-label svg { width: 14px; height: 14px; }
+        .yt-schedule-fields {
+            display: none; gap: 8px; margin-top: 10px;
+        }
+        .yt-schedule-fields.active { display: flex; }
+        .yt-schedule-fields .yt-input { font-size: 11px; padding: 8px 12px; }
+        .yt-schedule-fields .yt-field { flex: 1; }
+        .yt-schedule-fields .yt-field-sm { width: 100px; flex-shrink: 0; }
+        .yt-field-label {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 10px; color: #52525b; margin-bottom: 4px;
+        }
+        .yt-field-label svg { width: 11px; height: 11px; }
+
+        /* Info tip */
+        .yt-info-tip {
+            padding: 12px 14px; border-radius: 12px;
+            background: rgba(234,179,8,0.04);
+            border: 1px solid rgba(234,179,8,0.12);
+        }
+        .yt-info-tip h4 {
+            font-size: 11px; font-weight: 600; color: rgba(234,179,8,0.85);
+            margin-bottom: 8px;
+        }
+        .yt-info-tip ul {
+            list-style: none; padding: 0; margin: 0;
+            font-size: 10px; color: #71717a; line-height: 1.7;
+        }
+        .yt-info-tip ul .yt-hl { color: rgba(234,179,8,0.7); }
+        .yt-info-tip .yt-info-footer {
+            font-size: 9px; color: #52525b; font-style: italic; margin-top: 8px;
+        }
+
+        /* Footer buttons */
+        .yt-popup-footer {
+            display: flex; gap: 10px; justify-content: flex-end;
+            padding: 14px 22px 20px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .yt-btn-cancel {
+            padding: 10px 24px; border-radius: 12px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.04);
+            color: #a1a1aa; transition: all 0.2s;
+        }
+        .yt-btn-cancel:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .yt-btn-post {
+            padding: 10px 24px; border-radius: 12px;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            border: 1px solid rgba(var(--primary-rgb),0.35);
+            background: linear-gradient(135deg, rgba(var(--primary-rgb),0.18), rgba(var(--primary-rgb),0.08));
+            color: var(--primary); transition: all 0.25s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .yt-btn-post:hover {
+            background: linear-gradient(135deg, rgba(var(--primary-rgb),0.3), rgba(var(--primary-rgb),0.15));
+            box-shadow: 0 0 20px rgba(var(--primary-rgb),0.2);
+        }
+        .yt-btn-post:disabled { opacity: 0.5; cursor: not-allowed; }
+        .yt-btn-post svg { width: 16px; height: 16px; }
+
+        /* Scrollbar for popup */
+        .yt-popup-box::-webkit-scrollbar { width: 4px; }
+        .yt-popup-box::-webkit-scrollbar-track { background: transparent; }
+        .yt-popup-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
         /* ── Toast ── */
         .toast {
             position: fixed; bottom: 24px; right: 24px; z-index: 300;
@@ -372,6 +564,129 @@
             <div class="confirm-btns">
                 <button class="btn-cancel" id="renameCancel">ยกเลิก</button>
                 <button class="btn-cancel" id="renameConfirm" style="background:rgba(var(--primary-rgb),0.15);color:var(--primary);border-color:rgba(var(--primary-rgb),0.3);">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube Shorts Popup -->
+    <div class="yt-popup-overlay" id="ytPopup">
+        <div class="yt-popup-box">
+            <!-- Header -->
+            <div class="yt-popup-header">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 00.5 6.2C0 8.08 0 12 0 12s0 3.92.5 5.8a3.02 3.02 0 002.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 002.12-2.14C24 15.92 24 12 24 12s0-3.92-.5-5.8zM9.55 15.57V8.43L15.8 12l-6.25 3.57z"/></svg>
+                <h3>YouTube Shorts</h3>
+            </div>
+
+            <!-- Body -->
+            <div class="yt-popup-body">
+                <!-- AI Generate All -->
+                <div class="yt-section">
+                    <button class="yt-ai-all-btn" id="ytAiAll">
+                        <span class="yt-sparkle">✨</span> AI สร้าง Title + Description
+                    </button>
+                </div>
+
+                <!-- Title -->
+                <div class="yt-section">
+                    <div class="yt-label-row">
+                        <span class="yt-label">ชื่อ (Title)</span>
+                        <button class="yt-ai-btn" id="ytAiTitle">
+                            <span class="yt-sparkle">✨</span> AI คิดชื่อ
+                        </button>
+                    </div>
+                    <input type="text" class="yt-input" id="ytTitle" placeholder="ชื่อวิดีโอ (ระบบจะเติม #Shorts ให้อัตโนมัติ)" maxlength="50" />
+                    <div class="yt-char-count"><span id="ytTitleCount">0</span>/50</div>
+                </div>
+
+                <!-- Description -->
+                <div class="yt-section">
+                    <div class="yt-label-row">
+                        <span class="yt-label">คำอธิบาย (Description)</span>
+                        <button class="yt-ai-btn" id="ytAiDesc">
+                            <span class="yt-sparkle">✨</span> AI เขียน
+                        </button>
+                    </div>
+                    <textarea class="yt-textarea" id="ytDesc" placeholder="คำอธิบายวิดีโอ + Hashtag (AI จะสร้างให้อัตโนมัติ)" rows="3"></textarea>
+                </div>
+
+                <!-- Made for Kids -->
+                <div class="yt-section">
+                    <div class="yt-toggle-row">
+                        <span class="yt-label">สร้างมาเพื่อเด็ก?</span>
+                        <div class="yt-toggle-group">
+                            <button class="yt-toggle-btn active" id="ytKidsNo" data-value="no">ไม่ใช่</button>
+                            <button class="yt-toggle-btn" id="ytKidsYes" data-value="yes">ใช่</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visibility -->
+                <div class="yt-section">
+                    <div class="yt-label" style="margin-bottom:8px;">การเผยแพร่</div>
+                    <div class="yt-vis-group">
+                        <button class="yt-vis-btn active" data-vis="public">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                            สาธารณะ
+                        </button>
+                        <button class="yt-vis-btn" data-vis="unlisted">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            ไม่แสดง
+                        </button>
+                        <button class="yt-vis-btn" data-vis="private">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                            ส่วนตัว
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Schedule -->
+                <div class="yt-section">
+                    <div class="yt-schedule-row">
+                        <span class="yt-schedule-label">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            ตั้งเวลาเผยแพร่
+                        </span>
+                        <button class="yt-toggle-btn" id="ytScheduleToggle">ปิด</button>
+                    </div>
+                    <div class="yt-schedule-fields" id="ytScheduleFields">
+                        <div class="yt-field">
+                            <div class="yt-field-label">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                วันที่
+                            </div>
+                            <input type="text" class="yt-input" id="ytScheduleDate" placeholder="12 พ.ย. 2026" />
+                        </div>
+                        <div class="yt-field-sm">
+                            <div class="yt-field-label">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                เวลา
+                            </div>
+                            <input type="text" class="yt-input" id="ytScheduleTime" placeholder="12:00" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Tip -->
+                <div class="yt-section">
+                    <div class="yt-info-tip">
+                        <h4>💡 เกร็ดความรู้ YouTube Shorts</h4>
+                        <ul>
+                            <li>• <span class="yt-hl">อัตราส่วนภาพ:</span> ต้องเป็นแนวตั้ง (9:16) หรือสี่เหลี่ยม (1:1)</li>
+                            <li>• <span class="yt-hl">ความยาว:</span> ต้องไม่เกิน 60 วินาที — เกินจะกลายเป็นวิดีโอปกติ</li>
+                            <li>• <span class="yt-hl">#Shorts:</span> ระบบเติม #Shorts ใน Title ให้อัตโนมัติ เพื่อช่วยให้ YouTube จัดหมวดแม่นยำขึ้น</li>
+                        </ul>
+                        <div class="yt-info-footer">คลิปจาก Veo เป็น 9:16 + สั้นกว่า 60 วิ → จัดเข้า Shorts อัตโนมัติ</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="yt-popup-footer">
+                <button class="yt-btn-cancel" id="ytCancel">ยกเลิก</button>
+                <button class="yt-btn-post" id="ytPost">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 00.5 6.2C0 8.08 0 12 0 12s0 3.92.5 5.8a3.02 3.02 0 002.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 002.12-2.14C24 15.92 24 12 24 12s0-3.92-.5-5.8zM9.55 15.57V8.43L15.8 12l-6.25 3.57z"/></svg>
+                    โพสต์ YouTube อัตโนมัติ
+                </button>
             </div>
         </div>
     </div>
