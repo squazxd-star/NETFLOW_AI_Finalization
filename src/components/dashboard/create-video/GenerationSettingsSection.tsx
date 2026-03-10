@@ -585,47 +585,52 @@ Do not explain. Only output the lines above.`;
                     <div>
                         <label className="text-[11px] text-muted-foreground mb-2 block font-medium text-center tracking-wide">เลือก Engine</label>
                         <div className="grid grid-cols-2 gap-2.5">
-                            {([
-                                { value: "veo" as const, label: "Veo 3.1", sub: "Google" },
-                                { value: "grok" as const, label: "Grok", sub: "xAI" }
-                            ]).map((engine) => {
-                                const isActive = (watch("videoEngine") || "veo") === engine.value;
-                                return (
-                                    <button
-                                        key={engine.value}
-                                        type="button"
-                                        onClick={() => setValue("videoEngine", engine.value)}
-                                        className={`flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl text-xs font-semibold transition-all duration-300 relative overflow-hidden border ${
-                                            isActive
-                                                ? 'text-white shadow-lg border-transparent'
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border-border bg-muted/30'
-                                        }`}
-                                        style={isActive ? {
-                                            background: `linear-gradient(135deg, ${themeConfig.hex}, ${themeConfig.gradientTo})`,
-                                            boxShadow: `0 4px 15px rgba(${themeConfig.hexRgb}, 0.3)`,
-                                        } : {}}
-                                    >
-                                        <div className="w-7 h-7 flex items-center justify-center">
-                                            {engine.value === "veo"
-                                                ? <VeoLogo className="w-7 h-7" active={isActive} />
-                                                : <GrokLogo className="w-6 h-6" active={isActive} />
-                                            }
-                                        </div>
-                                        <div className="flex flex-col items-center leading-tight">
-                                            <span className="text-[12px] font-bold tracking-tight">{engine.label}</span>
-                                            <span className={`text-[9px] font-normal ${isActive ? 'text-white/60' : 'text-muted-foreground/50'}`}>{engine.sub}</span>
-                                        </div>
-                                        {engine.value === "veo" && (
-                                            <span className={`absolute top-1.5 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? 'text-white/90 bg-white/20' : ''}`} style={!isActive ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
-                                                แนะนำ
-                                            </span>
-                                        )}
-                                        {isActive && (
-                                            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 animate-pulse" />
-                                        )}
-                                    </button>
-                                );
-                            })}
+                            {/* Veo — always active */}
+                            <button
+                                type="button"
+                                onClick={() => setValue("videoEngine", "veo")}
+                                className="flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl text-xs font-semibold transition-all duration-300 relative overflow-hidden border text-white shadow-lg border-transparent"
+                                style={{
+                                    background: `linear-gradient(135deg, ${themeConfig.hex}, ${themeConfig.gradientTo})`,
+                                    boxShadow: `0 4px 15px rgba(${themeConfig.hexRgb}, 0.3)`,
+                                }}
+                            >
+                                <div className="w-7 h-7 flex items-center justify-center">
+                                    <VeoLogo className="w-7 h-7" active />
+                                </div>
+                                <div className="flex flex-col items-center leading-tight">
+                                    <span className="text-[12px] font-bold tracking-tight">Veo 3.1</span>
+                                    <span className="text-[9px] font-normal text-white/60">Google</span>
+                                </div>
+                                <span className="absolute top-1.5 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white/90 bg-white/20">
+                                    แนะนำ
+                                </span>
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 animate-pulse" />
+                            </button>
+
+                            {/* Grok — locked / Under Development */}
+                            <div
+                                className="flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl text-xs font-semibold relative overflow-hidden border border-border bg-muted/20 cursor-not-allowed select-none opacity-60"
+                            >
+                                {/* Chain / Lock overlay */}
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-[0.12]">
+                                        <path d="M32 8C27.6 8 24 11.6 24 16V24H20C17.8 24 16 25.8 16 28V52C16 54.2 17.8 56 20 56H44C46.2 56 48 54.2 48 52V28C48 25.8 46.2 24 44 24H40V16C40 11.6 36.4 8 32 8ZM32 12C34.2 12 36 13.8 36 16V24H28V16C28 13.8 29.8 12 32 12ZM32 36C34.2 36 36 37.8 36 40C36 42.2 34.2 44 32 44C29.8 44 28 42.2 28 40C28 37.8 29.8 36 32 36Z" fill="currentColor"/>
+                                        <path d="M8 30L12 34M56 30L52 34M12 34L16 30M52 34L48 30" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                                        <path d="M6 32H14M50 32H58" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="3 3" opacity="0.4"/>
+                                    </svg>
+                                </div>
+                                <div className="w-7 h-7 flex items-center justify-center grayscale">
+                                    <GrokLogo className="w-6 h-6" active={false} />
+                                </div>
+                                <div className="flex flex-col items-center leading-tight">
+                                    <span className="text-[12px] font-bold tracking-tight text-muted-foreground/50">Grok</span>
+                                    <span className="text-[9px] font-normal text-muted-foreground/30">xAI</span>
+                                </div>
+                                <span className="absolute bottom-1.5 inset-x-0 text-center text-[7px] font-bold tracking-wider text-muted-foreground/40 uppercase">
+                                    Under Development
+                                </span>
+                            </div>
                         </div>
                     </div>
 
