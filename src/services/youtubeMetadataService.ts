@@ -61,7 +61,7 @@ ${cachedProductInfo ? `- ข้อมูลจากการค้นหา: ${
 ## งาน: สร้าง Title และ Description สำหรับ YouTube Shorts
 
 ### กฎสำหรับ Title (ชื่อ):
-1. ความยาวไม่เกิน 30 ตัวอักษร (รวมช่องว่าง) — สั้น กระชับ จับตา
+1. ความยาวไม่เกิน 50 ตัวอักษร (รวมช่องว่าง) — สั้น กระชับ จับตา
 2. ใช้ภาษาที่ดึงดูดในเชิงโฆษณา/รีวิวสินค้า
 3. ต้องมีชื่อแบรนด์/สินค้าจริงอยู่ใน title
 4. ใช้สไตล์ที่คนค้นหาบน YouTube จะคลิก (Clickbait ที่ดี ไม่หลอก)
@@ -219,10 +219,10 @@ export async function generateYouTubeMetadata(params: {
     try {
         const parsed = JSON.parse(jsonMatch[0]) as YouTubeMetadataResult;
 
-        // Validate + trim title to 30 chars max
+        // Validate + trim title to 50 chars max
         let title = (parsed.title || productName).trim();
-        if (title.length > 30) {
-            title = title.substring(0, 30).trim();
+        if (title.length > 50) {
+            title = title.substring(0, 50).trim();
         }
 
         // Validate description

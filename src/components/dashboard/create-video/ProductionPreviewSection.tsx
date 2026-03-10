@@ -224,10 +224,10 @@ const ProductionPreviewSection = ({
                                 <input
                                     {...register("youtubeTitle")}
                                     placeholder="ชื่อวิดีโอ (ระบบจะเติม #Shorts ให้อัตโนมัติ)"
-                                    maxLength={30}
+                                    maxLength={50}
                                     className="w-full px-3 py-2 text-xs bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
                                 />
-                                <p className="text-[9px] text-muted-foreground/50 mt-0.5 text-right">{(watch("youtubeTitle") || "").length}/30</p>
+                                <p className="text-[9px] text-muted-foreground/50 mt-0.5 text-right">{(watch("youtubeTitle") || "").length}/50</p>
                             </div>
 
                             {/* Description */}
