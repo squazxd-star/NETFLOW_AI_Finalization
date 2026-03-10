@@ -199,6 +199,10 @@ async function loadAndRender() {
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'card-body';
 
+        // Info Wrapper
+        const infoWrap = document.createElement('div');
+        infoWrap.className = 'card-info-wrap';
+
         // Info
         const infoDiv = document.createElement('div');
 
@@ -228,6 +232,8 @@ async function loadAndRender() {
 
         infoDiv.appendChild(titleRow);
         infoDiv.appendChild(metaDiv);
+        
+        infoWrap.appendChild(infoDiv);
 
         // Actions — all icon buttons
         const actionsDiv = document.createElement('div');
