@@ -30,6 +30,8 @@ export interface ProductDataSectionProps extends SectionProps {
     characterImage: string | null;
     onProductImageUpload: () => void;
     onCharacterImageUpload: () => void;
+    onProductImageFile?: (base64: string) => void;
+    onCharacterImageFile?: (base64: string) => void;
     onSyncedProductImageSelect?: (imageUrl: string | null) => void;
 }
 

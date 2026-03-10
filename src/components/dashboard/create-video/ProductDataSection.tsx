@@ -1,5 +1,5 @@
 import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, DragEvent } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
@@ -21,10 +21,43 @@ const ProductDataSection = ({
     characterImage,
     onProductImageUpload,
     onCharacterImageUpload,
+    onProductImageFile,
+    onCharacterImageFile,
     onSyncedProductImageSelect
 }: ProductDataSectionProps) => {
     const gender = watch("gender");
     const { toast } = useToast();
+
+    // Drag-and-drop state
+    const [dragOverProduct, setDragOverProduct] = useState(false);
+    const [dragOverCharacter, setDragOverCharacter] = useState(false);
+
+    const readFileAsBase64 = useCallback((file: File, setter: ((base64: string) => void) | undefined) => {
+        if (!setter) return;
+        if (!file.type.startsWith('image/')) {
+            toast({ title: "❌ ไฟล์นี้ไม่ใช่รูปภาพ", variant: "destructive" });
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const result = ev.target?.result as string;
+            if (result) setter(result);
+        };
+        reader.readAsDataURL(file);
+    }, [toast]);
+
+    const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, setter: ((base64: string) => void) | undefined, setDragOver: (v: boolean) => void) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) readFileAsBase64(file, setter);
+    }, [readFileAsBase64]);
+
+    const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, []);
 
     // TikTok product sync state
     const [syncedProducts, setSyncedProducts] = useState<TikTokProduct[]>([]);
@@ -212,11 +245,24 @@ const ProductDataSection = ({
                             {/* Product Image */}
                             <div>
                                 <label className="text-[10px] text-muted-foreground mb-1 block text-center">รูปสินค้า</label>
-                                <button
+                                <div
                                     onClick={() => onProductImageUpload()}
-                                    className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                                    onDragOver={handleDragOver}
+                                    onDragEnter={(e) => { e.preventDefault(); setDragOverProduct(true); }}
+                                    onDragLeave={(e) => { e.preventDefault(); setDragOverProduct(false); }}
+                                    onDrop={(e) => handleDrop(e, onProductImageFile, setDragOverProduct)}
+                                    className={`relative w-full aspect-[3/4] rounded-xl border-2 border-dashed bg-background/50 flex flex-col items-center justify-center gap-2 transition-all duration-200 overflow-hidden group cursor-pointer ${
+                                        dragOverProduct
+                                            ? 'border-neon-red bg-neon-red/10 scale-[1.02]'
+                                            : 'border-border hover:border-neon-red/50 hover:bg-neon-red/5'
+                                    }`}
                                 >
-                                    {productImage ? (
+                                    {dragOverProduct ? (
+                                        <>
+                                            <Image className="w-6 h-6 text-neon-red animate-bounce" />
+                                            <span className="text-[9px] text-neon-red font-medium">วางรูปที่นี่</span>
+                                        </>
+                                    ) : productImage ? (
                                         <>
                                             <img src={productImage} alt="Product" className="w-full h-full object-contain p-1" />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -229,17 +275,30 @@ const ProductDataSection = ({
                                             <span className="text-[9px] text-muted-foreground/60 text-center px-2">เลือกรูปสินค้า</span>
                                         </>
                                     )}
-                                </button>
+                                </div>
                             </div>
 
                             {/* Character Image */}
                             <div>
                                 <label className="text-[10px] text-muted-foreground mb-1 block text-center">รูปตัวละคร</label>
-                                <button
+                                <div
                                     onClick={() => onCharacterImageUpload()}
-                                    className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                                    onDragOver={handleDragOver}
+                                    onDragEnter={(e) => { e.preventDefault(); setDragOverCharacter(true); }}
+                                    onDragLeave={(e) => { e.preventDefault(); setDragOverCharacter(false); }}
+                                    onDrop={(e) => handleDrop(e, onCharacterImageFile, setDragOverCharacter)}
+                                    className={`relative w-full aspect-[3/4] rounded-xl border-2 border-dashed bg-background/50 flex flex-col items-center justify-center gap-2 transition-all duration-200 overflow-hidden group cursor-pointer ${
+                                        dragOverCharacter
+                                            ? 'border-neon-red bg-neon-red/10 scale-[1.02]'
+                                            : 'border-border hover:border-neon-red/50 hover:bg-neon-red/5'
+                                    }`}
                                 >
-                                    {characterImage ? (
+                                    {dragOverCharacter ? (
+                                        <>
+                                            <Image className="w-6 h-6 text-neon-red animate-bounce" />
+                                            <span className="text-[9px] text-neon-red font-medium">วางรูปที่นี่</span>
+                                        </>
+                                    ) : characterImage ? (
                                         <>
                                             <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -252,7 +311,7 @@ const ProductDataSection = ({
                                             <span className="text-[9px] text-muted-foreground/60 text-center px-2">เลือกรูปตัวละคร</span>
                                         </>
                                     )}
-                                </button>
+                                </div>
                             </div>
                         </div>
                     </div>

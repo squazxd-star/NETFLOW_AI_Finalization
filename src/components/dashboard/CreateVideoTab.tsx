@@ -223,6 +223,8 @@ const CreateVideoTab = () => {
                 characterImage={characterImage}
                 onProductImageUpload={() => pickImage(setProductImage)}
                 onCharacterImageUpload={() => pickImage(setCharacterImage)}
+                onProductImageFile={setProductImage}
+                onCharacterImageFile={setCharacterImage}
             />
 
             {/* 2. AI Scripting Section - สคริปต์ AI */}
