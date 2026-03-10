@@ -22,6 +22,9 @@ console.log('[NetFlow TikTok Upload] Content script loaded on:', window.location
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+/** Detect minimized/hidden window — getBoundingClientRect returns all zeros in this state */
+const _hidden = () => document.hidden;
+
 const waitForElement = async (
   selectorOrFn: string | (() => Element | null),
   timeout = 15000,
@@ -54,6 +57,7 @@ const findByText = (
     const t = (el.textContent || '').trim();
     const match = exact ? t === text : t.includes(text);
     if (match) {
+      if (_hidden()) return el;
       const rect = (el as HTMLElement).getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) return el;
     }
@@ -64,7 +68,7 @@ const findByText = (
 const findAllByText = (text: string, selector = 'button, a, span, div'): Element[] => {
   return Array.from(document.querySelectorAll(selector)).filter(el => {
     const t = (el.textContent || '').trim();
-    return t.includes(text) && (el as HTMLElement).getBoundingClientRect().width > 0;
+    return t.includes(text) && (_hidden() || (el as HTMLElement).getBoundingClientRect().width > 0);
   });
 };
 
@@ -451,6 +455,7 @@ const fillCaption = async (caption: string): Promise<boolean> => {
       ));
       // Filter: must be visible and reasonably sized (not a small comment box)
       return editors.find(el => {
+        if (_hidden()) return true;
         const rect = (el as HTMLElement).getBoundingClientRect();
         return rect.width > 200 && rect.height > 30;
       }) || null;
@@ -580,6 +585,7 @@ const addProductLink = async (productId: string): Promise<boolean> => {
       const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="search"], input[placeholder*="ค้นหา"], input[placeholder*="Search"], input[placeholder*="search"]'));
       // Filter to visible ones inside a modal/dialog context
       for (const inp of inputs) {
+        if (_hidden()) return inp;
         const rect = (inp as HTMLElement).getBoundingClientRect();
         if (rect.width > 100 && rect.height > 20) return inp;
       }
@@ -628,8 +634,10 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   // Strategy A: Find smallest element containing exactly our product ID (most precise)
   const candidates = Array.from(document.querySelectorAll('span, td, div, p')).filter(el => {
     const t = (el.textContent || '').trim();
+    if (!t.includes(productId) || t.length >= 200) return false;
+    if (_hidden()) return true;
     const rect = (el as HTMLElement).getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0 && t.includes(productId) && t.length < 200;
+    return rect.width > 0 && rect.height > 0;
   });
 
   // Sort by text length (smallest = most specific match)
@@ -651,10 +659,10 @@ const addProductLink = async (productId: string): Promise<boolean> => {
       // Check if this row looks like a product row (has image + product ID text)
       if (row.querySelector('img') && (row.textContent || '').includes(productId)) {
         const rowRect = (row as HTMLElement).getBoundingClientRect();
-        if (rowRect.height > 40 && rowRect.height < 200) {
+        if (_hidden() || (rowRect.height > 40 && rowRect.height < 200)) {
           // Click the leftmost part of the row (likely the checkbox area)
-          const clickX = rowRect.left + 30;
-          const clickY = rowRect.top + rowRect.height / 2;
+          const clickX = _hidden() ? 30 : rowRect.left + 30;
+          const clickY = _hidden() ? 30 : rowRect.top + rowRect.height / 2;
           row.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: clickX, clientY: clickY }));
           productSelected = true;
           log('Selected product by clicking row area');
@@ -724,7 +732,7 @@ const setScheduleTime = async (scheduleTime?: string): Promise<boolean> => {
       const labels = Array.from(document.querySelectorAll('label, div, span'));
       for (const el of labels) {
         const t = (el.textContent || '').trim();
-        if ((t === 'ตั้งเวลา' || t === 'Schedule') && (el as HTMLElement).getBoundingClientRect().width > 0) {
+        if ((t === 'ตั้งเวลา' || t === 'Schedule') && (_hidden() || (el as HTMLElement).getBoundingClientRect().width > 0)) {
           return el;
         }
       }

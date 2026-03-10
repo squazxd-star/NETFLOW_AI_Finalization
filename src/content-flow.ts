@@ -96,6 +96,11 @@ async function captureVideoUrlAndPreFetch(): Promise<string | null> {
             if (!src && v.currentSrc) src = v.currentSrc;
             if (!src) continue;
 
+            if (_hidden()) {
+                // When minimized, can't measure size — pick first video with src
+                if (!videoUrl) { videoUrl = src; bestArea = 1; }
+                continue;
+            }
             const r = v.getBoundingClientRect();
             const area = r.width * r.height;
             if (r.width > 50 && area > bestArea) {
@@ -219,6 +224,9 @@ function checkStop(): boolean {
     return !!(window as any).__NETFLOW_STOP__;
 }
 
+/** Detect minimized/hidden window — getBoundingClientRect returns all zeros in this state */
+const _hidden = () => document.hidden;
+
 /** Check if Google Flow is showing a generation failure message (Thai + English) */
 function isGenerationFailed(): string | null {
     const failurePatterns = [
@@ -246,6 +254,12 @@ function isGenerationFailed(): string | null {
 
 /** Cross-platform robust click: full pointer→mouse→click sequence for React/Radix */
 async function robustClick(el: HTMLElement) {
+    // When minimized/hidden, getBoundingClientRect returns 0s — just use .click()
+    if (_hidden()) {
+        el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        el.click();
+        return;
+    }
     const r = el.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
@@ -266,6 +280,7 @@ function robustHover(el: HTMLElement) {
     const r = el.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
+    // When minimized, coords are 0,0 but events still fire on the element — acceptable
     const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy };
     el.dispatchEvent(new PointerEvent("pointerenter", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
     el.dispatchEvent(new MouseEvent("mouseenter", opts));
@@ -296,6 +311,13 @@ function findCardsByIcon(iconText: string): HTMLElement[] {
         for (let depth = 0; depth < 20 && el; depth++) {
             el = el.parentElement;
             if (!el || el === document.body) break;
+            if (_hidden()) {
+                // When minimized, can't measure size — use DOM depth heuristic (cards are ~4-8 levels up)
+                if (depth >= 3 && el.children.length > 0 && !card) {
+                    card = el;
+                }
+                continue;
+            }
             const r = el.getBoundingClientRect();
             // Card: visible, reasonably sized, not the whole page
             if (r.width > 100 && r.height > 80 &&
@@ -332,6 +354,14 @@ function findFirstVideoCard(silent = false): HTMLElement | null {
     for (const vid of videos) {
         let container = vid.parentElement;
         for (let i = 0; i < 10 && container; i++) {
+            if (_hidden()) {
+                if (i >= 3 && container.children.length > 0) {
+                    candidates.push({ el: container, left: 0 });
+                    break;
+                }
+                container = container.parentElement;
+                continue;
+            }
             const r = container.getBoundingClientRect();
             // Size check + Exclude right sidebar (settings) + allow near top edge
             if (r.width > 120 && r.height > 80 && r.width < window.innerWidth * 0.7 && r.top >= -50) {
@@ -351,6 +381,14 @@ function findFirstVideoCard(silent = false): HTMLElement | null {
         if (txt === "play_arrow" || txt === "play_circle" || txt === "videocam") {
             let container = icon.parentElement;
             for (let i = 0; i < 10 && container; i++) {
+                if (_hidden()) {
+                    if (i >= 3 && container.children.length > 0) {
+                        candidates.push({ el: container, left: 0 });
+                        break;
+                    }
+                    container = container.parentElement;
+                    continue;
+                }
                 const r = container.getBoundingClientRect();
                 if (r.width > 120 && r.height > 80 && r.width < window.innerWidth * 0.7 && r.top >= -50) {
                     if (r.left < window.innerWidth * 0.75) {
@@ -370,6 +408,14 @@ function findFirstVideoCard(silent = false): HTMLElement | null {
         if (alt.includes("video") || alt.includes("วิดีโอ")) {
             let container = img.parentElement;
             for (let i = 0; i < 10 && container; i++) {
+                if (_hidden()) {
+                    if (i >= 3 && container.children.length > 0) {
+                        candidates.push({ el: container, left: 0 });
+                        break;
+                    }
+                    container = container.parentElement;
+                    continue;
+                }
                 const r = container.getBoundingClientRect();
                 if (r.width > 120 && r.height > 80 && r.width < window.innerWidth * 0.7 && r.top >= -50) {
                     if (r.left < window.innerWidth * 0.75) {
@@ -416,6 +462,14 @@ function findFirstImageCard(): HTMLElement | null {
     for (const cvs of canvases) {
         let container = cvs.parentElement;
         for (let i = 0; i < 10 && container; i++) {
+            if (_hidden()) {
+                if (i >= 3 && container.children.length > 0) {
+                    LOG(`🖼️ พบการ์ดรูปภาพจาก <canvas> (minimized mode)`);
+                    return container;
+                }
+                container = container.parentElement;
+                continue;
+            }
             const r = container.getBoundingClientRect();
             if (r.width > 100 && r.height > 80 && r.width < window.innerWidth * 0.6) {
                 LOG(`🖼️ พบการ์ดรูปภาพจาก <canvas> สำรองที่ (${r.left.toFixed(0)},${r.top.toFixed(0)})`);
@@ -484,10 +538,12 @@ function findPromptBarAddButton(): HTMLElement | null {
         // Fallback: look for buttons with just "+" text at the bottom
         const allBtns = document.querySelectorAll<HTMLElement>("button");
         for (const btn of allBtns) {
+            const txt = (btn.textContent || "").trim();
+            if (txt !== "+" && txt !== "add") continue;
+            if (_hidden()) return btn;
             const rect = btn.getBoundingClientRect();
             if (rect.bottom > window.innerHeight * 0.7 && rect.width < 60 && rect.height < 60) {
-                const txt = (btn.textContent || "").trim();
-                if (txt === "+" || txt === "add") return btn;
+                return btn;
             }
         }
         return null;
@@ -537,6 +593,10 @@ function findGenerateButton(): HTMLElement | null {
     let candidate: HTMLElement | null = null;
     let bestScore = 0;
     for (const btn of allBtns) {
+        if (_hidden()) {
+            // When minimized, can't check position — skip this strategy
+            break;
+        }
         const rect = btn.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.7 && rect.right > window.innerWidth * 0.5) {
             const isCircular = Math.abs(rect.width - rect.height) < 10 && rect.width < 60;
@@ -570,6 +630,7 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
     // Strategy 1: textarea at the bottom area
     const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
     for (const ta of textareas) {
+        if (_hidden()) return ta; // When minimized, accept first textarea
         const rect = ta.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.5) return ta;
     }
@@ -577,6 +638,7 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
     // Strategy 2: contenteditable in bottom area
     const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
     for (const el of editables) {
+        if (_hidden()) return el; // When minimized, accept first editable
         const rect = el.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.5) return el;
     }
@@ -937,15 +999,18 @@ function countPromptBarThumbnails(): number {
     const images = document.querySelectorAll<HTMLImageElement>("img");
     for (const img of images) {
         if (img.closest("#netflow-engine-overlay")) continue;
+        if (!img.src) continue;
+        if (_hidden()) { count++; continue; }
         const rect = img.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
-            && rect.height > 20 && rect.height < 200 && img.src && img.offsetParent !== null) {
+            && rect.height > 20 && rect.height < 200 && img.offsetParent !== null) {
             count++;
         }
     }
     const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
     for (const div of thumbDivs) {
         if (div.closest("#netflow-engine-overlay")) continue;
+        if (_hidden()) { count++; continue; }
         const rect = div.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
             && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
@@ -963,10 +1028,16 @@ function checkPromptBarThumbnail(): boolean {
     // Look for image thumbnails in the bottom portion of the page (prompt bar area)
     const images = document.querySelectorAll<HTMLImageElement>("img");
     for (const img of images) {
+        if (!img.src) continue;
+        if (img.closest("#netflow-engine-overlay")) continue;
+        if (_hidden()) {
+            LOG(`พบรูปย่อ (minimized mode)`);
+            return true;
+        }
         const rect = img.getBoundingClientRect();
         // Thumbnail should be in the bottom 40% of the screen, small-ish, and visible
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
-            && rect.height > 20 && rect.height < 200 && img.src && img.offsetParent !== null) {
+            && rect.height > 20 && rect.height < 200 && img.offsetParent !== null) {
             LOG(`พบรูปย่อ: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} ที่ y=${rect.top.toFixed(0)}`);
             return true;
         }
@@ -974,6 +1045,8 @@ function checkPromptBarThumbnail(): boolean {
     // Also check for div/span with background-image in prompt bar area
     const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
     for (const div of thumbDivs) {
+        if (div.closest("#netflow-engine-overlay")) continue;
+        if (_hidden()) return true;
         const rect = div.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
             && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
@@ -997,6 +1070,7 @@ async function dropFileOnPromptBar(file: File): Promise<boolean> {
     // Priority 1: contenteditable in bottom area
     const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
     for (const el of editables) {
+        if (_hidden()) { targets.push(el); continue; }
         const rect = el.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.5) targets.push(el);
     }
@@ -1004,12 +1078,13 @@ async function dropFileOnPromptBar(file: File): Promise<boolean> {
     // Priority 2: form or wrapper in bottom area
     const wrappers = document.querySelectorAll<HTMLElement>('form, [role="textbox"], [data-slate-editor]');
     for (const el of wrappers) {
+        if (_hidden()) { if (!targets.includes(el)) targets.push(el); continue; }
         const rect = el.getBoundingClientRect();
         if (rect.bottom > window.innerHeight * 0.5 && !targets.includes(el)) targets.push(el);
     }
 
     // Priority 3: any div in bottom area that looks like a prompt container
-    if (targets.length === 0) {
+    if (targets.length === 0 && !_hidden()) {
         const bottomDivs = document.querySelectorAll<HTMLElement>("div");
         for (const div of bottomDivs) {
             const rect = div.getBoundingClientRect();
