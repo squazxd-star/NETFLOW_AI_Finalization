@@ -622,37 +622,22 @@ Do not explain. Only output the lines above.`;
                                         Under Development
                                     </span>
                                 </div>
-                                {/* Chain X cross over content */}
+                                {/* Padlock + content */}
                                 <div className="relative flex flex-col items-center justify-center gap-1 py-2.5 px-3 w-full">
-                                    <div className="absolute inset-0 pointer-events-none z-10">
-                                        <svg width="100%" height="100%" viewBox="0 0 120 80" preserveAspectRatio="none" className="absolute inset-0">
-                                            <defs>
-                                                <linearGradient id="chainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                    <stop offset="0%" stopColor="#a1a1aa" stopOpacity="0.5"/>
-                                                    <stop offset="50%" stopColor="#d4d4d8" stopOpacity="0.7"/>
-                                                    <stop offset="100%" stopColor="#71717a" stopOpacity="0.5"/>
-                                                </linearGradient>
-                                            </defs>
-                                            <g transform="rotate(35, 60, 40)">
-                                                {[0,1,2,3,4,5].map(i => (
-                                                    <ellipse key={`a${i}`} cx={12 + i * 19} cy="40" rx="7" ry="4.5"
-                                                        fill="none" stroke="url(#chainGrad)" strokeWidth="2"
-                                                        transform={`rotate(${i % 2 === 0 ? 0 : 90}, ${12 + i * 19}, 40)`}/>
-                                                ))}
-                                            </g>
-                                            <g transform="rotate(-35, 60, 40)">
-                                                {[0,1,2,3,4,5].map(i => (
-                                                    <ellipse key={`b${i}`} cx={12 + i * 19} cy="40" rx="7" ry="4.5"
-                                                        fill="none" stroke="url(#chainGrad)" strokeWidth="2"
-                                                        transform={`rotate(${i % 2 === 0 ? 0 : 90}, ${12 + i * 19}, 40)`}/>
-                                                ))}
-                                            </g>
+                                    {/* Centered padlock overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-zinc-400 opacity-40 drop-shadow-sm">
+                                            <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" opacity="0.3"/>
+                                            <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                                            <path d="M8 11V7a4 4 0 1 1 8 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                            <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+                                            <path d="M12 17.5V19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                                         </svg>
                                     </div>
-                                    <div className="w-7 h-7 flex items-center justify-center grayscale opacity-30">
+                                    <div className="w-7 h-7 flex items-center justify-center grayscale opacity-25">
                                         <GrokLogo className="w-6 h-6" active={false} />
                                     </div>
-                                    <div className="flex flex-col items-center leading-tight opacity-30">
+                                    <div className="flex flex-col items-center leading-tight opacity-25">
                                         <span className="text-[12px] font-bold tracking-tight text-muted-foreground">Grok</span>
                                         <span className="text-[9px] font-normal text-muted-foreground/50">xAI</span>
                                     </div>
