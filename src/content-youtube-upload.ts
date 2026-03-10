@@ -32,9 +32,6 @@ console.log('[NetFlow YouTube] Content script loaded on:', window.location.href)
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-/** Detect minimized/hidden window — getBoundingClientRect returns all zeros in this state */
-const _hidden = () => document.hidden;
-
 const log = (msg: string) => {
     console.log(`[NetFlow YouTube] ${msg}`);
     try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "info", msg: `[YT] ${msg}` }); } catch (_) {}
@@ -111,7 +108,6 @@ const findByTexts = (
             const matchTc = exact ? tc === text : tc.includes(text);
             const matchIt = exact ? it === text : it.includes(text);
             if (matchTc || matchIt) {
-                if (_hidden()) return el; // When minimized, skip size check
                 const rect = (el as HTMLElement).getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) return el;
             }
@@ -482,7 +478,6 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 // Primary: direct ID selector
                 const byId = document.querySelector('#menu-item-1') as HTMLElement | null;
                 if (byId) {
-                    if (_hidden()) return byId;
                     const r = byId.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) return byId;
                 }
@@ -517,7 +512,6 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 for (const tab of tabs) {
                     const text = (tab.textContent || '').trim();
                     if (text === 'Shorts') {
-                        if (_hidden()) return tab;
                         const r = (tab as HTMLElement).getBoundingClientRect();
                         if (r.width > 0 && r.height > 0) return tab;
                     }
@@ -548,7 +542,6 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                                document.querySelector('ytcp-button-shape button[aria-label="Upload videos"]') ||
                                document.querySelector('ytcp-button-shape button[aria-label="Upload video"]');
                 if (byAria) {
-                    if (_hidden()) return byAria;
                     const r = (byAria as HTMLElement).getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) return byAria;
                 }
@@ -564,47 +557,49 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 log('คลิกปุ่ม "อัปโหลดวิดีโอ" บนหน้า Shorts');
                 await delay(2500);
             } else {
-                // ══════════════════════════════════════════════════════════════
-                // FALLBACK: Shorts page has no upload button (first-time user)
-                // Use "สร้าง/Create" button at top-right → dropdown → "อัปโหลดวิดีโอ"
-                // ══════════════════════════════════════════════════════════════
-                log('ไม่พบปุ่มอัปโหลดบน Shorts page — ใช้ fallback: ปุ่ม "สร้าง/Create"');
+                // ── FALLBACK: Click "สร้าง"/"Create" button (top-right) → dropdown → "อัปโหลดวิดีโอ" ──
+                log('ไม่พบปุ่มอัปโหลดบนหน้า Shorts — ใช้ปุ่ม "สร้าง/Create" แทน');
 
-                // ── Click "สร้าง" / "Create" button (top-right header) ──
                 const createBtn = await waitForElement(() => {
-                    // Strategy 1: aria-label match (from user's HTML: aria-label="สร้าง")
-                    const byAriaCreate = document.querySelector('ytcp-button-shape button[aria-label="สร้าง"]') ||
-                                         document.querySelector('ytcp-button-shape button[aria-label="Create"]');
-                    if (byAriaCreate) {
-                        if (_hidden()) return byAriaCreate;
-                        const r = (byAriaCreate as HTMLElement).getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) return byAriaCreate;
+                    // Primary: aria-label match (TH/EN)
+                    const byAria = document.querySelector('ytcp-button-shape button[aria-label="สร้าง"]') ||
+                                   document.querySelector('ytcp-button-shape button[aria-label="Create"]');
+                    if (byAria) {
+                        const r = (byAria as HTMLElement).getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return byAria;
                     }
-                    // Strategy 2: button text content match
-                    return findByTexts(
-                        ['สร้าง', 'Create'],
-                        'ytcp-button-shape button, button'
-                    );
+                    // Fallback: find by text content inside ytcp-button-shape
+                    const candidates = document.querySelectorAll('ytcp-button-shape button');
+                    for (const btn of candidates) {
+                        const txt = (btn.textContent || '').replace(/\s+/g, ' ').trim();
+                        if (txt === 'สร้าง' || txt === 'Create') {
+                            const r = (btn as HTMLElement).getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) return btn;
+                        }
+                    }
+                    // Last resort: findByTexts
+                    return findByTexts(['สร้าง', 'Create'], 'ytcp-button-shape button, button');
                 }, 10000);
 
                 if (createBtn) {
                     clickElement(createBtn);
-                    log('คลิกปุ่ม "สร้าง/Create" ที่มุมขวาบน');
+                    log('คลิกปุ่ม "สร้าง/Create" (มุมขวาบน)');
                     await delay(2000);
 
-                    // ── Click "อัปโหลดวิดีโอ" / "Upload videos" from dropdown ──
+                    // Wait for dropdown menu to appear, then click "อัปโหลดวิดีโอ"/"Upload videos"
                     const uploadMenuItem = await waitForElement(() => {
-                        // Strategy 1: yt-formatted-string inside ytcp-text-menu
-                        const items = document.querySelectorAll('ytcp-text-menu yt-formatted-string.item-text');
-                        for (const item of items) {
-                            const txt = (item.textContent || '').trim();
+                        // Primary: yt-formatted-string with exact text inside dropdown menu
+                        const menuItems = document.querySelectorAll('ytcp-text-menu yt-formatted-string.item-text, tp-yt-paper-item yt-formatted-string');
+                        for (const item of menuItems) {
+                            const txt = (item.textContent || '').replace(/\s+/g, ' ').trim();
                             if (txt === 'อัปโหลดวิดีโอ' || txt === 'Upload videos' || txt === 'Upload video') {
-                                if (_hidden()) return item;
-                                const r = (item as HTMLElement).getBoundingClientRect();
-                                if (r.width > 0 && r.height > 0) return item;
+                                // Return the clickable parent (tp-yt-paper-item or div.right-container)
+                                const clickTarget = item.closest('tp-yt-paper-item') || item.closest('div.style-scope.ytcp-text-menu') || item;
+                                const r = (clickTarget as HTMLElement).getBoundingClientRect();
+                                if (r.width > 0 && r.height > 0) return clickTarget;
                             }
                         }
-                        // Strategy 2: tp-yt-paper-item with matching text
+                        // Fallback: findByTexts in dropdown area
                         return findByTexts(
                             ['อัปโหลดวิดีโอ', 'Upload videos', 'Upload video'],
                             'tp-yt-paper-item, ytcp-text-menu div, yt-formatted-string'
@@ -612,16 +607,14 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                     }, 8000);
 
                     if (uploadMenuItem) {
-                        // Click the parent tp-yt-paper-item for proper event handling
-                        const menuTarget = uploadMenuItem.closest('tp-yt-paper-item') || uploadMenuItem;
-                        clickElement(menuTarget);
+                        clickElement(uploadMenuItem);
                         log('คลิก "อัปโหลดวิดีโอ/Upload videos" จาก dropdown');
                         await delay(2500);
                     } else {
-                        warn('ไม่พบ "อัปโหลดวิดีโอ" ใน dropdown — อาจต้อง verify channel');
+                        warn('ไม่พบ "อัปโหลดวิดีโอ" ใน dropdown ของปุ่มสร้าง');
                     }
                 } else {
-                    warn('ไม่พบปุ่ม "สร้าง/Create" — ตรวจสอบหน้า YouTube Studio');
+                    warn('ไม่พบทั้งปุ่มอัปโหลดและปุ่มสร้าง — ไม่สามารถเปิดหน้าอัปโหลดได้');
                 }
             }
         }
@@ -745,17 +738,13 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             log('ไม่พบปุ่ม "เพิ่มทั้งหมด" สำหรับแฮชแท็ก — ข้าม');
         }
 
-        // Description — always ensure #Shorts is included for YouTube Shorts categorization
-        const ensureShortsHashtag = (desc: string): string => {
-            if (!desc) return '#Shorts';
-            // Check if #Shorts (case-insensitive) already exists
-            if (/#shorts\b/i.test(desc)) return desc;
-            // Append #Shorts at the end
-            return desc.trimEnd() + ' #Shorts';
-        };
-        config.description = ensureShortsHashtag(config.description || '');
-
-        if (config.description) {
+        // Description — always ensure #Shorts is present
+        let finalDescription = config.description || '';
+        if (!finalDescription.includes('#Shorts') && !finalDescription.includes('#shorts')) {
+            finalDescription = finalDescription.trim() ? `${finalDescription.trim()}\n\n#Shorts` : '#Shorts';
+            log('เพิ่ม #Shorts ใน description อัตโนมัติ');
+        }
+        if (finalDescription) {
             const descField = await waitForElement(() => {
                 return document.querySelector('#description-textarea #textbox[contenteditable="true"]') ||
                        document.querySelector('div[contenteditable="true"][aria-label*="คำอธิบาย"]') ||
@@ -763,8 +752,8 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                        document.querySelector('div[contenteditable="true"][aria-label*="บอกข้อมูล"]');
             }, 8000);
             if (descField) {
-                await typeIntoContentEditable(descField as HTMLElement, config.description);
-                log(`กรอกคำอธิบาย: "${config.description.substring(0, 50)}..."`);
+                await typeIntoContentEditable(descField as HTMLElement, finalDescription);
+                log(`กรอกคำอธิบาย: "${finalDescription.substring(0, 50)}..."`);
             } else {
                 warn('ไม่พบช่อง Description');
             }
@@ -926,7 +915,6 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 // Primary: direct ID
                 const byId = document.querySelector('#second-container-expand-button');
                 if (byId) {
-                    if (_hidden()) return byId;
                     const rect = (byId as HTMLElement).getBoundingClientRect();
                     if (rect.width > 0 && rect.height > 0) return byId;
                 }
@@ -952,7 +940,6 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 const trigger = picker.querySelector('ytcp-text-dropdown-trigger') ||
                                 picker.querySelector('ytcp-dropdown-trigger');
                 if (trigger) {
-                    if (_hidden()) return trigger;
                     const rect = (trigger as HTMLElement).getBoundingClientRect();
                     if (rect.width > 0 && rect.height > 0) return trigger;
                 }
@@ -1147,7 +1134,6 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                             dialog.querySelector('#close-button button[aria-label="Close"]') ||
                             dialog.querySelector('#close-button button');
                 if (btn) {
-                    if (_hidden()) return btn;
                     const rect = (btn as HTMLElement).getBoundingClientRect();
                     if (rect.width > 0 && rect.height > 0) return btn;
                 }

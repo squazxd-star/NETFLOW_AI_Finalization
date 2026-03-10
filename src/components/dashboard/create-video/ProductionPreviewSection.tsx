@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Share2, Youtube, Save, Globe, Lock, EyeOff, Calendar, Clock, Sparkles, Loader2 } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
 import { generateYouTubeMetadata } from "@/services/youtubeMetadataService";
+import { setYouTubeAutoPostEnabled, saveYouTubeConfig } from "@/services/youtubeUploadService";
 
 const TikTokIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -28,9 +29,29 @@ const ProductionPreviewSection = ({
     const youtubeVisibility = watch("youtubeVisibility");
     const youtubeMadeForKids = watch("youtubeMadeForKids");
     const youtubeScheduleEnabled = watch("youtubeScheduleEnabled");
+    const youtubeTitle = watch("youtubeTitle");
+    const youtubeDescription = watch("youtubeDescription");
+    const youtubeScheduleDate = watch("youtubeScheduleDate");
+    const youtubeScheduleTime = watch("youtubeScheduleTime");
     const { toast } = useToast();
     const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+
+    // Persist YouTube auto-post settings to Chrome storage whenever they change
+    useEffect(() => {
+        setYouTubeAutoPostEnabled(!!autoPostYoutube);
+        if (autoPostYoutube) {
+            saveYouTubeConfig({
+                title: (youtubeTitle as string) || '',
+                description: (youtubeDescription as string) || '',
+                madeForKids: !!youtubeMadeForKids,
+                visibility: (youtubeVisibility as 'public' | 'unlisted' | 'private') || 'public',
+                scheduleEnabled: !!youtubeScheduleEnabled,
+                scheduleDate: (youtubeScheduleDate as string) || '',
+                scheduleTime: (youtubeScheduleTime as string) || '',
+            });
+        }
+    }, [autoPostYoutube, youtubeTitle, youtubeDescription, youtubeMadeForKids, youtubeVisibility, youtubeScheduleEnabled, youtubeScheduleDate, youtubeScheduleTime]);
 
     const handleGenerateTitle = async () => {
         const productName = watch("productName") as string;

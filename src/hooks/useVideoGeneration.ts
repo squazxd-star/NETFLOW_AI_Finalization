@@ -4,6 +4,7 @@ import { VideoGenerationResponse } from "../types/netflow";
 import { useToast } from "./use-toast";
 import { getActiveProduct } from "../services/tiktokProductService";
 import { uploadToTikTok, isTikTokAutoPostEnabled, addPostHistory } from "../services/tiktokUploadService";
+import { isYouTubeAutoPostEnabled, getYouTubeConfig, uploadToYouTube } from "../services/youtubeUploadService";
 
 // Check if running as Chrome Extension
 const isExtension = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage;
@@ -32,6 +33,62 @@ export const useVideoGeneration = () => {
     const [result, setResult] = useState<VideoGenerationResponse | null>(null);
     const [tiktokPostStatus, setTiktokPostStatus] = useState<TikTokPostProgress>(INITIAL_TIKTOK_STATUS);
     const { toast } = useToast();
+
+    // Helper: fetch cached video data URL from background for preview playback
+    const fetchCachedVideoDataUrl = (): Promise<string | null> => {
+        if (!isExtension) return Promise.resolve(null);
+        return new Promise((resolve) => {
+            chrome.runtime.sendMessage({ type: 'GET_CACHED_VIDEO' }, (resp) => {
+                if (chrome.runtime.lastError || !resp?.success || !resp.data) {
+                    console.log('[useVideoGeneration] No cached video data URL available');
+                    resolve(null);
+                    return;
+                }
+                console.log('[useVideoGeneration] Got cached video data URL for preview');
+                resolve(resp.data as string);
+            });
+        });
+    };
+
+    // Handle YouTube auto-post after video generation
+    const handleYouTubeAutoPost = async (videoUrl: string) => {
+        try {
+            const autoPostEnabled = await isYouTubeAutoPostEnabled();
+            if (!autoPostEnabled) {
+                console.log("[useVideoGeneration] YouTube auto-post disabled");
+                return;
+            }
+
+            const config = await getYouTubeConfig();
+            if (!config) {
+                console.log("[useVideoGeneration] No YouTube config found");
+                return;
+            }
+
+            toast({
+                title: "📤 กำลังอัพโหลดไป YouTube Shorts...",
+                description: `Title: "${config.title || 'Netflow AI Video'}"`,
+            });
+
+            const uploadResult = await uploadToYouTube({ videoUrl, config });
+
+            if (uploadResult.success) {
+                toast({
+                    title: "✅ YouTube Upload เริ่มแล้ว!",
+                    description: "ระบบกำลังอัพโหลดวิดีโอไป YouTube Studio",
+                    className: "bg-green-600 text-white"
+                });
+            } else {
+                toast({
+                    title: "❌ YouTube Upload ไม่สำเร็จ",
+                    description: uploadResult.error || "เกิดข้อผิดพลาด",
+                    variant: "destructive"
+                });
+            }
+        } catch (error) {
+            console.error("[useVideoGeneration] YouTube auto-post error:", error);
+        }
+    };
 
     // Handle TikTok auto-post after video generation
     const handleTikTokAutoPost = async (videoUrl: string) => {
@@ -120,18 +177,24 @@ export const useVideoGeneration = () => {
         const handleMessage = (message: any) => {
             console.log("[Hook] Received message:", message.type, message);
 
-            // Handle video generation complete — trigger TikTok auto-post
+            // Handle video generation complete — trigger auto-posts + fetch preview
             if (message.type === "VIDEO_GENERATION_COMPLETE") {
                 setIsLoading(false);
                 const source = message.source || 'rpa';
-                setResult({
-                    success: true,
-                    message: source === 'grok' ? "Video generated via Grok Imagine" : "Generated via VideoFX RPA",
-                    data: {
-                        script: source === 'grok' ? "Video generated via Grok Imagine ✅" : "Video generated via RPA",
-                        videoUrl: message.videoUrl
-                    }
+
+                // Fetch cached video data URL for preview playback
+                fetchCachedVideoDataUrl().then((cachedDataUrl) => {
+                    const previewUrl = cachedDataUrl || message.videoUrl;
+                    setResult({
+                        success: true,
+                        message: source === 'grok' ? "Video generated via Grok Imagine" : "Generated via VideoFX RPA",
+                        data: {
+                            script: source === 'grok' ? "Video generated via Grok Imagine ✅" : "Video generated via RPA",
+                            videoUrl: previewUrl
+                        }
+                    });
                 });
+
                 toast({
                     title: "🎬 สร้างวิดีโอสำเร็จ!",
                     description: source === 'grok' ? "Grok Imagine สร้างวิดีโอเสร็จแล้ว!" : "VideoFX RPA ทำงานเสร็จสิ้น",
@@ -139,6 +202,8 @@ export const useVideoGeneration = () => {
                 });
                 // Trigger TikTok auto-post if enabled
                 if (message.videoUrl) handleTikTokAutoPost(message.videoUrl);
+                // Trigger YouTube auto-post if enabled
+                if (message.videoUrl) handleYouTubeAutoPost(message.videoUrl);
             }
 
             if (message.type === "VIDEO_GENERATION_ERROR") {
