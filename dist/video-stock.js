@@ -175,9 +175,8 @@ async function loadAndRender() {
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'card-body';
 
-        // Info section
+        // Info
         const infoDiv = document.createElement('div');
-        infoDiv.className = 'card-info';
 
         const titleDiv = document.createElement('div');
         titleDiv.className = 'card-title';
@@ -194,18 +193,15 @@ async function loadAndRender() {
         infoDiv.appendChild(titleDiv);
         infoDiv.appendChild(metaDiv);
 
-        // Actions section
+        // Actions — all icon buttons
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'card-actions';
 
-        const btnDownload = document.createElement('button');
-        btnDownload.className = 'btn-download';
-        btnDownload.title = '\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14';
-        btnDownload.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\u0e42\u0e2b\u0e25\u0e14';
-        btnDownload.addEventListener('click', () => downloadVideo(video.id));
-
-        const iconGroup = document.createElement('div');
-        iconGroup.className = 'btn-icon-group';
+        const btnDl = document.createElement('button');
+        btnDl.className = 'btn-icon btn-dl';
+        btnDl.title = '\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14';
+        btnDl.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>';
+        btnDl.addEventListener('click', () => downloadVideo(video.id));
 
         const btnYT = document.createElement('button');
         btnYT.className = 'btn-icon btn-yt';
@@ -225,12 +221,10 @@ async function loadAndRender() {
         btnDel.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
         btnDel.addEventListener('click', () => confirmDeleteVideo(video.id));
 
-        iconGroup.appendChild(btnYT);
-        iconGroup.appendChild(btnTT);
-        iconGroup.appendChild(btnDel);
-
-        actionsDiv.appendChild(btnDownload);
-        actionsDiv.appendChild(iconGroup);
+        actionsDiv.appendChild(btnDl);
+        actionsDiv.appendChild(btnYT);
+        actionsDiv.appendChild(btnTT);
+        actionsDiv.appendChild(btnDel);
 
         bodyDiv.appendChild(infoDiv);
         bodyDiv.appendChild(actionsDiv);

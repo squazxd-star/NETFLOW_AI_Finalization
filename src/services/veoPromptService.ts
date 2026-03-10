@@ -1082,20 +1082,20 @@ const CINEMATIC_SPECS: Record<string, string> = {
 
 // Camera Movement — per-template motion directives for video (NOT image)
 const CAMERA_MOVEMENT: Record<string, string> = {
-    "product-review": "Smooth slow zoom-in on product, then gentle pan to presenter face, steady tripod feel",
-    "brainrot-product": "Handheld shaky cam, quick whip pans, jump cuts between angles, high energy movement",
-    "food-review": "Slow cinematic push-in on food, smooth orbit around dish, close-up macro tracking on texture",
-    "fashion-review": "Smooth tracking shot following model walk, gentle tilt from shoes to face, fluid dolly movement",
-    "gadget-review": "Steady close-up on hands demonstrating, smooth slide from product to presenter, controlled push-in on features",
-    "unboxing": "Overhead bird's-eye slowly descending, gentle push-in on hands opening, reveal pan from box to product",
-    "comparison": "Smooth horizontal slide between two products, steady locked-off comparison angle, controlled pan",
-    "testimonial": "Static medium shot with subtle breathing movement, gentle drift closer during emotional moment",
-    "flash-sale": "Fast zoom-in burst, energetic whip pan to product, dynamic angle switches with motion blur",
-    "tutorial": "Steady overhead angle, smooth transition to eye-level for demonstration, controlled tracking on hands",
-    "lifestyle": "Floating steadicam follow shot, natural handheld movement, golden-hour dolly through space",
-    "trending": "Vertical smartphone POV, trendy snap-zoom, smooth transition matching viral format rhythm",
+    "product-review": "Dynamic sweeping camera movement, smooth orbit around product, engaging depth of field shifts, cinematic tracking",
+    "brainrot-product": "Handheld shaky cam, quick whip pans, snap zooms, dynamic tracking, high energy movement",
+    "food-review": "Slow cinematic push-in on food, smooth 45-degree orbit around dish, close-up macro tracking on texture",
+    "fashion-review": "Smooth tracking shot following model walk, dynamic tilt and pan, fluid dolly movement",
+    "gadget-review": "Dynamic macro slider shot, smooth sweeping orbit around device, controlled push-in on features with rack focus",
+    "unboxing": "Overhead bird's-eye slowly descending, dynamic 3D rotation, reveal pan from box to product",
+    "comparison": "Smooth horizontal slide between two products, dynamic split-focus shifts, controlled sweeping pan",
+    "testimonial": "Slow cinematic dolly-in, subtle breathing movement, gentle drift closer during emotional moment",
+    "flash-sale": "Fast snap-zoom burst, energetic whip pan to product, dynamic Dutch angle switches with motion blur",
+    "tutorial": "Dynamic crane shot descending to eye-level, smooth tracking on hands, engaging cinematic flow",
+    "lifestyle": "Floating steadicam follow shot, natural handheld movement, cinematic parallax tracking",
+    "trending": "Vertical smartphone POV, trendy snap-zoom, dynamic whip pans matching viral format rhythm",
     "mini-drama": "Cinematic dolly push-in for drama, slow orbit during revelation, dramatic rack focus between subject and product",
-    "before-after": "Locked-off static shot for comparison, smooth match-cut transition, controlled reveal pan"
+    "before-after": "Dynamic wipe transition pan, smooth match-cut slider movement, controlled reveal pan"
 };
 
 // Scene Transition — keywords for seamless inter-scene continuity
@@ -5170,36 +5170,41 @@ const getScreenContentDirective = (category: ProductCategory, sceneScript: strin
     
     // Gaming keywords → game visuals on screen
     if (/เกม|game|gaming|เล่นเกม|แรง.*สะใจ|ลื่น.*มาก|fps|แรงค์|rank/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show a vivid 3D video game environment — colorful game world with characters, explosions, racing, or action scene clearly visible and in motion on the screen. The game graphics must be bright, detailed, and unmistakably a video game. Do NOT show a blank or generic screen.`;
+        return `SCREEN CONTENT: The product display MUST show a vivid, HIGHLY ANIMATED 3D video game environment running in real-time — colorful game world with characters, explosions, racing, or fast-paced action clearly visible and actively moving on the screen. The game graphics must be bright, detailed, and unmistakably a video game in motion. Do NOT show a static image or paused screen.`;
     }
     
     // Video editing keywords → editing app UI on screen
     if (/ตัดต่อ|edit|premiere|after effect|วีดีโอ.*ลื่น|render|timeline/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show a professional video editing application interface (resembling Adobe Premiere Pro or After Effects) — with visible timeline bar at bottom, video preview panel in center, and editing tool panels on sides. The editing workspace must be clearly recognizable. Do NOT show a blank or generic screen.`;
+        return `SCREEN CONTENT: The product display MUST show an ACTIVE, ANIMATED professional video editing application interface (resembling Adobe Premiere Pro or After Effects) — with visible timeline playback moving, video preview panel showing moving video, and editing tool panels. The editing workspace must be clearly in use and animating. Do NOT show a static screenshot.`;
+    }
+
+    // Code / Work keywords
+    if (/ทำงาน|work|code|โปรแกรม|office|เอกสาร|พิมพ์|typing/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show an ACTIVE computer operating system (like Windows or macOS). Show active typing, moving mouse cursor, scrolling through documents, or coding with animated syntax highlighting. It must look like a real, functioning computer interface in use, NOT a static wallpaper.`;
     }
     
     // Photo/camera keywords → photo gallery on screen
     if (/กล้อง|ถ่ายรูป|ถ่ายภาพ|photo|camera|ภาพ.*สวย|ภาพ.*คม/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show a beautiful high-quality photograph or photo gallery with vivid colors clearly visible on screen.`;
+        return `SCREEN CONTENT: The product display MUST show a dynamic photo gallery interface with images swiping or a camera viewfinder actively framing a moving scene with focus UI elements.`;
     }
     
     // Video watching keywords → video playback on screen
     if (/ดูหนัง|ดูวีดีโอ|movie|video|netflix|youtube|ดู.*ฟิน/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show vivid colorful video content or movie scene playing with bright rich visuals clearly visible on the screen.`;
+        return `SCREEN CONTENT: The product display MUST show vivid colorful video content or a movie scene actively playing with bright rich visuals in motion on the screen. MUST be animated.`;
     }
     
     // Screen quality keywords → vibrant display content
     if (/จอ.*สี|สี.*สด|คมชัด|display|screen|oled|amoled|จอ.*สวย/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show vibrant colorful content (wallpaper, photo, or video) with rich saturated colors that demonstrate the screen quality. Colors must be vivid and eye-catching.`;
+        return `SCREEN CONTENT: The product display MUST show vibrant, ANIMATED colorful content (like an animated 3D live wallpaper, moving fluids, or playing video) with rich saturated colors that demonstrate the screen quality. MUST be actively moving.`;
     }
     
     // Speed keywords → apps/UI responding
     if (/เร็ว|speed|fast|ปุ๊บ|ทันที|ลื่น|smooth/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show app interface elements or multiple windows responding instantly — smooth animations, app icons, active UI clearly visible.`;
+        return `SCREEN CONTENT: The product display MUST show app interface elements or multiple windows responding and animating instantly — smooth UI animations, app icons popping, active OS interface clearly moving.`;
     }
     
     // Default for screen products — always show SOMETHING on screen
-    return `SCREEN CONTENT: The product display must show bright, colorful, active content — never a blank, black, or turned-off screen.`;
+    return `SCREEN CONTENT: The product display MUST show highly active, ANIMATED content in motion — such as moving OS UI elements (Windows/macOS), video playback, scrolling, or game action. It must look like a real, functioning device screen. NEVER show a blank screen, and NEVER show a static image, static product ad, or motionless wallpaper on the screen.`;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5309,85 +5314,85 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     laptop: [
         {
             script: (name) => `จอ ${name} คมชัดมาก สีสดเวอร์`,
-            action: "Presenter shows laptop screen directly to camera — the laptop display MUST show a vibrant colorful wallpaper or vivid photo gallery with rich saturated colors clearly visible on screen. Points at screen. Screen is the HERO of this shot."
+            action: "Dynamic close-up tracking shot. Presenter shows laptop screen directly to camera — the laptop display MUST show a vibrant, fully ANIMATED and moving colorful video or active OS UI. Points at screen. Screen is the HERO of this shot. Camera smoothly pans across the display."
         },
         {
             script: (name) => `${name} เล่นเกมลื่นมาก แรงสะใจ`,
-            action: "Presenter actively gaming on laptop — focused intense expression, fingers rapidly pressing keyboard keys. CRITICAL: The laptop screen MUST display a vivid 3D video game environment — colorful game world, characters, explosions, or racing scene clearly visible and in motion on the screen. The game graphics must be bright, detailed, and unmistakably a video game. Gaming performance demonstration."
+            action: "Energetic dynamic angled shot. Presenter actively gaming on laptop — focused intense expression, fingers rapidly pressing keyboard keys. CRITICAL: The laptop screen MUST display a vivid, highly ANIMATED 3D video game running in real-time. Camera pushes in dynamically toward the screen."
         },
         {
             script: (name) => `${name} เบามาก ยกมือเดียวได้เลย`,
-            action: "Presenter lifts laptop with ONE hand demonstrating lightweight portability. Tilts to show thin side profile. Screen still OPEN showing bright colorful content. Amazed at lightness."
+            action: "Dynamic low-angle tracking shot. Presenter lifts laptop with ONE hand demonstrating lightweight portability. Tilts to show thin side profile while camera orbits slightly. Screen still OPEN showing bright animated content. Amazed at lightness."
         },
         {
             script: (name) => `คีย์บอร์ด ${name} พิมพ์สนุก ไฟสวย`,
-            action: "Presenter typing on keyboard — fingers pressing keys with satisfying response, RGB backlighting glowing colorful patterns. Screen shows a document or code editor. Close-up of hands on keys. Enjoyable typing experience."
+            action: "Cinematic macro slider shot over the keyboard. Presenter typing on keyboard — fingers pressing keys with satisfying response, RGB backlighting actively animating and pulsing. Screen shows an active coding or document interface. Close-up of hands on keys with shallow depth of field."
         },
         {
             script: (name) => `สเปค ${name} จัดเต็ม ทำทุกอย่างได้`,
-            action: "Presenter holds laptop showing both screen and keyboard — the laptop screen MUST display multiple application windows open simultaneously showing productive multitasking (browser, documents, apps). Points at features proudly. Premium build quality."
+            action: "Dynamic sweeping shot around the laptop. Presenter holds laptop showing both screen and keyboard — the laptop screen MUST display an ACTIVE operating system with multiple application windows open and moving. Points at features proudly. Premium build quality showcased with cinematic lighting shifts."
         },
         {
             script: (name) => `${name} ตัดต่อวีดีโอก็ลื่นมาก`,
-            action: "Presenter editing video on laptop — CRITICAL: The laptop screen MUST display a professional video editing application interface resembling Adobe Premiere Pro or After Effects — with a visible timeline bar at the bottom, video preview panel in the center, and editing tool panels on the sides. The editing UI must be clearly recognizable as a video editing workspace. Smooth playback demonstration."
+            action: "Smooth dolly-in shot. Presenter editing video on laptop — CRITICAL: The laptop screen MUST display a professional video editing application with the timeline actively playing and video preview moving. The editing UI must be clearly active. Smooth playback demonstration."
         },
     ],
     phone: [
         {
             script: (name) => `กล้อง ${name} ถ่ายรูปสวยมาก`,
-            action: "Presenter takes photo with phone — holds phone up, taps shutter button, then flips phone to show captured photo on bright screen to camera. The phone screen MUST display a beautiful captured photograph clearly visible. Impressed reaction at photo quality."
+            action: "Dynamic whip pan shot. Presenter takes photo with phone — holds phone up, taps shutter button, then flips phone to show captured photo on bright screen to camera. The phone screen MUST display a beautiful captured photograph clearly visible. Impressed reaction at photo quality."
         },
         {
             script: (name) => `จอ ${name} สีสดมาก ดูวีดีโอฟิน`,
-            action: "Presenter holds phone screen toward camera — the phone display MUST show vivid colorful video content playing with bright rich colors clearly visible on screen. Points at screen quality. Display is the hero."
+            action: "Cinematic orbit shot. Presenter holds phone screen toward camera — the phone display MUST show vivid colorful video content actively playing and moving with bright rich colors clearly visible on screen. Points at screen quality. Display is the hero."
         },
         {
             script: (name) => `${name} เร็วมาก เปิดแอปปุ๊บเลย`,
-            action: "Presenter rapidly tapping and swiping on phone screen — the screen MUST show app icons and interface elements responding instantly to touch. Smooth responsive touch, opening apps instantly. Zero lag."
+            action: "Snap zoom onto the screen. Presenter rapidly tapping and swiping on phone screen — the screen MUST show app icons and interface elements responding and animating instantly to touch. Smooth responsive touch, opening apps with active UI motion. Zero lag."
         },
         {
             script: (name) => `ดีไซน์ ${name} สวยหรู จับถนัดมือ`,
-            action: "Presenter shows phone from multiple angles — premium materials visible, thin profile from side. Demonstrates comfortable one-hand grip naturally. Screen shows bright wallpaper."
+            action: "Smooth macro tracking shot. Presenter shows phone from multiple angles — premium materials visible, thin profile from side with cinematic light reflections. Demonstrates comfortable one-hand grip naturally. Screen shows a moving animated wallpaper."
         },
         {
             script: (name) => `แบต ${name} อึดมาก ใช้ได้ทั้งวัน`,
-            action: "Presenter shows phone with battery indicator visible on screen — high charge level. Demonstrates confident heavy usage. Long battery life emphasis."
+            action: "Dynamic push-in shot. Presenter shows phone with battery indicator visible on screen — high charge level. Demonstrates confident heavy usage. Screen shows active scrolling through social media."
         },
         {
             script: (name) => `${name} เล่นเกมลื่นมาก ไม่กระตุก`,
-            action: "Presenter gaming on phone — holding phone in landscape with both thumbs on screen. CRITICAL: The phone screen MUST display a vivid colorful mobile game — visible 3D game environment, characters, or racing scene in motion. Game graphics clearly visible and bright on screen. Excited gaming expression."
+            action: "High-energy handheld shot. Presenter gaming on phone — holding phone in landscape with both thumbs rapidly tapping screen. CRITICAL: The phone screen MUST display a vivid colorful mobile game actively running — visible 3D game environment, characters, or racing scene in motion. Game graphics clearly visible and bright on screen. Excited gaming expression."
         },
     ],
     tablet: [
         {
             script: (name) => `จอ ${name} ใหญ่สวย วาดรูปลื่น`,
-            action: "Presenter drawing on tablet with stylus — smooth strokes visible on screen. CRITICAL: The tablet screen MUST display a colorful digital artwork or illustration being drawn, with vibrant brush strokes and artistic canvas clearly visible. Creative and artistic demonstration."
+            action: "Dynamic overhead or angled tracking shot. Presenter drawing on tablet with stylus — smooth strokes visible on screen. CRITICAL: The tablet screen MUST display a colorful digital artwork or illustration being actively drawn, with vibrant brush strokes and artistic canvas clearly visible and animating. Creative and artistic demonstration."
         },
         {
             script: (name) => `ดูหนังจอ ${name} ใหญ่ ฟินมาก`,
-            action: "Presenter watching content on tablet — the tablet screen MUST display vivid colorful movie or video content playing with bright visuals clearly visible on the large display. Impressed enjoyment expression. Immersive viewing experience."
+            action: "Smooth tracking push-in shot. Presenter watching content on tablet — the tablet screen MUST display vivid colorful movie or video content actively playing with bright visuals clearly moving on the large display. Impressed enjoyment expression. Immersive viewing experience."
         },
         {
             script: (name) => `${name} เบามาก ถือไม่เมื่อย`,
-            action: "Presenter holds tablet with one hand — lightweight demonstration. Screen shows bright colorful content. Switches between portrait and landscape. Comfortable grip visible."
+            action: "Dynamic sweeping shot. Presenter holds tablet with one hand — lightweight demonstration. Screen shows bright colorful ANIMATED content like moving UI. Switches between portrait and landscape naturally. Comfortable grip visible."
         },
         {
             script: (name) => `${name} ตัดต่อวีดีโอได้เลย สะดวกมาก`,
-            action: "Presenter editing video on tablet — CRITICAL: The tablet screen MUST display a professional video editing interface with visible timeline bar, preview panel, and editing controls. The editing workspace must be clearly recognizable. Smooth touch gestures on timeline."
+            action: "Cinematic close-up macro slider shot. Presenter editing video on tablet — CRITICAL: The tablet screen MUST display a professional video editing interface with the timeline actively playing and the preview panel moving. The editing workspace must be clearly active. Smooth touch gestures on timeline."
         },
     ],
     gaming: [
         {
             script: (name) => `เล่นเกมด้วย ${name} มันส์มาก`,
-            action: "Presenter gaming intensely — excited focused expression, rapid button presses on controller or keyboard. CRITICAL: If a monitor/screen is visible, it MUST display a vivid 3D video game environment with colorful game world, characters, or action scene clearly visible and in motion. RGB lighting visible. Gaming atmosphere."
+            action: "High energy dynamic Dutch angle or whip pan. Presenter gaming intensely — excited focused expression, rapid button presses on controller or keyboard. CRITICAL: If a monitor/screen is visible, it MUST display a vivid, highly ANIMATED 3D video game running in real-time with colorful game world, characters, or fast-paced action clearly visible. RGB lighting actively animating."
         },
         {
             script: (name) => `${name} ตอบสนองเร็วมาก ไม่แลค`,
-            action: "Presenter demonstrates rapid input — clicks and presses show instant on-screen response. CRITICAL: Any visible screen/monitor MUST display active game graphics responding in real-time — vivid game visuals, fast-paced action. Zero delay. Competitive gaming moment."
+            action: "Snap zoom onto the screen/hands. Presenter demonstrates rapid input — clicks and presses show instant on-screen response. CRITICAL: Any visible screen/monitor MUST display active, ANIMATED game graphics responding in real-time — vivid game visuals, fast-paced action. Zero delay. Competitive gaming moment."
         },
         {
             script: (name) => `ดีไซน์ ${name} สวย RGB จัดเต็ม`,
-            action: "Presenter shows gaming gear from multiple angles — RGB lighting cycling through vivid colors. Premium gaming aesthetic. Design details visible. Any visible screen shows colorful gaming wallpaper or game menu."
+            action: "Smooth sweeping orbit shot around the gear. Presenter shows gaming gear from multiple angles — RGB lighting cycling and actively animating through vivid colors. Premium gaming aesthetic. Design details visible with cinematic lighting. Any visible screen shows animated colorful gaming visuals."
         },
     ],
     audio: [
