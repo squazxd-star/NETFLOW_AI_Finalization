@@ -1382,6 +1382,58 @@ const PRODUCT_PHYSICS_SHADOW: Partial<Record<ProductCategory, string>> = {
     other: "Realistic gravity, all objects grounded. Product placed firmly on surface or held securely in hand. Natural contact shadows and ambient occlusion. No floating products."
 };
 
+// Category-specific IMAGE INTERACTION — what the character should be DOING with the product in the photograph
+// This prevents generic "holding product and smiling" and creates more compelling, category-appropriate images
+const CATEGORY_IMAGE_INTERACTION: Partial<Record<ProductCategory, string>> = {
+    food: "CHARACTER ACTION: Character takes a bite or lifts food toward mouth with delighted expression. Show food texture and freshness. Reaction must convey genuine enjoyment.",
+    snack: "CHARACTER ACTION: Character reaches into open snack bag and holds a piece near mouth, about to eat. Show crispy/crunchy texture of the snack. Genuinely excited expression.",
+    bakery: "CHARACTER ACTION: Character breaks bread or pastry to reveal soft fluffy interior, holding both halves. Show fresh crumb texture. Amazed expression at freshness.",
+    beverage: "CHARACTER ACTION: Character holds open drink near lips as if about to sip, or pours into glass showing liquid color and flow. Refreshed, satisfied expression.",
+    coffee: "CHARACTER ACTION: Character holds steaming cup near face, enjoying aroma with eyes half-closed. Show steam rising from cup. Blissful morning expression.",
+    alcohol: "CHARACTER ACTION: Character elegantly holds glass at eye level, examining liquid color and clarity. Sophisticated setting, appreciative expression.",
+    tea: "CHARACTER ACTION: Character holds warm cup with both hands near chin, steam visible, serene relaxed expression. Calm, peaceful pose.",
+    beauty: "CHARACTER ACTION: Character applies product to skin — dabbing cream on cheek or pressing perfume nozzle. Show product texture on skin. Satisfied glowing expression.",
+    skincare: "CHARACTER ACTION: Character applies cream/serum to face with fingertips in upward motion, showing product texture. Skin looks radiant and hydrated. Satisfied expression.",
+    makeup: "CHARACTER ACTION: Character applies product — holding lipstick to lips, brush to cheek, or mascara wand to lashes. Show precise application technique. Confident glamorous expression.",
+    fragrance: "CHARACTER ACTION: Character sprays perfume on wrist (cap already removed), then brings wrist near nose to smell. Blissful expression from the scent. Elegant pose.",
+    sunscreen: "CHARACTER ACTION: Character applies sunscreen dots on face then spreads evenly, outdoor sunny setting visible. Protected, confident expression.",
+    haircare: "CHARACTER ACTION: Character runs fingers through shiny healthy hair after using product. Hair looks silky and luminous. Satisfied expression.",
+    fashion: "CHARACTER ACTION: Character shows off outfit — adjusting collar, smoothing fabric, or striking a confident pose. Show fabric texture and fit. Stylish confident expression.",
+    sportswear: "CHARACTER ACTION: Character in mid-stretch or athletic pose wearing the sportswear. Show fabric flexibility and breathability. Energetic, confident expression.",
+    jewelry: "CHARACTER ACTION: Character showcases jewelry — holding necklace near neck, or extending hand to show ring catching light. Show sparkle and gem detail. Elegant expression.",
+    watch: "CHARACTER ACTION: Character checks time on watch, wrist turned to camera showing dial clearly. Or holds watch presenting it proudly. Sophisticated expression.",
+    bag: "CHARACTER ACTION: Character carries bag naturally — on shoulder, crossbody, or opening it to show interior. Show hardware details and leather/fabric quality. Stylish expression.",
+    shoe: "CHARACTER ACTION: Character holds shoe at eye level showing sole detail, or points toe forward showing design. Show material quality and sole construction. Impressed expression.",
+    sunglasses: "CHARACTER ACTION: Character puts on sunglasses stylishly or holds them near face. Show lens quality and frame design. Cool confident expression.",
+    home: "CHARACTER ACTION: Character places or adjusts home item in room setting, stepping back to admire. Show product in context of living space. Satisfied proud expression.",
+    furniture: "CHARACTER ACTION: Character sits on or interacts with furniture naturally, showing comfort and design. Show material quality and craftsmanship. Comfortable relaxed expression.",
+    kitchen: "CHARACTER ACTION: Character uses kitchen item actively — stirring with utensil, placing food in appliance, or showing result. Show product function in action. Happy cooking expression.",
+    cleaning: "CHARACTER ACTION: Character sprays or wipes surface showing cleaning action. Show before/after cleanliness contrast. Satisfied accomplished expression.",
+    supplement: "CHARACTER ACTION: Character holds open bottle with capsules visible in palm, glass of water in other hand. Show capsule details. Healthy energetic expression.",
+    vitamin: "CHARACTER ACTION: Character picks vitamin from open bottle, about to take with water glass ready. Show vitamin shape and color. Healthy glowing expression.",
+    protein: "CHARACTER ACTION: Character holds shaker bottle after shaking, or scoops powder from open tub. Show product texture. Fit, energetic post-workout expression.",
+    fitness: "CHARACTER ACTION: Character uses fitness equipment with proper form — gripping weights, stretching with band. Show equipment quality in action. Strong determined expression.",
+    yoga: "CHARACTER ACTION: Character in yoga pose on mat, or holds yoga prop. Show mat grip and material quality. Calm, balanced, focused expression.",
+    camping: "CHARACTER ACTION: Character sets up or uses camping gear outdoors — assembling tent, using camping stove. Show gear quality in nature. Adventurous excited expression.",
+    outdoor: "CHARACTER ACTION: Character wears/carries outdoor gear in nature setting — hiking, climbing, or exploring. Show gear durability and function. Adventurous expression.",
+    pet: "CHARACTER ACTION: Character gives pet product to happy pet — dog eating treat, cat playing with toy. Show pet's positive reaction. Loving caring expression.",
+    baby: "CHARACTER ACTION: Character gently uses baby product with care — feeding, applying lotion, or presenting toy to baby. Show product safety and gentleness. Warm nurturing expression.",
+    gadget: "CHARACTER ACTION: Character actively uses gadget — pressing buttons, reading display, demonstrating feature. Show device screen or function. Impressed amazed expression.",
+    phone: "CHARACTER ACTION: Character holds phone with screen facing camera, showing interface or captured photo. Or takes selfie. Show screen brightness and quality. Impressed expression.",
+    laptop: "CHARACTER ACTION: Character types on open laptop, screen showing vivid colorful content clearly visible to camera. Show keyboard and screen quality. Focused productive expression.",
+    tablet: "CHARACTER ACTION: Character draws on tablet with stylus or swipes screen, showing vivid display content. Show screen size and color accuracy. Creative engaged expression.",
+    camera: "CHARACTER ACTION: Character holds camera to eye looking through viewfinder, or reviews captured photo on LCD screen. Show camera body and lens detail. Passionate creative expression.",
+    audio: "CHARACTER ACTION: Character wears headphones or earbuds, eyes closed enjoying music. Or holds speaker showing design. Show product design details. Blissful immersed expression.",
+    wearable: "CHARACTER ACTION: Character checks wearable on wrist, showing display with health data or notification. Show screen clarity and band design. Impressed tech-savvy expression.",
+    gaming: "CHARACTER ACTION: Character holds controller with both hands, screen showing vivid game graphics in background. Or wears gaming headset. Excited focused gaming expression.",
+    auto: "CHARACTER ACTION: Character installs or showcases auto accessory on/near vehicle. Show product fit and finish quality. Proud satisfied expression.",
+    book: "CHARACTER ACTION: Character holds open book or presents cover to camera, one hand on page. Show cover design and paper quality. Thoughtful intrigued expression.",
+    toy: "CHARACTER ACTION: Character demonstrates toy in action — moving parts, showing features, playful interaction. Show toy detail and color. Playful delighted expression.",
+    stationery: "CHARACTER ACTION: Character writes with pen on paper showing smooth ink flow, or organizes desk supplies. Show product quality in use. Focused creative expression.",
+    craft: "CHARACTER ACTION: Character uses craft tool actively — cutting, drawing, or assembling. Show tool precision and material quality. Focused creative expression.",
+    other: "CHARACTER ACTION: Character holds product prominently, demonstrating its primary function with natural confident interaction. Show product details clearly. Positive impressed expression."
+};
+
 // Anti-Floating Hands — prevents unrealistic hand/product physics
 const ANTI_FLOATING_HANDS = "HAND REALISM: Product already held naturally from scene start — never spawns from thin air. No levitating hands, no disconnected fingers. Natural gripping with realistic weight.";
 
@@ -2166,7 +2218,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
 }>> = {
     // ── Tech & Gadgets ──
     laptop: {
-        knowledge: "Laptops MUST be shown with lid OPEN and screen ON in EVERY scene. The screen display is the hero feature. Showing a closed laptop or just the back/lid is WRONG — like showing a TV that's off. Key features: screen quality, keyboard, trackpad, thin profile, ports, hinge design.",
+        knowledge: "Laptops MUST be shown with lid OPEN and screen ON in EVERY scene. The screen display is the hero feature. Showing a closed laptop or just the back/lid is WRONG — like showing a TV that's off. SCREEN CONTENT RULE: The laptop screen MUST display content that matches what the presenter is talking about — if discussing gaming performance, the screen MUST show a vivid 3D video game environment with colorful game graphics clearly visible; if discussing video editing, the screen MUST show a professional video editing application interface (like Adobe Premiere Pro or After Effects) with timeline, preview panel, and editing tools visible; if discussing general use, show a bright colorful desktop or productivity apps. The screen content is NOT generic — it MUST visually prove the claim being made. Key features: screen quality, keyboard, trackpad, thin profile, ports, hinge design.",
         sceneActions: [
             "Presenter holds laptop open with BOTH hands, screen facing camera with display glowing vibrant colors. Hero reveal shot — screen is the star.",
             "Presenter typing naturally on keyboard, screen bright and active. Camera shows hands on keyboard and trackpad.",
@@ -2181,7 +2233,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         ]
     },
     phone: {
-        knowledge: "Phones MUST show the screen facing camera in most scenes. Screen-on display is essential. Key features: camera system, screen quality, thin profile, Face ID/unlock, app demos. Show both front screen and camera module but prioritize screen-facing shots.",
+        knowledge: "Phones MUST show the screen facing camera in most scenes. Screen-on display is essential. SCREEN CONTENT RULE: The phone screen MUST display content that matches what the presenter is talking about — if discussing camera quality, show a captured photo on screen; if discussing speed, show apps launching; if discussing video, show vivid video playback; if discussing gaming, show mobile game graphics on screen. The screen content visually proves the claim. Key features: camera system, screen quality, thin profile, Face ID/unlock, app demos. Show both front screen and camera module but prioritize screen-facing shots.",
         sceneActions: [
             "Presenter holds phone in one hand, screen facing camera with bright glowing display. Premium screen quality visible. Hero product shot.",
             "Presenter demonstrates scrolling and tapping on bright screen. Natural one-handed use with thumb. Smooth responsive touch.",
@@ -2196,7 +2248,7 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         ]
     },
     tablet: {
-        knowledge: "Tablets MUST show screen ON and facing camera. Key features: large display, stylus/pen support, drawing/note capability, split-screen multitasking. Show both landscape and portrait orientations.",
+        knowledge: "Tablets MUST show screen ON and facing camera. SCREEN CONTENT RULE: The tablet screen MUST display content matching the presenter's dialogue — if discussing drawing, show colorful digital art on screen; if discussing movies, show vivid video playback; if discussing productivity, show document or spreadsheet apps. The screen content visually proves the claim. Key features: large display, stylus/pen support, drawing/note capability, split-screen multitasking. Show both landscape and portrait orientations.",
         sceneActions: [
             "Presenter holds tablet in landscape, screen facing camera with bright vibrant glow. Both hands supporting edges.",
             "Presenter uses stylus or finger to interact with screen naturally. Close-up of smooth touch gestures.",
@@ -4953,21 +5005,44 @@ const buildStoryboardSection = (config: PromptGenerationConfig, category: Produc
 // Category-specific Power Words — คำที่กระตุ้นความสนใจตรงกลุ่มเป้าหมาย
 const CATEGORY_POWER_WORDS: Partial<Record<ProductCategory, string[]>> = {
     food: ["อร่อยมาก", "รสชาติเข้มข้น", "ฟินสุดๆ", "กินแล้วหยุดไม่ได้", "รสดีเกินคาด", "เข้มข้นลงตัว", "อร่อยจนต้องซ้ำ"],
+    snack: ["กรอบมาก", "รสชาติเข้มข้น", "กินแล้วหยุดไม่ได้", "อร่อยจัด", "เคี้ยวสนุก", "ฟินทุกคำ"],
+    bakery: ["นุ่มมาก", "หอมเนย", "ฟูนุ่ม", "ละลายในปาก", "อร่อยเกินคาด", "หอมกรุ่น"],
     beverage: ["ชื่นใจมาก", "รสชาติกลมกล่อม", "สดชื่นทันที", "ดื่มแล้วฟิน", "หอมละมุน", "รสเข้มข้น", "ซดแล้วสะใจ"],
+    coffee: ["หอมเข้มข้น", "รสชาติกลมกล่อม", "ตื่นตัวทันที", "ดื่มแล้วฟิน", "คั่วมาใหม่", "กาแฟเกรดพรีเมียม"],
+    alcohol: ["รสชาติกลมกล่อม", "ดื่มแล้วฟิน", "หอมละมุน", "รสเข้มข้น", "พรีเมียมมาก"],
     fashion: ["ใส่แล้วดูดี", "เนื้อผ้าดีมาก", "สวยเกินคาด", "ทรงสวยมาก", "แมตช์ง่าย", "ดูแพงมาก", "ใส่สบายมาก"],
+    sportswear: ["ใส่สบาย", "ระบายอากาศดี", "ยืดหยุ่นมาก", "เหงื่อแห้งเร็ว", "ใส่ออกกำลังกายดี", "ไม่อึดอัด"],
+    laptop: ["จอคมชัดมาก", "เล่นเกมลื่น", "เบาบางพกง่าย", "สเปคจัดเต็ม", "คีย์บอร์ดพิมพ์สนุก", "ตัดต่อก็ลื่น", "แรงสะใจ"],
+    phone: ["กล้องถ่ายสวยมาก", "จอสีสดเวอร์", "เร็วมาก", "ดีไซน์หรู", "แบตอึดมาก", "ถ่ายวีดีโอคมชัด", "จอใหญ่สวย"],
+    tablet: ["จอใหญ่สวยมาก", "วาดรูปลื่น", "ดูหนังฟินมาก", "เบาถือสบาย", "ใช้ปากกาได้", "ทำงานได้จริง", "จอสีสดเวอร์"],
+    gaming: ["เล่นเกมมันส์มาก", "ตอบสนองเร็ว", "RGB สวยจัด", "กดสนุก", "ไม่แลค", "เกมเมอร์ต้องมี", "สเปคเทพ"],
+    audio: ["เสียงดีมาก", "เบสหนักสะใจ", "ตัดเสียงดีเยี่ยม", "ใส่สบายมาก", "ชาร์จเร็ว", "เชื่อมต่อง่าย", "เสียงใสมาก"],
+    wearable: ["เช็คสุขภาพง่าย", "ดีไซน์สวย", "ใส่สบาย", "แบตอึด", "ฟีเจอร์ครบ", "ติดตามการออกกำลังกาย"],
+    camera: ["ถ่ายคมชัดมาก", "สีสวยสมจริง", "โฟกัสเร็ว", "ถ่ายวีดีโอสวย", "กันสั่น", "เลนส์คุณภาพ"],
     gadget: ["เทคโนโลยีล้ำ", "ฟีเจอร์ครบ", "ใช้ง่ายมาก", "ดีเกินคาดมาก", "ดีไซน์สวย", "ทำงานเร็วมาก", "สเปกจัดเต็ม"],
+    skincare: ["ผิวเนียนขึ้น", "ซึมเร็วมาก", "ไม่เหนียว", "ผิวชุ่มชื้น", "หน้าใส", "ลดสิว", "ผิวกระจ่างใส"],
+    makeup: ["สีสวยมาก", "เกลี่ยง่าย", "ติดทนทั้งวัน", "สวยปังมาก", "เม็ดสีแน่น", "ไม่เลอะ"],
+    fragrance: ["กลิ่นหอมหรู", "ติดทนนาน", "กลิ่นไม่ฉุน", "หอมตลอดวัน", "กลิ่นลงตัว", "พรีเมียมมาก"],
+    sunscreen: ["กันแดดดี", "ไม่วอก", "เกลี่ยง่าย", "ไม่อุดตัน", "ปกป้องผิว", "เนื้อบางเบา"],
+    haircare: ["ผมนุ่มสลวย", "เงางามมาก", "ไม่ชี้ฟู", "บำรุงล้ำลึก", "กลิ่นหอม", "ผมสุขภาพดี"],
     beauty: ["ผิวสวยขึ้นจริง", "เนียนละเอียด", "กลิ่นหอมมาก", "ติดทนนาน", "ผิวเปล่งประกาย", "เนื้อบางเบา", "เกลี่ยง่ายมาก"],
     supplement: ["เห็นผลจริง", "ร่างกายดีขึ้น", "พลังงานเพิ่ม", "สุขภาพดี", "ทานง่าย", "ดูดซึมเร็ว", "สารอาหารครบ"],
+    vitamin: ["สุขภาพดีขึ้น", "ทานง่าย", "เห็นผลจริง", "เสริมภูมิ", "ร่างกายแข็งแรง", "ผิวสวยขึ้น"],
+    protein: ["ชงง่าย", "รสชาติอร่อย", "กล้ามโต", "ดูดซึมเร็ว", "ไม่มีกลิ่นคาว", "เวย์คุณภาพ"],
     pet: ["น้องชอบมาก", "ปลอดภัย 100%", "คุณภาพดี", "น้องกินเพลิน", "สัตวแพทย์แนะนำ", "น้องมีความสุข", "วัตถุดิบดี"],
     baby: ["ปลอดภัยสำหรับลูก", "อ่อนโยนมาก", "ลูกชอบมาก", "คุณแม่วางใจ", "ผ่านมาตรฐาน", "นุ่มสบาย", "ไม่ระคายเคือง"],
     home: ["บ้านดูดีขึ้น", "ใช้งานง่าย", "ดีไซน์สวย", "คุณภาพเยี่ยม", "จัดระเบียบง่าย", "ประหยัดพื้นที่", "เปลี่ยนบ้านเลย"],
+    furniture: ["นั่งสบายมาก", "ดีไซน์สวย", "แข็งแรงทนทาน", "เข้ากับห้อง", "คุณภาพดี", "ใช้งานง่าย"],
     kitchen: ["ทำอาหารง่ายขึ้น", "ทนทานมาก", "ประหยัดเวลา", "ใช้สะดวก", "ล้างง่าย", "ความร้อนสม่ำเสมอ", "มืออาชีพเลย"],
     fitness: ["กล้ามเนื้อชัดขึ้น", "เทรนได้เต็มที่", "ทนทานมาก", "จับถนัดมือ", "ฟิตหนักได้", "คุณภาพยิม", "เห็นผลจริง"],
+    yoga: ["ยืดหยุ่นดี", "กันลื่นเยี่ยม", "ใช้สบาย", "เนื้อวัสดุดี", "ผ่อนคลายมาก", "ช่วยทรงตัว"],
+    camping: ["ตั้งง่ายมาก", "ทนทุกสภาพอากาศ", "พกพาสะดวก", "คุณภาพดี", "น้ำหนักเบา", "กางง่ายพับง่าย"],
     auto: ["ติดตั้งง่าย", "ทนทานมาก", "ใช้งานสะดวก", "คุณภาพสูง", "เข้ากับรถทุกรุ่น", "ดีไซน์สวย", "ดีเกินคาด"],
     jewelry: ["สวยหรูมาก", "ประกายวิบวับ", "งานละเอียด", "ใส่แล้วดูแพง", "เพชรเจิดจรัส", "ดีไซน์หรู", "คุณภาพเยี่ยม"],
     watch: ["หรูหรามาก", "เครื่องแม่นยำ", "ดูดีมาก", "งานประณีต", "ใส่แล้วมีออร่า", "คลาสสิกเหนือกาล", "สวยทุกมุม"],
     bag: ["ใส่ของได้เยอะ", "หนังคุณภาพดี", "ทรงสวยมาก", "สะพายสบาย", "ดูแพงมาก", "ทนทานมาก", "แมตช์ทุกลุค"],
     shoe: ["ใส่สบายมาก", "พื้นนุ่ม", "ดีไซน์สวย", "เดินทั้งวันไม่เจ็บ", "ทรงสวย", "ระบายอากาศดี", "กระชับเท้า"],
+    sunglasses: ["ใส่แล้วเท่มาก", "กันแดดดี", "เลนส์คมชัด", "น้ำหนักเบา", "ดีไซน์หรู", "กรอบทนทาน"],
     book: ["อ่านสนุกมาก", "เนื้อหาดี", "วางไม่ลง", "เปลี่ยนมุมมอง", "ได้ความรู้เพียบ", "เขียนดีมาก", "อ่านจบในวันเดียว"],
     toy: ["เล่นสนุกมาก", "สีสันสดใส", "พัฒนาสมอง", "ปลอดภัย", "เด็กชอบมาก", "เล่นได้นาน", "วัสดุดี"],
     stationery: ["เขียนลื่นมาก", "ดีไซน์สวย", "จับถนัดมือ", "สีสดสวย", "คุณภาพดี", "ใช้แล้วติดใจ", "เขียนสบาย"],
@@ -4982,21 +5057,44 @@ const CATEGORY_POWER_WORDS: Partial<Record<ProductCategory, string[]>> = {
 // Category-specific Benefits — ประโยชน์เฉพาะกลุ่มสินค้า
 const CATEGORY_BENEFITS: Partial<Record<ProductCategory, string[]>> = {
     food: ["รสชาติถูกปาก ทุกคำฟินหมด", "วัตถุดิบคุณภาพ อร่อยจริง", "ทานแล้วอิ่มอร่อย คุ้มค่า", "กินง่าย อร่อยทุกมื้อ"],
+    snack: ["กินเพลิน หยุดไม่ได้", "กรอบทุกคำ รสชาติจัด", "พกพาง่าย กินได้ทุกที่"],
+    bakery: ["นุ่มฟู หอมเนยกรุ่น", "กินแล้วละลายในปาก", "อร่อยเกินคาด สดใหม่ทุกวัน"],
     beverage: ["ดื่มแล้วสดชื่น ตื่นตัวทันที", "รสชาติลงตัว หอมกลมกล่อม", "ชงง่าย ได้รสเข้มข้น", "ดื่มทุกวันก็ไม่เบื่อ"],
+    coffee: ["หอมเข้มข้น ดื่มแล้วตื่นตัว", "ชงง่าย ได้รสพรีเมียม", "ดื่มทุกเช้า ตื่นตัวทันที"],
+    alcohol: ["รสชาติกลมกล่อม ดื่มแล้วฟิน", "หอมละมุน เหมาะกับทุกโอกาส"],
     fashion: ["ใส่แมตช์ได้ทุกวัน ทุกโอกาส", "เนื้อผ้าดี ใส่สบายตลอดวัน", "ทรงสวย ใส่แล้วดูดีทันที", "สวมใส่ง่าย ดูมีสไตล์"],
+    sportswear: ["ใส่ออกกำลังกายสบายมาก", "ระบายเหงื่อดี ไม่ร้อน", "ยืดหยุ่นดี ไม่อึดอัด"],
+    laptop: ["จอคมชัดสีสดมาก ดูแล้วฟิน", "เล่นเกมลื่นมาก แรงสะใจ", "เบาบาง พกพาสะดวกมาก", "สเปคแรง ทำทุกอย่างได้", "คีย์บอร์ดพิมพ์สนุก ไฟสวย", "ตัดต่อวีดีโอก็ลื่นมาก"],
+    phone: ["กล้องถ่ายสวย ภาพคมชัด", "จอสีสดมาก ดูวีดีโอฟิน", "เร็วมาก เปิดแอปปุ๊บเลย", "ดีไซน์หรู จับถนัดมือ", "แบตอึด ใช้ได้ทั้งวัน", "ถ่ายวีดีโอ 4K สวยมาก"],
+    tablet: ["จอใหญ่สวย วาดรูปลื่น", "ดูหนังจอใหญ่ ฟินมาก", "ใช้ปากกาเขียนได้เลย", "เบามาก ถือไม่เมื่อย", "ทำงานได้เหมือนโน้ตบุ๊ค"],
+    gaming: ["เล่นเกมมันส์มาก ตอบสนองเร็ว", "RGB สวยจัด บรรยากาศเกมมิ่ง", "กดสนุก ไม่แลค", "สเปคเทพ เกมเมอร์ต้องมี"],
+    audio: ["เสียงดีมาก เบสหนัก", "ตัดเสียงรบกวนดีเยี่ยม", "ใส่สบาย ใช้ได้ทั้งวัน", "เชื่อมต่อง่าย ชาร์จเร็ว"],
+    wearable: ["เช็คสุขภาพง่าย ฟีเจอร์ครบ", "ดีไซน์สวย ใส่ได้ทุกวัน", "ติดตามการออกกำลังกายได้"],
+    camera: ["ถ่ายรูปคมชัด สีสวยสมจริง", "โฟกัสเร็ว ภาพคมชัดทุกสถานการณ์", "ถ่ายวีดีโอสวยระดับมืออาชีพ"],
     gadget: ["ฟีเจอร์ครบจบในเครื่องเดียว", "ใช้งานง่าย เข้าใจทันที", "ช่วยให้ชีวิตสะดวกขึ้นจริง", "เทคโนโลยีล้ำ ดีเกินคาด"],
+    skincare: ["ทาแล้วผิวเนียนขึ้นจริง", "ซึมเร็ว ไม่เหนียว ไม่อุดตัน", "ผิวชุ่มชื้น กระจ่างใส"],
+    makeup: ["สีสวย เกลี่ยง่าย ติดทนทั้งวัน", "แต่งหน้าสวยปัง เม็ดสีแน่น", "ไม่เลอะ สวยทั้งวัน"],
+    fragrance: ["กลิ่นหอมหรู ติดทนนาน", "สเปรย์แล้วหอมตลอดวัน", "กลิ่นลงตัว ไม่ฉุน"],
+    sunscreen: ["กันแดดดี ปกป้องผิวทั้งวัน", "ทาแล้วไม่วอก ไม่อุดตัน", "เนื้อบางเบา ซึมเร็ว"],
+    haircare: ["ผมนุ่มสลวย เงางามตั้งแต่วันแรก", "ไม่ชี้ฟู ผมสุขภาพดี", "บำรุงล้ำลึก หอมตลอดวัน"],
     beauty: ["ทาแล้วผิวสวยขึ้นทันตา", "เนื้อบางเบา ซึมเร็ว ไม่เหนียว", "กลิ่นหอมละมุน ติดทนทั้งวัน", "ใช้แล้วผิวเปล่งประกาย"],
     supplement: ["ทานง่าย เห็นผลจริง", "ร่างกายดีขึ้น แข็งแรงขึ้น", "สารอาหารครบ ดูดซึมเร็ว", "ดูแลสุขภาพจากภายใน"],
+    vitamin: ["ทานง่าย สุขภาพดีขึ้นทันตา", "เสริมภูมิคุ้มกัน ร่างกายแข็งแรง", "ผิวสวยขึ้น สุขภาพดีขึ้น"],
+    protein: ["ชงง่าย รสชาติดี กล้ามโต", "ไม่มีกลิ่นคาว ดูดซึมเร็ว", "เวย์คุณภาพ ฟิตได้เต็มที่"],
     pet: ["น้องชอบมาก กินเกลี้ยง", "วัตถุดิบดี ปลอดภัยต่อน้อง", "น้องสุขภาพดี มีความสุข", "สัตวแพทย์รับรอง วางใจได้"],
     baby: ["ลูกใช้ได้อย่างปลอดภัย", "อ่อนโยน ไม่ระคายเคืองผิว", "คุณแม่วางใจ ลูกมีความสุข", "ผ่านมาตรฐานความปลอดภัย"],
     home: ["บ้านดูสวย จัดระเบียบง่าย", "เปลี่ยนบ้านให้ดูดีทันที", "ใช้งานสะดวก ออกแบบมาดี", "ประหยัดพื้นที่ ดูเรียบร้อย"],
+    furniture: ["นั่งสบาย ดีไซน์สวยเข้ากับห้อง", "แข็งแรงทนทาน ใช้ได้นาน", "คุณภาพดี คุ้มค่ามาก"],
     kitchen: ["ทำอาหารง่ายขึ้น ประหยัดเวลา", "ทนความร้อน ใช้ได้นาน", "ล้างง่าย ดูแลสะดวก", "เหมือนได้เชฟมาช่วยทำอาหาร"],
     fitness: ["เทรนได้เต็มประสิทธิภาพ", "กล้ามเนื้อชัดขึ้น เห็นผลเร็ว", "ทนทาน ฟิตหนักได้ทุกวัน", "เหมือนมีเทรนเนอร์ส่วนตัว"],
+    yoga: ["ยืดหยุ่นดี กันลื่นเยี่ยม", "ใช้สบายมาก ช่วยทรงตัว", "เนื้อวัสดุดี ผ่อนคลายสุด"],
+    camping: ["ตั้งง่าย ใช้ได้ทันที", "ทนทุกสภาพอากาศ ใช้ได้นาน", "พกพาสะดวก น้ำหนักเบา"],
     auto: ["ติดตั้งง่าย ใช้ได้ทันที", "เข้ากับรถได้ทุกรุ่น ทุกยี่ห้อ", "ทนทาน ใช้งานได้ยาวนาน", "อัปเกรดรถให้ดีขึ้นทันที"],
     jewelry: ["ใส่แล้วดูมีราคา สง่างาม", "ประกายเพชรเจิดจรัส สะดุดตา", "งานละเอียด คุณภาพช่างฝีมือ", "เพิ่มออร่าให้ทุกลุค"],
     watch: ["ใส่แล้วดูมีระดับทันที", "เครื่องแม่นยำ เชื่อถือได้", "คลาสสิกเหนือกาล สวยทุกโอกาส", "หรูหราทุกมุมมอง"],
     bag: ["ใส่ของได้เยอะ จัดระเบียบง่าย", "สะพายสบาย ไม่ปวดไหล่", "หนังคุณภาพดี ยิ่งใช้ยิ่งสวย", "แมตช์ได้ทุกชุด ทุกโอกาส"],
     shoe: ["ใส่สบายมาก เดินทั้งวันไม่เจ็บ", "พื้นนุ่ม รองรับทุกก้าว", "ดีไซน์สวย ใส่ได้ทุกโอกาส", "กระชับเท้า ระบายอากาศดี"],
+    sunglasses: ["ใส่แล้วเท่มาก สไตล์ดี", "กันแดดดี เลนส์คมชัด", "น้ำหนักเบา ใส่สบาย"],
     book: ["อ่านสนุก วางไม่ลงเลย", "เนื้อหาดี ได้ความรู้เพียบ", "เปลี่ยนมุมมอง เปิดโลกใหม่", "เขียนดีมาก อ่านง่าย"],
     toy: ["เด็กเล่นสนุก พัฒนาสมอง", "วัสดุปลอดภัย พ่อแม่วางใจ", "เล่นได้นาน ไม่เบื่อง่าย", "สีสันสดใส ดึงดูดสายตา"],
     stationery: ["เขียนลื่น จับถนัดมือ", "ดีไซน์สวย ใช้แล้วอยากเขียน", "สีสด คมชัด ทุกเส้น", "คุณภาพดี ใช้ได้ยาวนาน"],
@@ -5052,7 +5150,744 @@ const CATEGORY_REVIEW_PHRASE: Partial<Record<ProductCategory, string[]>> = {
     watch: ["สวมแล้วดูดีมาก มีระดับ", "เครื่องเดินแม่น ไม่ผิดเวลา", "ใส่แล้วมีออร่าเลย"],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN CONTENT DIRECTIVE — for products with displays (laptop, phone, tablet, gaming)
+// Ensures the product's screen shows CONTEXT-APPROPRIATE content matching dialogue
+// ═══════════════════════════════════════════════════════════════════════════
+const SCREEN_CONTENT_CATEGORIES: Set<ProductCategory> = new Set([
+    "laptop", "phone", "tablet", "gaming", "wearable", "smart-home"
+]);
+
+/**
+ * Returns a screen content directive for products with displays.
+ * Analyzes the scene script text and returns specific instructions
+ * about what should appear on the product's screen.
+ */
+const getScreenContentDirective = (category: ProductCategory, sceneScript: string): string => {
+    if (!SCREEN_CONTENT_CATEGORIES.has(category)) return '';
+    
+    const scriptLower = sceneScript.toLowerCase();
+    
+    // Gaming keywords → game visuals on screen
+    if (/เกม|game|gaming|เล่นเกม|แรง.*สะใจ|ลื่น.*มาก|fps|แรงค์|rank/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show a vivid 3D video game environment — colorful game world with characters, explosions, racing, or action scene clearly visible and in motion on the screen. The game graphics must be bright, detailed, and unmistakably a video game. Do NOT show a blank or generic screen.`;
+    }
+    
+    // Video editing keywords → editing app UI on screen
+    if (/ตัดต่อ|edit|premiere|after effect|วีดีโอ.*ลื่น|render|timeline/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show a professional video editing application interface (resembling Adobe Premiere Pro or After Effects) — with visible timeline bar at bottom, video preview panel in center, and editing tool panels on sides. The editing workspace must be clearly recognizable. Do NOT show a blank or generic screen.`;
+    }
+    
+    // Photo/camera keywords → photo gallery on screen
+    if (/กล้อง|ถ่ายรูป|ถ่ายภาพ|photo|camera|ภาพ.*สวย|ภาพ.*คม/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show a beautiful high-quality photograph or photo gallery with vivid colors clearly visible on screen.`;
+    }
+    
+    // Video watching keywords → video playback on screen
+    if (/ดูหนัง|ดูวีดีโอ|movie|video|netflix|youtube|ดู.*ฟิน/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show vivid colorful video content or movie scene playing with bright rich visuals clearly visible on the screen.`;
+    }
+    
+    // Screen quality keywords → vibrant display content
+    if (/จอ.*สี|สี.*สด|คมชัด|display|screen|oled|amoled|จอ.*สวย/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show vibrant colorful content (wallpaper, photo, or video) with rich saturated colors that demonstrate the screen quality. Colors must be vivid and eye-catching.`;
+    }
+    
+    // Speed keywords → apps/UI responding
+    if (/เร็ว|speed|fast|ปุ๊บ|ทันที|ลื่น|smooth/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show app interface elements or multiple windows responding instantly — smooth animations, app icons, active UI clearly visible.`;
+    }
+    
+    // Default for screen products — always show SOMETHING on screen
+    return `SCREEN CONTENT: The product display must show bright, colorful, active content — never a blank, black, or turned-off screen.`;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TECH PRONUNCIATION GUIDE — Thai phonetic for English brand/tech terms
+// Injected into SPOKEN DIALOGUE so Veo TTS pronounces correctly
+// ═══════════════════════════════════════════════════════════════════════════
+const TECH_PRONUNCIATION_GUIDE: [RegExp, string][] = [
+    // GPU / Tech terms (longer terms first to avoid partial matches)
+    [/\bUSB[-\s]?C\b/gi, "USB-C(ยูเอสบีซี)"],
+    [/\bThunderbolt\b/gi, "Thunderbolt(ธันเดอร์โบลต์)"],
+    [/\bBluetooth\b/gi, "Bluetooth(บลูทูธ)"],
+    [/\bWi[-\s]?Fi\b/gi, "Wi-Fi(ไวไฟ)"],
+    [/\bNVIDIA\b/gi, "NVIDIA(เอ็นวีเดีย)"],
+    [/\bNvidia\b/g, "Nvidia(เอ็นวีเดีย)"],
+    [/\bAMOLED\b/gi, "AMOLED(อะโมเลด)"],
+    [/\bOLED\b/gi, "OLED(โอแอลอีดี)"],
+    [/\bHDMI\b/gi, "HDMI(เอชดีเอ็มไอ)"],
+    [/\bRTX\b/gi, "RTX(อาร์ทีเอ็กซ์)"],
+    [/\bGTX\b/gi, "GTX(จีทีเอ็กซ์)"],
+    [/\bRGB\b/gi, "RGB(อาร์จีบี)"],
+    [/\bSSD\b/gi, "SSD(เอสเอสดี)"],
+    [/\bHDD\b/gi, "HDD(เอชดีดี)"],
+    [/\bRAM\b/gi, "RAM(แรม)"],
+    [/\bGPU\b/gi, "GPU(จีพียู)"],
+    [/\bCPU\b/gi, "CPU(ซีพียู)"],
+    [/\bUSB\b/gi, "USB(ยูเอสบี)"],
+    [/\bLED\b/gi, "LED(แอลอีดี)"],
+    // Brands — computer
+    [/\bAcer\b/gi, "Acer(เอเซอร์)"],
+    [/\bPredator\b/gi, "Predator(เพรดเดอร์)"],
+    [/\bHelios\b/gi, "Helios(ฮีเลียส)"],
+    [/\bASUS\b/gi, "ASUS(เอซุส)"],
+    [/\bROG\b/gi, "ROG(อาร์โอจี)"],
+    [/\bZephyrus\b/gi, "Zephyrus(เซฟิรัส)"],
+    [/\bMSI\b/g, "MSI(เอ็มเอสไอ)"],
+    [/\bLenovo\b/gi, "Lenovo(เลอโนโว)"],
+    [/\bThinkPad\b/gi, "ThinkPad(ธิงค์แพด)"],
+    [/\bDell\b/gi, "Dell(เดลล์)"],
+    [/\bHP\b/g, "HP(เอชพี)"],
+    [/\bRazer\b/gi, "Razer(เรเซอร์)"],
+    [/\bLogitech\b/gi, "Logitech(โลจิเทค)"],
+    // Brands — mobile
+    [/\bSamsung\b/gi, "Samsung(ซัมซุง)"],
+    [/\bGalaxy\b/gi, "Galaxy(กาแล็กซี่)"],
+    [/\biPhone\b/g, "iPhone(ไอโฟน)"],
+    [/\biPad\b/g, "iPad(ไอแพด)"],
+    [/\bMacBook\b/gi, "MacBook(แมคบุ๊ค)"],
+    [/\bAirPods\b/gi, "AirPods(แอร์พอดส์)"],
+    [/\bApple\b/g, "Apple(แอปเปิ้ล)"],
+    [/\bGoogle\b/gi, "Google(กูเกิ้ล)"],
+    [/\bPixel\b/gi, "Pixel(พิกเซล)"],
+    [/\bHuawei\b/gi, "Huawei(หัวเว่ย)"],
+    [/\bXiaomi\b/gi, "Xiaomi(เสียวมี่)"],
+    [/\bOPPO\b/gi, "OPPO(ออปโป้)"],
+    [/\bvivo\b/gi, "vivo(วีโว่)"],
+    [/\brealme\b/gi, "realme(เรียลมี)"],
+    // Brands — audio
+    [/\bSony\b/gi, "Sony(โซนี่)"],
+    [/\bBose\b/gi, "Bose(โบส)"],
+    [/\bJBL\b/gi, "JBL(เจบีแอล)"],
+    [/\bMarshall\b/gi, "Marshall(มาร์แชล)"],
+    [/\bSennheiser\b/gi, "Sennheiser(เซนไฮเซอร์)"],
+    [/\bBeats\b/gi, "Beats(บีทส์)"],
+];
+
+/**
+ * Inject Thai pronunciation hints into script text for Veo TTS.
+ * Only injects once per unique term to avoid cluttering.
+ * Example: "Nvidia RTX" → "Nvidia(เอ็นวีเดีย) RTX(อาร์ทีเอ็กซ์)"
+ */
+const injectPronunciation = (text: string): string => {
+    let result = text;
+    const alreadyInjected = new Set<string>();
+    for (const [pattern, replacement] of TECH_PRONUNCIATION_GUIDE) {
+        const key = replacement.split('(')[0].toLowerCase();
+        if (alreadyInjected.has(key)) continue;
+        if (pattern.test(result)) {
+            // Reset regex lastIndex for global patterns
+            pattern.lastIndex = 0;
+            // Replace first occurrence only
+            let replaced = false;
+            result = result.replace(pattern, (match) => {
+                if (!replaced) {
+                    replaced = true;
+                    alreadyInjected.add(key);
+                    return replacement;
+                }
+                return match;
+            });
+        }
+    }
+    return result;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CATEGORY SCENE PAIRS — PAIRED script + visual action per category
+// Ensures ZERO conflict between what character SAYS and what video SHOWS.
+// Each pair: { script: fn(productName) → Thai text, action: English visual directive }
+// ═══════════════════════════════════════════════════════════════════════════
+type ScriptActionPair = {
+    script: (name: string) => string;
+    action: string;
+};
+
+const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>> = {
+    // ── Tech ──
+    laptop: [
+        {
+            script: (name) => `จอ ${name} คมชัดมาก สีสดเวอร์`,
+            action: "Presenter shows laptop screen directly to camera — the laptop display MUST show a vibrant colorful wallpaper or vivid photo gallery with rich saturated colors clearly visible on screen. Points at screen. Screen is the HERO of this shot."
+        },
+        {
+            script: (name) => `${name} เล่นเกมลื่นมาก แรงสะใจ`,
+            action: "Presenter actively gaming on laptop — focused intense expression, fingers rapidly pressing keyboard keys. CRITICAL: The laptop screen MUST display a vivid 3D video game environment — colorful game world, characters, explosions, or racing scene clearly visible and in motion on the screen. The game graphics must be bright, detailed, and unmistakably a video game. Gaming performance demonstration."
+        },
+        {
+            script: (name) => `${name} เบามาก ยกมือเดียวได้เลย`,
+            action: "Presenter lifts laptop with ONE hand demonstrating lightweight portability. Tilts to show thin side profile. Screen still OPEN showing bright colorful content. Amazed at lightness."
+        },
+        {
+            script: (name) => `คีย์บอร์ด ${name} พิมพ์สนุก ไฟสวย`,
+            action: "Presenter typing on keyboard — fingers pressing keys with satisfying response, RGB backlighting glowing colorful patterns. Screen shows a document or code editor. Close-up of hands on keys. Enjoyable typing experience."
+        },
+        {
+            script: (name) => `สเปค ${name} จัดเต็ม ทำทุกอย่างได้`,
+            action: "Presenter holds laptop showing both screen and keyboard — the laptop screen MUST display multiple application windows open simultaneously showing productive multitasking (browser, documents, apps). Points at features proudly. Premium build quality."
+        },
+        {
+            script: (name) => `${name} ตัดต่อวีดีโอก็ลื่นมาก`,
+            action: "Presenter editing video on laptop — CRITICAL: The laptop screen MUST display a professional video editing application interface resembling Adobe Premiere Pro or After Effects — with a visible timeline bar at the bottom, video preview panel in the center, and editing tool panels on the sides. The editing UI must be clearly recognizable as a video editing workspace. Smooth playback demonstration."
+        },
+    ],
+    phone: [
+        {
+            script: (name) => `กล้อง ${name} ถ่ายรูปสวยมาก`,
+            action: "Presenter takes photo with phone — holds phone up, taps shutter button, then flips phone to show captured photo on bright screen to camera. The phone screen MUST display a beautiful captured photograph clearly visible. Impressed reaction at photo quality."
+        },
+        {
+            script: (name) => `จอ ${name} สีสดมาก ดูวีดีโอฟิน`,
+            action: "Presenter holds phone screen toward camera — the phone display MUST show vivid colorful video content playing with bright rich colors clearly visible on screen. Points at screen quality. Display is the hero."
+        },
+        {
+            script: (name) => `${name} เร็วมาก เปิดแอปปุ๊บเลย`,
+            action: "Presenter rapidly tapping and swiping on phone screen — the screen MUST show app icons and interface elements responding instantly to touch. Smooth responsive touch, opening apps instantly. Zero lag."
+        },
+        {
+            script: (name) => `ดีไซน์ ${name} สวยหรู จับถนัดมือ`,
+            action: "Presenter shows phone from multiple angles — premium materials visible, thin profile from side. Demonstrates comfortable one-hand grip naturally. Screen shows bright wallpaper."
+        },
+        {
+            script: (name) => `แบต ${name} อึดมาก ใช้ได้ทั้งวัน`,
+            action: "Presenter shows phone with battery indicator visible on screen — high charge level. Demonstrates confident heavy usage. Long battery life emphasis."
+        },
+        {
+            script: (name) => `${name} เล่นเกมลื่นมาก ไม่กระตุก`,
+            action: "Presenter gaming on phone — holding phone in landscape with both thumbs on screen. CRITICAL: The phone screen MUST display a vivid colorful mobile game — visible 3D game environment, characters, or racing scene in motion. Game graphics clearly visible and bright on screen. Excited gaming expression."
+        },
+    ],
+    tablet: [
+        {
+            script: (name) => `จอ ${name} ใหญ่สวย วาดรูปลื่น`,
+            action: "Presenter drawing on tablet with stylus — smooth strokes visible on screen. CRITICAL: The tablet screen MUST display a colorful digital artwork or illustration being drawn, with vibrant brush strokes and artistic canvas clearly visible. Creative and artistic demonstration."
+        },
+        {
+            script: (name) => `ดูหนังจอ ${name} ใหญ่ ฟินมาก`,
+            action: "Presenter watching content on tablet — the tablet screen MUST display vivid colorful movie or video content playing with bright visuals clearly visible on the large display. Impressed enjoyment expression. Immersive viewing experience."
+        },
+        {
+            script: (name) => `${name} เบามาก ถือไม่เมื่อย`,
+            action: "Presenter holds tablet with one hand — lightweight demonstration. Screen shows bright colorful content. Switches between portrait and landscape. Comfortable grip visible."
+        },
+        {
+            script: (name) => `${name} ตัดต่อวีดีโอได้เลย สะดวกมาก`,
+            action: "Presenter editing video on tablet — CRITICAL: The tablet screen MUST display a professional video editing interface with visible timeline bar, preview panel, and editing controls. The editing workspace must be clearly recognizable. Smooth touch gestures on timeline."
+        },
+    ],
+    gaming: [
+        {
+            script: (name) => `เล่นเกมด้วย ${name} มันส์มาก`,
+            action: "Presenter gaming intensely — excited focused expression, rapid button presses on controller or keyboard. CRITICAL: If a monitor/screen is visible, it MUST display a vivid 3D video game environment with colorful game world, characters, or action scene clearly visible and in motion. RGB lighting visible. Gaming atmosphere."
+        },
+        {
+            script: (name) => `${name} ตอบสนองเร็วมาก ไม่แลค`,
+            action: "Presenter demonstrates rapid input — clicks and presses show instant on-screen response. CRITICAL: Any visible screen/monitor MUST display active game graphics responding in real-time — vivid game visuals, fast-paced action. Zero delay. Competitive gaming moment."
+        },
+        {
+            script: (name) => `ดีไซน์ ${name} สวย RGB จัดเต็ม`,
+            action: "Presenter shows gaming gear from multiple angles — RGB lighting cycling through vivid colors. Premium gaming aesthetic. Design details visible. Any visible screen shows colorful gaming wallpaper or game menu."
+        },
+    ],
+    audio: [
+        {
+            script: (name) => `เสียง ${name} ดีมาก เบสหนัก`,
+            action: "Presenter wearing headphones/earbuds — eyes closed, slight head bobbing, satisfied expression. Enjoying rich deep bass. Sound quality reaction."
+        },
+        {
+            script: (name) => `ตัดเสียง ${name} ดีเยี่ยม เงียบมาก`,
+            action: "Presenter wearing product in noisy setting — demonstrates noise cancellation. Peaceful expression. Taps earbuds to toggle modes. Impressed at silence."
+        },
+        {
+            script: (name) => `${name} ใส่สบาย ใช้ได้ทั้งวัน`,
+            action: "Presenter wearing product comfortably — adjusts fit, shows secure placement. Active movement while wearing. Comfortable daily use demonstration."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Food & Drink ── (VISUAL PROOF: must show EATING/DRINKING + REACTION)
+    // ═══════════════════════════════════════════════════════════════
+    food: [
+        {
+            script: (name) => `ลองชิม ${name} แล้ว อร่อยมากจริง`,
+            action: "Presenter takes a bite of food — chewing with genuine delighted surprised reaction, eyes widening, savoring flavor. Steam or freshness visible on food. The PROOF is the authentic taste reaction."
+        },
+        {
+            script: (name) => `เนื้อสัมผัส ${name} ดีมาก ฟินเลย`,
+            action: "Presenter breaks or cuts food open — revealing the inside texture (juicy meat, melted cheese, layers, creamy filling). Close-up of cross-section. The PROOF is the visible internal texture quality."
+        },
+        {
+            script: (name) => `${name} รสชาติเข้มข้น ลงตัวมาก`,
+            action: "Presenter takes another bite and closes eyes savoring — genuine pleasure visible on face. Then nods approvingly to camera. The PROOF is the involuntary enjoyment reaction."
+        },
+        {
+            script: (name) => `วัตถุดิบ ${name} คุณภาพ อร่อยจริง`,
+            action: "Presenter shows food's premium ingredients — picks up showing fresh vegetables, quality meat, rich sauce. Appetizing close-up of details. Then takes a satisfying bite. The PROOF is visible ingredient quality."
+        },
+    ],
+    snack: [
+        {
+            script: (name) => `กินแล้วหยุดไม่ได้ ${name} อร่อยมาก`,
+            action: "Presenter opens package, takes a piece and eats — crunchy sound implied, satisfied expression. Reaches for another piece immediately. The PROOF is grabbing more — can't stop eating."
+        },
+        {
+            script: (name) => `${name} กรอบมาก รสชาติเข้มข้น`,
+            action: "Presenter bites snack — visible crunch, crispy texture breaking. Seasoning/coating visible on surface. Pleased surprised reaction at crunchiness. The PROOF is the visible crispy snap."
+        },
+    ],
+    bakery: [
+        {
+            script: (name) => `${name} นุ่มมาก หอมเนย`,
+            action: "Presenter tears bread/pastry open — soft fluffy interior visible stretching, steam or warmth implied. Inhales the aroma with closed eyes. The PROOF is the visible soft stretchy texture and aroma reaction."
+        },
+        {
+            script: (name) => `เนื้อ ${name} ฟู นุ่ม ละลายในปาก`,
+            action: "Presenter takes a bite — soft bread/cake compressing gently, crumbs minimal. Melting-in-mouth expression of delight. The PROOF is the visible soft yielding texture when bitten."
+        },
+    ],
+    beverage: [
+        {
+            script: (name) => `จิบ ${name} แล้ว สดชื่นมาก`,
+            action: "Presenter takes a long sip — visible refreshment washing over face, relieved happy expression. Condensation droplets on glass/bottle clearly visible. The PROOF is the instant refreshment reaction."
+        },
+        {
+            script: (name) => `${name} รสชาติลงตัว หอมกลมกล่อม`,
+            action: "Presenter holds drink near nose first — inhales aroma with pleased closed-eye expression, then sips slowly. Rich liquid color visible through glass. The PROOF is the two-step aroma-then-taste appreciation."
+        },
+        {
+            script: (name) => `ชง ${name} ง่ายมาก ได้รสเข้มข้น`,
+            action: "Presenter pours/brews drink — liquid flowing into cup, rich deep color visible. Steam rising from hot drink or condensation forming on cold drink. The PROOF is the visible brewing process and rich color result."
+        },
+    ],
+    coffee: [
+        {
+            script: (name) => `${name} หอมมาก กลิ่นกาแฟเข้มข้น`,
+            action: "Presenter holds coffee cup near face — steam rising visibly, closes eyes inhaling rich aroma with blissful expression. Dark rich coffee color visible. The PROOF is the steam + involuntary aroma reaction."
+        },
+        {
+            script: (name) => `จิบ ${name} แล้ว ตื่นตัวทันที`,
+            action: "Presenter takes a sip of coffee — initially savoring, then expression shifts to alert and energized. Sits up straighter. The PROOF is the visible energy boost reaction after sipping."
+        },
+    ],
+    alcohol: [
+        {
+            script: (name) => `${name} รสชาติกลมกล่อม ดื่มแล้วฟิน`,
+            action: "Presenter swirls drink in glass elegantly — liquid coating glass visible. Takes a slow sip, savoring with sophisticated expression. The PROOF is the deliberate slow appreciation ritual."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Beauty & Skincare ── (VISUAL PROOF: must show APPLYING + VISIBLE RESULT)
+    // ═══════════════════════════════════════════════════════════════
+    beauty: [
+        {
+            script: (name) => `ทา ${name} แล้ว ผิวสวยขึ้นเลย`,
+            action: "Presenter applies product on face/skin — smooth gentle blending motion with fingertips. Skin immediately appears more radiant and glowing after application. The PROOF is the visible before→after radiance change."
+        },
+        {
+            script: (name) => `เนื้อ ${name} บางเบา ซึมเร็วมาก`,
+            action: "Presenter dabs product on back of hand — thin lightweight texture visible, spreads easily. Rubs in and shows hand — completely absorbed, no residue. The PROOF is the visible quick absorption leaving clean skin."
+        },
+        {
+            script: (name) => `กลิ่น ${name} หอมมาก ติดทนทั้งวัน`,
+            action: "Presenter sprays fragrance on wrist — closes eyes and inhales deeply with delighted blissful expression. Brings wrist to nose again savoring. The PROOF is the involuntary pleasure reaction to the scent."
+        },
+    ],
+    skincare: [
+        {
+            script: (name) => `ทา ${name} แล้ว ผิวเนียนขึ้นจริง`,
+            action: "Presenter applies skincare on cheek/forehead — gentle circular motion, product blending into skin. Shows face closer to camera — skin appears smoother, more luminous. The PROOF is visible smoothness and glow post-application."
+        },
+        {
+            script: (name) => `เนื้อ ${name} ซึมเร็ว ไม่เหนียว`,
+            action: "Presenter applies serum/cream on skin — thin texture spreads easily. Pats gently. Shows skin surface — clean, dewy, zero greasy shine. The PROOF is the matte-dewy finish with no sticky residue visible."
+        },
+        {
+            script: (name) => `${name} ช่วยให้ผิวชุ่มชื้น ไม่แห้ง`,
+            action: "Presenter presses product into skin — dewy moisture visible on surface. Skin looks plump and hydrated. Touches cheek showing supple bounce. The PROOF is the visible hydrated dewy skin texture."
+        },
+    ],
+    makeup: [
+        {
+            script: (name) => `แต่งหน้าด้วย ${name} สวยปังมาก`,
+            action: "Presenter applies makeup (lipstick/foundation/eyeshadow) — precise application visible. Shows finished result to camera — polished beautiful look. The PROOF is the dramatic before→after makeup transformation visible on face."
+        },
+        {
+            script: (name) => `สี ${name} สวยมาก เกลี่ยง่าย`,
+            action: "Presenter swatches color on arm or applies to face — rich pigmented color visible, smooth blending. Shows the vivid saturated color payoff. The PROOF is the intense visible color and smooth blendability."
+        },
+        {
+            script: (name) => `${name} ติดทนทั้งวัน ไม่เลอะ`,
+            action: "Presenter shows face with makeup applied — presses tissue against skin, lifts tissue showing minimal transfer. Makeup still intact and perfect. The PROOF is the tissue test showing long-lasting formula."
+        },
+    ],
+    fragrance: [
+        {
+            script: (name) => `กลิ่น ${name} หอมหรูมาก`,
+            action: "Presenter elegantly sprays perfume on wrist and neck — mist visible in air. Closes eyes inhaling deeply with blissful luxurious expression. Brings wrist to nose savoring. The PROOF is the visible spray mist + involuntary pleasure reaction."
+        },
+        {
+            script: (name) => `${name} ติดทนนาน กลิ่นหอมตลอดวัน`,
+            action: "Presenter sprays fragrance, waits a moment, then brings wrist to nose again — still pleased expression unchanged. Nods approvingly. The PROOF is the repeated sniff still showing delight — scent lasts."
+        },
+    ],
+    sunscreen: [
+        {
+            script: (name) => `ทา ${name} แล้ว ปกป้องผิว ไม่วอก`,
+            action: "Presenter squeezes sunscreen onto palm — shows lightweight texture, spreads evenly on arm/face. Blends in completely leaving no white cast. The PROOF is the invisible finish — no white residue, natural skin tone."
+        },
+    ],
+    haircare: [
+        {
+            script: (name) => `ใช้ ${name} แล้ว ผมนุ่มสลวยมาก`,
+            action: "Presenter runs fingers through hair — smooth silky strands flowing, visible shine and bounce. Hair moves naturally with beautiful luster. The PROOF is the visible glossy shine and smooth finger-through-hair movement."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Fashion & Accessories ── (VISUAL PROOF: must show WEARING + FIT/STYLE)
+    // ═══════════════════════════════════════════════════════════════
+    fashion: [
+        {
+            script: (name) => `ใส่ ${name} แล้ว ดูดีมากเลย`,
+            action: "Presenter wearing garment — does a confident turn showing fit from front, side, and back. Fabric drapes beautifully on body. The PROOF is the visible flattering fit and confident body language."
+        },
+        {
+            script: (name) => `เนื้อผ้า ${name} ดีมาก ใส่สบาย`,
+            action: "Presenter pinches and stretches fabric between fingers — shows quality texture, elasticity, and weight. Then moves naturally (bends, stretches) showing comfort. The PROOF is the visible fabric quality + unrestricted movement."
+        },
+        {
+            script: (name) => `แมตช์ง่าย ${name} ใส่ได้ทุกวัน`,
+            action: "Presenter styles outfit with accessories — adjusts collar, rolls sleeves, pairs with other items. Checks self confidently. The PROOF is the effortless styling showing versatility."
+        },
+    ],
+    sportswear: [
+        {
+            script: (name) => `ใส่ ${name} ออกกำลังกาย สบายมาก`,
+            action: "Presenter exercising in sportswear — stretching, jumping, or running. Fabric moves with body, sweat-wicking visible. No restriction. The PROOF is the unrestricted athletic movement and fabric performance."
+        },
+        {
+            script: (name) => `${name} ระบายอากาศดี ไม่ร้อน`,
+            action: "Presenter wearing sportswear during activity — shows breathable mesh areas, comfortable despite movement. No visible discomfort. The PROOF is comfortable active wear during exertion."
+        },
+    ],
+    jewelry: [
+        {
+            script: (name) => `ใส่ ${name} แล้ว ประกายสวยมาก`,
+            action: "Presenter wears jewelry and tilts hand/wrist/neck to catch light — sparkling facets create visible light reflections dancing across surface. Gemstone brilliance unmistakable. The PROOF is the visible sparkle and light play on the jewelry."
+        },
+        {
+            script: (name) => `${name} งานละเอียด ดูแพงมาก`,
+            action: "Close-up of jewelry detail — intricate metalwork, precise stone setting, smooth polished surface. Presenter traces details with fingertip. The PROOF is the visible micro-craftsmanship details under close inspection."
+        },
+    ],
+    watch: [
+        {
+            script: (name) => `สวม ${name} แล้ว ดูมีระดับมาก`,
+            action: "Presenter adjusts watch on wrist — face catches light, dial details and hands visible. Pulls sleeve up to show watch prominently. Sophisticated wrist check gesture. The PROOF is the visible premium dial, movement, and how it elevates the outfit."
+        },
+        {
+            script: (name) => `เครื่อง ${name} เดินแม่น ดูดีทุกมุม`,
+            action: "Close-up of watch face — second hand ticking precisely, dial markings crisp and clear. Presenter rotates wrist showing case finishing from multiple angles. The PROOF is the visible precision movement and multi-angle craftsmanship."
+        },
+    ],
+    bag: [
+        {
+            script: (name) => `สะพาย ${name} แล้ว ดูดีมาก`,
+            action: "Presenter puts bag on shoulder — adjusts strap, walks a few steps showing how it sits on body. Bag shape holds perfectly, leather/material quality visible. The PROOF is the flattering carry position and premium material visible in motion."
+        },
+        {
+            script: (name) => `${name} ใส่ของได้เยอะ ช่องเยอะ`,
+            action: "Presenter opens bag revealing organized compartments — puts phone, wallet, keys into separate pockets. Zips smoothly. Everything has a place. The PROOF is the visible organized interior and items fitting perfectly."
+        },
+    ],
+    shoe: [
+        {
+            script: (name) => `ใส่ ${name} แล้ว สบายมาก เดินลื่น`,
+            action: "Presenter walks naturally in shoes — visible cushioned stride, comfortable gait. Steps have soft landing. Shows sole flex and comfort. The PROOF is the visible comfortable natural walking motion with no stiffness."
+        },
+        {
+            script: (name) => `พื้น ${name} นุ่มมาก เดินทั้งวันไม่เจ็บ`,
+            action: "Presenter presses thumb on shoe sole showing cushion compression — bounces back. Then walks with relaxed comfortable expression. The PROOF is the visible sole cushion compression + bounce-back showing softness."
+        },
+        {
+            script: (name) => `ดีไซน์ ${name} สวย แมตช์ง่าย`,
+            action: "Presenter shows shoe from multiple angles — profile, front, back. Design details visible. Pairs with outfit naturally. The PROOF is the design detail visibility and outfit coordination."
+        },
+    ],
+    sunglasses: [
+        {
+            script: (name) => `ใส่ ${name} แล้ว ดูเท่มาก`,
+            action: "Presenter puts on sunglasses — instant style transformation visible. Shows different angles. Lens quality and frame design visible. The PROOF is the dramatic before→after style upgrade when putting them on."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Home & Kitchen ── (VISUAL PROOF: must show IN-USE + VISIBLE RESULT)
+    // ═══════════════════════════════════════════════════════════════
+    home: [
+        {
+            script: (name) => `ใช้ ${name} แล้ว บ้านดูดีขึ้นเลย`,
+            action: "Presenter places home product in living space — steps back to admire the result. Room looks noticeably better/more organized. The PROOF is the visible before→after room transformation."
+        },
+        {
+            script: (name) => `${name} จัดระเบียบง่าย เรียบร้อยทันที`,
+            action: "Presenter organizing items using product — messy items being neatly arranged, organized. Final result is satisfyingly tidy. The PROOF is the visible mess→neat transformation."
+        },
+    ],
+    furniture: [
+        {
+            script: (name) => `${name} นั่งสบายมาก ดีไซน์สวย`,
+            action: "Presenter sits on furniture — sinks in slightly showing comfortable cushioning, relaxed posture. Runs hand over material showing quality. The PROOF is the visible comfortable sinking + relaxed body language."
+        },
+    ],
+    kitchen: [
+        {
+            script: (name) => `ใช้ ${name} ทำอาหาร สะดวกมาก`,
+            action: "Presenter actively cooking with appliance — food sizzling/steaming/blending visible. Effortless operation. Delicious result visible at end. The PROOF is seeing the actual cooking process producing real food."
+        },
+        {
+            script: (name) => `${name} ทำอาหารเสร็จเร็ว ประหยัดเวลา`,
+            action: "Presenter presses button/starts appliance — machine works quickly. Opens lid showing perfectly cooked food. Surprised at speed. The PROOF is the fast cooking process + perfect visible result."
+        },
+        {
+            script: (name) => `ล้าง ${name} ง่ายมาก ดูแลสะดวก`,
+            action: "Presenter rinses product under water — detachable parts, smooth surfaces, easy cleaning visible. Wipes dry quickly. The PROOF is the effortless cleaning process visible."
+        },
+    ],
+    cleaning: [
+        {
+            script: (name) => `ใช้ ${name} แล้ว สะอาดหมดจด`,
+            action: "Presenter sprays/applies cleaning product on dirty surface — wipes once and dirt/stain disappears dramatically. Sparkling clean result. The PROOF is the visible dirty→clean transformation in one wipe."
+        },
+        {
+            script: (name) => `${name} ขจัดคราบง่าย ทรงพลังมาก`,
+            action: "Presenter applies product on stubborn stain — scrubs briefly. Lifts cloth showing stain completely gone. Impressed expression. The PROOF is the stubborn stain vanishing visibly."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Health & Wellness ── (VISUAL PROOF: must show TAKING/USING + BENEFIT)
+    // ═══════════════════════════════════════════════════════════════
+    supplement: [
+        {
+            script: (name) => `ทาน ${name} แล้ว รู้สึกดีขึ้นจริง`,
+            action: "Presenter pours capsules/tablets into palm — shows supplement details, takes one with water. Swallows naturally with satisfied expression. Healthy energetic appearance. The PROOF is the visible easy consumption + healthy vitality."
+        },
+        {
+            script: (name) => `${name} สารอาหารครบ ทานง่าย`,
+            action: "Presenter reads label/ingredients showing quality — then opens container, takes supplement easily. No grimace, easy to swallow. The PROOF is the visible ingredient quality + effortless consumption."
+        },
+    ],
+    vitamin: [
+        {
+            script: (name) => `ทาน ${name} ทุกวัน สุขภาพดีขึ้น`,
+            action: "Presenter takes vitamin with morning routine — places tablet/gummy in mouth easily. Energetic healthy appearance, glowing skin. The PROOF is the effortless daily routine + visible healthy vitality."
+        },
+    ],
+    protein: [
+        {
+            script: (name) => `ชง ${name} ง่ายมาก รสชาติอร่อย`,
+            action: "Presenter scoops powder into shaker — shakes vigorously, pours into glass showing smooth mixed texture. Takes a sip with pleased expression. The PROOF is the smooth mixing + genuine taste enjoyment."
+        },
+    ],
+    fitness: [
+        {
+            script: (name) => `ใช้ ${name} เทรนแล้ว เห็นผลจริง`,
+            action: "Presenter actively exercising with equipment — proper form, intense effort visible. Muscles engaged, sweat implied. Real athletic exertion. The PROOF is the visible proper-form workout with genuine physical effort."
+        },
+        {
+            script: (name) => `${name} ทนทานมาก ฟิตหนักได้`,
+            action: "Presenter pushes equipment hard — heavy weight, fast reps, equipment handles it perfectly. No flex, no wobble. The PROOF is the equipment surviving intense use without any deformation."
+        },
+        {
+            script: (name) => `จับ ${name} ถนัดมือ กระชับดี`,
+            action: "Presenter grips equipment showing ergonomic fit — hand wraps naturally around handle, fingers positioned comfortably. Demonstrates secure grip during movement. The PROOF is the visible natural hand-fit and secure non-slip grip."
+        },
+    ],
+    yoga: [
+        {
+            script: (name) => `ใช้ ${name} โยคะแล้ว สบายมาก`,
+            action: "Presenter in yoga pose on mat/with prop — stable balanced posture, serene expression. Equipment provides perfect support. The PROOF is the visible stability and comfort during held pose."
+        },
+    ],
+    outdoor: [
+        {
+            script: (name) => `${name} ใช้กลางแจ้ง ทนทุกสภาพอากาศ`,
+            action: "Presenter using product outdoors — rain, sun, or wind visible. Product performs perfectly despite conditions. The PROOF is the visible durability against weather elements."
+        },
+        {
+            script: (name) => `พก ${name} ไปเที่ยว สะดวกมาก`,
+            action: "Presenter packs product easily — compact, lightweight, fits in bag. Then uses it at destination. The PROOF is the visible portability and practical outdoor use."
+        },
+    ],
+    camping: [
+        {
+            script: (name) => `ใช้ ${name} ตั้งแคมป์ สะดวกมาก`,
+            action: "Presenter sets up camping gear — quick assembly, intuitive setup. Finished result looks sturdy and functional in nature setting. The PROOF is the visible easy setup process + sturdy final result."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Pet & Baby ── (VISUAL PROOF: must show PET/BABY REACTING POSITIVELY)
+    // ═══════════════════════════════════════════════════════════════
+    pet: [
+        {
+            script: (name) => `น้องลอง ${name} แล้ว ชอบมาก`,
+            action: "Presenter offers product to pet — pet immediately approaches with enthusiasm, eats eagerly or plays happily. Tail wagging or purring. The PROOF is the pet's visible enthusiastic positive reaction."
+        },
+        {
+            script: (name) => `${name} วัตถุดิบดี น้องสุขภาพดี`,
+            action: "Presenter shows product label/ingredients, then gives to pet. Pet eats completely. Presenter pets happy healthy-looking animal with shiny coat. The PROOF is the pet finishing the food + visible healthy appearance."
+        },
+    ],
+    baby: [
+        {
+            script: (name) => `ลูกใช้ ${name} แล้ว ชอบมากเลย`,
+            action: "Presenter gently gives/applies product to baby — baby responds with smile or comfortable relaxed expression. No fussing. The PROOF is the baby's visible comfortable happy reaction."
+        },
+        {
+            script: (name) => `${name} อ่อนโยน ปลอดภัยสำหรับลูก`,
+            action: "Presenter applies product with gentle careful touches — shows product touching delicate baby skin with zero irritation. Baby stays calm and content. The PROOF is the gentle application + baby showing zero discomfort."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Vehicle & Auto ── (VISUAL PROOF: must show INSTALLED + WORKING)
+    // ═══════════════════════════════════════════════════════════════
+    auto: [
+        {
+            script: (name) => `ติดตั้ง ${name} ง่ายมาก ใช้ได้ทันที`,
+            action: "Presenter installs product on/in vehicle — clips in, plugs in, or mounts easily. Quick secure attachment. Then demonstrates it working. The PROOF is the visible easy installation + immediate working functionality."
+        },
+        {
+            script: (name) => `${name} ทำให้รถดูดีขึ้นเลย`,
+            action: "Presenter shows car with product installed — visible upgrade. Steps back to admire. Premium appearance. The PROOF is the before→after vehicle appearance upgrade."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Education & Stationery ── (VISUAL PROOF: must show USING + RESULT)
+    // ═══════════════════════════════════════════════════════════════
+    book: [
+        {
+            script: (name) => `อ่าน ${name} แล้ว สนุกมาก วางไม่ลง`,
+            action: "Presenter reading book — completely absorbed, turning pages. Smiles or reacts to content. Can't put it down. The PROOF is the visible deep engagement — lost in the book."
+        },
+        {
+            script: (name) => `${name} เนื้อหาดีมาก ได้ความรู้เพียบ`,
+            action: "Presenter reads and nods — highlights passage, looks up inspired. Shows pages with rich content. The PROOF is the visible learning moment — the 'aha' expression."
+        },
+    ],
+    stationery: [
+        {
+            script: (name) => `เขียนด้วย ${name} ลื่นมากเลย`,
+            action: "Presenter writing with pen/pencil — smooth continuous strokes, ink flowing evenly, no skipping. Beautiful handwriting result on paper. The PROOF is the visible smooth ink flow and clean line quality."
+        },
+        {
+            script: (name) => `สี ${name} สดสวย ระบายง่าย`,
+            action: "Presenter coloring/drawing — vivid pigmented colors on paper, smooth consistent application. Rich color payoff visible. The PROOF is the intense visible color saturation and smooth coverage."
+        },
+    ],
+    toy: [
+        {
+            script: (name) => `เด็กๆ เล่น ${name} สนุกมาก`,
+            action: "Child or presenter playing with toy — genuine joy and laughter. Toy functions as expected — lights, sounds, movement. The PROOF is the visible genuine fun reaction + toy actually working."
+        },
+        {
+            script: (name) => `${name} พัฒนาสมอง เด็กชอบมาก`,
+            action: "Child concentrating on educational toy — solving puzzle, building, or creating. Achievement moment — completed task with proud smile. The PROOF is the visible problem-solving engagement + completion satisfaction."
+        },
+    ],
+    craft: [
+        {
+            script: (name) => `ใช้ ${name} ทำ DIY สวยมาก`,
+            action: "Presenter creating with craft product — visible artistic process. Finished result looks impressive and beautiful. Shows comparison to camera proudly. The PROOF is the visible creation process producing a beautiful result."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Tech extras ── (wearable, camera)
+    // ═══════════════════════════════════════════════════════════════
+    wearable: [
+        {
+            script: (name) => `ใส่ ${name} แล้ว เช็คสุขภาพง่ายมาก`,
+            action: "Presenter wearing smartwatch/band — taps screen showing health stats (heart rate, steps). Glances at wrist naturally. The PROOF is the visible health data on the wearable's screen responding to real-time checks."
+        },
+        {
+            script: (name) => `${name} ดีไซน์สวย ใส่ได้ทุกวัน`,
+            action: "Presenter shows wearable on wrist from angles — premium materials, comfortable strap. Pairs with both casual and formal outfit. The PROOF is the visible design quality and outfit versatility."
+        },
+    ],
+    camera: [
+        {
+            script: (name) => `ถ่ายด้วย ${name} คมชัดมาก`,
+            action: "Presenter takes photo with camera — viewfinder/LCD shows sharp detailed preview. Then shows captured image on LCD — crisp clear result. The PROOF is the visible sharp detailed captured image on the camera LCD."
+        },
+        {
+            script: (name) => `${name} ถ่ายวีดีโอ สวยมากเลย`,
+            action: "Presenter records video with camera — smooth panning motion. Flips LCD to show recording in progress — cinematic quality visible. The PROOF is the visible high-quality video footage on the camera's screen."
+        },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Generic fallbacks ── (must still show DEMONSTRATING + REACTION)
+    // ═══════════════════════════════════════════════════════════════
+    gadget: [
+        {
+            script: (name) => `ใช้ ${name} แล้ว สะดวกมาก`,
+            action: "Presenter demonstrates product in real use case — shows actual problem being solved by the product. Before: struggle. After: effortless. The PROOF is the visible problem→solution demonstration."
+        },
+        {
+            script: (name) => `ฟีเจอร์ ${name} ครบจบเลย`,
+            action: "Presenter demonstrates multiple features one by one — each feature shown actually working. Button press → visible response. The PROOF is each feature visibly functioning as claimed."
+        },
+        {
+            script: (name) => `${name} ดีไซน์สวย พรีเมียมมาก`,
+            action: "Presenter holds product showing premium build — runs finger across material, shows precision fit of parts, premium finish catching light. The PROOF is the visible material quality and craftsmanship details."
+        },
+    ],
+    other: [
+        {
+            script: (name) => `ลองใช้ ${name} แล้ว ดีจริง`,
+            action: "Presenter uses product for its intended purpose — genuine positive reaction to quality. Product performing its function visibly. The PROOF is the product actually working + authentic positive reaction."
+        },
+        {
+            script: (name) => `${name} ดีเกินคาดมาก`,
+            action: "Presenter demonstrates product — surprised impressed expression at quality exceeding expectations. Shows details to camera. The PROOF is the genuine 'exceeded expectations' surprise reaction."
+        },
+        {
+            script: (name) => `คุณภาพ ${name} ดี คุ้มค่ามาก`,
+            action: "Presenter examines product quality close-up — touches materials, tests mechanisms, inspects details. Nods approvingly. The PROOF is the visible quality inspection passing with flying colors."
+        },
+    ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Script-Action sync helper: picks random PAIRED script+action from category
+// Returns { script, action } that are GUARANTEED to match
+// ═══════════════════════════════════════════════════════════════════════════
+const pickScriptActionPair = (
+    category: ProductCategory,
+    productName: string,
+    excludeIndices?: number[]
+): { script: string; action: string; pairIndex: number } => {
+    const pairs = CATEGORY_SCENE_PAIRS[category] || CATEGORY_SCENE_PAIRS["gadget"] || CATEGORY_SCENE_PAIRS["other"]!;
+    // Filter out already-used indices to avoid repeats
+    const available = pairs
+        .map((p, i) => ({ ...p, idx: i }))
+        .filter(p => !excludeIndices?.includes(p.idx));
+    const pick = available.length > 0
+        ? available[Math.floor(Math.random() * available.length)]
+        : { ...pairs[0], idx: 0 };
+    return {
+        script: pick.script(productName),
+        action: pick.action,
+        pairIndex: pick.idx
+    };
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Generate full Thai script with product name — CATEGORY-SPECIFIC
+// Returns structured data: rawScript + pre-parsed sceneTexts + PAIRED sceneActions
+// ═══════════════════════════════════════════════════════════════════════════
+interface ScriptWithActions {
+    rawScript: string;           // Full text with 🎬 prefixes (for display)
+    sceneTexts: string[];        // Pre-parsed script text per scene
+    sceneActions: string[];      // PAIRED visual action directive per scene (matches script)
+}
+
 const generateThaiScript = (
     productName: string,
     template: string,
@@ -5062,15 +5897,15 @@ const generateThaiScript = (
     ctaText: string,
     clipDuration: number,
     category: ProductCategory
-): string => {
-    const powerWord = pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other);
+): ScriptWithActions => {
     const benefit = pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other);
     const urgency = pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other);
     
     // Generate exactly 1 short script per scene (~8 seconds each, slow comfortable pace)
-    // Each line should be 1-2 short sentences only — NOT crammed with text
     const sceneCount = Math.max(1, Math.floor(clipDuration / 8));
     let scriptParts: string[] = [];
+    let sceneTexts: string[] = [];
+    let sceneActions: string[] = [];
     
     const rawOpeningHook = hookText || pickRandom(HOOK_VARIATIONS[template] || HOOK_VARIATIONS["product-review"]);
     const openingHook = ensureMentionsProductName(rawOpeningHook, productName);
@@ -5082,6 +5917,11 @@ const generateThaiScript = (
         food: ["วันนี้ลองชิม", "มาชิมกัน", "ลองกินตัวนี้"],
         beverage: ["วันนี้ลองจิบ", "มาชิมเครื่องดื่มนี้", "ลองชงตัวนี้"],
         fashion: ["วันนี้ลองใส่", "มาลองชุดนี้", "ลองแมตช์ลุคนี้"],
+        laptop: ["วันนี้ลองใช้", "มาลองดู", "เปิดเครื่องลองใช้"],
+        phone: ["วันนี้ลองใช้", "มาลองมือถือนี้", "เปิดเครื่องลองดู"],
+        tablet: ["วันนี้ลองใช้", "มาลองแท็บเล็ตนี้", "เปิดเครื่องลอง"],
+        gaming: ["วันนี้ลองเล่น", "มาลองเกียร์นี้", "ลองเซ็ตอัป"],
+        audio: ["วันนี้ลองฟัง", "มาลองหูฟังนี้", "ลองใส่ฟัง"],
         gadget: ["วันนี้ลองใช้", "มาลองฟีเจอร์", "เปิดกล่องลองใช้"],
         beauty: ["วันนี้ลองทา", "มาลองเลย", "ลองใช้ตัวนี้"],
         supplement: ["วันนี้มาลอง", "ลองทานตัวนี้", "มาดูแลสุขภาพด้วย"],
@@ -5105,64 +5945,63 @@ const generateThaiScript = (
         digital: ["วันนี้ลองใช้", "มาลองแอปนี้", "ลองเปิดใช้ดู"]
     };
 
-    // Category-specific action verb for Scene 2 (3-scene version)
-    const scene2Action: Partial<Record<ProductCategory, string[]>> = {
-        food: ["ลองชิมแล้ว", "ลองกินแล้ว", "คำแรกเลย"],
-        beverage: ["จิบแล้ว", "ลองดื่มแล้ว", "ชงแล้วลองดู"],
-        fashion: ["ใส่แล้ว", "ลองใส่ให้ดู", "แมตช์ลุคแล้ว"],
-        gadget: ["ใช้จริงแล้ว", "ลองฟีเจอร์แล้ว", "เทสต์แล้ว"],
-        beauty: ["ทาแล้ว", "ลองใช้แล้ว", "เกลี่ยแล้ว"],
-        supplement: ["ลองทานแล้ว", "ทานมาแล้ว", "ใช้มาแล้ว"],
-        pet: ["น้องลองแล้ว", "ให้น้องกินแล้ว", "น้องใช้แล้ว"],
-        baby: ["ลูกใช้แล้ว", "ลูกลองแล้ว", "ให้ลูกใช้แล้ว"],
-        home: ["จัดแล้ว", "ใช้แล้ว", "ตกแต่งแล้ว"],
-        kitchen: ["ลองทำอาหารแล้ว", "ใช้ในครัวแล้ว", "ทดสอบแล้ว"],
-        fitness: ["เทรนแล้ว", "ลองฟิตแล้ว", "ใช้เทรนแล้ว"],
-        auto: ["ติดตั้งแล้ว", "ลองใช้แล้ว", "ใส่รถแล้ว"],
-        jewelry: ["ใส่แล้ว", "สวมแล้ว", "ลองใส่แล้ว"],
-        watch: ["สวมแล้ว", "ใส่แล้ว", "ลองสวมแล้ว"],
-        bag: ["สะพายแล้ว", "ลองถือแล้ว", "ใช้แล้ว"],
-        shoe: ["สวมแล้ว", "ลองเดินแล้ว", "ใส่แล้ว"],
-        book: ["อ่านแล้ว", "ลองอ่านแล้ว", "อ่านจบแล้ว"],
-        toy: ["เล่นแล้ว", "ลองเล่นแล้ว", "เด็กๆ เล่นแล้ว"],
-        stationery: ["เขียนแล้ว", "ลองใช้แล้ว", "ลองเขียนแล้ว"],
-        cleaning: ["ใช้ทำความสะอาดแล้ว", "ลองฉีดแล้ว", "ใช้แล้ว"],
-        outdoor: ["ลองใช้แล้ว", "เอาไปใช้แล้ว", "ทดสอบแล้ว"],
-        health: ["ลองใช้แล้ว", "วัดค่าแล้ว", "เช็คแล้ว"],
-        craft: ["ลอง DIY แล้ว", "ทำเสร็จแล้ว", "ลองทำแล้ว"],
-        digital: ["ลองใช้แล้ว", "เปิดใช้แล้ว", "ทดสอบแล้ว"]
-    };
-
     const intro = pickRandom(scene1Intro[category] || ["มาดู"]);
-    const action = pickRandom(scene2Action[category] || ["ลองใช้แล้ว"]);
-    const reviewPhrase = CATEGORY_REVIEW_PHRASE[category] ? pickRandom(CATEGORY_REVIEW_PHRASE[category]!) : `${action} ${productName} แล้วบอกเลย`;
+
+    // Scene 1 intro action (generic — product reveal or talk-only handled in buildVideoPrompt)
+    const guide = PRODUCT_PRESENTATION_GUIDE[category] || PRODUCT_PRESENTATION_GUIDE["other"];
+    const introAction = guide?.sceneActions[0] || "Presenter holds product to camera. Hero reveal shot.";
+    // CTA action (generic — final beauty shot)
+    const ctaAction = guide?.sceneActions[guide.sceneActions.length - 1] || "Presenter proudly displays product to camera with satisfied expression. Final beauty shot.";
 
     // ── SHORT SCRIPTS — 1 short sentence per scene (~8s at comfortable pace) ──
-    // IMPORTANT: Keep each line SHORT so character speaks slowly and naturally, not rushed.
+    // Middle scenes use CATEGORY_SCENE_PAIRS for PAIRED script+action (zero conflict)
     if (sceneCount === 1) {
-        scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
+        const text = `${openingHook} ${intro} ${productName} กัน!`;
+        scriptParts.push(`🎬 ฉาก1: "${text}"`);
+        sceneTexts.push(text);
+        sceneActions.push(introAction);
     } else if (sceneCount === 2) {
-        scriptParts.push(`🎬 ฉาก1: "${intro} ${productName} กัน!"`);
-        scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA}"`);
+        // Scene 1: intro
+        const text1 = `${intro} ${productName} กัน!`;
+        scriptParts.push(`🎬 ฉาก1: "${text1}"`);
+        sceneTexts.push(text1);
+        sceneActions.push(introAction);
+        // Scene 2: PAIRED script+action from category
+        const pair = pickScriptActionPair(category, productName);
+        const text2 = `${pair.script} ${closingCTA}`;
+        scriptParts.push(`🎬 ฉาก2: "${text2}"`);
+        sceneTexts.push(text2);
+        sceneActions.push(pair.action);
     } else {
-        // 3+ scenes: hook → short review → closing CTA
-        const middleTopics = [
-            `${action} ${productName} ${benefit}`,
-            `${productName} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} จริงๆ`,
-            `ที่ชอบมากคือ ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)}`,
-            `บอกเลย ${productName} ตัวนี้ ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)}`,
-            `ลองมาแล้ว ${productName} ดีจริง`,
-        ];
+        // 3+ scenes: intro → PAIRED middle scenes → CTA closing
+        // Scene 1: intro
+        const text1 = `${intro} ${productName} กัน!`;
+        scriptParts.push(`🎬 ฉาก1: "${text1}"`);
+        sceneTexts.push(text1);
+        sceneActions.push(introAction);
 
-        scriptParts.push(`🎬 ฉาก1: "${intro} ${productName} กัน!"`);
+        // Middle scenes: use PAIRED script+action — script and action ALWAYS match
+        const usedPairIndices: number[] = [];
         for (let i = 1; i < sceneCount - 1; i++) {
-            const topicIdx = (i - 1) % middleTopics.length;
-            scriptParts.push(`🎬 ฉาก${i + 1}: "${middleTopics[topicIdx]}"`);
+            const pair = pickScriptActionPair(category, productName, usedPairIndices);
+            usedPairIndices.push(pair.pairIndex);
+            scriptParts.push(`🎬 ฉาก${i + 1}: "${pair.script}"`);
+            sceneTexts.push(pair.script);
+            sceneActions.push(pair.action);
         }
-        scriptParts.push(`🎬 ฉาก${sceneCount}: "${closingCTA}"`);
+
+        // Last scene: CTA closing
+        const textLast = `${closingCTA} ${urgency}`;
+        scriptParts.push(`🎬 ฉาก${sceneCount}: "${textLast}"`);
+        sceneTexts.push(textLast);
+        sceneActions.push(ctaAction);
     }
     
-    return scriptParts.join("\n");
+    return {
+        rawScript: scriptParts.join("\n"),
+        sceneTexts,
+        sceneActions
+    };
 };
 
 export interface PromptGenerationConfig {
@@ -5240,6 +6079,7 @@ export interface VideoPromptMeta {
     productUsageRealism: string;   // Category-specific usage realism (e.g. open cap before spray)
     category: ProductCategory;     // Product category for per-scene presentation guide lookup
     talkOnlySceneIndex: number;    // 0-indexed scene that is "talk-only" (character speaks to camera, NO product shown)
+    sceneActions: string[];        // PAIRED visual action per scene — matches script content (zero conflict)
 }
 
 /**
@@ -5619,8 +6459,9 @@ const buildImagePrompt = (
     const lighting = getSmartLighting(config.voiceTone || 'friendly', category, ai.lighting);
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
 
-    // ── Fitness/Supplement body override ──
-    const isFitnessCategory = category === 'supplement' || category === 'fitness';
+    // ── Fitness/Supplement/Protein/Yoga/Sportswear body override ──
+    const ATHLETIC_CATEGORIES = new Set(['supplement', 'fitness', 'protein', 'yoga', 'sportswear']);
+    const isFitnessCategory = ATHLETIC_CATEGORIES.has(category);
     const fitnessBodyDesc = isFitnessCategory
         ? (config.gender === 'male'
             ? 'muscular athletic build, broad shoulders, toned arms and chest, confident gym-ready posture, wearing fitted gym tank top and athletic shorts'
@@ -5634,16 +6475,23 @@ const buildImagePrompt = (
     const imageSafeProductName = sanitizeProductNameForVeo(config.productName);
     const productAnatomy = buildProductAnatomyDirective(category, imageSafeProductName);
 
+    // ── Category-specific directives for image ──
+    const imageInteraction = CATEGORY_IMAGE_INTERACTION[category] || CATEGORY_IMAGE_INTERACTION["other"] || '';
+    const imageGripPhysics = buildContactPhysicsDirective(category);
+    const imageUsageRealism = PRODUCT_USAGE_REALISM[category] || '';
+
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
 [PRODUCT] ${imageSafeProductName}: ${productDesc}. ${productAnatomy} PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette, material texture and finish — all from reference image. Render with extreme surface detail: visible material grain, realistic light response (specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass/transparent elements, light dispersion on faceted surfaces). Reproduce all text, logos, and branding on the product label exactly as shown in the reference image — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality.
 [CHARACTER] ${characterLine}.
+[INTERACTION] ${imageInteraction}${imageUsageRealism ? ` ${imageUsageRealism}` : ''}
+[HANDS] ${imageGripPhysics}
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
 [LIGHTING] ${lighting}.
 [QUALITY] ${aspectRatio} orientation, photorealistic, ultra-detailed textures, 4K quality. ${ANTI_TEXT_DIRECTIVE}
 
-COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character holding or interacting with the product naturally. Both must be clearly visible together.
+COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character actively interacting with the product as described in [INTERACTION]. Both character and product must be clearly visible together.
 ${FRONT_FACING_DIRECTIVE}
 ${PRODUCT_MATCH_DIRECTIVE}
 ${ANTI_DISTORTION_DIRECTIVE}
@@ -5716,14 +6564,23 @@ const buildVideoPrompt = (
 
     const saleStyle = SALE_STYLE_THAI[config.saleStyle] || SALE_STYLE_THAI["storytelling"];
     
-    // Parse scene scripts
+    // Parse scene scripts + PAIRED actions
     let sceneTexts: string[] = [];
+    let pairedSceneActions: string[] = [];
     
     if (config.userScript && config.userScript.trim()) {
         sceneTexts = config.userScript.split(/\n{2,}/).filter(s => s.trim()).map(s => s.trim());
+        // User-provided scripts: generate matching actions from CATEGORY_SCENE_PAIRS
+        const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
+        const usedIndices: number[] = [];
+        for (let i = 0; i < sceneTexts.length; i++) {
+            const pair = pickScriptActionPair(category, config.productName, usedIndices);
+            usedIndices.push(pair.pairIndex);
+            pairedSceneActions.push(pair.action);
+        }
         console.log("📝 Using user-provided scripts:", sceneTexts);
     } else {
-        const rawScript = generateThaiScript(
+        const scriptResult = generateThaiScript(
             config.productName,
             config.template,
             voiceTone,
@@ -5734,22 +6591,14 @@ const buildVideoPrompt = (
             category
         );
         
-        const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
-        const scriptLines = rawScript.split('\n').filter(l => l.trim());
-        const linesPerScene = Math.ceil(scriptLines.length / sceneCount);
-        
-        for (let i = 0; i < sceneCount; i++) {
-            const start = i * linesPerScene;
-            const end = Math.min(start + linesPerScene, scriptLines.length);
-            const sceneLines = scriptLines.slice(start, end);
-            const sceneText = sceneLines.map(line => {
-                const match = line.match(/"([^"]+)"/);
-                return match ? match[1] : line.replace(/^[🎬💬✨😍🔥💡🎯]\s*\S+:\s*/, '').replace(/"/g, '');
-            }).join(' ');
-            sceneTexts.push(sceneText);
-        }
+        sceneTexts = scriptResult.sceneTexts;
+        pairedSceneActions = scriptResult.sceneActions;
         console.log("📝 Auto-generated scene scripts:", sceneTexts);
+        console.log("🎬 Paired scene actions:", pairedSceneActions.map((a, i) => `Scene ${i+1}: ${a.substring(0, 60)}...`));
     }
+    
+    // Inject pronunciation hints for brand/tech terms in all scene scripts
+    sceneTexts = sceneTexts.map(text => injectPronunciation(text));
 
     // ── Parse AI Vision analysis (override template defaults like image prompt) ──
     const ai = parseAiAnalysis(productAnalysis);
@@ -5799,7 +6648,6 @@ const buildVideoPrompt = (
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
-    const contactPhysics = buildContactPhysicsDirectiveSlim(category);
     // ── Veo-safe product name — strip trademarked brands for visual prompt (product IMAGE handles identity) ──
     const veoSafeProductName = sanitizeProductNameForVeo(config.productName);
     console.log(`🛡️ Product name sanitized for Veo: "${config.productName}" → "${veoSafeProductName}"`);
@@ -5842,13 +6690,17 @@ const buildVideoPrompt = (
         ? `${templateConfig.englishName} commercial video. Character speaks directly to camera in a confident, engaging manner. Product is NOT visible yet — this is the hook scene. Character builds anticipation through storytelling and natural body language.`
         : `${templateConfig.englishName} commercial video. ${productAnchor}`;
 
+    // Use lighter hand directive for video (usage realism already in productAnchor — avoid duplication)
+    const videoHandDirective = `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS}`;
     const scene1ActionBlock = isScene1TalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `${contactPhysics} ${speakingDirective}`;
+        : `${videoHandDirective} ${speakingDirective}`;
 
+    // Use PAIRED action for Scene 1 (matches script content) — falls back to generic if no paired action
+    const scene1PairedAction = pairedSceneActions[0] || '';
     const scene1PresentationBlock = isScene1TalkOnly
         ? `Character talks directly to viewer, no product interaction. Natural conversational body language, hands visible but empty.`
-        : `${getScenePresentationDirective(category, 1)}`;
+        : `VISUAL ACTION FOR THIS SCENE (MUST match spoken dialogue): ${scene1PairedAction || getScenePresentationDirective(category, 1)}. ACTION-SCRIPT SYNC: The visual action shown MUST correspond to what the character is saying. If dialogue mentions gaming, show gaming. If dialogue mentions screen quality, show screen.`;
 
     let prompt = sanitizePromptForPolicy([
         // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity
@@ -5862,14 +6714,16 @@ const buildVideoPrompt = (
         scene1ActionBlock,
         // [4.5. PRODUCT PRESENTATION or TALK-ONLY BODY LANGUAGE]
         scene1PresentationBlock,
+        // [4.6. SCREEN CONTENT DIRECTIVE — what must appear ON the product's display]
+        getScreenContentDirective(category, sceneTexts[0] || ''),
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
         // [7. STYLE/MOOD + REALISM]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
-        // [8. CONSTRAINTS] — condensed policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. PRODUCT LOCK: Product appearance, packaging, shape, and color are FIXED constants — identical in every scene where product is shown. FACE LOCK REMINDER: Character face is a FIXED constant — same bone structure, same features, same skin, ZERO changes. ${VIDEO_POLICY_DIRECTIVE}`
+        // [8. CONSTRAINTS] — policy + anti-addition (PRODUCT LOCK + FACE LOCK already in productAnchor + characterAnchor, not repeated here)
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ZERO INVENTION: Do NOT add glasses, hats, earphones, jewelry, tattoos, or ANY accessory not in reference images. Single product only — no duplicate products. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product frontal, centered, consistent size relative to character. Photorealistic only. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), veoSafeProductName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
@@ -5902,7 +6756,8 @@ const buildVideoPrompt = (
         clothingDesc,
         productUsageRealism,
         category,
-        talkOnlySceneIndex
+        talkOnlySceneIndex,
+        sceneActions: pairedSceneActions
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -5928,7 +6783,8 @@ export const buildSceneVideoPromptJSON = (
     sceneNumber: number,
     sceneVideoAction?: string
 ): string => {
-    const cleanScript = sceneScript.trim().replace(/^"+|"+$/g, '').trim();
+    // Inject pronunciation hints for brand/tech terms in scene script
+    const cleanScript = injectPronunciation(sceneScript.trim().replace(/^"+|"+$/g, '').trim());
     const aspectDirective = meta.aspectRatio === '9:16'
         ? 'Aspect ratio: 9:16 vertical portrait framing.'
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
@@ -5950,16 +6806,21 @@ export const buildSceneVideoPromptJSON = (
         ? `${meta.template} commercial. Character speaks directly to camera in a confident, engaging manner. Product is NOT visible — character builds anticipation through storytelling and natural body language.`
         : `${meta.template} commercial. The ${productName} is the HERO — always visible, prominent, centered. Same product appearance, same size, same position as scene ${sceneNumber - 1}. PRODUCT LOCK: exact same packaging, shape, color, proportions. ${meta.productUsageRealism}`;
 
-    // ── ACTION block ──
+    // ── ACTION block (includes hand anatomy for non-talk scenes) ──
     const actionBlock = isTalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `Character holds and presents ${productName}. ${speakingDirective}`;
+        : `Anatomically correct hands, five fingers each. Character holds and presents ${productName}. ${speakingDirective}`;
 
+    // ── PRESENTATION block — use PAIRED action from meta (matches script content) ──
+    // Priority: meta.sceneActions[sceneNumber-1] > sceneVideoAction > getScenePresentationDirective
+    const pairedAction = meta.sceneActions?.[sceneNumber - 1] || '';
     const presentationBlock = isTalkOnly
         ? `Character talks directly to viewer, no product interaction. Natural conversational body language, hands visible but empty.`
-        : (sceneVideoAction?.trim()
-            ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
-            : getScenePresentationDirective(meta.category, sceneNumber));
+        : (pairedAction
+            ? `VISUAL ACTION FOR THIS SCENE (MUST match spoken dialogue): ${pairedAction}. ACTION-SCRIPT SYNC: The visual action MUST correspond to what the character is saying.${sceneVideoAction?.trim() ? ` ${sceneVideoAction.trim()}.` : ''}`
+            : (sceneVideoAction?.trim()
+                ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
+                : getScenePresentationDirective(meta.category, sceneNumber)));
 
     const prompt = sanitizePromptForPolicy([
         // [1. CHARACTER VISUAL DNA] — full anchor for face/body consistency
@@ -5972,9 +6833,11 @@ export const buildSceneVideoPromptJSON = (
         meta.voiceoverDescriptor,
         `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — not rendered on screen): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
 
-        // [4. ACTION] — talk-only or product interaction
+        // [4. ACTION] — talk-only or product interaction + PAIRED visual action
         actionBlock,
         presentationBlock,
+        // [4.6. SCREEN CONTENT DIRECTIVE — what must appear ON the product's display]
+        getScreenContentDirective(meta.category, cleanScript),
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
@@ -5982,8 +6845,8 @@ export const buildSceneVideoPromptJSON = (
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
 
-        // [7. CONSTRAINTS + LOCKS]
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. No invented accessories. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. FACE LOCK: same bone structure, same features, same skin, ZERO changes. ${meta.cameraMovement}. Photorealistic only.`
+        // [7. CONSTRAINTS + LOCKS] (FACE LOCK already in characterAnchor, not repeated)
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add glasses, hats, earphones, jewelry, tattoos, or ANY accessory not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. ${meta.cameraMovement}. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers

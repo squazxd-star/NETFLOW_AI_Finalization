@@ -557,7 +557,63 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 log('คลิกปุ่ม "อัปโหลดวิดีโอ" บนหน้า Shorts');
                 await delay(2500);
             } else {
-                warn('ไม่พบปุ่ม "อัปโหลดวิดีโอ" บนหน้า Shorts');
+                // ══════════════════════════════════════════════════════════════
+                // FALLBACK: Shorts page has no upload button (first-time user)
+                // Use "สร้าง/Create" button at top-right → dropdown → "อัปโหลดวิดีโอ"
+                // ══════════════════════════════════════════════════════════════
+                log('ไม่พบปุ่มอัปโหลดบน Shorts page — ใช้ fallback: ปุ่ม "สร้าง/Create"');
+
+                // ── Click "สร้าง" / "Create" button (top-right header) ──
+                const createBtn = await waitForElement(() => {
+                    // Strategy 1: aria-label match (from user's HTML: aria-label="สร้าง")
+                    const byAriaCreate = document.querySelector('ytcp-button-shape button[aria-label="สร้าง"]') ||
+                                         document.querySelector('ytcp-button-shape button[aria-label="Create"]');
+                    if (byAriaCreate) {
+                        const r = (byAriaCreate as HTMLElement).getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return byAriaCreate;
+                    }
+                    // Strategy 2: button text content match
+                    return findByTexts(
+                        ['สร้าง', 'Create'],
+                        'ytcp-button-shape button, button'
+                    );
+                }, 10000);
+
+                if (createBtn) {
+                    clickElement(createBtn);
+                    log('คลิกปุ่ม "สร้าง/Create" ที่มุมขวาบน');
+                    await delay(2000);
+
+                    // ── Click "อัปโหลดวิดีโอ" / "Upload videos" from dropdown ──
+                    const uploadMenuItem = await waitForElement(() => {
+                        // Strategy 1: yt-formatted-string inside ytcp-text-menu
+                        const items = document.querySelectorAll('ytcp-text-menu yt-formatted-string.item-text');
+                        for (const item of items) {
+                            const txt = (item.textContent || '').trim();
+                            if (txt === 'อัปโหลดวิดีโอ' || txt === 'Upload videos' || txt === 'Upload video') {
+                                const r = (item as HTMLElement).getBoundingClientRect();
+                                if (r.width > 0 && r.height > 0) return item;
+                            }
+                        }
+                        // Strategy 2: tp-yt-paper-item with matching text
+                        return findByTexts(
+                            ['อัปโหลดวิดีโอ', 'Upload videos', 'Upload video'],
+                            'tp-yt-paper-item, ytcp-text-menu div, yt-formatted-string'
+                        );
+                    }, 8000);
+
+                    if (uploadMenuItem) {
+                        // Click the parent tp-yt-paper-item for proper event handling
+                        const menuTarget = uploadMenuItem.closest('tp-yt-paper-item') || uploadMenuItem;
+                        clickElement(menuTarget);
+                        log('คลิก "อัปโหลดวิดีโอ/Upload videos" จาก dropdown');
+                        await delay(2500);
+                    } else {
+                        warn('ไม่พบ "อัปโหลดวิดีโอ" ใน dropdown — อาจต้อง verify channel');
+                    }
+                } else {
+                    warn('ไม่พบปุ่ม "สร้าง/Create" — ตรวจสอบหน้า YouTube Studio');
+                }
             }
         }
         hudUpdate(0, 'done');
@@ -680,7 +736,16 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             log('ไม่พบปุ่ม "เพิ่มทั้งหมด" สำหรับแฮชแท็ก — ข้าม');
         }
 
-        // Description
+        // Description — always ensure #Shorts is included for YouTube Shorts categorization
+        const ensureShortsHashtag = (desc: string): string => {
+            if (!desc) return '#Shorts';
+            // Check if #Shorts (case-insensitive) already exists
+            if (/#shorts\b/i.test(desc)) return desc;
+            // Append #Shorts at the end
+            return desc.trimEnd() + ' #Shorts';
+        };
+        config.description = ensureShortsHashtag(config.description || '');
+
         if (config.description) {
             const descField = await waitForElement(() => {
                 return document.querySelector('#description-textarea #textbox[contenteditable="true"]') ||
