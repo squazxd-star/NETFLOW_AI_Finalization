@@ -3144,7 +3144,9 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
-        sendVideoGenerationComplete(tiktokVideoUrl);
+        // Re-capture video URL — the original was Scene 1, now grab the Full Video
+        const freshVideoUrl = await captureVideoUrlAndPreFetch();
+        sendVideoGenerationComplete(freshVideoUrl || tiktokVideoUrl);
         closeAutomationTab(2000);
         return;
     }
@@ -3306,7 +3308,9 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     }
 
     LOG("═══ ดาวน์โหลดเสร็จสิ้น ═══");
-    sendVideoGenerationComplete(tiktokVideoUrl);
+    // Re-capture video URL to ensure we send the latest (not stale)
+    const freshVideoUrl1 = await captureVideoUrlAndPreFetch();
+    sendVideoGenerationComplete(freshVideoUrl1 || tiktokVideoUrl);
     closeAutomationTab(2000);
 }
 
