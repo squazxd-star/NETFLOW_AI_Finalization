@@ -5956,7 +5956,7 @@ const generateThaiScript = (
     // ── SHORT SCRIPTS — 1 short sentence per scene (~8s at comfortable pace) ──
     // Middle scenes use CATEGORY_SCENE_PAIRS for PAIRED script+action (zero conflict)
     if (sceneCount === 1) {
-        const text = `${openingHook} ${intro} ${productName} กัน!`;
+        const text = `${intro} ${productName} กัน!`;
         scriptParts.push(`🎬 ฉาก1: "${text}"`);
         sceneTexts.push(text);
         sceneActions.push(introAction);
@@ -5966,15 +5966,14 @@ const generateThaiScript = (
         scriptParts.push(`🎬 ฉาก1: "${text1}"`);
         sceneTexts.push(text1);
         sceneActions.push(introAction);
-        // Scene 2: PAIRED script+action from category
+        // Scene 2: PAIRED script+action from category + CTA
         const pair = pickScriptActionPair(category, productName);
-        const text2 = `${pair.script} ${closingCTA}`;
-        scriptParts.push(`🎬 ฉาก2: "${text2}"`);
-        sceneTexts.push(text2);
+        scriptParts.push(`🎬 ฉาก2: "${pair.script}"`);
+        sceneTexts.push(pair.script);
         sceneActions.push(pair.action);
     } else {
         // 3+ scenes: intro → PAIRED middle scenes → CTA closing
-        // Scene 1: intro
+        // Scene 1: intro (short)
         const text1 = `${intro} ${productName} กัน!`;
         scriptParts.push(`🎬 ฉาก1: "${text1}"`);
         sceneTexts.push(text1);
@@ -5990,10 +5989,9 @@ const generateThaiScript = (
             sceneActions.push(pair.action);
         }
 
-        // Last scene: CTA closing
-        const textLast = `${closingCTA} ${urgency}`;
-        scriptParts.push(`🎬 ฉาก${sceneCount}: "${textLast}"`);
-        sceneTexts.push(textLast);
+        // Last scene: CTA only (short)
+        scriptParts.push(`🎬 ฉาก${sceneCount}: "${closingCTA}"`);
+        sceneTexts.push(closingCTA);
         sceneActions.push(ctaAction);
     }
     

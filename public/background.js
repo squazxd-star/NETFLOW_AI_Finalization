@@ -2,7 +2,17 @@
 // Opens the side panel when the extension icon is clicked.
 // Cross-platform: Windows + macOS compatible
 
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+// Open side panel when extension icon is clicked (explicit + reliable)
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
+// Fallback: explicitly open side panel on action click
+chrome.action.onClicked.addListener(async (tab) => {
+    try {
+        await chrome.sidePanel.open({ windowId: tab.windowId });
+    } catch (e) {
+        console.warn('[Netflow] sidePanel.open failed:', e);
+    }
+});
 
 // ─── Engine Configuration ────────────────────────────────────────────────────
 // Maps engine ID → { urlPatterns, contentScript, label }

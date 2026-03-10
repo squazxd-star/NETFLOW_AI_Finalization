@@ -247,21 +247,22 @@ const GenerationSettingsSection = ({
             ];
             const randomStyle = creativeStyles[Math.floor(Math.random() * creativeStyles.length)];
 
-            // Calculate target word count per scene (balanced distribution)
-            const targetWordsPerScene = 14; // center of 10-18 range
+            // Calculate target word count per scene (short & punchy)
+            const targetWordsPerScene = 12; // center of 10-14 range
             const minWords = 10;
-            const maxWords = 18;
+            const maxWords = 14;
 
             const systemPrompt = `คุณเป็นนักเขียนสคริปต์รีวิวสินค้าสำหรับวิดีโอสั้น (TikTok/Reels/Shorts) ระดับมืออาชีพ
-จังหวะการพูด: แต่ละฉาก 8 วินาที = ${minWords}-${maxWords} คำไทย
+จังหวะการพูด: แต่ละฉาก 8 วินาที = ${minWords}-${maxWords} คำไทย (สั้น กระชับ ได้ใจความ)
 สไตล์: ${randomStyle}
 
 กฎเหล็ก:
-1. ทุกฉากต้องมีอย่างน้อย ${minWords} คำไทย ห้ามต่ำกว่านี้เด็ดขาด — นับคำให้แน่ใจก่อนตอบ
-2. ใช้ข้อมูลสินค้าจริงที่คุณรู้จาก training data ได้เลย (สเปค ฟีเจอร์ ราคา ของในกล่อง) — ถ้าเป็นสินค้าที่มีชื่อเสียง คุณต้องรู้ข้อมูลอยู่แล้ว ให้ใส่ข้อมูลจริงลงไป
-3. ห้ามเขียนว่า "ไม่มีข้อมูล" หรือ "ไม่รู้สเปค" ในสคริปต์เด็ดขาด
+1. ทุกฉากต้องมี ${minWords}-${maxWords} คำไทยเท่านั้น — กระชับแต่ได้ใจความ ห้ามยาวเกิน
+2. แต่ละฉากพูดจุดเด่นแค่ 1 อย่าง ห้ามยัดหลายสเปคในฉากเดียว
+3. ใช้ชื่อสินค้าแบบสั้น (เช่น "Predator" แทน "Acer Predator Helios Neo") — เอ่ยชื่อเต็มแค่ฉากแรกหรือฉากสุดท้าย
 4. สคริปต์ต้องต่อเนื่องเหมือนคนเดียวพูดตลอดคลิป
-5. แต่ละฉากต้องมี videoAction (ภาษาอังกฤษ) คือสิ่งที่ตัวละครทำจริงๆ ในวิดีโอ`;
+5. แต่ละฉากต้องมี videoAction (ภาษาอังกฤษ) คือสิ่งที่ตัวละครทำจริงๆ ในวิดีโอ
+6. ห้ามเขียนว่า "ไม่มีข้อมูล" หรือ "ไม่รู้สเปค" ในสคริปต์เด็ดขาด`;
 
             let productContext = `ชื่อสินค้า: ${productName || "สินค้าจากรูป"}`;
             if (productImage) {
@@ -304,21 +305,21 @@ ${mustUseKeywords.trim() ? `\n🔑 คำสำคัญที่ต้องใ
 ${avoidKeywords.trim() ? `\n🚫 คำที่ห้ามใช้: ${avoidKeywords.trim()}` : ''}
 
 กฎเหล็ก:
-1. สำคัญที่สุด: ทุกฉากต้องมีอย่างน้อย ${minWords} คำไทย ถึง ${maxWords} คำ — นับทุกฉากให้แน่ใจ ถ้าฉากไหนต่ำกว่า ${minWords} คำ ให้เพิ่มรายละเอียดเข้าไป
-2. ทุกฉากต้องมีข้อมูลเฉพาะเจาะจง: ชื่อรุ่น สเปค ตัวเลข ชื่อเทคโนโลยี ราคา — ห้ามเขียนกว้างๆ เช่น "ดีมาก" "น่าทึ่ง" โดยไม่บอกว่าอะไรดี
-3. แต่ละฉากพูดเรื่องต่างกัน ไม่ซ้ำ: ฉากแรก=hook, ฉากกลาง=รีวิวจุดเด่นแต่ละด้าน, ฉากสุดท้าย=CTA
-4. ใช้ภาษาพูดธรรมชาติ เหมือนคนจริงพูดรีวิว
+1. สำคัญที่สุด: ทุกฉากต้องมี ${minWords}-${maxWords} คำไทย — กระชับแต่ได้ใจความ ห้ามยาวเกิน ${maxWords} คำเด็ดขาด
+2. แต่ละฉากพูดจุดเด่นแค่ 1 เรื่อง ห้ามยัดหลายสเปคในประโยคเดียว
+3. แต่ละฉากพูดเรื่องต่างกัน ไม่ซ้ำ: ฉากแรก=hook, ฉากกลาง=รีวิวจุดเด่นทีละด้าน, ฉากสุดท้าย=CTA
+4. ใช้ภาษาพูดธรรมชาติ สั้นๆ เหมือนคนจริงพูดรีวิว
 5. ห้ามใช้ emoji ห้ามเขียนหมายเหตุ
-6. ห้ามเขียนว่า "ไม่มีข้อมูล" หรือ "ไม่ชัดเจน" ในสคริปต์
+6. ใช้ชื่อสินค้าแบบสั้น ในฉากกลาง (เช่น "ตัวนี้" หรือชื่อรุ่นสั้นๆ)
 
 ตัวอย่างฉากที่ดี (MacBook Pro 14 M5):
 ฉาก 1:
-SCRIPT: ใครกำลังหาโน้ตบุ๊คทำงานหนักได้ทั้งวัน ไม่กระตุก ไม่ร้อน มาดู MacBook Pro ตัวนี้กัน
-ACTION: Character holds the closed MacBook Pro with both hands, raises it toward camera confidently
+SCRIPT: หาโน้ตบุ๊คแรงๆ อยู่ใช่มั้ย มาดู MacBook Pro กัน
+ACTION: Character holds the closed MacBook Pro, raises it toward camera
 
 ฉาก 2:
-SCRIPT: เครื่องนี้ใช้ชิป M5 ใหม่ล่าสุด ซีพียู 12 คอร์ จีพียู 16 คอร์ เปิดงานหนักปุ๊บเสร็จปั๊บ
-ACTION: Character opens the laptop and launches multiple heavy apps like Final Cut Pro, showing instant smooth response
+SCRIPT: ชิป M5 แรงมาก เปิดงานหนักปุ๊บเสร็จปั๊บ
+ACTION: Character opens laptop, launches heavy apps showing smooth response
 
 🎥 videoAction คือคำอธิบายภาษาอังกฤษสั้นๆ (10-25 คำ) บอกว่าตัวละครทำอะไรในฉากนั้นให้ตรงกับคำพูด
 
