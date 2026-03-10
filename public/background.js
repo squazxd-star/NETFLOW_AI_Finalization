@@ -237,6 +237,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     return;
                 }
                 console.log(`[Netflow] Routing to ${config.label} (tab ${tab.id})`);
+
+                // ★ macOS fix: Always pre-inject content script before sending
+                // (manifest auto-injection can silently fail after SPA navigation)
+                await ensureContentScript(tab.id, config.contentScript);
+                await new Promise(r => setTimeout(r, 500));
+
+                // ★ PING pre-check: verify script is alive before sending the real command
+                if (message.action !== "PING") {
+                    const pingOk = await new Promise(resolve => {
+                        const timer = setTimeout(() => resolve(false), 3000);
+                        chrome.tabs.sendMessage(tab.id, { action: "PING" }, (resp) => {
+                            clearTimeout(timer);
+                            if (chrome.runtime.lastError || !resp?.status) resolve(false);
+                            else resolve(true);
+                        });
+                    });
+                    if (!pingOk) {
+                        console.log('[Netflow] PING failed — re-injecting content script...');
+                        await ensureContentScript(tab.id, config.contentScript);
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
+
                 const response = await sendToContentScript(tab.id, message, config.contentScript);
                 sendResponse(response);
             } catch (err) {

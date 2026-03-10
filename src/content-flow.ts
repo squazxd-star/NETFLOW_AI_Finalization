@@ -3893,11 +3893,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.action === "GENERATE_IMAGE") {
         // ★ Concurrency guard: prevent duplicate execution from multiple script instances
         if ((window as any).__NETFLOW_RUNNING__) {
-            LOG("⚠️ GENERATE_IMAGE ถูกเรียกซ้ำ — ข้าม (มี instance ทำงานอยู่แล้ว)");
-            sendResponse({ success: false, message: "Already running" });
-            return false;
+            // Auto-reset if stuck for more than 10 minutes (macOS hang recovery)
+            const startedAt = (window as any).__NETFLOW_STARTED_AT__ || 0;
+            if (startedAt > 0 && Date.now() - startedAt > 10 * 60 * 1000) {
+                LOG("⚠️ __NETFLOW_RUNNING__ ค้างเกิน 10 นาที — auto-reset");
+                (window as any).__NETFLOW_RUNNING__ = false;
+            } else {
+                LOG("⚠️ GENERATE_IMAGE ถูกเรียกซ้ำ — ข้าม (มี instance ทำงานอยู่แล้ว)");
+                sendResponse({ success: false, message: "Already running" });
+                return false;
+            }
         }
         (window as any).__NETFLOW_RUNNING__ = true;
+        (window as any).__NETFLOW_STARTED_AT__ = Date.now();
         (window as any).__NETFLOW_STOP__ = false;
         LOG("ได้รับคำสั่ง GENERATE_IMAGE");
         // Respond immediately to prevent MV3 service-worker message-channel timeout
