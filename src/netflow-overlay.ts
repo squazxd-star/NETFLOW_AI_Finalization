@@ -3464,7 +3464,10 @@ export function showOverlay(sceneCount: number = 1): void {
     }
     logBuffer.length = 0;
     overlayRoot = buildOverlay();
+    // ★ Inline critical styles as CSP fallback (macOS Google Labs may block <style> tags)
+    overlayRoot.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;pointer-events:auto !important;opacity:1 !important;';
     document.body.appendChild(overlayRoot);
+    overlayRoot.classList.add("nf-visible");
     overlayHidden = false;
     ensureToggleButton();
     startTimer();

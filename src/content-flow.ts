@@ -45,6 +45,17 @@ function closeAutomationTab(delayMs: number = 3000): void {
     }, delayMs);
 }
 
+// ─── Cross-platform file:// URL helper ───────────────────────────────────────
+/** Convert OS file path to proper file:// URL (works on both Windows and macOS) */
+function toFileUrl(filePath: string): string {
+    const normalized = filePath.replace(/\\/g, "/");
+    // macOS/Linux paths start with "/" → file:// + /path = file:///path (3 slashes)
+    // Windows paths start with drive letter → file:/// + C:/path (3 slashes)
+    return normalized.startsWith("/")
+        ? "file://" + normalized
+        : "file:///" + normalized;
+}
+
 // ─── TikTok Auto-Post: Capture video URL and notify React hook ──────────────
 /** Grab <video> src from the current page and pre-fetch via background for TikTok auto-post */
 async function captureVideoUrlAndPreFetch(): Promise<string | null> {
@@ -3164,10 +3175,8 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                     resolve();
                 });
             });
-            // Construct file:// URL for sidepanel preview
-            const fileUrl = fullVideoFilename
-                ? "file:///" + fullVideoFilename.replace(/\\/g, "/")
-                : null;
+            // Construct file:// URL for sidepanel preview (cross-platform)
+            const fileUrl = fullVideoFilename ? toFileUrl(fullVideoFilename) : null;
             sendVideoGenerationComplete(fileUrl || tiktokVideoUrl);
         } else {
             LOG("[FullVideo] ไม่มี fileTabId — fallback ใช้ video จากหน้า");
@@ -3804,10 +3813,8 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                 resolve();
             });
         });
-        // Construct file:// URL for sidepanel preview
-        const fileUrlNav = fullVideoFilenameNav
-            ? "file:///" + fullVideoFilenameNav.replace(/\\/g, "/")
-            : null;
+        // Construct file:// URL for sidepanel preview (cross-platform)
+        const fileUrlNav = fullVideoFilenameNav ? toFileUrl(fullVideoFilenameNav) : null;
         sendVideoGenerationComplete(fileUrlNav);
     } else {
         LOG("[FullVideo] ไม่มี fileTabId — fallback ใช้ video จากหน้า");
@@ -3887,95 +3894,101 @@ async function checkAndRunPendingAction(): Promise<void> {
     }
 }
 
-// ─── Message Listener ───────────────────────────────────────────────────────
+// ─── Message Listener (singleton guard: prevent duplicate from re-injection) ──
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.action === "GENERATE_IMAGE") {
-        // ★ Concurrency guard: prevent duplicate execution from multiple script instances
-        if ((window as any).__NETFLOW_RUNNING__) {
-            // Auto-reset if stuck for more than 10 minutes (macOS hang recovery)
-            const startedAt = (window as any).__NETFLOW_STARTED_AT__ || 0;
-            if (startedAt > 0 && Date.now() - startedAt > 10 * 60 * 1000) {
-                LOG("⚠️ __NETFLOW_RUNNING__ ค้างเกิน 10 นาที — auto-reset");
-                (window as any).__NETFLOW_RUNNING__ = false;
-            } else {
-                LOG("⚠️ GENERATE_IMAGE ถูกเรียกซ้ำ — ข้าม (มี instance ทำงานอยู่แล้ว)");
-                sendResponse({ success: false, message: "Already running" });
-                return false;
+if (!(window as any).__NETFLOW_LISTENER_REGISTERED__) {
+    (window as any).__NETFLOW_LISTENER_REGISTERED__ = true;
+
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+        if (message?.action === "GENERATE_IMAGE") {
+            // ★ Concurrency guard: prevent duplicate execution from multiple script instances
+            if ((window as any).__NETFLOW_RUNNING__) {
+                // Auto-reset if stuck for more than 10 minutes (macOS hang recovery)
+                const startedAt = (window as any).__NETFLOW_STARTED_AT__ || 0;
+                if (startedAt > 0 && Date.now() - startedAt > 10 * 60 * 1000) {
+                    LOG("⚠️ __NETFLOW_RUNNING__ ค้างเกิน 10 นาที — auto-reset");
+                    (window as any).__NETFLOW_RUNNING__ = false;
+                } else {
+                    LOG("⚠️ GENERATE_IMAGE ถูกเรียกซ้ำ — ข้าม (มี instance ทำงานอยู่แล้ว)");
+                    sendResponse({ success: false, message: "Already running" });
+                    return false;
+                }
             }
+            (window as any).__NETFLOW_RUNNING__ = true;
+            (window as any).__NETFLOW_STARTED_AT__ = Date.now();
+            (window as any).__NETFLOW_STOP__ = false;
+            LOG("ได้รับคำสั่ง GENERATE_IMAGE");
+            // Respond immediately to prevent MV3 service-worker message-channel timeout
+            sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
+            // Fire-and-forget: run the long automation in the background
+            handleGenerateImage(message as GenerateImageRequest)
+                .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
+                .catch(err => {
+                    if (err instanceof NetflowAbortError || err?.name === "NetflowAbortError") {
+                        LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
+                        try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
+                        try { hideOverlay(); } catch (_) {}
+                    } else {
+                        console.error("[Netflow AI] Generate error:", err);
+                    }
+                })
+                .finally(() => { (window as any).__NETFLOW_RUNNING__ = false; });
+            return false;
         }
-        (window as any).__NETFLOW_RUNNING__ = true;
-        (window as any).__NETFLOW_STARTED_AT__ = Date.now();
-        (window as any).__NETFLOW_STOP__ = false;
-        LOG("ได้รับคำสั่ง GENERATE_IMAGE");
-        // Respond immediately to prevent MV3 service-worker message-channel timeout
-        sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
-        // Fire-and-forget: run the long automation in the background
-        handleGenerateImage(message as GenerateImageRequest)
-            .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
-            .catch(err => {
-                if (err instanceof NetflowAbortError || err?.name === "NetflowAbortError") {
-                    LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
-                    try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
-                    try { hideOverlay(); } catch (_) {}
-                } else {
-                    console.error("[Netflow AI] Generate error:", err);
+
+        if (message?.action === "STOP_AUTOMATION") {
+            LOG("⛔ ได้รับ STOP_AUTOMATION — ตั้งค่าสถานะหยุด");
+            (window as any).__NETFLOW_STOP__ = true;
+            (window as any).__NETFLOW_RUNNING__ = false; // allow re-trigger after stop
+            sendResponse({ success: true, message: "Stop signal sent" });
+            return false;
+        }
+
+        if (message?.action === "PING") {
+            sendResponse({ status: "ready" });
+            return false;
+        }
+
+        if (message?.action === "CLICK_FIRST_IMAGE") {
+            sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
+            (async () => {
+                LOG("CLICK_FIRST_IMAGE — ค้นหาการ์ดรูปแรกผ่านไอคอน <i>image</i>...");
+                await sleep(500);
+
+                // Element-based detection: find card with <i>image</i> icon (works on any screen size)
+                const imageCard = findFirstImageCard();
+                if (!imageCard) {
+                    WARN("ไม่พบการ์ดรูปผ่านไอคอน <i>image</i>");
+                    return;
                 }
-            })
-            .finally(() => { (window as any).__NETFLOW_RUNNING__ = false; });
-        return false;
-    }
 
-    if (message?.action === "STOP_AUTOMATION") {
-        LOG("⛔ ได้รับ STOP_AUTOMATION — ตั้งค่าสถานะหยุด");
-        (window as any).__NETFLOW_STOP__ = true;
-        (window as any).__NETFLOW_RUNNING__ = false; // allow re-trigger after stop
-        sendResponse({ success: true, message: "Stop signal sent" });
-        return false;
-    }
+                const r = imageCard.getBoundingClientRect();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                LOG(`การ์ดรูปที่ (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — คลิก 2 ครั้ง`);
 
-    if (message?.action === "PING") {
-        sendResponse({ status: "ready" });
-        return false;
-    }
-
-    if (message?.action === "CLICK_FIRST_IMAGE") {
-        sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
-        (async () => {
-            LOG("CLICK_FIRST_IMAGE — ค้นหาการ์ดรูปแรกผ่านไอคอน <i>image</i>...");
-            await sleep(500);
-
-            // Element-based detection: find card with <i>image</i> icon (works on any screen size)
-            const imageCard = findFirstImageCard();
-            if (!imageCard) {
-                WARN("ไม่พบการ์ดรูปผ่านไอคอน <i>image</i>");
-                return;
-            }
-
-            const r = imageCard.getBoundingClientRect();
-            const cx = r.left + r.width / 2;
-            const cy = r.top + r.height / 2;
-            LOG(`การ์ดรูปที่ (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — คลิก 2 ครั้ง`);
-
-            for (let i = 0; i < 2; i++) {
-                const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
-                if (target) {
-                    await robustClick(target);
-                    LOG(`คลิก ${i + 1}/2 บน <${target.tagName.toLowerCase()}>`);
-                } else {
-                    await robustClick(imageCard);
-                    LOG(`คลิก ${i + 1}/2 บนการ์ด (สำรอง)`);
+                for (let i = 0; i < 2; i++) {
+                    const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
+                    if (target) {
+                        await robustClick(target);
+                        LOG(`คลิก ${i + 1}/2 บน <${target.tagName.toLowerCase()}>`);
+                    } else {
+                        await robustClick(imageCard);
+                        LOG(`คลิก ${i + 1}/2 บนการ์ด (สำรอง)`);
+                    }
+                    await sleep(300);
                 }
-                await sleep(300);
-            }
-            LOG("✅ คลิกการ์ดรูป 2 ครั้งเสร็จ");
-        })();
-        return false;
-    }
-});
+                LOG("✅ คลิกการ์ดรูป 2 ครั้งเสร็จ");
+            })();
+            return false;
+        }
+    });
 
-LOG("สคริปต์ Google Flow พร้อมแล้ว — รอคำสั่ง");
+    LOG("สคริปต์ Google Flow พร้อมแล้ว — รอคำสั่ง");
 
-// ★ Check for pending action from previous page (video card click caused navigation)
-checkAndRunPendingAction();
+    // ★ Check for pending action from previous page (video card click caused navigation)
+    checkAndRunPendingAction();
+} else {
+    console.log("[Netflow AI] ⚡ สคริปต์ถูกโหลดซ้ำ — ข้ามการลงทะเบียน listener (ใช้ตัวเดิม)");
+}
 
