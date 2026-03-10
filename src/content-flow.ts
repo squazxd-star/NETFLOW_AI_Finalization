@@ -186,6 +186,14 @@ async function preFetchViaBackground(videoUrl: string): Promise<void> {
 /** Send VIDEO_GENERATION_COMPLETE to React hook so TikTok auto-post can trigger */
 function sendVideoGenerationComplete(videoUrl: string | null): void {
     if (!videoUrl) return;
+    
+    // Prevent duplicate sends in the same session
+    if ((window as any).__VIDEO_COMPLETE_SENT__) {
+        LOG(`[TikTok] ⚠️ VIDEO_GENERATION_COMPLETE already sent, skipping duplicate`);
+        return;
+    }
+    (window as any).__VIDEO_COMPLETE_SENT__ = true;
+    
     try {
         chrome.runtime.sendMessage({
             type: "VIDEO_GENERATION_COMPLETE",
@@ -202,6 +210,9 @@ const isWindows = /Win/i.test(navigator.userAgent);
 const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
 LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
+
+// Reset duplicate prevention flag on script load
+(window as any).__VIDEO_COMPLETE_SENT__ = false;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
