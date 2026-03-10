@@ -175,27 +175,170 @@ const typeIntoInput = async (input: HTMLInputElement, text: string) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 let _hudEl: HTMLElement | null = null;
+let _hudStyleEl: HTMLStyleElement | null = null;
 let _hudSteps: { label: string; status: string }[] = [];
+let _hudStartTime = 0;
+let _hudTimerInterval: ReturnType<typeof setInterval> | null = null;
+
+const HUD_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;700&display=swap');
+
+#netflow-youtube-hud {
+    position: fixed; top: 16px; right: 16px; z-index: 999999;
+    min-width: 300px; max-width: 340px;
+    background:
+        radial-gradient(ellipse at 20% 10%, rgba(0,255,65,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 90%, rgba(0,255,180,0.06) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(0,8,2,0.97) 0%, rgba(0,3,0,0.98) 100%);
+    border: 1px solid rgba(0,255,65,0.35);
+    border-radius: 14px;
+    padding: 0;
+    color: #e0ffe8;
+    box-shadow:
+        0 0 20px rgba(0,255,65,0.15),
+        0 0 60px rgba(0,255,65,0.06),
+        0 8px 32px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(0,255,65,0.1);
+    overflow: hidden;
+    animation: nfyt-fade-in 0.5s ease-out;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+@keyframes nfyt-fade-in {
+    from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes nfyt-fade-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95) translateY(-8px); }
+}
+@keyframes nfyt-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+@keyframes nfyt-scan {
+    0% { top: 0; }
+    100% { top: 100%; }
+}
+
+/* ── Header ── */
+#netflow-youtube-hud .nfyt-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px 10px;
+    background: linear-gradient(90deg, rgba(0,255,65,0.08) 0%, transparent 70%);
+    border-bottom: 1px solid rgba(0,255,65,0.15);
+    position: relative;
+}
+#netflow-youtube-hud .nfyt-header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 1px;
+    background: linear-gradient(90deg, rgba(0,255,65,0.5), rgba(0,255,180,0.3), transparent);
+}
+#netflow-youtube-hud .nfyt-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    color: #00ff41; text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(0,255,65,0.5);
+    display: flex; align-items: center; gap: 7px;
+}
+#netflow-youtube-hud .nfyt-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: rgba(0,255,65,0.6);
+    letter-spacing: 0.5px;
+}
+
+/* ── Steps ── */
+#netflow-youtube-hud .nfyt-steps {
+    padding: 10px 14px 12px;
+    position: relative;
+}
+/* Scanline effect */
+#netflow-youtube-hud .nfyt-steps::before {
+    content: ''; position: absolute; left: 0; width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,65,0.12), transparent);
+    animation: nfyt-scan 4s linear infinite;
+    pointer-events: none; z-index: 1;
+}
+#netflow-youtube-hud .nfyt-step {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; font-size: 11.5px;
+    transition: all 0.3s ease;
+}
+/* Dot indicator */
+#netflow-youtube-hud .nfyt-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    border: 1.5px solid rgba(100,100,100,0.5);
+    background: transparent;
+    transition: all 0.3s ease;
+}
+#netflow-youtube-hud .nfyt-step[data-status="done"] .nfyt-dot {
+    background: #22c55e; border-color: #22c55e;
+    box-shadow: 0 0 6px rgba(34,197,94,0.6);
+}
+#netflow-youtube-hud .nfyt-step[data-status="active"] .nfyt-dot {
+    background: #00ff41; border-color: #00ff41;
+    box-shadow: 0 0 8px rgba(0,255,65,0.8);
+    animation: nfyt-pulse 1.2s ease-in-out infinite;
+}
+#netflow-youtube-hud .nfyt-step[data-status="error"] .nfyt-dot {
+    background: #ef4444; border-color: #ef4444;
+    box-shadow: 0 0 6px rgba(239,68,68,0.6);
+}
+/* Labels */
+#netflow-youtube-hud .nfyt-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: rgba(255,255,255,0.35);
+    transition: color 0.3s ease;
+}
+#netflow-youtube-hud .nfyt-step[data-status="done"] .nfyt-label { color: rgba(34,197,94,0.85); }
+#netflow-youtube-hud .nfyt-step[data-status="active"] .nfyt-label { color: #00ff41; text-shadow: 0 0 6px rgba(0,255,65,0.4); }
+#netflow-youtube-hud .nfyt-step[data-status="error"] .nfyt-label { color: #ef4444; }
+
+/* ── Footer ── */
+#netflow-youtube-hud .nfyt-footer {
+    padding: 6px 14px 8px;
+    border-top: 1px solid rgba(0,255,65,0.1);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: rgba(0,255,65,0.3);
+    text-align: center; letter-spacing: 0.5px;
+}
+`;
 
 const hudCreate = () => {
     if (_hudEl) return;
+
+    // Inject CSS
+    if (!_hudStyleEl) {
+        _hudStyleEl = document.createElement('style');
+        _hudStyleEl.textContent = HUD_CSS;
+        document.head.appendChild(_hudStyleEl);
+    }
+
+    _hudStartTime = Date.now();
+
     _hudEl = document.createElement('div');
     _hudEl.id = 'netflow-youtube-hud';
-    _hudEl.style.cssText = `
-        position: fixed; top: 16px; right: 16px; z-index: 999999;
-        background: rgba(0,0,0,0.9); border: 1px solid #22c55e;
-        border-radius: 12px; padding: 16px; min-width: 280px;
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        color: white; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    `;
     _hudEl.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <span style="font-size:16px">📤</span>
-            <span style="font-weight:600;font-size:13px">Netflow → YouTube Shorts</span>
+        <div class="nfyt-header">
+            <div class="nfyt-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                YOUTUBE UPLOAD
+            </div>
+            <div class="nfyt-timer" id="nfyt-timer">00:00</div>
         </div>
-        <div id="netflow-yt-steps"></div>
+        <div class="nfyt-steps" id="netflow-yt-steps"></div>
+        <div class="nfyt-footer">NETFLOW AI ENGINE • SHORTS AUTOMATION</div>
     `;
     document.body.appendChild(_hudEl);
+
+    // Timer
+    _hudTimerInterval = setInterval(() => {
+        const el = document.getElementById('nfyt-timer');
+        if (!el) return;
+        const elapsed = Math.floor((Date.now() - _hudStartTime) / 1000);
+        const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const ss = String(elapsed % 60).padStart(2, '0');
+        el.textContent = `${mm}:${ss}`;
+    }, 1000);
 };
 
 const hudUpdate = (stepIdx: number, status: string) => {
@@ -204,15 +347,24 @@ const hudUpdate = (stepIdx: number, status: string) => {
     }
     const container = document.getElementById('netflow-yt-steps');
     if (!container) return;
-    container.innerHTML = _hudSteps.map((s, _i) => {
-        const icon = s.status === 'done' ? '✅' : s.status === 'active' ? '⏳' : s.status === 'error' ? '❌' : '○';
-        const color = s.status === 'done' ? '#22c55e' : s.status === 'active' ? '#facc15' : s.status === 'error' ? '#ef4444' : '#6b7280';
-        return `<div style="font-size:11px;padding:3px 0;color:${color}">${icon} ${s.label}</div>`;
+    container.innerHTML = _hudSteps.map((s) => {
+        const st = s.status || 'pending';
+        const checkSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const xSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        const extra = st === 'done' ? checkSvg : st === 'error' ? xSvg : '';
+        return `<div class="nfyt-step" data-status="${st}"><div class="nfyt-dot">${extra}</div><span class="nfyt-label">${s.label}</span></div>`;
     }).join('');
 };
 
 const hudRemove = (delayMs = 5000) => {
-    setTimeout(() => { _hudEl?.remove(); _hudEl = null; }, delayMs);
+    if (_hudTimerInterval) { clearInterval(_hudTimerInterval); _hudTimerInterval = null; }
+    if (_hudEl) {
+        _hudEl.style.animation = 'nfyt-fade-out 0.4s ease-in forwards';
+    }
+    setTimeout(() => {
+        _hudEl?.remove(); _hudEl = null;
+        _hudStyleEl?.remove(); _hudStyleEl = null;
+    }, delayMs);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
