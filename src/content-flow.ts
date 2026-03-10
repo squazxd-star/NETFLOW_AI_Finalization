@@ -1557,10 +1557,17 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     if (!selectedImage) LOG("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว");
 
     // Select orientation
+    const targetOrientationIdPart = orientation === "horizontal" ? "LANDSCAPE" : "PORTRAIT";
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
-    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
-        const txt = (btn.textContent || "").trim();
-        if (txt === orientationText || txt.toLowerCase() === (orientation === "horizontal" ? "landscape" : "portrait")) {
+    let orientationSelected = false;
+
+    // Strategy 1: Match by ID or aria-controls containing LANDSCAPE/PORTRAIT
+    const tabElements = document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"], button[role="tab"]');
+    for (const btn of tabElements) {
+        const id = (btn.id || "").toUpperCase();
+        const ariaControls = (btn.getAttribute("aria-controls") || "").toUpperCase();
+        
+        if (id.includes(targetOrientationIdPart) || ariaControls.includes(targetOrientationIdPart)) {
             const oRect = btn.getBoundingClientRect();
             const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
             btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
@@ -1569,17 +1576,47 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
             btn.dispatchEvent(new MouseEvent("click", oOpts));
-            LOG(`เลือกทิศทาง: ${orientationText}`);
+            LOG(`✅ เลือกทิศทางผ่าน ID: ${targetOrientationIdPart}`);
+            orientationSelected = true;
             await sleep(400);
             break;
         }
     }
 
+    // Strategy 2: text match (fallback)
+    if (!orientationSelected) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
+            const txt = (btn.textContent || "").trim();
+            // Using includes because textContent might be "crop_16_9แนวนอน"
+            if (txt.includes(orientationText) || txt.toLowerCase().includes(orientation === "horizontal" ? "landscape" : "portrait")) {
+                const oRect = btn.getBoundingClientRect();
+                const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
+                btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                btn.dispatchEvent(new MouseEvent("mousedown", oOpts));
+                await sleep(80);
+                btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
+                btn.dispatchEvent(new MouseEvent("click", oOpts));
+                LOG(`✅ เลือกทิศทางผ่าน Text: ${orientationText}`);
+                orientationSelected = true;
+                await sleep(400);
+                break;
+            }
+        }
+    }
+
     // Select count
+    const countStr = String(outputCount); // "1", "2", "3", "4"
     const countText = `x${outputCount}`;
-    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
+    let countSelected = false;
+
+    // Strategy 1: Match by ID/aria-controls ending in -1, -2, -3, -4 or exact text
+    for (const btn of document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"], button[role="tab"]')) {
+        const id = (btn.id || "").toUpperCase();
+        const ariaControls = (btn.getAttribute("aria-controls") || "").toUpperCase();
         const txt = (btn.textContent || "").trim();
-        if (txt === countText) {
+        
+        if (id.includes(`TRIGGER-${countStr}`) || ariaControls.includes(`CONTENT-${countStr}`) || txt === countText) {
             const cRect = btn.getBoundingClientRect();
             const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
             btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
@@ -1588,9 +1625,31 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
             btn.dispatchEvent(new MouseEvent("click", cOpts));
-            LOG(`เลือกจำนวน: ${countText}`);
+            LOG(`✅ เลือกจำนวนผ่าน ID/Text: ${countText}`);
+            countSelected = true;
             await sleep(400);
             break;
+        }
+    }
+
+    // Strategy 2: text match (fallback)
+    if (!countSelected) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
+            const txt = (btn.textContent || "").trim();
+            if (txt === countText || txt.includes(countText)) {
+                const cRect = btn.getBoundingClientRect();
+                const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
+                btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                btn.dispatchEvent(new MouseEvent("mousedown", cOpts));
+                await sleep(80);
+                btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
+                btn.dispatchEvent(new MouseEvent("click", cOpts));
+                LOG(`✅ เลือกจำนวนผ่าน Text (fallback): ${countText}`);
+                countSelected = true;
+                await sleep(400);
+                break;
+            }
         }
     }
 
