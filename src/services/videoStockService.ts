@@ -35,11 +35,31 @@ function openDB(): Promise<IDBDatabase> {
     });
 }
 
-/** Save a video to stock, returns the generated ID */
+/** Save a video to stock, returns the generated ID. Includes deduplication based on exact file size within the last 2 minutes. */
 export async function saveVideoToStock(
     item: Omit<VideoStockItem, 'id' | 'createdAt'>
 ): Promise<string> {
     const db = await openDB();
+    
+    // Deduplication check: Do we already have a video with the EXACT SAME file size saved recently?
+    const recentVideos = await new Promise<VideoStockItem[]>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const request = tx.objectStore(STORE_NAME).index('createdAt').getAll();
+        request.onsuccess = () => {
+            const all = request.result as VideoStockItem[];
+            // Only check videos saved in the last 2 minutes
+            const twoMinsAgo = Date.now() - (2 * 60 * 1000);
+            resolve(all.filter(v => v.createdAt > twoMinsAgo));
+        };
+        request.onerror = () => reject(request.error);
+    });
+
+    const isDuplicate = recentVideos.some(v => v.fileSize === item.fileSize);
+    if (isDuplicate) {
+        console.log(`[VideoStock] ⚠️ Duplicate video detected (same size: ${(item.fileSize / 1024 / 1024).toFixed(2)}MB). Skipping save.`);
+        return "duplicate_skipped";
+    }
+
     const id = crypto.randomUUID();
     const record: VideoStockItem = {
         ...item,
@@ -48,7 +68,8 @@ export async function saveVideoToStock(
     };
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
-        tx.objectStore(STORE_NAME).put(record);
+        const store = tx.objectStore(STORE_NAME);
+        store.put(record);
         tx.oncomplete = () => {
             console.log(`[VideoStock] Saved: ${id} (${(item.fileSize / 1024 / 1024).toFixed(1)} MB)`);
             resolve(id);
