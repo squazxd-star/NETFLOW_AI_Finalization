@@ -16,6 +16,7 @@
     "nativeMessaging"
   ],
   "host_permissions": [
+    "file://*/*",
     "https://labs.google/*",
     "https://*.googleapis.com/*",
     "https://*.googleusercontent.com/*",

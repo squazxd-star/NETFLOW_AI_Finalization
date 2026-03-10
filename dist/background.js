@@ -145,10 +145,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (_cachedVideoDataUrl) {
             console.log('[Netflow BG] Serving cached video data URL');
             sendResponse({ success: true, data: _cachedVideoDataUrl });
-            _cachedVideoDataUrl = null;
         } else {
             sendResponse({ success: false, error: 'No cached video' });
         }
+        return true;
+    }
+
+    // ── CACHE_VIDEO_FROM_FILE: Read video from the file:// tab and cache as data URL ──
+    if (message?.type === 'CACHE_VIDEO_FROM_FILE' && message.fileTabId) {
+        (async () => {
+            try {
+                const tabId = message.fileTabId;
+                console.log('[Netflow BG] CACHE_VIDEO_FROM_FILE — waiting for file tab', tabId);
+
+                // Wait for tab to finish loading (up to 15s)
+                for (let i = 0; i < 15; i++) {
+                    try {
+                        const tab = await chrome.tabs.get(tabId);
+                        if (tab.status === 'complete') break;
+                    } catch (_) { break; }
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
+                // Inject script to read the video file as data URL
+                const results = await chrome.scripting.executeScript({
+                    target: { tabId },
+                    func: async () => {
+                        try {
+                            const resp = await fetch(window.location.href);
+                            if (!resp.ok) return null;
+                            const blob = await resp.blob();
+                            return await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve({ data: reader.result, size: blob.size });
+                                reader.onerror = () => resolve(null);
+                                reader.readAsDataURL(blob);
+                            });
+                        } catch (e) {
+                            return null;
+                        }
+                    }
+                });
+
+                const result = results?.[0]?.result;
+                if (result?.data) {
+                    _cachedVideoDataUrl = result.data;
+                    console.log('[Netflow BG] ✅ Video cached from local file:', (result.size / 1024 / 1024).toFixed(1), 'MB');
+                    sendResponse({ success: true, size: result.size });
+                } else {
+                    console.warn('[Netflow BG] Could not read video from file tab');
+                    sendResponse({ success: false, error: 'Could not read video from file tab' });
+                }
+            } catch (err) {
+                console.warn('[Netflow BG] CACHE_VIDEO_FROM_FILE error:', err.message);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
         return true;
     }
 
@@ -200,8 +252,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 console.log('[Netflow BG] UPLOAD_YOUTUBE — opening YouTube Studio');
 
-                // Always pre-fetch the video if we have a URL (overwrite stale cache with latest)
-                if (message.videoUrl) {
+                // Pre-fetch only for HTTP URLs (file:// URLs are already cached via CACHE_VIDEO_FROM_FILE)
+                if (message.videoUrl && message.videoUrl.startsWith('http')) {
                     console.log('[Netflow BG] Pre-fetching video for YouTube...');
                     try {
                         const resp = await fetch(message.videoUrl);
@@ -218,6 +270,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     } catch (e) {
                         console.warn('[Netflow BG] Pre-fetch failed:', e.message);
                     }
+                } else if (_cachedVideoDataUrl) {
+                    console.log('[Netflow BG] Using existing cached video for YouTube');
                 }
 
                 // Find existing YouTube Studio tab or create new one
@@ -362,8 +416,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     const url = normalized.startsWith("/")
                         ? "file://" + normalized        // Mac: file:///Users/...  (2 slashes + leading /)
                         : "file:///" + normalized;      // Win: file:///C:/Users/...
-                    chrome.tabs.create({ url }, () => {
-                        sendResponse({ success: true, message: label, filename: filePath, downloadUrl: downloadUrl });
+                    chrome.tabs.create({ url }, (tab) => {
+                        sendResponse({ success: true, message: label, filename: filePath, downloadUrl: downloadUrl, fileTabId: tab?.id || null });
                     });
                 };
 

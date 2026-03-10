@@ -3119,7 +3119,8 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("รอไฟล์ดาวน์โหลดพร้อม...");
         await sleep(5000);
         let opened2 = false;
-        let fullVideoDownloadUrl: string | null = null;
+        let fullVideoFilename: string | null = null;
+        let fullVideoFileTabId: number | null = null;
         const openPoll2 = Date.now();
         while (Date.now() - openPoll2 < 60000 && !opened2) {
             try {
@@ -3130,7 +3131,8 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                         } else if (res?.success) {
                             LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                             opened2 = true;
-                            fullVideoDownloadUrl = res.downloadUrl || null;
+                            fullVideoFilename = res.filename || null;
+                            fullVideoFileTabId = res.fileTabId || null;
                         } else {
                             LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                         }
@@ -3147,24 +3149,28 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
 
-        // Re-cache the FULL combined video (not Scene 1) for sidepanel preview + YouTube upload
-        if (fullVideoDownloadUrl && fullVideoDownloadUrl.startsWith("http")) {
-            LOG(`[FullVideo] พบ download URL — re-cache วิดีโอเต็ม: ${fullVideoDownloadUrl.substring(0, 80)}...`);
+        // Cache the FULL combined video from the local downloaded file (inject into the file:// tab)
+        if (fullVideoFileTabId) {
+            LOG(`[FullVideo] อ่านวิดีโอจากไฟล์ที่ดาวน์โหลด (tab ${fullVideoFileTabId})...`);
             await new Promise<void>((resolve) => {
-                chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: fullVideoDownloadUrl }, (resp) => {
+                chrome.runtime.sendMessage({ type: "CACHE_VIDEO_FROM_FILE", fileTabId: fullVideoFileTabId }, (resp) => {
                     if (chrome.runtime.lastError) {
-                        WARN(`[FullVideo] PRE_FETCH error: ${chrome.runtime.lastError.message}`);
+                        WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE error: ${chrome.runtime.lastError.message}`);
                     } else if (resp?.success) {
-                        LOG(`[FullVideo] ✅ Full video cached: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
+                        LOG(`[FullVideo] ✅ Full video cached from file: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
                     } else {
-                        WARN(`[FullVideo] PRE_FETCH failed: ${resp?.error}`);
+                        WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE failed: ${resp?.error}`);
                     }
                     resolve();
                 });
             });
-            sendVideoGenerationComplete(fullVideoDownloadUrl);
+            // Construct file:// URL for sidepanel preview
+            const fileUrl = fullVideoFilename
+                ? "file:///" + fullVideoFilename.replace(/\\/g, "/")
+                : null;
+            sendVideoGenerationComplete(fileUrl || tiktokVideoUrl);
         } else {
-            LOG("[FullVideo] ไม่พบ download URL — fallback ใช้ video จากหน้า");
+            LOG("[FullVideo] ไม่มี fileTabId — fallback ใช้ video จากหน้า");
             const freshVideoUrl = await captureVideoUrlAndPreFetch();
             sendVideoGenerationComplete(freshVideoUrl || tiktokVideoUrl);
         }
@@ -3754,7 +3760,8 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     LOG("รอไฟล์ดาวน์โหลดพร้อม...");
     await sleep(5000);
     let opened = false;
-    let fullVideoDownloadUrl: string | null = null;
+    let fullVideoFilenameNav: string | null = null;
+    let fullVideoFileTabIdNav: number | null = null;
     const openPoll = Date.now();
     while (Date.now() - openPoll < 60000 && !opened) {
         try {
@@ -3765,7 +3772,8 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                     } else if (res?.success) {
                         LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                         opened = true;
-                        fullVideoDownloadUrl = res.downloadUrl || null;
+                        fullVideoFilenameNav = res.filename || null;
+                        fullVideoFileTabIdNav = res.fileTabId || null;
                     } else {
                         LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                     }
@@ -3781,24 +3789,28 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
     LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
 
-    // Re-cache the FULL combined video (not Scene 1) for sidepanel preview + YouTube upload
-    if (fullVideoDownloadUrl && fullVideoDownloadUrl.startsWith("http")) {
-        LOG(`[FullVideo] พบ download URL — re-cache วิดีโอเต็ม: ${fullVideoDownloadUrl.substring(0, 80)}...`);
+    // Cache the FULL combined video from the local downloaded file (inject into the file:// tab)
+    if (fullVideoFileTabIdNav) {
+        LOG(`[FullVideo] อ่านวิดีโอจากไฟล์ที่ดาวน์โหลด (tab ${fullVideoFileTabIdNav})...`);
         await new Promise<void>((resolve) => {
-            chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: fullVideoDownloadUrl }, (resp) => {
+            chrome.runtime.sendMessage({ type: "CACHE_VIDEO_FROM_FILE", fileTabId: fullVideoFileTabIdNav }, (resp) => {
                 if (chrome.runtime.lastError) {
-                    WARN(`[FullVideo] PRE_FETCH error: ${chrome.runtime.lastError.message}`);
+                    WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE error: ${chrome.runtime.lastError.message}`);
                 } else if (resp?.success) {
-                    LOG(`[FullVideo] ✅ Full video cached: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
+                    LOG(`[FullVideo] ✅ Full video cached from file: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
                 } else {
-                    WARN(`[FullVideo] PRE_FETCH failed: ${resp?.error}`);
+                    WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE failed: ${resp?.error}`);
                 }
                 resolve();
             });
         });
-        sendVideoGenerationComplete(fullVideoDownloadUrl);
+        // Construct file:// URL for sidepanel preview
+        const fileUrlNav = fullVideoFilenameNav
+            ? "file:///" + fullVideoFilenameNav.replace(/\\/g, "/")
+            : null;
+        sendVideoGenerationComplete(fileUrlNav);
     } else {
-        LOG("[FullVideo] ไม่พบ download URL — fallback ใช้ video จากหน้า");
+        LOG("[FullVideo] ไม่มี fileTabId — fallback ใช้ video จากหน้า");
         const tiktokVideoUrlNav = await captureVideoUrlAndPreFetch();
         sendVideoGenerationComplete(tiktokVideoUrlNav);
     }
