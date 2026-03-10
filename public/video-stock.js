@@ -357,21 +357,79 @@ function downloadVideo(id) {
     showToast('\u2b07\ufe0f \u0e01\u0e33\u0e25\u0e31\u0e07\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14...');
 }
 
+// ── YouTube Popup State ──
+let _ytTargetVideoId = null;
+let _ytMadeForKids = false;
+let _ytVisibility = 'public';
+let _ytScheduleEnabled = false;
+
 function uploadYouTube(id) {
     const video = _videos.find(v => v.id === id);
     if (!video || !video.videoBlob) return;
+
+    _ytTargetVideoId = id;
+
+    // Reset popup form
+    document.getElementById('ytTitle').value = '';
+    document.getElementById('ytDesc').value = '';
+    document.getElementById('ytTitleCount').textContent = '0';
+    _ytMadeForKids = false;
+    _ytVisibility = 'public';
+    _ytScheduleEnabled = false;
+
+    // Reset toggle UI
+    document.getElementById('ytKidsNo').classList.add('active');
+    document.getElementById('ytKidsYes').classList.remove('active');
+    document.querySelectorAll('.yt-vis-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.vis === 'public');
+    });
+    document.getElementById('ytScheduleToggle').textContent = '\u0e1b\u0e34\u0e14';
+    document.getElementById('ytScheduleToggle').classList.remove('active');
+    document.getElementById('ytScheduleFields').classList.remove('active');
+    document.getElementById('ytScheduleDate').value = '';
+    document.getElementById('ytScheduleTime').value = '';
+
+    // Show popup
+    document.getElementById('ytPopup').classList.add('active');
+}
+
+function closeYtPopup() {
+    _ytTargetVideoId = null;
+    document.getElementById('ytPopup').classList.remove('active');
+}
+
+function doYouTubeUpload() {
+    if (!_ytTargetVideoId) return;
+    const video = _videos.find(v => v.id === _ytTargetVideoId);
+    if (!video || !video.videoBlob) return;
+
+    const title = document.getElementById('ytTitle').value.trim() || 'Netflow AI Video';
+    const description = document.getElementById('ytDesc').value.trim();
+    const scheduleDate = _ytScheduleEnabled ? document.getElementById('ytScheduleDate').value.trim() : '';
+    const scheduleTime = _ytScheduleEnabled ? document.getElementById('ytScheduleTime').value.trim() : '';
+
+    const postBtn = document.getElementById('ytPost');
+    postBtn.disabled = true;
+    postBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;"></span> \u0e01\u0e33\u0e25\u0e31\u0e07\u0e2a\u0e48\u0e07...';
 
     const reader = new FileReader();
     reader.onloadend = () => {
         chrome.runtime.sendMessage({ type: 'CACHE_VIDEO_DATA', data: reader.result }, () => {
             chrome.runtime.sendMessage({
                 action: 'UPLOAD_YOUTUBE',
-                title: video.title || 'Netflow AI Video',
-                description: video.productName ? '\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32: ' + video.productName : '',
-                madeForKids: false,
-                visibility: 'public',
+                title: title,
+                description: description,
+                madeForKids: _ytMadeForKids,
+                visibility: _ytVisibility,
+                scheduleEnabled: _ytScheduleEnabled,
+                scheduleDate: scheduleDate,
+                scheduleTime: scheduleTime,
             });
             showToast('\u25b6\ufe0f \u0e01\u0e33\u0e25\u0e31\u0e07\u0e40\u0e1b\u0e34\u0e14 YouTube Studio...');
+            closeYtPopup();
+            // Reset button
+            postBtn.disabled = false;
+            postBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;"><path d="M23.5 6.2a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 00.5 6.2C0 8.08 0 12 0 12s0 3.92.5 5.8a3.02 3.02 0 002.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 002.12-2.14C24 15.92 24 12 24 12s0-3.92-.5-5.8zM9.55 15.57V8.43L15.8 12l-6.25 3.57z"/></svg> \u0e42\u0e1e\u0e2a\u0e15\u0e4c YouTube \u0e2d\u0e31\u0e15\u0e42\u0e19\u0e21\u0e31\u0e15\u0e34';
         });
     };
     reader.readAsDataURL(video.videoBlob);
@@ -467,8 +525,117 @@ document.addEventListener('keydown', (e) => {
         closeModal();
         document.getElementById('confirmDialog').classList.remove('active');
         document.getElementById('renameDialog').classList.remove('active');
+        closeYtPopup();
     }
 });
+
+// ── YouTube Popup Event Listeners ──
+document.getElementById('ytCancel').addEventListener('click', closeYtPopup);
+document.getElementById('ytPopup').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('ytPopup')) closeYtPopup();
+});
+document.getElementById('ytPost').addEventListener('click', doYouTubeUpload);
+
+// Title char count
+document.getElementById('ytTitle').addEventListener('input', (e) => {
+    document.getElementById('ytTitleCount').textContent = e.target.value.length;
+});
+
+// Made for Kids toggle
+document.getElementById('ytKidsNo').addEventListener('click', () => {
+    _ytMadeForKids = false;
+    document.getElementById('ytKidsNo').classList.add('active');
+    document.getElementById('ytKidsYes').classList.remove('active');
+});
+document.getElementById('ytKidsYes').addEventListener('click', () => {
+    _ytMadeForKids = true;
+    document.getElementById('ytKidsYes').classList.add('active');
+    document.getElementById('ytKidsNo').classList.remove('active');
+});
+
+// Visibility buttons
+document.querySelectorAll('.yt-vis-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        _ytVisibility = btn.dataset.vis;
+        document.querySelectorAll('.yt-vis-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+});
+
+// Schedule toggle
+document.getElementById('ytScheduleToggle').addEventListener('click', () => {
+    _ytScheduleEnabled = !_ytScheduleEnabled;
+    const btn = document.getElementById('ytScheduleToggle');
+    btn.textContent = _ytScheduleEnabled ? '\u0e40\u0e1b\u0e34\u0e14' : '\u0e1b\u0e34\u0e14';
+    btn.classList.toggle('active', _ytScheduleEnabled);
+    document.getElementById('ytScheduleFields').classList.toggle('active', _ytScheduleEnabled);
+});
+
+// AI Generate helpers (uses video productName from IndexedDB)
+function ytAiGenerateTitle() {
+    if (!_ytTargetVideoId) return;
+    const video = _videos.find(v => v.id === _ytTargetVideoId);
+    const productName = video?.productName || video?.title || 'Netflow AI Video';
+    const btn = document.getElementById('ytAiTitle');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:1.5px solid rgba(255,255,255,0.2);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;"></span> AI...';
+
+    // Simple AI title generation via productName
+    const titles = [
+        productName + ' \u0e23\u0e35\u0e27\u0e34\u0e27\u0e08\u0e31\u0e14\u0e40\u0e15\u0e47\u0e21! #Shorts',
+        '\u0e25\u0e2d\u0e07\u0e43\u0e0a\u0e49 ' + productName + ' \u0e14\u0e35\u0e21\u0e31\u0e49\u0e22? #Shorts',
+        productName + ' \u0e15\u0e49\u0e2d\u0e07\u0e21\u0e35! \u0e2a\u0e34\u0e48\u0e07\u0e17\u0e35\u0e48\u0e04\u0e27\u0e23\u0e23\u0e39\u0e49 #Shorts',
+        '\u0e17\u0e33\u0e44\u0e21\u0e15\u0e49\u0e2d\u0e07 ' + productName + '? \u0e14\u0e39\u0e08\u0e1a! #Shorts',
+        productName + ' \u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e0a\u0e35\u0e27\u0e34\u0e15\u0e40\u0e25\u0e22! #Shorts',
+    ];
+    const title = titles[Math.floor(Math.random() * titles.length)];
+    setTimeout(() => {
+        document.getElementById('ytTitle').value = title.substring(0, 50);
+        document.getElementById('ytTitleCount').textContent = Math.min(title.length, 50);
+        btn.disabled = false;
+        btn.innerHTML = '<span class="yt-sparkle">\u2728</span> AI \u0e04\u0e34\u0e14\u0e0a\u0e37\u0e48\u0e2d';
+        showToast('\u2705 \u0e2a\u0e23\u0e49\u0e32\u0e07 Title \u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+    }, 600);
+}
+
+function ytAiGenerateDesc() {
+    if (!_ytTargetVideoId) return;
+    const video = _videos.find(v => v.id === _ytTargetVideoId);
+    const productName = video?.productName || video?.title || 'Netflow AI Video';
+    const btn = document.getElementById('ytAiDesc');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:1.5px solid rgba(255,255,255,0.2);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;"></span> AI...';
+
+    const descs = [
+        '\u0e23\u0e35\u0e27\u0e34\u0e27 ' + productName + ' \u0e41\u0e1a\u0e1a\u0e08\u0e31\u0e14\u0e40\u0e15\u0e47\u0e21! \u0e14\u0e35\u0e08\u0e23\u0e34\u0e07\u0e2b\u0e23\u0e37\u0e2d\u0e41\u0e04\u0e48\u0e42\u0e06\u0e29\u0e13\u0e32? \u0e21\u0e32\u0e14\u0e39\u0e01\u0e31\u0e19\u0e40\u0e25\u0e22!\n\n#' + productName.replace(/\s+/g, '') + ' #\u0e23\u0e35\u0e27\u0e34\u0e27 #\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e14\u0e35 #Shorts #NetflowAI',
+        '\u0e25\u0e2d\u0e07\u0e43\u0e0a\u0e49 ' + productName + ' \u0e41\u0e25\u0e49\u0e27\u0e0a\u0e2d\u0e1a\u0e21\u0e32\u0e01! \u0e04\u0e38\u0e49\u0e21\u0e04\u0e48\u0e32\u0e2a\u0e38\u0e14\u0e46\n\n#' + productName.replace(/\s+/g, '') + ' #\u0e23\u0e35\u0e27\u0e34\u0e27\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32 #\u0e41\u0e19\u0e30\u0e19\u0e33 #Shorts',
+    ];
+    const desc = descs[Math.floor(Math.random() * descs.length)];
+    setTimeout(() => {
+        document.getElementById('ytDesc').value = desc;
+        btn.disabled = false;
+        btn.innerHTML = '<span class="yt-sparkle">\u2728</span> AI \u0e40\u0e02\u0e35\u0e22\u0e19';
+        showToast('\u2705 \u0e2a\u0e23\u0e49\u0e32\u0e07 Description \u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+    }, 800);
+}
+
+function ytAiGenerateBoth() {
+    const allBtn = document.getElementById('ytAiAll');
+    allBtn.disabled = true;
+    allBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;"></span> AI \u0e01\u0e33\u0e25\u0e31\u0e07\u0e04\u0e34\u0e14...';
+    ytAiGenerateTitle();
+    setTimeout(() => {
+        ytAiGenerateDesc();
+        setTimeout(() => {
+            allBtn.disabled = false;
+            allBtn.innerHTML = '<span class="yt-sparkle">\u2728</span> AI \u0e2a\u0e23\u0e49\u0e32\u0e07 Title + Description';
+        }, 900);
+    }, 700);
+}
+
+document.getElementById('ytAiAll').addEventListener('click', ytAiGenerateBoth);
+document.getElementById('ytAiTitle').addEventListener('click', ytAiGenerateTitle);
+document.getElementById('ytAiDesc').addEventListener('click', ytAiGenerateDesc);
 
 // ── Theme ──
 const THEME_COLORS = {
