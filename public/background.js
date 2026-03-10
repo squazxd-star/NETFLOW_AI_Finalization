@@ -475,19 +475,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // After upscaling: find the latest downloaded video, trim last 1s, open in Chrome
     if (message?.action === "OPEN_LATEST_VIDEO") {
-        const afterTs = message.afterTimestamp || 0;
-        chrome.downloads.search(
-            { orderBy: ["-startTime"], limit: 10, state: "complete" },
-            (downloads) => {
-                if (chrome.runtime.lastError) {
-                    sendResponse({ success: false, message: chrome.runtime.lastError.message });
-                    return;
-                }
+        (async () => {
+            try {
+                const afterTs = message.afterTimestamp || 0;
+                const downloads = await new Promise((resolve) => {
+                    chrome.downloads.search(
+                        { orderBy: ["-startTime"], limit: 10, state: "complete" },
+                        (results) => resolve(results || [])
+                    );
+                });
+
                 const videoFile = downloads.find((d) => {
                     const name = (d.filename || "").toLowerCase();
                     const isVideo = name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mov");
                     if (!isVideo) return false;
-                    // Filter: only downloads started after the given timestamp
                     if (afterTs && d.startTime) {
                         const dlTime = new Date(d.startTime).getTime();
                         if (dlTime < afterTs) return false;
@@ -501,33 +502,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 // Store the file path for YouTube upload
                 _latestVideoFilePath = videoFile.filename;
+                const downloadUrl = videoFile.url || videoFile.finalUrl || '';
                 console.log('[Netflow BG] Stored latest video path:', _latestVideoFilePath);
 
-                // Pre-cache video from download URL for TikTok auto-post
-                const downloadUrl = videoFile.url || videoFile.finalUrl || '';
-                if (downloadUrl && downloadUrl.startsWith('http')) {
-                    console.log('[Netflow BG] Caching video from download URL for TikTok:', downloadUrl.substring(0, 80));
-                    fetch(downloadUrl).then(r => {
-                        if (!r.ok) { console.warn('[Netflow BG] Download URL fetch failed:', r.status); return; }
-                        return r.blob();
-                    }).then(blob => {
-                        if (!blob) return;
-                        console.log('[Netflow BG] Downloaded video blob:', (blob.size / 1024 / 1024).toFixed(1), 'MB');
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            _cachedVideoDataUrl = reader.result;
-                            console.log('[Netflow BG] Video cached from download URL for TikTok ✅');
-                        };
-                        reader.readAsDataURL(blob);
-                    }).catch(e => console.warn('[Netflow BG] Cache from download URL failed:', e.message));
-                }
+                // ── CRITICAL: Cache the FULL video BEFORE responding ──
+                // This ensures captureVideoUrlAndPreFetch() sees PEEK_CACHED_VIDEO=true
+                // and does NOT overwrite with the page video (which is only Scene 1)
+                console.log('[Netflow BG] Caching FULL video before responding...');
+                await ensureFullVideoCached();
+                console.log('[Netflow BG] Full video cache done. Cached:', !!_cachedVideoDataUrl, _cachedVideoDataUrl ? (_cachedVideoDataUrl.length / 1024 / 1024).toFixed(1) + ' MB' : '');
 
+                // Open file in Chrome
                 const openFileInChrome = (filePath, label) => {
-                    // Normalize path for both Windows (C:\...) and Mac (/Users/...)
                     const normalized = filePath.replace(/\\/g, "/");
                     const url = normalized.startsWith("/")
-                        ? "file://" + normalized        // Mac: file:///Users/...  (2 slashes + leading /)
-                        : "file:///" + normalized;      // Win: file:///C:/Users/...
+                        ? "file://" + normalized
+                        : "file:///" + normalized;
                     chrome.tabs.create({ url }, () => {
                         sendResponse({ success: true, message: label, filename: filePath, downloadUrl: downloadUrl });
                     });
@@ -540,13 +530,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         { filePath: videoFile.filename, trimSeconds: 1 },
                         (response) => {
                             if (chrome.runtime.lastError || !response?.success) {
-                                // Native host not installed or FFmpeg error — open original
                                 const reason = chrome.runtime.lastError?.message || response?.error || "unknown";
                                 console.log("[Netflow] Trim skipped: " + reason);
                                 const name = videoFile.filename.split(/[\\/]/).pop();
                                 openFileInChrome(videoFile.filename, `เปิดใน Chrome: ${name}`);
                             } else {
-                                // Trim succeeded — open trimmed file
                                 const name = response.trimmedPath.split(/[\\/]/).pop();
                                 console.log("[Netflow] Trimmed: " + response.trimmedPath);
                                 openFileInChrome(response.trimmedPath, `✂️ Trimmed & opened: ${name} (${response.trimmedDuration}s)`);
@@ -554,12 +542,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         }
                     );
                 } catch (e) {
-                    // sendNativeMessage not available — open original
                     const name = videoFile.filename.split(/[\\/]/).pop();
                     openFileInChrome(videoFile.filename, `เปิดใน Chrome: ${name}`);
                 }
+            } catch (err) {
+                console.error('[Netflow BG] OPEN_LATEST_VIDEO error:', err);
+                sendResponse({ success: false, message: err.message || 'Unknown error' });
             }
-        );
+        })();
         return true; // async
     }
 });

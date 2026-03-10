@@ -152,21 +152,25 @@ async function loadAndRender() {
         card.dataset.id = video.id;
 
         const duration = video.duration || 0;
+        const sourceName = (video.source || 'veo').toUpperCase();
 
         // Build card HTML without inline onclick (CSP compliance)
         const thumbDiv = document.createElement('div');
         thumbDiv.className = 'card-thumb';
         thumbDiv.dataset.id = video.id;
         thumbDiv.innerHTML =
-            '<div style="width:100%;height:100%;background:#1a1a24;display:flex;align-items:center;justify-content:center;">' +
-                '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>' +
+            '<div style="width:100%;height:100%;background:#0a0a12;display:flex;align-items:center;justify-content:center;">' +
+                '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>' +
+            '</div>' +
+            '<div class="card-badge-row">' +
+                '<span class="card-source">' + sourceName + '</span>' +
+                '<span class="card-duration">' + formatDuration(duration) + '</span>' +
             '</div>' +
             '<div class="play-overlay">' +
                 '<div class="play-btn">' +
                     '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>' +
                 '</div>' +
-            '</div>' +
-            '<div class="card-duration">' + formatDuration(duration) + '</div>';
+            '</div>';
 
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'card-body';
@@ -179,32 +183,33 @@ async function loadAndRender() {
         const metaDiv = document.createElement('div');
         metaDiv.className = 'card-meta';
         metaDiv.innerHTML =
-            '<span>\ud83d\udcc5 ' + formatDate(video.createdAt) + '</span>' +
-            '<span>\ud83d\udcbe ' + formatBytes(video.fileSize) + '</span>' +
-            '<span>\ud83c\udfac ' + (video.source || 'veo') + '</span>';
+            '<span>' + formatDate(video.createdAt) + '</span>' +
+            '<span>' + formatBytes(video.fileSize) + '</span>';
 
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'card-actions';
 
         const btnDownload = document.createElement('button');
         btnDownload.title = '\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14';
-        btnDownload.textContent = '\u2b07\ufe0f \u0e42\u0e2b\u0e25\u0e14';
+        btnDownload.innerHTML = '\u2b07 \u0e42\u0e2b\u0e25\u0e14';
         btnDownload.addEventListener('click', () => downloadVideo(video.id));
 
         const btnYT = document.createElement('button');
-        btnYT.title = '\u0e2d\u0e31\u0e1e YouTube';
-        btnYT.textContent = '\u25b6\ufe0f YouTube';
+        btnYT.className = 'btn-yt';
+        btnYT.title = 'YouTube';
+        btnYT.innerHTML = '\u25b6 YT';
         btnYT.addEventListener('click', () => uploadYouTube(video.id));
 
         const btnTT = document.createElement('button');
-        btnTT.title = '\u0e2d\u0e31\u0e1e TikTok';
-        btnTT.textContent = '\ud83c\udfb5 TikTok';
+        btnTT.className = 'btn-tt';
+        btnTT.title = 'TikTok';
+        btnTT.innerHTML = '\u266a TT';
         btnTT.addEventListener('click', () => uploadTikTok(video.id));
 
         const btnDel = document.createElement('button');
-        btnDel.className = 'danger';
+        btnDel.className = 'btn-del';
         btnDel.title = '\u0e25\u0e1a';
-        btnDel.textContent = '\ud83d\uddd1\ufe0f';
+        btnDel.innerHTML = '\u2715';
         btnDel.addEventListener('click', () => confirmDeleteVideo(video.id));
 
         actionsDiv.appendChild(btnDownload);
@@ -226,11 +231,12 @@ async function loadAndRender() {
 
 async function generateThumbForCard(video, card) {
     const thumbContainer = card.querySelector('.card-thumb');
-    const durationEl = card.querySelector('.card-duration');
+    const durationEl = thumbContainer.querySelector('.card-duration');
+    // The first child div is the loading spinner placeholder
+    const spinnerDiv = thumbContainer.querySelector(':scope > div:first-child');
 
     if (!(video.videoBlob instanceof Blob)) {
-        const inner = thumbContainer.querySelector('div');
-        if (inner) inner.innerHTML = '<span style="color:#71717a;font-size:12px;">\u26a0\ufe0f No video data</span>';
+        if (spinnerDiv) spinnerDiv.innerHTML = '<span style="color:#6b6b7a;font-size:11px;">No video data</span>';
         return;
     }
 
@@ -242,23 +248,22 @@ async function generateThumbForCard(video, card) {
     const tempVideo = document.createElement('video');
     tempVideo.src = blobUrl;
     tempVideo.onloadedmetadata = () => {
-        if (tempVideo.duration && isFinite(tempVideo.duration)) {
+        if (tempVideo.duration && isFinite(tempVideo.duration) && durationEl) {
             durationEl.textContent = formatDuration(tempVideo.duration);
         }
     };
 
-    const inner = thumbContainer.querySelector('div');
-    if (thumb && inner) {
+    if (thumb && spinnerDiv) {
         const img = document.createElement('img');
         img.src = thumb;
         img.alt = 'thumbnail';
-        inner.replaceWith(img);
-    } else if (inner) {
+        spinnerDiv.replaceWith(img);
+    } else if (spinnerDiv) {
         const vid = document.createElement('video');
         vid.src = blobUrl;
         vid.muted = true;
         vid.style.pointerEvents = 'none';
-        inner.replaceWith(vid);
+        spinnerDiv.replaceWith(vid);
     }
 }
 
