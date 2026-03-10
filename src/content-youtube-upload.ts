@@ -275,62 +275,99 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
 
     try {
         // ══════════════════════════════════════════════════════════════════════
-        // Step 1: Click "สร้าง"/"Create" → "อัปโหลดวิดีโอ"/"Upload videos"
+        // Step 1: เนื้อหา (Content) → Shorts tab → อัปโหลดวิดีโอ button
         // ══════════════════════════════════════════════════════════════════════
         hudUpdate(0, 'active');
-        log('── ขั้น 1: เปิดหน้าอัพโหลด ──');
+        log('── ขั้น 1: เปิดหน้าอัพโหลด (เนื้อหา → Shorts → อัปโหลดวิดีโอ) ──');
 
         // Check if upload dialog is already open
         let uploadDialog = document.querySelector('ytcp-uploads-dialog');
         if (!uploadDialog) {
-            // Find the CREATE button (TH: "สร้าง", EN: "Create")
-            // Selector: ytcp-button-shape > button[aria-label="สร้าง"] or [aria-label="Create"]
-            const createBtn = await waitForElement(() => {
-                return document.querySelector('ytcp-button-shape button[aria-label="สร้าง"]') ||
-                       document.querySelector('ytcp-button-shape button[aria-label="Create"]') ||
-                       findByTexts(['สร้าง', 'Create'], 'button');
+            // ── 1a: Click "เนื้อหา" (Content) in left sidebar ──
+            const contentLink = await waitForElement(() => {
+                // Primary: direct ID selector
+                const byId = document.querySelector('#menu-item-1') as HTMLElement | null;
+                if (byId) {
+                    const r = byId.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) return byId;
+                }
+                // Fallback: find by nav text
+                return findByTexts(
+                    ['เนื้อหา', 'Content'],
+                    'a.menu-item-link, tp-yt-paper-icon-item, div.nav-item-text'
+                );
             }, 10000);
 
-            if (createBtn) {
-                clickElement(createBtn);
-                log('คลิกปุ่ม "สร้าง/Create"');
-                await delay(1500);
+            if (contentLink) {
+                // Click the <a> parent if we matched inner text
+                const clickTarget = contentLink.closest('a.menu-item-link') || contentLink;
+                clickElement(clickTarget);
+                log('คลิก "เนื้อหา/Content" ใน sidebar');
+                await delay(3000);
+            } else {
+                // Fallback: extract channel ID from current URL and navigate directly
+                const channelMatch = window.location.pathname.match(/\/channel\/([^/]+)/);
+                const channelId = channelMatch ? channelMatch[1] : '';
+                if (channelId) {
+                    log('ไม่พบเมนู "เนื้อหา" — ใช้ URL ตรง');
+                    window.location.href = `${window.location.origin}/channel/${channelId}/videos/shorts`;
+                    await delay(4000);
+                }
+            }
 
-                // Click "อัปโหลดวิดีโอ" / "Upload videos" from dropdown
-                // Strategy 1: Direct test-id selector (most reliable)
-                // Strategy 2: Text-based search (TH + EN)
-                // Strategy 3: Deep shadow DOM traversal
-                const uploadMenuItem = await waitForElement(() => {
-                    // Primary: use test-id attribute (Polymer test hook)
-                    const byTestId = document.querySelector('tp-yt-paper-item[test-id="upload"]') ||
-                                     document.querySelector('[test-id="upload"]');
-                    if (byTestId) {
-                        const r = (byTestId as HTMLElement).getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) return byTestId;
+            // ── 1b: Click "Shorts" tab ──
+            const shortsTab = await waitForElement(() => {
+                // Search for the Shorts tab text inside tp-yt-paper-tab
+                const tabs = document.querySelectorAll('tp-yt-paper-tab');
+                for (const tab of tabs) {
+                    const text = (tab.textContent || '').trim();
+                    if (text === 'Shorts') {
+                        const r = (tab as HTMLElement).getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return tab;
                     }
-                    // Fallback: text match (TH + EN)
-                    return findByTexts(
-                        ['อัปโหลดวิดีโอ', 'Upload videos', 'Upload video'],
-                        'yt-formatted-string, tp-yt-paper-item, div.text-content, div.right-container, ytcp-text-menu'
-                    );
-                }, 8000);
+                }
+                // Fallback: find by text in tab-content divs
+                return findByTexts(['Shorts'], 'tp-yt-paper-tab, div.tab-content');
+            }, 8000);
 
-                if (uploadMenuItem) {
-                    // Click the parent <tp-yt-paper-item> if we matched the inner text
-                    const clickTarget = uploadMenuItem.closest('tp-yt-paper-item') || uploadMenuItem;
-                    clickElement(clickTarget);
-                    log(`คลิกเมนูอัปโหลด (tag=${clickTarget.tagName}, testId=${clickTarget.getAttribute('test-id')})`);
-                    log('คลิก "อัปโหลดวิดีโอ/Upload videos"');
-                    await delay(2000);
-                } else {
-                    warn('ไม่พบเมนู "อัปโหลดวิดีโอ" — ลอง URL ตรง');
-                    window.location.href = 'https://studio.youtube.com/channel/UC/videos/upload';
+            if (shortsTab) {
+                const tabTarget = shortsTab.closest('tp-yt-paper-tab') || shortsTab;
+                clickElement(tabTarget);
+                log('คลิก tab "Shorts"');
+                await delay(2500);
+            } else {
+                warn('ไม่พบ tab "Shorts" — ลอง URL ตรง');
+                const channelMatch = window.location.pathname.match(/\/channel\/([^/]+)/);
+                const channelId = channelMatch ? channelMatch[1] : '';
+                if (channelId) {
+                    window.location.href = `${window.location.origin}/channel/${channelId}/videos/shorts`;
                     await delay(3000);
                 }
+            }
+
+            // ── 1c: Click "อัปโหลดวิดีโอ" / "Upload videos" button on Shorts page ──
+            const uploadBtn = await waitForElement(() => {
+                // Primary: aria-label match
+                const byAria = document.querySelector('ytcp-button-shape button[aria-label="อัปโหลดวิดีโอ"]') ||
+                               document.querySelector('ytcp-button-shape button[aria-label="Upload videos"]') ||
+                               document.querySelector('ytcp-button-shape button[aria-label="Upload video"]');
+                if (byAria) {
+                    const r = (byAria as HTMLElement).getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) return byAria;
+                }
+                // Fallback: text match
+                return findByTexts(
+                    ['อัปโหลดวิดีโอ', 'Upload videos', 'Upload video'],
+                    'button, ytcp-button-shape'
+                );
+            }, 10000);
+
+            if (uploadBtn) {
+                clickElement(uploadBtn);
+                log('คลิกปุ่ม "อัปโหลดวิดีโอ" บนหน้า Shorts');
+                await delay(2500);
             } else {
-                log('ไม่พบปุ่ม CREATE — ใช้ URL ตรง');
-                window.location.href = 'https://studio.youtube.com/channel/UC/videos/upload';
-                await delay(3000);
+                warn('ไม่พบปุ่ม "อัปโหลดวิดีโอ" บนหน้า Shorts');
             }
         }
         hudUpdate(0, 'done');
@@ -430,15 +467,26 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
         hudUpdate(2, 'active');
         log('── ขั้น 3: กรอกชื่อ + คำอธิบาย ──');
 
-        // Title — append #Shorts if not already present
+        // Title (no need for #Shorts suffix — uploading via Shorts tab handles categorization)
         let finalTitle = config.title || 'Netflow AI Video';
-        if (!finalTitle.includes('#Shorts')) {
-            finalTitle = `${finalTitle} #Shorts`;
-        }
 
         await typeIntoContentEditable(titleField as HTMLElement, finalTitle);
         log(`กรอกชื่อ: "${finalTitle}"`);
-        await delay(500);
+        await delay(1000);
+
+        // Click "เพิ่มทั้งหมด" / "Add all" to accept all suggested hashtags
+        const addAllHashtagsBtn = findByTexts(
+            ['เพิ่มทั้งหมด', 'Add all'],
+            'button, ytcp-button-shape button, div.ytcpButtonShapeImpl__button-text-content'
+        );
+        if (addAllHashtagsBtn) {
+            const hashTarget = addAllHashtagsBtn.closest('button') || addAllHashtagsBtn;
+            clickElement(hashTarget);
+            log('คลิก "เพิ่มทั้งหมด" — เพิ่มแฮชแท็กที่แนะนำ');
+            await delay(800);
+        } else {
+            log('ไม่พบปุ่ม "เพิ่มทั้งหมด" สำหรับแฮชแท็ก — ข้าม');
+        }
 
         // Description
         if (config.description) {

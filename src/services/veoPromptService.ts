@@ -1370,6 +1370,640 @@ const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CATEGORY CONTEXTUAL REALISM — Script-aware accessories, screen content,
+// character actions, and cinematic transitions per product category.
+// Analyzes the generated voiceover script to detect mentions of accessories,
+// features, or usage scenarios and injects matching visual directives
+// so the AI generates realistic, engaging, context-appropriate video clips.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ContextualRealismEntry {
+    accessories: { kw: string[]; v: string }[];
+    screen?: { kw: string[]; v: string }[];
+    actions: { kw: string[]; a: string }[];
+    transitions: string[];
+}
+
+const CATEGORY_CONTEXTUAL_REALISM: Partial<Record<ProductCategory, ContextualRealismEntry>> = {
+    // ── Tech & Gadgets ──
+    laptop: {
+        accessories: [
+            { kw: ["ชาร์จ", "charger", "สายชาร์จ", "charging", "แบต", "battery", "adapter", "อะแดป"], v: "charging cable and power adapter on desk nearby" },
+            { kw: ["เมาส์", "mouse", "คลิก"], v: "wireless mouse beside laptop" },
+            { kw: ["กระเป๋า", "bag", "sleeve", "พกพา", "carry"], v: "laptop sleeve or bag on table" },
+            { kw: ["USB", "hub", "port", "ต่อ", "เชื่อม", "dongle"], v: "USB hub connected to laptop port" },
+            { kw: ["หูฟัง", "headphone", "earphone"], v: "headphones beside laptop or worn by presenter" },
+        ],
+        screen: [
+            { kw: ["เกม", "game", "gaming", "เล่นเกม", "GPU", "กราฟิก", "graphic", "ประสิทธิภาพ"], v: "laptop screen showing vivid colorful gameplay with dynamic action running smoothly" },
+            { kw: ["ตัดต่อ", "edit", "video editing", "render", "premiere", "content creator"], v: "laptop screen showing video editing timeline with colorful clips and waveforms" },
+            { kw: ["ออกแบบ", "design", "photoshop", "illustrator", "creative"], v: "laptop screen showing design software with colorful artwork project" },
+            { kw: ["โค้ด", "code", "programming", "developer", "เขียนโปรแกรม"], v: "laptop screen showing code editor with syntax highlighting" },
+            { kw: ["ทำงาน", "work", "office", "เอกสาร", "document", "ประชุม"], v: "laptop screen showing productivity workspace with documents open" },
+            { kw: ["ดูหนัง", "movie", "Netflix", "stream", "ดูซีรีส์"], v: "laptop screen showing cinematic movie scene with vibrant HDR colors" },
+        ],
+        actions: [
+            { kw: ["เกม", "game", "gaming", "เล่นเกม"], a: "Character sitting at desk, hands on keyboard gaming intensely, reacting to gameplay action on screen" },
+            { kw: ["ทำงาน", "work", "office", "productive"], a: "Character sitting professionally, typing on laptop, occasionally glancing at camera confidently" },
+            { kw: ["พกพา", "portable", "เบา", "light", "บาง", "thin"], a: "Character lifts laptop with one hand showing lightweight, puts into bag effortlessly" },
+            { kw: ["จอ", "screen", "display", "สี", "color"], a: "Character tilts screen to show vivid display, points at screen details admiringly" },
+        ],
+        transitions: [
+            "Smooth dolly zoom from desk setup to screen content close-up",
+            "Camera orbits around presenter and laptop in fluid arc",
+            "Rack focus from presenter face to laptop screen details",
+            "Dynamic whip pan between usage scenarios",
+        ]
+    },
+    phone: {
+        accessories: [
+            { kw: ["เคส", "case", "ปกป้อง", "protect"], v: "protective phone case showing premium design" },
+            { kw: ["ชาร์จ", "charger", "สายชาร์จ", "charging", "แบต"], v: "phone charging cable and adapter nearby" },
+            { kw: ["หูฟัง", "earbuds", "airpods", "bluetooth", "ไร้สาย"], v: "wireless earbuds beside the phone" },
+            { kw: ["ฟิล์ม", "screen protector", "กันรอย"], v: "screen protector visible on phone display" },
+        ],
+        screen: [
+            { kw: ["กล้อง", "camera", "ถ่ายรูป", "photo", "ถ่ายภาพ"], v: "phone camera viewfinder open showing beautiful high-res scene" },
+            { kw: ["เกม", "game", "gaming"], v: "phone screen showing colorful exciting mobile game" },
+            { kw: ["โซเชียล", "social", "tiktok", "instagram", "scroll"], v: "phone showing social media feed with engaging content" },
+            { kw: ["วิดีโอ", "video", "ดูหนัง", "youtube", "4K"], v: "phone playing high-definition video with vivid colors" },
+            { kw: ["5G", "เร็ว", "speed", "internet", "ดาวน์โหลด"], v: "phone showing blazing fast speed test results" },
+        ],
+        actions: [
+            { kw: ["ถ่ายรูป", "photo", "กล้อง", "camera", "เซลฟี่"], a: "Character holds phone to take photo, taps shutter, checks result with impressed expression" },
+            { kw: ["เกม", "game", "gaming"], a: "Character holds phone horizontally, thumbs tapping screen, focused gaming expression" },
+            { kw: ["โทร", "call", "วิดีโอคอล"], a: "Character holds phone to face, animated video call conversation" },
+        ],
+        transitions: [
+            "Smooth zoom from phone screen to presenter's impressed reaction",
+            "Camera sweep showing phone from multiple angles",
+            "Quick match cut between phone features and real-world use",
+        ]
+    },
+    tablet: {
+        accessories: [
+            { kw: ["ปากกา", "stylus", "pencil", "เขียน", "วาด"], v: "digital stylus pen beside tablet or in presenter's hand" },
+            { kw: ["คีย์บอร์ด", "keyboard", "พิมพ์"], v: "detachable keyboard case attached to tablet" },
+            { kw: ["ขาตั้ง", "stand", "วาง"], v: "tablet propped on adjustable stand" },
+        ],
+        screen: [
+            { kw: ["วาด", "draw", "ออกแบบ", "design", "art"], v: "tablet screen showing digital art canvas with colorful illustration" },
+            { kw: ["จด", "note", "เขียน", "write"], v: "tablet screen showing handwritten notes with colorful annotations" },
+            { kw: ["ดูหนัง", "movie", "video"], v: "tablet screen showing cinematic video content" },
+        ],
+        actions: [
+            { kw: ["วาด", "draw", "art"], a: "Character drawing on tablet with stylus, focused creative expression, smooth strokes" },
+            { kw: ["อ่าน", "read", "book"], a: "Character comfortably holding tablet, reading with relaxed expression" },
+        ],
+        transitions: [
+            "Smooth transition from tablet screen art to presenter's proud expression",
+            "Camera slides from overhead tablet view to eye-level shot",
+        ]
+    },
+    gaming: {
+        accessories: [
+            { kw: ["หูฟัง", "headset", "headphone"], v: "RGB gaming headset worn by presenter or on desk" },
+            { kw: ["แผ่นรอง", "mousepad", "pad"], v: "large RGB gaming mousepad on desk" },
+            { kw: ["เก้าอี้", "chair", "gaming chair"], v: "gaming chair visible in setup background" },
+            { kw: ["จอ", "monitor", "screen"], v: "gaming monitor with gameplay in background" },
+        ],
+        screen: [
+            { kw: ["FPS", "shooter", "ยิง", "battle", "war", "PUBG", "Valorant"], v: "monitor showing fast-paced FPS gameplay with HUD and combat action" },
+            { kw: ["MOBA", "strategy", "วางแผน", "LOL", "DOTA"], v: "monitor showing MOBA team battle with colorful abilities" },
+            { kw: ["racing", "แข่ง", "drift", "speed"], v: "monitor showing high-speed racing with motion blur" },
+            { kw: ["RPG", "open world", "ผจญภัย"], v: "monitor showing beautiful open-world RPG landscape" },
+        ],
+        actions: [
+            { kw: ["เล่น", "play", "game", "เกม"], a: "Character gripping controller or hands on keyboard+mouse, intensely focused, reacting to gameplay" },
+            { kw: ["ชนะ", "win", "victory", "clutch"], a: "Character celebrates victory with raised hands, excited expression, looks at camera proudly" },
+            { kw: ["stream", "ถ่ายทอด", "สตรีม"], a: "Character speaks to camera while gaming, engaging with audience" },
+        ],
+        transitions: [
+            "Dynamic whip pan from gameplay screen to presenter's expression",
+            "RGB lighting color shift transition between scenes",
+            "Quick zoom burst from controller close-up to full setup wide shot",
+        ]
+    },
+    camera: {
+        accessories: [
+            { kw: ["เลนส์", "lens", "ซูม", "zoom", "wide"], v: "extra camera lens on desk beside camera body" },
+            { kw: ["ขาตั้ง", "tripod", "monopod"], v: "tripod set up in background or beside presenter" },
+            { kw: ["เมมโมรี่", "memory", "SD", "การ์ด", "card"], v: "SD memory card being inserted into camera slot" },
+            { kw: ["สาย", "strap", "สายคล้อง"], v: "camera strap around presenter's neck" },
+            { kw: ["แฟลช", "flash", "light", "ไฟ"], v: "external flash or light attached to camera hot shoe" },
+        ],
+        actions: [
+            { kw: ["ถ่ายรูป", "photo", "shoot", "ถ่ายภาพ", "capture"], a: "Character looking through viewfinder, half-press focus, clicks shutter with confident technique" },
+            { kw: ["วิดีโอ", "video", "film", "ถ่ายวิดีโอ"], a: "Character recording video, smooth panning motion, monitoring LCD screen" },
+            { kw: ["เลนส์", "lens", "เปลี่ยน"], a: "Character demonstrates lens change — presses release, twists off, mounts new lens with satisfying click" },
+        ],
+        transitions: [
+            "Camera shutter click transition between scenes",
+            "Rack focus transition mimicking camera autofocus",
+            "Smooth dolly following presenter shooting with the camera",
+        ]
+    },
+    audio: {
+        accessories: [
+            { kw: ["เคส", "case", "ชาร์จ"], v: "charging case open with LED indicator glowing" },
+            { kw: ["จุก", "ear tip", "tip", "ซิลิโคน"], v: "extra silicone ear tips in different sizes" },
+            { kw: ["สาย", "cable", "USB"], v: "USB charging cable beside earbuds case" },
+        ],
+        actions: [
+            { kw: ["เพลง", "music", "ฟังเพลง", "song"], a: "Character wearing earbuds, eyes closed with slight head bobbing, peaceful music enjoyment" },
+            { kw: ["ออกกำลัง", "workout", "วิ่ง", "run", "gym"], a: "Character wearing earbuds during workout, secure fit visible during active movement" },
+            { kw: ["โทร", "call", "ประชุม"], a: "Character taking call via earbuds, speaking naturally, touch control gesture" },
+            { kw: ["noise cancel", "ตัดเสียง", "ANC", "เงียบ"], a: "Character in noisy setting puts on headphones, expression shifts to peaceful calm" },
+        ],
+        transitions: [
+            "Smooth dolly in from wide to close-up of earbuds in ear",
+            "Audio visualization ripple effect transition between scenes",
+        ]
+    },
+    wearable: {
+        accessories: [
+            { kw: ["สาย", "band", "strap"], v: "extra watch bands in different colors displayed" },
+            { kw: ["ชาร์จ", "charger", "charge"], v: "magnetic charging dock with LED indicator" },
+        ],
+        screen: [
+            { kw: ["ออกกำลัง", "workout", "exercise", "วิ่ง", "run", "ฟิตเนส"], v: "wearable screen showing heart rate, calories, workout timer in real-time" },
+            { kw: ["นอน", "sleep", "พักผ่อน"], v: "wearable screen showing sleep tracking graph" },
+            { kw: ["แจ้งเตือน", "notification", "message", "ข้อความ"], v: "wearable screen showing incoming notification" },
+            { kw: ["สุขภาพ", "health", "หัวใจ", "heart rate"], v: "wearable screen showing heart rate pulse graph" },
+        ],
+        actions: [
+            { kw: ["ออกกำลัง", "exercise", "วิ่ง", "run"], a: "Character exercising actively, glances at wrist to check stats on wearable screen" },
+            { kw: ["แจ้งเตือน", "notification"], a: "Character's wrist vibrates, naturally raises wrist to read notification" },
+        ],
+        transitions: [
+            "Zoom from wearable screen data to active lifestyle shot",
+            "Wrist-raise reveal transition from daily life to tracking view",
+        ]
+    },
+    drone: {
+        accessories: [
+            { kw: ["แบต", "battery", "ชาร์จ", "charge"], v: "extra drone batteries on charging hub" },
+            { kw: ["รีโมท", "remote", "controller"], v: "drone controller with phone mount attached" },
+            { kw: ["กระเป๋า", "bag", "case", "carry"], v: "protective drone carrying case open showing compartments" },
+        ],
+        actions: [
+            { kw: ["บิน", "fly", "ถ่าย", "aerial", "มุมสูง"], a: "Character launches drone from flat surface, watches it rise, controls with steady hands on remote" },
+            { kw: ["ถ่ายภาพ", "photo", "วิดีโอ", "video", "footage"], a: "Character monitors drone camera feed on phone/controller screen, adjusts gimbal angle" },
+        ],
+        transitions: [
+            "Aerial sweep transition from drone launch to footage result",
+            "Camera lifts upward mimicking drone takeoff perspective",
+        ]
+    },
+    charger: {
+        accessories: [
+            { kw: ["สาย", "cable", "USB-C", "Lightning", "Type-C"], v: "compatible charging cables in different connector types" },
+            { kw: ["อะแดป", "adapter", "หัว"], v: "wall adapter plugged into outlet with indicator LED" },
+        ],
+        actions: [
+            { kw: ["ชาร์จ", "charge", "เสียบ", "plug"], a: "Character plugs cable into device, LED indicator lights up, battery icon appears on device screen" },
+            { kw: ["เร็ว", "fast", "quick charge", "rapid"], a: "Character shows battery percentage climbing rapidly on device screen, impressed expression" },
+        ],
+        transitions: [
+            "LED indicator glow transition between charging steps",
+            "Smooth zoom from cable connection to device screen showing charge level",
+        ]
+    },
+
+    // ── Beauty & Personal Care ──
+    beauty: {
+        accessories: [
+            { kw: ["สำลี", "cotton", "pad"], v: "cotton pads stacked neatly on vanity tray" },
+            { kw: ["กระจก", "mirror", "ส่อง"], v: "vanity mirror reflecting presenter's application" },
+            { kw: ["แปรง", "brush", "applicator"], v: "makeup brush or applicator beside product" },
+        ],
+        actions: [
+            { kw: ["ทา", "apply", "ลง", "spread"], a: "Character gently applying product with careful technique, checking result in mirror" },
+            { kw: ["ก่อน", "before", "after", "หลัง", "ผลลัพธ์"], a: "Character shows skin before application, applies product, reveals glowing result" },
+        ],
+        transitions: [
+            "Soft focus dreamy transition with warm light flare",
+            "Elegant slow-motion close-up from product to skin result",
+        ]
+    },
+    fragrance: {
+        accessories: [
+            { kw: ["กล่อง", "box", "packaging"], v: "elegant perfume box displayed beside bottle" },
+            { kw: ["set", "ชุด", "travel", "mini"], v: "travel-size perfume set arranged artfully" },
+        ],
+        actions: [
+            { kw: ["ฉีด", "spray", "สเปรย์", "พ่น"], a: "Character removes cap elegantly, sprays on wrist with precise motion, visible mist catching light" },
+            { kw: ["กลิ่น", "scent", "หอม", "fragrance"], a: "Character brings wrist to nose, closes eyes, inhales deeply with blissful expression" },
+        ],
+        transitions: [
+            "Dreamy slow-motion perfume mist floating in golden light between scenes",
+            "Soft bokeh light flare transition as fragrance settles",
+        ]
+    },
+    skincare: {
+        accessories: [
+            { kw: ["สำลี", "cotton", "pad", "โทนเนอร์", "toner"], v: "cotton pads and toner on vanity tray" },
+            { kw: ["ลูกกลิ้ง", "roller", "jade", "กัวซา", "gua sha"], v: "jade roller or gua sha stone beside products" },
+            { kw: ["กระจก", "mirror"], v: "lit vanity mirror for skin close-up" },
+        ],
+        actions: [
+            { kw: ["ล้างหน้า", "cleanse", "ทำความสะอาด"], a: "Character splashing water, applying cleanser with gentle circular motions, patting dry" },
+            { kw: ["เซรั่ม", "serum", "บำรุง", "moisturize", "ครีม"], a: "Character dispensing product onto fingertips, patting gently into skin with upward motions" },
+        ],
+        transitions: [
+            "Smooth close-up dissolve from product texture to dewy skin",
+            "Elegant light refraction through serum droplet transition",
+        ]
+    },
+    makeup: {
+        accessories: [
+            { kw: ["แปรง", "brush", "พู่กัน"], v: "makeup brush set organized on vanity" },
+            { kw: ["กระจก", "mirror"], v: "illuminated makeup mirror for precise application" },
+            { kw: ["ฟองน้ำ", "sponge", "beauty blender"], v: "beauty sponge for blending beside palette" },
+        ],
+        actions: [
+            { kw: ["ทา", "apply", "แต่ง", "blend"], a: "Character applies makeup with precise technique, blending carefully, checking mirror" },
+            { kw: ["ปาก", "lip", "ลิปสติก", "lipstick"], a: "Character applies lipstick with steady hand, presses lips together, admires color" },
+            { kw: ["ตา", "eye", "อายแชโดว์", "eyeshadow"], a: "Character sweeps eyeshadow across lid, blends crease, opens eyes to show result" },
+        ],
+        transitions: [
+            "Glamorous close-up reveal transition from bare to made-up",
+            "Slow-motion brush sweep transition between makeup steps",
+        ]
+    },
+    haircare: {
+        accessories: [
+            { kw: ["หวี", "comb", "brush", "แปรง"], v: "hair brush or wide-tooth comb beside product" },
+            { kw: ["ไดร์", "dryer", "blow dry", "เป่า"], v: "hair dryer nearby for styling after treatment" },
+            { kw: ["ผ้า", "towel", "ผ้าเช็ด"], v: "microfiber hair towel draped over shoulder" },
+        ],
+        actions: [
+            { kw: ["สระ", "shampoo", "ล้าง", "wash"], a: "Character works shampoo into rich lather, massaging scalp with proper technique" },
+            { kw: ["จัดทรง", "style", "เซ็ท", "blow"], a: "Character styling hair with product, using brush and dryer, admiring volume and shine" },
+            { kw: ["นุ่ม", "soft", "smooth", "เงา", "shine"], a: "Character runs fingers through silky transformed hair, hair catching light beautifully" },
+        ],
+        transitions: [
+            "Slow-motion hair flip transition revealing transformed shine",
+            "Camera arc around presenter showing hair from all angles",
+        ]
+    },
+
+    // ── Food & Beverage ──
+    food: {
+        accessories: [
+            { kw: ["จาน", "plate", "dish", "เสิร์ฟ"], v: "beautiful ceramic plate with elegant cutlery" },
+            { kw: ["ซอส", "sauce", "dip", "น้ำจิ้ม"], v: "dipping sauce in small bowl beside food" },
+            { kw: ["เครื่องดื่ม", "drink", "น้ำ"], v: "refreshing drink glass with ice beside food" },
+        ],
+        actions: [
+            { kw: ["กิน", "eat", "ชิม", "taste", "ลอง"], a: "Character takes enthusiastic first bite, chews with genuine delight, flavor enjoyment expression" },
+            { kw: ["ปรุง", "cook", "ทำ", "prepare"], a: "Character cooking with confident movements, stirring, seasoning, plating artfully" },
+        ],
+        transitions: [
+            "Appetizing slow-motion close-up with steam rising transition",
+            "Overhead-to-eye-level camera sweep showing plated food",
+        ]
+    },
+    beverage: {
+        accessories: [
+            { kw: ["แก้ว", "glass", "cup", "ถ้วย"], v: "crystal clear glass with ice cubes" },
+            { kw: ["น้ำแข็ง", "ice", "เย็น", "cold"], v: "glistening ice cubes in glass catching light" },
+            { kw: ["หลอด", "straw"], v: "reusable straw in the glass" },
+        ],
+        actions: [
+            { kw: ["เท", "pour", "ริน"], a: "Character pours beverage into glass, liquid color and carbonation visible" },
+            { kw: ["ดื่ม", "drink", "จิบ", "sip"], a: "Character takes refreshing sip, satisfied expression, slight head tilt" },
+        ],
+        transitions: [
+            "Slow-motion pour with droplet splash transition",
+            "Condensation droplet sliding down glass into next scene",
+        ]
+    },
+    coffee: {
+        accessories: [
+            { kw: ["แก้ว", "cup", "mug", "ถ้วย"], v: "artisan ceramic coffee cup on saucer" },
+            { kw: ["นม", "milk", "cream", "ครีม"], v: "milk pitcher for latte art nearby" },
+            { kw: ["เครื่องบด", "grinder", "grind", "บด"], v: "coffee grinder with whole beans nearby" },
+        ],
+        actions: [
+            { kw: ["ชง", "brew", "ดริป", "drip", "ต้ม"], a: "Character carefully brewing coffee, precise pouring in circular motion, aroma rising" },
+            { kw: ["ลาเต้", "latte", "art"], a: "Character pouring steamed milk creating latte art pattern, steady hand technique" },
+            { kw: ["จิบ", "sip", "ดื่ม"], a: "Character cups warm mug with both hands, inhales aroma, takes first satisfied sip" },
+        ],
+        transitions: [
+            "Steam-rise dissolve transition between brewing steps",
+            "Overhead pour shot transitioning to eye-level tasting",
+        ]
+    },
+    tea: {
+        accessories: [
+            { kw: ["ถ้วย", "cup", "กา", "teapot", "แก้ว"], v: "ceramic teacup on saucer with teapot nearby" },
+            { kw: ["น้ำผึ้ง", "honey", "มะนาว", "lemon"], v: "honey dipper and lemon slice on small plate" },
+        ],
+        actions: [
+            { kw: ["ชง", "steep", "แช่", "brew"], a: "Character places tea bag in cup, pours hot water, watches color develop with peaceful expression" },
+            { kw: ["จิบ", "sip", "ดื่ม"], a: "Character cups warm tea, inhales aroma with closed eyes, sips peacefully" },
+        ],
+        transitions: [
+            "Tea color developing dissolve transition with warm tones",
+            "Steam-rise peaceful transition between steps",
+        ]
+    },
+
+    // ── Fashion & Accessories ──
+    fashion: {
+        accessories: [
+            { kw: ["กระเป๋า", "bag", "purse"], v: "stylish bag complementing the outfit" },
+            { kw: ["รองเท้า", "shoe", "shoes"], v: "matching footwear completing the look" },
+            { kw: ["เครื่องประดับ", "jewelry", "สร้อย", "necklace", "แหวน"], v: "complementary jewelry accenting the outfit" },
+            { kw: ["แว่น", "sunglasses", "glasses"], v: "stylish eyewear as fashion accent" },
+        ],
+        actions: [
+            { kw: ["ใส่", "wear", "สวม", "แต่ง"], a: "Character confidently wearing outfit, slow fashion turn, fabric moving naturally" },
+            { kw: ["mix", "match", "จับคู่", "แมทช์", "คู่"], a: "Character styling piece with different accessories, showing combinations" },
+            { kw: ["เดิน", "walk", "runway", "โชว์"], a: "Character walking toward camera with confident stride, outfit in motion" },
+        ],
+        transitions: [
+            "Elegant slow-motion fabric movement between poses",
+            "Quick-cut montage between outfit styling combinations",
+            "Smooth camera orbit capturing outfit from all angles",
+        ]
+    },
+    shoe: {
+        accessories: [
+            { kw: ["เชือก", "lace", "ผูก"], v: "extra laces in different colors beside shoes" },
+            { kw: ["ถุงเท้า", "sock", "socks"], v: "matching socks complementing the shoe style" },
+            { kw: ["กล่อง", "box", "packaging"], v: "branded shoe box open with tissue paper" },
+        ],
+        actions: [
+            { kw: ["ใส่", "wear", "สวม", "ลอง"], a: "Character slides foot into shoe, laces up or fastens, stands and tests fit" },
+            { kw: ["เดิน", "walk", "วิ่ง", "run"], a: "Character walks naturally in shoes, showing comfort and gait, different surfaces" },
+        ],
+        transitions: [
+            "Dynamic step-by-step reveal from unboxing to walking",
+            "Low-angle camera following footsteps transition",
+        ]
+    },
+    bag: {
+        accessories: [
+            { kw: ["กระเป๋าตัง", "wallet", "กระเป๋าสตางค์"], v: "matching wallet tucked into bag compartment" },
+            { kw: ["โทรศัพท์", "phone", "มือถือ"], v: "phone being placed into bag pocket" },
+        ],
+        actions: [
+            { kw: ["เปิด", "open", "ซิป", "zip"], a: "Character opens bag zippers, shows organized interior compartments, stores items" },
+            { kw: ["สะพาย", "carry", "ถือ", "shoulder"], a: "Character carries bag naturally in multiple ways — shoulder, crossbody, hand carry" },
+        ],
+        transitions: [
+            "Smooth interior-to-exterior transition showing bag organization",
+            "Camera follows presenter walking with bag in lifestyle setting",
+        ]
+    },
+    watch: {
+        accessories: [
+            { kw: ["กล่อง", "box", "case"], v: "premium watch box with velvet cushion" },
+            { kw: ["สาย", "strap", "band"], v: "extra watch straps in different materials" },
+        ],
+        actions: [
+            { kw: ["ใส่", "wear", "สวม", "รัด"], a: "Character elegantly straps watch on wrist, adjusts buckle, admires on wrist" },
+            { kw: ["เวลา", "time", "ดู"], a: "Character checks time with natural wrist-raise, impressed by dial readability" },
+        ],
+        transitions: [
+            "Macro zoom from watch face details to lifestyle wrist shot",
+            "Light catch on crystal creating elegant flare transition",
+        ]
+    },
+    jewelry: {
+        accessories: [
+            { kw: ["กล่อง", "box", "case"], v: "velvet jewelry box with dramatic spotlight" },
+            { kw: ["กระจก", "mirror"], v: "elegant mirror reflecting jewelry sparkle" },
+        ],
+        actions: [
+            { kw: ["ใส่", "wear", "สวม"], a: "Character delicately puts on jewelry, fastens clasp, adjusts position gently" },
+            { kw: ["เปล่ง", "sparkle", "shine", "วิบวับ", "ประกาย"], a: "Character tilts jewelry catching light, facets sparkle, admiring expression" },
+        ],
+        transitions: [
+            "Sparkle light dispersion between macro and lifestyle shots",
+            "Slow-motion jewelry catch-light with soft bokeh transition",
+        ]
+    },
+    sunglasses: {
+        accessories: [
+            { kw: ["เคส", "case", "ซอง"], v: "sunglasses case and cleaning cloth beside" },
+        ],
+        actions: [
+            { kw: ["ใส่", "wear", "สวม"], a: "Character puts on sunglasses confidently, pushes up nose bridge, strikes cool pose" },
+            { kw: ["แดด", "sun", "outdoor", "กลางแจ้ง"], a: "Character wearing sunglasses outdoors in bright sun, glare-free comfortable vision" },
+        ],
+        transitions: [
+            "Lens reflection transition showing sunny outdoor scene",
+            "Dynamic sunglasses put-on reveal with light flare",
+        ]
+    },
+
+    // ── Health & Wellness ──
+    supplement: {
+        accessories: [
+            { kw: ["น้ำ", "water", "แก้ว"], v: "glass of water beside supplement bottle" },
+            { kw: ["ช้อน", "scoop", "ตวง"], v: "measuring scoop with correct dosage" },
+            { kw: ["shaker", "เชค"], v: "protein shaker bottle nearby" },
+        ],
+        actions: [
+            { kw: ["กิน", "take", "ทาน"], a: "Character pours supplement into palm, takes with water, confident health routine" },
+            { kw: ["ออกกำลัง", "gym", "workout", "ฟิตเนส"], a: "Character in gym context takes supplement as post-workout routine, energized" },
+        ],
+        transitions: [
+            "Dynamic transition from supplement routine to active lifestyle",
+            "Energy boost visual transition showing vitality",
+        ]
+    },
+    protein: {
+        accessories: [
+            { kw: ["shaker", "เชค", "แก้ว", "bottle"], v: "shaker bottle with brand logo visible" },
+            { kw: ["น้ำ", "water", "นม", "milk"], v: "water or milk being poured into shaker" },
+        ],
+        actions: [
+            { kw: ["ผสม", "mix", "เชค", "shake"], a: "Character adds scoop to shaker, pours liquid, shakes vigorously, opens to show smooth mix" },
+            { kw: ["ดื่ม", "drink", "ทาน"], a: "Character drinks protein shake post-workout, refreshed energized expression" },
+        ],
+        transitions: [
+            "Shaker action slow-motion transition with liquid swirl",
+            "Gym workout to recovery drink smooth transition",
+        ]
+    },
+    fitness: {
+        accessories: [
+            { kw: ["น้ำ", "water", "bottle", "ขวด"], v: "sports water bottle beside equipment" },
+            { kw: ["ผ้าเช็ด", "towel", "เหงื่อ", "sweat"], v: "gym towel on presenter's shoulder" },
+            { kw: ["ถุงมือ", "gloves", "grip"], v: "weight lifting gloves on presenter's hands" },
+            { kw: ["ดัมเบล", "dumbbell", "weight", "น้ำหนัก"], v: "dumbbells stacked neatly nearby" },
+        ],
+        actions: [
+            { kw: ["ยก", "lift", "press", "pull", "เวท"], a: "Character performing exercise with proper form, muscles engaged, controlled breathing" },
+            { kw: ["วิ่ง", "run", "cardio"], a: "Character doing cardio, wearing product, demonstrating comfort during movement" },
+            { kw: ["ยืด", "stretch", "warm up", "วอร์ม"], a: "Character doing dynamic stretches using equipment for flexibility" },
+        ],
+        transitions: [
+            "Speed ramp from slow-motion form to full-speed power movement",
+            "Quick angle cut between exercises showcasing versatility",
+        ]
+    },
+
+    // ── Home & Kitchen ──
+    kitchen: {
+        accessories: [
+            { kw: ["จาน", "plate", "dish"], v: "serving plate ready for plating" },
+            { kw: ["ช้อน", "spoon", "spatula", "ตะหลิว"], v: "cooking utensils beside appliance" },
+            { kw: ["วัตถุดิบ", "ingredient", "ผัก", "เนื้อ"], v: "fresh colorful ingredients on cutting board" },
+        ],
+        actions: [
+            { kw: ["ทำ", "cook", "ปรุง", "หุง"], a: "Character actively cooking with appliance, confident movements, steam rising" },
+            { kw: ["เสิร์ฟ", "serve", "จัดจาน"], a: "Character beautifully plating food from appliance, garnishing with fresh herbs" },
+        ],
+        transitions: [
+            "Steam-rise dissolve from cooking to plated result",
+            "Overhead preparation montage transition",
+        ]
+    },
+    home: {
+        accessories: [
+            { kw: ["ต้นไม้", "plant", "ดอกไม้", "flower"], v: "decorative plant or flowers accenting the product" },
+            { kw: ["เทียน", "candle", "หอม"], v: "scented candle creating cozy ambiance nearby" },
+        ],
+        actions: [
+            { kw: ["จัด", "arrange", "ตกแต่ง", "decorate"], a: "Character arranging product in room, styling with decor items, stepping back admiringly" },
+            { kw: ["ใช้", "use", "สบาย", "comfort", "relax"], a: "Character using product comfortably in home, relaxed satisfied lifestyle" },
+        ],
+        transitions: [
+            "Room transformation before/after transition with warm tones",
+            "Camera pulls back to reveal styled room with product",
+        ]
+    },
+    "smart-home": {
+        accessories: [
+            { kw: ["โทรศัพท์", "phone", "app", "แอป"], v: "phone showing smart home control app interface" },
+            { kw: ["hub", "bridge", "เราเตอร์"], v: "smart hub device nearby with LED indicator" },
+        ],
+        screen: [
+            { kw: ["แอป", "app", "ควบคุม", "control"], v: "phone screen showing smart home app with device controls and status" },
+            { kw: ["ตั้งเวลา", "schedule", "timer", "อัตโนมัติ", "auto"], v: "phone screen showing automation schedule setup" },
+        ],
+        actions: [
+            { kw: ["สั่ง", "voice", "เสียง", "command"], a: "Character speaks voice command, device responds with LED indicator, impressed expression" },
+            { kw: ["ควบคุม", "control", "แตะ", "tap"], a: "Character taps phone app, device responds instantly, smart automation in action" },
+        ],
+        transitions: [
+            "LED indicator activation transition between scenes",
+            "App tap to device response smooth cross-dissolve",
+        ]
+    },
+
+    // ── Outdoor & Sports ──
+    outdoor: {
+        accessories: [
+            { kw: ["กระเป๋า", "backpack", "bag", "เป้"], v: "outdoor backpack with gear attached" },
+            { kw: ["น้ำ", "water", "bottle"], v: "water bottle in side pocket or hand" },
+            { kw: ["แผนที่", "map", "GPS", "compass"], v: "map or GPS device for navigation" },
+        ],
+        actions: [
+            { kw: ["เดิน", "hike", "trek", "เดินป่า"], a: "Character hiking with gear, confident stride through trail, nature scenery" },
+            { kw: ["ตั้ง", "setup", "กาง", "pitch"], a: "Character setting up gear outdoors, efficient practiced movements" },
+        ],
+        transitions: [
+            "Wide landscape reveal transition showing outdoor setting",
+            "Camera follows adventurer through terrain",
+        ]
+    },
+    camping: {
+        accessories: [
+            { kw: ["ไฟฉาย", "flashlight", "torch", "headlamp"], v: "headlamp or flashlight on tent floor" },
+            { kw: ["เตา", "stove", "ไฟ", "fire"], v: "camp stove with fuel canister ready" },
+        ],
+        actions: [
+            { kw: ["กาง", "pitch", "tent", "เต็นท์"], a: "Character pitches tent with efficient movements, stakes, poles, guy lines" },
+            { kw: ["ทำอาหาร", "cook", "กาแฟ", "coffee"], a: "Character cooking on camp stove at campsite, steam rising, outdoor atmosphere" },
+        ],
+        transitions: [
+            "Golden hour light transition between camp setup scenes",
+            "Wide campsite to cozy interior tent dissolve",
+        ]
+    },
+
+    // ── Baby & Pet ──
+    baby: {
+        accessories: [
+            { kw: ["ขวดนม", "bottle", "นม"], v: "baby bottle sterilized and ready" },
+            { kw: ["ผ้าอ้อม", "diaper", "ผ้า"], v: "soft cloth or diaper beside baby product" },
+        ],
+        actions: [
+            { kw: ["ใช้", "use", "อาบ", "feed", "ป้อน"], a: "Character gently using baby product with tender parental care, soft movements" },
+            { kw: ["ปลอดภัย", "safe", "safety", "BPA"], a: "Character shows safety features, reads certification labels with trusting expression" },
+        ],
+        transitions: [
+            "Warm soft-focus transition with gentle lighting",
+            "Tender parental moment dissolve between scenes",
+        ]
+    },
+    pet: {
+        accessories: [
+            { kw: ["ชาม", "bowl", "dish"], v: "pet food/water bowl beside product" },
+            { kw: ["สายจูง", "leash", "collar", "ปลอกคอ"], v: "pet leash or collar displayed alongside" },
+        ],
+        actions: [
+            { kw: ["กิน", "eat", "feed", "ป้อน"], a: "Character prepares food in bowl, pet approaches eagerly, happy feeding moment" },
+            { kw: ["เล่น", "play", "fetch", "toy"], a: "Character plays with pet using product, joyful interaction, pet excitement visible" },
+        ],
+        transitions: [
+            "Playful pet interaction transition between scenes",
+            "Warm pet-owner bonding moment dissolve",
+        ]
+    },
+
+    // ── Cleaning ──
+    cleaning: {
+        accessories: [
+            { kw: ["ผ้า", "cloth", "wipe", "เช็ด"], v: "microfiber cloth for wiping surfaces" },
+            { kw: ["ถุงมือ", "gloves", "rubber"], v: "rubber gloves for hand protection" },
+        ],
+        actions: [
+            { kw: ["เช็ด", "wipe", "ทำความสะอาด", "clean"], a: "Character sprays and wipes surface, dramatic before/after cleanliness transformation" },
+            { kw: ["ฉีด", "spray", "พ่น"], a: "Character sprays product on surface, visible mist, then wipes clean with cloth" },
+        ],
+        transitions: [
+            "Before/after split-moment transformation transition",
+            "Sparkle clean reveal transition showing polished result",
+        ]
+    },
+
+    // ── Auto ──
+    auto: {
+        accessories: [
+            { kw: ["เครื่องมือ", "tool", "ประแจ"], v: "tools for installation on car surface" },
+            { kw: ["น้ำยา", "solution", "wax", "polish"], v: "car care solution beside the product" },
+        ],
+        actions: [
+            { kw: ["ติดตั้ง", "install", "ต่อ"], a: "Character installs product on vehicle with steady hands, step-by-step process" },
+            { kw: ["ล้าง", "wash", "ขัด", "polish"], a: "Character applies product to car surface, polishes to mirror finish, satisfied with result" },
+        ],
+        transitions: [
+            "Before/after vehicle transformation reveal",
+            "Camera orbit around vehicle showing installed product",
+        ]
+    },
+};
+
+// General cinematic flair directives — applied to ALL categories for visual interest
+const GENERAL_CINEMATIC_FLAIR: string[] = [
+    "Smooth cinematic dolly with shallow depth of field",
+    "Dynamic camera push-in with rack focus on product details",
+    "Elegant slow-motion moment highlighting product interaction",
+    "Fluid camera orbit showing new angle of product and presenter",
+    "Speed ramp from slow-motion detail to real-time action",
+    "Professional match-cut maintaining visual continuity",
+    "Smooth crane shot from product close-up to presenter medium shot",
+    "Dramatic pull-back reveal showing full scene composition",
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PRODUCT PRESENTATION GUIDE — Deep per-category knowledge + per-scene
 // visual action directives for professional multi-scene video production.
 // Tells the AI EXACTLY how to showcase each product type in each scene.
@@ -2931,6 +3565,68 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
             "Closing — presenter with product, satisfied recommendation expression."
         ]
     }
+};
+
+/**
+ * Analyze scene script text and generate context-aware visual directives.
+ * Detects accessories, screen content, character actions, and transitions
+ * mentioned in the voiceover script to make the video more realistic.
+ * 
+ * Examples:
+ * - Laptop script mentions "เกม" → adds gameplay on screen + character sitting playing
+ * - Phone script mentions "กล้อง" → adds camera viewfinder on screen + photo-taking action
+ * - Fragrance script mentions "ฉีด" → adds spray mist visual + elegant spray action
+ * - Any product with "ชาร์จ" → adds charger cable accessory in scene
+ */
+const buildScriptAwareDirective = (
+    category: ProductCategory,
+    sceneScript: string,
+    sceneNumber: number,
+    productName?: string
+): string => {
+    const cr = CATEGORY_CONTEXTUAL_REALISM[category];
+    const text = `${(sceneScript || '').toLowerCase()} ${(productName || '').toLowerCase()}`;
+
+    // General cinematic flair — always applied for visual interest
+    const flairIdx = (sceneNumber - 1) % GENERAL_CINEMATIC_FLAIR.length;
+    const generalFlair = GENERAL_CINEMATIC_FLAIR[flairIdx];
+
+    if (!cr) {
+        // Fallback: general cinematic flair only
+        return sceneNumber > 1
+            ? `CINEMATIC: ${generalFlair}. Smooth transition from scene ${sceneNumber - 1}.`
+            : `CINEMATIC: ${generalFlair}.`;
+    }
+
+    const parts: string[] = [];
+
+    // 1. Detect accessories (max 2 to keep prompt concise)
+    const accs = cr.accessories.filter(a => a.kw.some(k => text.includes(k.toLowerCase()))).slice(0, 2);
+    if (accs.length > 0) {
+        parts.push(`ACCESSORIES VISIBLE: ${accs.map(a => a.v).join('; ')}`);
+    }
+
+    // 2. Detect screen content (for products with displays — first match only)
+    if (cr.screen && cr.screen.length > 0) {
+        const sc = cr.screen.find(s => s.kw.some(k => text.includes(k.toLowerCase())));
+        if (sc) parts.push(`SCREEN CONTENT: ${sc.v}`);
+    }
+
+    // 3. Detect context-appropriate character action (first match)
+    const act = cr.actions.find(a => a.kw.some(k => text.includes(k.toLowerCase())));
+    if (act) parts.push(`CHARACTER ACTION: ${act.a}`);
+
+    // 4. Category-specific cinematic transition + general flair
+    if (cr.transitions.length > 0) {
+        const tIdx = sceneNumber > 1
+            ? (sceneNumber - 2) % cr.transitions.length
+            : 0;
+        parts.push(`CINEMATIC: ${cr.transitions[tIdx]}. ${generalFlair}`);
+    } else {
+        parts.push(`CINEMATIC: ${generalFlair}`);
+    }
+
+    return parts.join('. ') + '.';
 };
 
 /**
@@ -4900,6 +5596,8 @@ const buildVideoPrompt = (
         `${contactPhysics} ${speakingDirective}`,
         // [4.5. PRODUCT PRESENTATION] — category-specific visual action for this scene
         `${getScenePresentationDirective(category, 1)}`,
+        // [4.6. SCRIPT-AWARE REALISM] — accessories, screen content, actions, transitions detected from script
+        `${buildScriptAwareDirective(category, sceneTexts[0] || '', 1, config.productName)}`,
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
@@ -4907,7 +5605,7 @@ const buildVideoPrompt = (
         // [7. STYLE/MOOD]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
         // [8. CONSTRAINTS] — condensed policy + technical (avoids bloated 3000-char directives that cause Veo truncation/rejection)
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No random props unrelated to product context. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
@@ -4998,6 +5696,9 @@ export const buildSceneVideoPromptJSON = (
             ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
             : getScenePresentationDirective(meta.category, sceneNumber),
 
+        // [4.5. SCRIPT-AWARE REALISM] — accessories, screen content, actions, transitions from script context
+        buildScriptAwareDirective(meta.category, cleanScript, sceneNumber, productName),
+
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
 
@@ -5005,7 +5706,7 @@ export const buildSceneVideoPromptJSON = (
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}.`,
 
         // [7. CONSTRAINTS] — slim: no 2860-char restrictions block, frame reference handles the rest
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. No invented accessories. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment. ${meta.cameraMovement}. Photorealistic only.`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. No random props unrelated to product context. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment. ${meta.cameraMovement}. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
