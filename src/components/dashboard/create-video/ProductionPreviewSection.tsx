@@ -180,19 +180,6 @@ const ProductionPreviewSection = ({
                                 <TikTokIcon className={`w-5 h-5 transition-transform duration-300 ${autoPostTikTok ? 'scale-110 drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
                                 {autoPostTikTok && <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-xl"></div>}
                             </button>
-                            <div className="w-px h-8 bg-border z-10" />
-                            <button
-                                onClick={(e) => { e.preventDefault(); onDownloadVideo(); }}
-                                disabled={!hasVideo}
-                                className={`flex-1 flex items-center justify-center py-3 px-4 transition-all duration-300 relative ${
-                                    hasVideo 
-                                        ? 'text-white hover:text-primary hover:bg-primary/10 hover:shadow-[inset_0_0_10px_rgba(var(--primary-rgb),0.2)] cursor-pointer' 
-                                        : 'text-muted-foreground opacity-50 cursor-not-allowed'
-                                }`}
-                                title="บันทึกลงเครื่อง"
-                            >
-                                <Save className={`w-5 h-5 transition-transform duration-300 ${hasVideo ? 'hover:scale-110 hover:drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : ''}`} />
-                            </button>
                         </div>
                         {/* Auto Post description */}
                         <p className="text-[10px] text-muted-foreground/70 leading-relaxed mt-1">
