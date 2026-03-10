@@ -210,17 +210,30 @@ export const useVideoGeneration = () => {
                     if (cachedDataUrl) {
                         try {
                             const blob = dataUrlToBlob(cachedDataUrl);
-                            saveVideoToStock({
-                                title: 'Netflow AI Video',
-                                videoBlob: blob,
-                                duration: 0,
-                                fileSize: blob.size,
-                                source: source,
-                                mimeType: blob.type || 'video/mp4',
-                            }).then((id) => {
-                                console.log('[useVideoGeneration] ✅ Video saved to stock:', id);
-                            }).catch((err) => {
-                                console.warn('[useVideoGeneration] Failed to save to stock:', err);
+                            // Read productName from storage (saved by CreateVideoTab before generation)
+                            const getProductName = (): Promise<string> => {
+                                if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve('');
+                                return new Promise((resolve) => {
+                                    chrome.storage.local.get(['netflow_last_product_name'], (r) => {
+                                        resolve((r?.netflow_last_product_name as string) || '');
+                                    });
+                                });
+                            };
+                            getProductName().then((pName) => {
+                                const displayTitle = pName ? pName : 'Netflow AI Video';
+                                saveVideoToStock({
+                                    title: displayTitle,
+                                    videoBlob: blob,
+                                    duration: 0,
+                                    fileSize: blob.size,
+                                    source: source,
+                                    mimeType: blob.type || 'video/mp4',
+                                    productName: pName || undefined,
+                                }).then((id) => {
+                                    console.log('[useVideoGeneration] ✅ Video saved to stock:', id, 'productName:', pName || '(none)');
+                                }).catch((err) => {
+                                    console.warn('[useVideoGeneration] Failed to save to stock:', err);
+                                });
                             });
                         } catch (e) {
                             console.warn('[useVideoGeneration] Stock save error:', e);
