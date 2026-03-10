@@ -17,6 +17,8 @@
   ],
   "host_permissions": [
     "https://labs.google/*",
+    "https://*.googleapis.com/*",
+    "https://*.googleusercontent.com/*",
     "https://grok.com/*",
     "*://*.tiktok.com/*",
     "*://api.openai.com/*",

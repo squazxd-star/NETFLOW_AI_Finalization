@@ -200,8 +200,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 console.log('[Netflow BG] UPLOAD_YOUTUBE — opening YouTube Studio');
 
-                // First, pre-fetch the video if we have a URL
-                if (message.videoUrl && !_cachedVideoDataUrl) {
+                // Always pre-fetch the video if we have a URL (overwrite stale cache with latest)
+                if (message.videoUrl) {
                     console.log('[Netflow BG] Pre-fetching video for YouTube...');
                     try {
                         const resp = await fetch(message.videoUrl);
@@ -353,6 +353,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     return;
                 }
 
+                // Grab the actual download URL (HTTPS CDN URL) for re-caching full video
+                const downloadUrl = videoFile.finalUrl || videoFile.url || '';
+
                 const openFileInChrome = (filePath, label) => {
                     // Normalize path for both Windows (C:\...) and Mac (/Users/...)
                     const normalized = filePath.replace(/\\/g, "/");
@@ -360,7 +363,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         ? "file://" + normalized        // Mac: file:///Users/...  (2 slashes + leading /)
                         : "file:///" + normalized;      // Win: file:///C:/Users/...
                     chrome.tabs.create({ url }, () => {
-                        sendResponse({ success: true, message: label, filename: filePath });
+                        sendResponse({ success: true, message: label, filename: filePath, downloadUrl: downloadUrl });
                     });
                 };
 

@@ -3119,6 +3119,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("รอไฟล์ดาวน์โหลดพร้อม...");
         await sleep(5000);
         let opened2 = false;
+        let fullVideoDownloadUrl: string | null = null;
         const openPoll2 = Date.now();
         while (Date.now() - openPoll2 < 60000 && !opened2) {
             try {
@@ -3129,6 +3130,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                         } else if (res?.success) {
                             LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                             opened2 = true;
+                            fullVideoDownloadUrl = res.downloadUrl || null;
                         } else {
                             LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                         }
@@ -3144,9 +3146,28 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
-        // Re-capture video URL — the original was Scene 1, now grab the Full Video
-        const freshVideoUrl = await captureVideoUrlAndPreFetch();
-        sendVideoGenerationComplete(freshVideoUrl || tiktokVideoUrl);
+
+        // Re-cache the FULL combined video (not Scene 1) for sidepanel preview + YouTube upload
+        if (fullVideoDownloadUrl && fullVideoDownloadUrl.startsWith("http")) {
+            LOG(`[FullVideo] พบ download URL — re-cache วิดีโอเต็ม: ${fullVideoDownloadUrl.substring(0, 80)}...`);
+            await new Promise<void>((resolve) => {
+                chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: fullVideoDownloadUrl }, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        WARN(`[FullVideo] PRE_FETCH error: ${chrome.runtime.lastError.message}`);
+                    } else if (resp?.success) {
+                        LOG(`[FullVideo] ✅ Full video cached: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
+                    } else {
+                        WARN(`[FullVideo] PRE_FETCH failed: ${resp?.error}`);
+                    }
+                    resolve();
+                });
+            });
+            sendVideoGenerationComplete(fullVideoDownloadUrl);
+        } else {
+            LOG("[FullVideo] ไม่พบ download URL — fallback ใช้ video จากหน้า");
+            const freshVideoUrl = await captureVideoUrlAndPreFetch();
+            sendVideoGenerationComplete(freshVideoUrl || tiktokVideoUrl);
+        }
         closeAutomationTab(2000);
         return;
     }
@@ -3733,6 +3754,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     LOG("รอไฟล์ดาวน์โหลดพร้อม...");
     await sleep(5000);
     let opened = false;
+    let fullVideoDownloadUrl: string | null = null;
     const openPoll = Date.now();
     while (Date.now() - openPoll < 60000 && !opened) {
         try {
@@ -3743,6 +3765,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                     } else if (res?.success) {
                         LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                         opened = true;
+                        fullVideoDownloadUrl = res.downloadUrl || null;
                     } else {
                         LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                     }
@@ -3757,9 +3780,28 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     if (!opened) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
     try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
     LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
-    // Capture video URL for TikTok auto-post (after page navigate, video may be on new page)
-    const tiktokVideoUrlNav = await captureVideoUrlAndPreFetch();
-    sendVideoGenerationComplete(tiktokVideoUrlNav);
+
+    // Re-cache the FULL combined video (not Scene 1) for sidepanel preview + YouTube upload
+    if (fullVideoDownloadUrl && fullVideoDownloadUrl.startsWith("http")) {
+        LOG(`[FullVideo] พบ download URL — re-cache วิดีโอเต็ม: ${fullVideoDownloadUrl.substring(0, 80)}...`);
+        await new Promise<void>((resolve) => {
+            chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: fullVideoDownloadUrl }, (resp) => {
+                if (chrome.runtime.lastError) {
+                    WARN(`[FullVideo] PRE_FETCH error: ${chrome.runtime.lastError.message}`);
+                } else if (resp?.success) {
+                    LOG(`[FullVideo] ✅ Full video cached: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
+                } else {
+                    WARN(`[FullVideo] PRE_FETCH failed: ${resp?.error}`);
+                }
+                resolve();
+            });
+        });
+        sendVideoGenerationComplete(fullVideoDownloadUrl);
+    } else {
+        LOG("[FullVideo] ไม่พบ download URL — fallback ใช้ video จากหน้า");
+        const tiktokVideoUrlNav = await captureVideoUrlAndPreFetch();
+        sendVideoGenerationComplete(tiktokVideoUrlNav);
+    }
     closeAutomationTab(2000);
 }
 
