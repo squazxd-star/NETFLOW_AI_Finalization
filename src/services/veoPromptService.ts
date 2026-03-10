@@ -1098,6 +1098,44 @@ const CAMERA_MOVEMENT: Record<string, string> = {
     "before-after": "Dynamic wipe transition pan, smooth match-cut slider movement, controlled reveal pan"
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Cinematic Camera Pool — per-scene camera variety (randomly picked per scene)
+// Each entry is a short camera movement directive that adds unique motion flavor
+// ═══════════════════════════════════════════════════════════════════════════
+const CINEMATIC_CAMERA_POOL: string[] = [
+    "Smooth dolly push-in with shallow depth of field",
+    "Dynamic sweeping orbit around subject",
+    "Slow cinematic crane-down from high angle",
+    "Handheld tracking shot following action",
+    "Macro slider glide with rack focus transition",
+    "Low-angle hero shot tilting up dramatically",
+    "Overhead bird's-eye slowly descending",
+    "Whip pan with motion blur to new angle",
+    "Steady dolly-out revealing full scene",
+    "Dutch-angle tilt with dynamic energy",
+    "Smooth 180-degree arc around subject",
+    "Close-up snap zoom into detail",
+    "Gentle floating steadicam drift",
+    "Dramatic rack focus foreground to background",
+    "Cinematic parallax tracking with depth layers",
+    "Slow-motion sweeping pan across scene",
+    "Dynamic push-in from wide to tight close-up",
+    "Elegant circular orbit with bokeh background",
+    "Controlled vertical crane-up reveal",
+    "Intimate close-up with subtle breathing movement",
+];
+
+/** Pick a random cinematic camera movement from the pool, avoiding repeats within a session */
+const pickSceneCamera = (usedIndices?: number[]): { camera: string; index: number } => {
+    const available = CINEMATIC_CAMERA_POOL
+        .map((c, i) => ({ camera: c, index: i }))
+        .filter(c => !usedIndices?.includes(c.index));
+    const pick = available.length > 0
+        ? available[Math.floor(Math.random() * available.length)]
+        : { camera: CINEMATIC_CAMERA_POOL[Math.floor(Math.random() * CINEMATIC_CAMERA_POOL.length)], index: -1 };
+    return pick;
+};
+
 // Scene Transition — keywords for seamless inter-scene continuity
 const SCENE_TRANSITION: Record<string, string> = {
     "product-review": "Match cut transition, consistent lighting and color grading across shots, fluid continuation",
@@ -6878,14 +6916,14 @@ export const buildSceneVideoPromptJSON = (
         // [4.6. SCREEN CONTENT DIRECTIVE — what must appear ON the product's display]
         getScreenContentDirective(meta.category, cleanScript),
 
-        // [5. CAMERA & LIGHTING]
-        `${meta.camera}. ${meta.lighting}.`,
+        // [5. CAMERA & LIGHTING] — per-scene camera variety from CINEMATIC_CAMERA_POOL
+        `${meta.camera}. ${pickSceneCamera().camera}. ${meta.lighting}.`,
 
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
 
         // [7. CONSTRAINTS + LOCKS] (FACE LOCK already in characterAnchor, not repeated)
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add glasses, hats, earphones, jewelry, tattoos, or ANY accessory not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. ${meta.cameraMovement}. Photorealistic only.`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add glasses, hats, earphones, jewelry, tattoos, or ANY accessory not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. ${pickSceneCamera().camera}. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
