@@ -61,6 +61,20 @@ const waitForElement = async (
 };
 
 /**
+ * Deep-query: traverse shadow DOMs to find elements matching a selector
+ */
+const deepQueryAll = (root: ParentNode, selector: string): Element[] => {
+    const results: Element[] = [];
+    results.push(...Array.from(root.querySelectorAll(selector)));
+    root.querySelectorAll('*').forEach(el => {
+        if (el.shadowRoot) {
+            results.push(...deepQueryAll(el.shadowRoot, selector));
+        }
+    });
+    return results;
+};
+
+/**
  * Click an element with proper event dispatch
  */
 const clickElement = (el: Element) => {
@@ -78,12 +92,22 @@ const findByTexts = (
     selector = 'button, a, span, div, label, tp-yt-paper-item, ytcp-text, yt-formatted-string, tp-yt-paper-radio-button',
     exact = false
 ): Element | null => {
+    // Strategy 1: normal querySelectorAll
     const all = Array.from(document.querySelectorAll(selector));
-    for (const el of all) {
-        const t = (el.textContent || '').trim();
+    // Strategy 2: deep shadow DOM query
+    const deep = deepQueryAll(document, selector);
+    const combined = [...all, ...deep];
+    const seen = new Set<Element>();
+    for (const el of combined) {
+        if (seen.has(el)) continue;
+        seen.add(el);
+        // Use both textContent and innerText for robust matching
+        const tc = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const it = ((el as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim();
         for (const text of texts) {
-            const match = exact ? t === text : t.includes(text);
-            if (match) {
+            const matchTc = exact ? tc === text : tc.includes(text);
+            const matchIt = exact ? it === text : it.includes(text);
+            if (matchTc || matchIt) {
                 const rect = (el as HTMLElement).getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) return el;
             }
@@ -273,17 +297,29 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
                 await delay(1500);
 
                 // Click "อัปโหลดวิดีโอ" / "Upload videos" from dropdown
+                // Strategy 1: Direct test-id selector (most reliable)
+                // Strategy 2: Text-based search (TH + EN)
+                // Strategy 3: Deep shadow DOM traversal
                 const uploadMenuItem = await waitForElement(() => {
+                    // Primary: use test-id attribute (Polymer test hook)
+                    const byTestId = document.querySelector('tp-yt-paper-item[test-id="upload"]') ||
+                                     document.querySelector('[test-id="upload"]');
+                    if (byTestId) {
+                        const r = (byTestId as HTMLElement).getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return byTestId;
+                    }
+                    // Fallback: text match (TH + EN)
                     return findByTexts(
                         ['อัปโหลดวิดีโอ', 'Upload videos', 'Upload video'],
-                        'yt-formatted-string, tp-yt-paper-item, div.text-content, div.right-container'
+                        'yt-formatted-string, tp-yt-paper-item, div.text-content, div.right-container, ytcp-text-menu'
                     );
-                }, 5000);
+                }, 8000);
 
                 if (uploadMenuItem) {
                     // Click the parent <tp-yt-paper-item> if we matched the inner text
                     const clickTarget = uploadMenuItem.closest('tp-yt-paper-item') || uploadMenuItem;
                     clickElement(clickTarget);
+                    log(`คลิกเมนูอัปโหลด (tag=${clickTarget.tagName}, testId=${clickTarget.getAttribute('test-id')})`);
                     log('คลิก "อัปโหลดวิดีโอ/Upload videos"');
                     await delay(2000);
                 } else {

@@ -4888,7 +4888,7 @@ const buildVideoPrompt = (
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
     const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ${productUsageRealism}`;
 
-    const prompt = sanitizePromptForPolicy([
+    let prompt = sanitizePromptForPolicy([
         // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity
         `${characterAnchor}`,
         // ★ [2. VOICE PERSONA + SCRIPT] — voice persona + dialogue
@@ -4906,9 +4906,16 @@ const buildVideoPrompt = (
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
         // [7. STYLE/MOOD]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
-        // [8. CONSTRAINTS] — policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${ANTI_ADDITION_DIRECTIVE} ${CLOTHING_FIDELITY_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice '${persona.name}' must carry identically through every subsequent scene. PRODUCT SIZE LOCK: The product must maintain CONSISTENT apparent size throughout the entire video — never shrink, never grow, never change scale relative to the character's hands and body. ${VIDEO_POLICY_DIRECTIVE}`
+        // [8. CONSTRAINTS] — condensed policy + technical (avoids bloated 3000-char directives that cause Veo truncation/rejection)
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
+
+    // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
+    const MAX_SCENE1_PROMPT_LENGTH = 3500;
+    if (prompt.length > MAX_SCENE1_PROMPT_LENGTH) {
+        console.warn(`⚠️ Scene 1 prompt too long (${prompt.length} chars), trimming to ${MAX_SCENE1_PROMPT_LENGTH}`);
+        prompt = prompt.substring(0, MAX_SCENE1_PROMPT_LENGTH).replace(/\s\S*$/, '');
+    }
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
     const meta: VideoPromptMeta = {
@@ -4922,7 +4929,7 @@ const buildVideoPrompt = (
         productAnchor: productAnchor,
         template: templateConfig.englishName,
         pacing: durationConfig.pacing,
-        restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${ANTI_ADDITION_DIRECTIVE} ${CLOTHING_FIDELITY_DIRECTIVE} ${buildContactPhysicsDirectiveSlim(category)} ${VIDEO_POLICY_DIRECTIVE}`,
+        restrictions: `${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
         voiceoverDescriptor,
         cameraMovement: cameraMove,
         sceneTransition: transition,
@@ -4936,6 +4943,7 @@ const buildVideoPrompt = (
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
+    console.log(`📏 Scene 1 prompt length: ${prompt.length} chars`);
 
     return { prompt, sceneScripts: sceneTexts, meta };
 };
@@ -4963,47 +4971,50 @@ export const buildSceneVideoPromptJSON = (
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
 
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.
-    const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
+    const speakingDirective = `Character speaks to camera, mouth naturally matching spoken words.`;
 
     // ── SEAMLESS TRANSITION ──
-    const useTransition = Math.random() < 0.001;
-    const transitionDirective = useTransition
-        ? `TRANSITION: ${meta.sceneTransition}. Smooth visual transition from scene ${sceneNumber - 1}.`
-        : `Seamless continuous flow — cut directly from scene ${sceneNumber - 1} as if one unbroken take. No dissolve, no wipe, no fade.`;
+    const transitionDirective = `Seamless continuous flow from scene ${sceneNumber - 1}, one unbroken take.`;
 
-    return sanitizePromptForPolicy([
-        // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity repeated
-        `${meta.characterAnchor}`,
+    // ── SLIM PRODUCT IDENTITY — frame reference handles visual details ──
+    // Full productAnchor is ~1000 chars; slim version keeps only essential identity
+    const productName = meta.product?.split(',')[0]?.trim() || 'the product';
+    const slimProductIdentity = `${meta.template} commercial. The ${productName} is the HERO — always visible, prominent, centered. Same product appearance, same size, same position as scene ${sceneNumber - 1}. ${meta.productUsageRealism}`;
 
-        // ★ [2. PRODUCT IDENTITY] — full product anchor repeated
-        `${meta.template} commercial video. ${meta.productAnchor}`,
-        // ★ [2.5. PRODUCT POSITION LOCK — CRITICAL for Extend] — prevents product from shrinking/disappearing across scenes
-        `[CRITICAL] PRODUCT POSITION LOCK: The product MUST remain in the EXACT same position on the surface as the previous scene. Same size, same scale, same placement — NEVER shrink, NEVER fade, NEVER drift off-screen, NEVER disappear. Product occupies the same screen area and proportions as scene ${sceneNumber - 1}. If product was on the table, it stays on the table at the same spot. Zero size change, zero position change. PRODUCT SIZE CONSISTENCY: The product's apparent size relative to the character's hands and body must be IDENTICAL to scene 1. If the bottle was 20% of frame height in scene 1, it must be 20% in this scene. GESTURE CONTROL: Character interacts with product using natural, purposeful gestures only — demonstrate, present, point at features. No random waving, no awkward product tossing, no unnatural arm positions. Hands move smoothly and deliberately.`,
+    const prompt = sanitizePromptForPolicy([
+        // [1. CHARACTER VISUAL DNA] — full anchor for face/body consistency
+        meta.characterAnchor,
 
-        // ★ [3. VOICE PERSONA + SCRIPT] — full voice persona in every scene
-        `${meta.voiceoverDescriptor}`,
-        `[HIGHEST PRIORITY] VOICE LOCK for scene ${sceneNumber}: Speaker '${meta.personaName}' — IDENTICAL voice to scene ${sceneNumber - 1}. Same person, same pitch, same tone, same energy, same pace. Zero voice change. Audience must not notice any scene boundary.`,
-        `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        // [2. PRODUCT IDENTITY] — slim version (frame reference has the visual details)
+        slimProductIdentity,
 
-        // ★ [4. ACTION + USAGE REALISM] — prevents illogical actions like spraying with cap on
-        `${meta.productUsageRealism} ${speakingDirective}`,
+        // [3. VOICE + SCRIPT] — voiceoverDescriptor already contains voice lock
+        meta.voiceoverDescriptor,
+        `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — not rendered on screen): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
 
-        // ★ [4.5. PRODUCT PRESENTATION] — per-scene visual action (AI-generated if available, otherwise category fallback)
-        `[CRITICAL] PRODUCT INTERACTION: The character MUST actively hold, touch, or gesture towards the ${meta.product} in this scene. The product is the central focus.`,
+        // [4. ACTION] — what happens in this scene
+        `Character holds and presents ${productName}. ${speakingDirective}`,
         sceneVideoAction?.trim()
-            ? `VISUAL ACTION FOR THIS SCENE: ${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
-            : `${getScenePresentationDirective(meta.category, sceneNumber)}`,
+            ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
+            : getScenePresentationDirective(meta.category, sceneNumber),
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
 
-        // [6. CONTINUITY + STYLE]
-        `SCENE ${sceneNumber} — DIRECT CONTINUATION from scene ${sceneNumber - 1}, character mid-conversation. ${transitionDirective} No black frame, no silence gap, no freeze.`,
-        `${meta.pacing}. Fluid motion, high frame rate.`,
+        // [6. CONTINUITY]
+        `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}.`,
 
-        // [7. CONSTRAINTS]
-        `${aspectDirective} ${meta.restrictions} Same fictional character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment from scene 1 through scene ${sceneNumber}. CAMERA: continue ${meta.cameraMovement}. No camera reset.`
-    ].filter(Boolean).join(' '), meta.product?.split(',')[0]?.trim());
+        // [7. CONSTRAINTS] — slim: no 2860-char restrictions block, frame reference handles the rest
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. No invented accessories. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment. ${meta.cameraMovement}. Photorealistic only.`
+    ].filter(Boolean).join(' '), productName);
+
+    // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
+    const MAX_SCENE_PROMPT_LENGTH = 2500;
+    if (prompt.length > MAX_SCENE_PROMPT_LENGTH) {
+        console.warn(`⚠️ Scene ${sceneNumber} prompt too long (${prompt.length} chars), trimming to ${MAX_SCENE_PROMPT_LENGTH}`);
+        return prompt.substring(0, MAX_SCENE_PROMPT_LENGTH).replace(/\s\S*$/, '');
+    }
+    return prompt;
 };
 
 /**
