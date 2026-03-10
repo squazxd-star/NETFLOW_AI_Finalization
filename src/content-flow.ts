@@ -2423,7 +2423,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Fast path: re-check the last element that had % text
             if (_lastPctEl && _lastPctEl.isConnected && !_lastPctEl.closest("#netflow-engine-overlay")) {
                 const txt = (_lastPctEl.textContent || "").trim();
-                if (txt.length <= 10) {
+                if (txt.length <= 15) {
                     const m = txt.match(/(\d{1,3})\s*%/);
                     if (m) {
                         const pct = parseInt(m[1], 10);
@@ -2439,12 +2439,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const val = pb.getAttribute('aria-valuenow');
                 if (val) { const pct = parseFloat(val); if (pct >= 1 && pct <= 100) return pct; }
             }
-            // Fallback: scan small text elements for "XX%" pattern
-            const els = document.querySelectorAll<HTMLElement>("span, small, label, p");
+            // Fallback: scan small text elements for "XX%" pattern (includes div, strong — Veo may render % in any tag)
+            const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
             for (const el of els) {
                 if (el.closest("#netflow-engine-overlay")) continue;
                 const txt = (el.textContent || "").trim();
-                if (txt.length > 10 || txt.length < 2) continue;
+                if (txt.length > 15 || txt.length < 2) continue;
                 const m = txt.match(/(\d{1,3})\s*%/);
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
