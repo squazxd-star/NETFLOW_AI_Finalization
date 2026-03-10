@@ -43,6 +43,24 @@ async function deleteVideo(id) {
     });
 }
 
+async function updateVideoTitle(id, newTitle) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(id);
+        req.onsuccess = () => {
+            const video = req.result;
+            if (video) {
+                video.title = newTitle;
+                store.put(video);
+            }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
 // ── Thumbnail Generator ──
 function generateThumbnail(videoBlob) {
     return new Promise((resolve) => {
@@ -57,11 +75,16 @@ function generateThumbnail(videoBlob) {
         };
         video.onseeked = () => {
             try {
+                const vw = video.videoWidth || 384;
+                const vh = video.videoHeight || 216;
+                const scale = Math.min(384 / vw, 384 / vh);
+                const cw = Math.round(vw * scale);
+                const ch = Math.round(vh * scale);
                 const canvas = document.createElement('canvas');
-                canvas.width = 384;
-                canvas.height = 216;
+                canvas.width = cw;
+                canvas.height = ch;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, 384, 216);
+                ctx.drawImage(video, 0, 0, cw, ch);
                 URL.revokeObjectURL(url);
                 resolve(canvas.toDataURL('image/jpeg', 0.75));
             } catch (e) {
@@ -111,6 +134,7 @@ function showToast(msg) {
 // ── Render ──
 let _videos = [];
 let _deleteTargetId = null;
+let _renameTargetId = null;
 const _blobUrls = new Map();
 
 async function loadAndRender() {
@@ -178,10 +202,22 @@ async function loadAndRender() {
         // Info
         const infoDiv = document.createElement('div');
 
+        const titleRow = document.createElement('div');
+        titleRow.className = 'card-title-row';
+
         const titleDiv = document.createElement('div');
         titleDiv.className = 'card-title';
         titleDiv.title = video.title || 'Netflow AI Video';
         titleDiv.textContent = video.title || 'Netflow AI Video';
+
+        const btnRename = document.createElement('button');
+        btnRename.className = 'btn-rename';
+        btnRename.title = '\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e0a\u0e37\u0e48\u0e2d';
+        btnRename.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+        btnRename.addEventListener('click', () => renameVideo(video.id));
+
+        titleRow.appendChild(titleDiv);
+        titleRow.appendChild(btnRename);
 
         const metaDiv = document.createElement('div');
         metaDiv.className = 'card-meta';
@@ -190,7 +226,7 @@ async function loadAndRender() {
             '<span class="dot"></span>' +
             '<span>' + formatBytes(video.fileSize) + '</span>';
 
-        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(titleRow);
         infoDiv.appendChild(metaDiv);
 
         // Actions — all icon buttons
@@ -206,19 +242,19 @@ async function loadAndRender() {
         const btnYT = document.createElement('button');
         btnYT.className = 'btn-icon btn-yt';
         btnYT.title = 'YouTube';
-        btnYT.textContent = 'YT';
+        btnYT.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 00.5 6.2C0 8.08 0 12 0 12s0 3.92.5 5.8a3.02 3.02 0 002.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 002.12-2.14C24 15.92 24 12 24 12s0-3.92-.5-5.8zM9.55 15.57V8.43L15.8 12l-6.25 3.57z"/></svg>';
         btnYT.addEventListener('click', () => uploadYouTube(video.id));
 
         const btnTT = document.createElement('button');
         btnTT.className = 'btn-icon btn-tt';
         btnTT.title = 'TikTok';
-        btnTT.textContent = 'TT';
+        btnTT.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.36a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.79z"/></svg>';
         btnTT.addEventListener('click', () => uploadTikTok(video.id));
 
         const btnDel = document.createElement('button');
         btnDel.className = 'btn-icon btn-del';
         btnDel.title = '\u0e25\u0e1a';
-        btnDel.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        btnDel.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
         btnDel.addEventListener('click', () => confirmDeleteVideo(video.id));
 
         actionsDiv.appendChild(btnDl);
@@ -354,6 +390,30 @@ function confirmDeleteVideo(id) {
     document.getElementById('confirmDialog').classList.add('active');
 }
 
+function renameVideo(id) {
+    _renameTargetId = id;
+    const video = _videos.find(v => v.id === id);
+    const input = document.getElementById('renameInput');
+    input.value = video ? (video.title || 'Netflow AI Video') : '';
+    document.getElementById('renameDialog').classList.add('active');
+    setTimeout(() => { input.focus(); input.select(); }, 100);
+}
+
+async function doRename() {
+    if (!_renameTargetId) return;
+    const newTitle = document.getElementById('renameInput').value.trim();
+    if (!newTitle) return;
+    try {
+        await updateVideoTitle(_renameTargetId, newTitle);
+        showToast('\u270f\ufe0f \u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e0a\u0e37\u0e48\u0e2d\u0e40\u0e23\u0e35\u0e22\u0e1a\u0e23\u0e49\u0e2d\u0e22');
+        loadAndRender();
+    } catch (e) {
+        showToast('\u274c \u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e0a\u0e37\u0e48\u0e2d\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08: ' + e.message);
+    }
+    _renameTargetId = null;
+    document.getElementById('renameDialog').classList.remove('active');
+}
+
 async function doDelete() {
     if (!_deleteTargetId) return;
     try {
@@ -380,6 +440,15 @@ document.getElementById('confirmCancel').addEventListener('click', () => {
 });
 document.getElementById('confirmDelete').addEventListener('click', doDelete);
 
+document.getElementById('renameCancel').addEventListener('click', () => {
+    _renameTargetId = null;
+    document.getElementById('renameDialog').classList.remove('active');
+});
+document.getElementById('renameConfirm').addEventListener('click', doRename);
+document.getElementById('renameInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doRename();
+});
+
 document.getElementById('videoGrid').addEventListener('click', (e) => {
     const thumb = e.target.closest('.card-thumb');
     if (thumb && thumb.dataset.id) {
@@ -391,6 +460,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeModal();
         document.getElementById('confirmDialog').classList.remove('active');
+        document.getElementById('renameDialog').classList.remove('active');
     }
 });
 

@@ -119,7 +119,8 @@
             background: #06060a; cursor: pointer; overflow: hidden;
         }
         .card-thumb img, .card-thumb video {
-            width: 100%; height: 100%; object-fit: cover;
+            width: 100%; height: 100%; object-fit: contain;
+            background: #06060a;
             transition: transform 0.5s ease;
         }
         .video-card:hover .card-thumb img,
@@ -185,6 +186,20 @@
             background: #52525b; flex-shrink: 0;
             margin: 0 6px;
         }
+        .card-title-row {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card-title-row .card-title { flex: 1; min-width: 0; }
+        .btn-rename {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: rgba(var(--primary-rgb), 0.1);
+            border: 1px solid rgba(var(--primary-rgb), 0.2);
+            color: var(--primary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        .btn-rename:hover { background: rgba(var(--primary-rgb), 0.2); }
+        .btn-rename svg { width: 14px; height: 14px; }
 
         /* Actions: evenly distributed */
         .card-actions {
@@ -204,13 +219,11 @@
         .btn-icon.btn-dl:hover { background: #d4d4d8; }
         .btn-icon.btn-yt {
             background: #1c1c22; color: #a1a1aa;
-            font-size: 12px; font-weight: 800;
             border: 1px solid rgba(255,255,255,0.06);
         }
         .btn-icon.btn-yt:hover { background: rgba(255,0,0,0.12); color: #ff4444; border-color: rgba(255,0,0,0.2); }
         .btn-icon.btn-tt {
             background: #1c1c22; color: #a1a1aa;
-            font-size: 12px; font-weight: 800;
             border: 1px solid rgba(255,255,255,0.06);
         }
         .btn-icon.btn-tt:hover { background: rgba(0,242,234,0.1); color: #00f2ea; border-color: rgba(0,242,234,0.2); }
@@ -333,11 +346,24 @@
     <!-- Confirm Delete Dialog -->
     <div class="confirm-overlay" id="confirmDialog">
         <div class="confirm-box">
-            <h3>ลบวิดีโอนี้?</h3>
+            <h3>ยืนยันการลบหรือไม่?</h3>
             <p>วิดีโอจะถูกลบออกจากคลังถาวร<br>ไม่สามารถกู้คืนได้</p>
             <div class="confirm-btns">
                 <button class="btn-cancel" id="confirmCancel">ยกเลิก</button>
                 <button class="btn-delete" id="confirmDelete">ลบเลย</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Dialog -->
+    <div class="confirm-overlay" id="renameDialog">
+        <div class="confirm-box">
+            <h3>เปลี่ยนชื่อคลิป</h3>
+            <p>กรอกชื่อใหม่สำหรับคลิปวิดีโอนี้</p>
+            <input type="text" id="renameInput" style="width:100%;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:14px;outline:none;margin-bottom:16px;margin-top:12px;" placeholder="ชื่อคลิป..." />
+            <div class="confirm-btns">
+                <button class="btn-cancel" id="renameCancel">ยกเลิก</button>
+                <button class="btn-cancel" id="renameConfirm" style="background:rgba(var(--primary-rgb),0.15);color:var(--primary);border-color:rgba(var(--primary-rgb),0.3);">บันทึก</button>
             </div>
         </div>
     </div>
