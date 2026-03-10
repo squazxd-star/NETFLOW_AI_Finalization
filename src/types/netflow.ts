@@ -24,7 +24,7 @@ export type TemplateOption =
     | "before-after";
 export type VoiceToneOption = "energetic" | "calm" | "friendly" | "professional" | "cute";
 export type EmotionSyncOption = "natural" | "lively" | "calm";
-export type AgeRangeOption = "teen" | "young-adult" | "adult" | "middle-age" | "senior";
+export type AgeRangeOption = "child" | "teen" | "young-adult" | "adult" | "middle-age" | "senior";
 export type PersonalityOption = "cheerful" | "calm" | "professional" | "playful" | "mysterious";
 export type ClothingStyleOption = "casual" | "formal" | "sporty" | "fashion" | "uniform";
 export type CharacterOutfitOption =

@@ -1138,20 +1138,20 @@ const pickSceneCamera = (usedIndices?: number[]): { camera: string; index: numbe
 
 // Scene Transition — keywords for seamless inter-scene continuity
 const SCENE_TRANSITION: Record<string, string> = {
-    "product-review": "Match cut transition, consistent lighting and color grading across shots, fluid continuation",
-    "brainrot-product": "Jump cut style, matching energy between shots, continuous chaotic flow",
-    "food-review": "Smooth dissolve, consistent warm color grading, continuous appetizing atmosphere",
-    "fashion-review": "Smooth match cut on movement, consistent styling and lighting, runway-flow continuation",
-    "gadget-review": "Clean cut on action, consistent tech-clean color grading, seamless demo flow",
-    "unboxing": "Continuous single-take feel, time-lapse compression, consistent top-down perspective",
-    "comparison": "Split-screen capable transition, consistent neutral grading, smooth analytical flow",
-    "testimonial": "Gentle dissolve, consistent warm intimate tone, natural conversation flow",
-    "flash-sale": "Fast hard cut on beat, consistent bold energy, countdown rhythm continuation",
-    "tutorial": "Step-numbered transition, consistent clean grading, logical progression flow",
-    "lifestyle": "Golden-hour dissolve, consistent aesthetic grading, day-in-life time flow",
-    "trending": "Trend-matching snap transition, consistent punchy grading, viral rhythm flow",
-    "mini-drama": "Cinematic fade or hard cut on emotion beat, consistent dramatic grading, story arc flow",
-    "before-after": "Dramatic wipe or match cut, consistent contrast grading, transformation reveal flow"
+    "product-review": "Seamless match cut transition, ZERO object morphing, strict solid continuity, no clipping, product remains perfectly solid",
+    "brainrot-product": "Jump cut style, matching energy between shots, continuous chaotic flow, solid objects",
+    "food-review": "Smooth dissolve, consistent warm color grading, solid food presentation, no shape shifting",
+    "fashion-review": "Smooth match cut on movement, consistent styling and lighting, solid fabric flow, no morphing",
+    "gadget-review": "Clean cut on action, solid device geometry, absolutely NO morphing or clipping, consistent tech-clean grading",
+    "unboxing": "Continuous single-take feel, solid object continuity, zero structural morphing",
+    "comparison": "Split-screen capable transition, solid shapes, no blending between objects",
+    "testimonial": "Gentle dissolve, consistent warm intimate tone, solid character continuity",
+    "flash-sale": "Fast hard cut on beat, solid product geometry, no transition warping",
+    "tutorial": "Step-numbered transition, logical progression flow, solid physical objects",
+    "lifestyle": "Golden-hour dissolve, solid spatial awareness, zero object distortion",
+    "trending": "Trend-matching snap transition, solid dimensional structure, no morphing",
+    "mini-drama": "Cinematic fade or hard cut on emotion beat, solid actor/object continuity",
+    "before-after": "Dramatic wipe or match cut, solid physical forms, no unnatural melting"
 };
 
 // ── Voice Persona Database (15 per gender) ──────────────────────────────────
@@ -1198,6 +1198,66 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         { name: "Ohm",     voiceTone: "cute",         ageRange: "adult",        age: "33",      characterType: "ผู้ชายเสน่ห์แรง ยิ้มมีเสน่ห์ ลุคชิลล์ ดูดีแบบไม่ต้องพยายาม" },
         { name: "New",     voiceTone: "cute",         ageRange: "young-adult",  age: "20",      characterType: "หนุ่มน้อยหน้าเด็ก ผิวใส ผมม้า ตาแป๋ว สดใสร่าเริง ไอดอลเกาหลี" },
         { name: "Film",    voiceTone: "cute",         ageRange: "adult",        age: "28",      characterType: "หนุ่มหน้าใสดูอ่อนกว่าวัย ผมยาวปัดข้าง ยิ้มละไม เสน่ห์ธรรมชาติ" },
+        // ── CHILD (6-12) — 20 personas ──
+        { name: "Kan",     voiceTone: "energetic",    ageRange: "child",  age: "10",  characterType: "เด็กชายร่าเริง ผมสั้นเกรียน ยิ้มกว้าง ชุดนักเรียน วิ่งเล่นตลอด" },
+        { name: "Pong",    voiceTone: "energetic",    ageRange: "child",  age: "8",   characterType: "เด็กชายซน ผมตั้ง เสื้อยืดสีสด กางเกงขาสั้น พลังงานเหลือเฟือ" },
+        { name: "Jet",     voiceTone: "energetic",    ageRange: "child",  age: "11",  characterType: "เด็กชายนักกีฬา ชุดกีฬา ผมสั้น ร่างกายแข็งแรง กระฉับกระเฉง" },
+        { name: "ArmJr",   voiceTone: "energetic",    ageRange: "child",  age: "7",   characterType: "เด็กชายตัวเล็กน่ารัก ผมหน้าม้า แก้มป่อง ชอบเต้น สนุกสนาน" },
+        { name: "NaiNoi",  voiceTone: "calm",         ageRange: "child",  age: "9",   characterType: "เด็กชายเงียบสงบ ใส่แว่น ผมเรียบร้อย ชอบอ่านหนังสือ นักคิด" },
+        { name: "Pun",     voiceTone: "calm",         ageRange: "child",  age: "12",  characterType: "เด็กชายสุขุม ผมสั้นเรียบ ท่าทางผู้ใหญ่ ชอบวาดรูป สงบนิ่ง" },
+        { name: "TonEk",   voiceTone: "calm",         ageRange: "child",  age: "8",   characterType: "เด็กชายขี้อาย ผมยาวนิด ตาโต เสื้อผ้าเรียบร้อย อ่อนโยน" },
+        { name: "BossJr",  voiceTone: "calm",         ageRange: "child",  age: "10",  characterType: "เด็กชายนิ่งๆ ผมตัดสั้น ใบหน้าจริงจัง ชอบต่อเลโก้ มีสมาธิ" },
+        { name: "Earth",   voiceTone: "friendly",     ageRange: "child",  age: "7",   characterType: "เด็กชายยิ้มง่าย แก้มแดง ผมหยิกธรรมชาติ เป็นกันเอง คุยเก่ง" },
+        { name: "BoomJr",  voiceTone: "friendly",     ageRange: "child",  age: "11",  characterType: "เด็กชายร่าเริง ผมทรงเห็ด ยิ้มตลอด ชอบเล่าเรื่อง เพื่อนเยอะ" },
+        { name: "Namo",    voiceTone: "friendly",     ageRange: "child",  age: "9",   characterType: "เด็กชายอ้วนนิด ใจดี ผมสั้น หน้าตาน่ารัก ชอบช่วยเหลือคน" },
+        { name: "MaxJr",   voiceTone: "friendly",     ageRange: "child",  age: "10",  characterType: "เด็กชายหน้าตาดี ผมเซ็ต เสื้อผ้าน่ารัก อบอุ่น เป็นมิตร" },
+        { name: "PalmJr",  voiceTone: "professional", ageRange: "child",  age: "12",  characterType: "เด็กชายฉลาด ใส่แว่น ชุดเรียบร้อย ท่าทางมั่นใจ หัวหน้าห้อง" },
+        { name: "Smart",   voiceTone: "professional", ageRange: "child",  age: "11",  characterType: "เด็กชายเรียนเก่ง ผมตัดสั้น ยูนิฟอร์มเรียบ จริงจัง นักพูด" },
+        { name: "BookJr",  voiceTone: "professional", ageRange: "child",  age: "10",  characterType: "เด็กชายสายวิชาการ ใส่แว่น ผมเรียบ ชุดนักเรียน น่าเชื่อถือ" },
+        { name: "BrightJr",voiceTone: "professional", ageRange: "child",  age: "12",  characterType: "เด็กชายเป็นผู้นำ ผมสั้น ท่าทางมั่นใจ ชุดเรียบร้อย ประธานนักเรียน" },
+        { name: "MooJr",   voiceTone: "cute",         ageRange: "child",  age: "6",   characterType: "เด็กชายตัวจิ๋ว หน้ากลม ตาโต แก้มป่อง น่ารักมาก น่าหยิก" },
+        { name: "PoohJr",  voiceTone: "cute",         ageRange: "child",  age: "8",   characterType: "เด็กชายอ้วนกลม ยิ้มหวาน ผมนิ่ม ตาหวาน น่ากอด อ้อนเก่ง" },
+        { name: "BallJr",  voiceTone: "cute",         ageRange: "child",  age: "7",   characterType: "เด็กชายตัวกลม แก้มแดง ผมตั้ง ยิ้มซน น่ารักสดใส" },
+        { name: "NonJr",   voiceTone: "cute",         ageRange: "child",  age: "9",   characterType: "เด็กชายหน้าใส ผมม้า ตาแป๋ว เสื้อลายการ์ตูน น่ารักใสซื่อ" },
+        // ── ADDITIONAL TEEN (13-20) — 17 more personas ──
+        { name: "Ping",    voiceTone: "energetic",    ageRange: "teen",   age: "15",  characterType: "วัยรุ่นสายสปอร์ต ผมสั้น ชุดกีฬา กระฉับกระเฉง นักบาสเก็ตบอล" },
+        { name: "Folk",    voiceTone: "energetic",    ageRange: "teen",   age: "19",  characterType: "หนุ่มวัยรุ่นสายแดนซ์ ผมทำสี เสื้อผ้าสตรีท พลังงานสูง" },
+        { name: "MixM",    voiceTone: "energetic",    ageRange: "teen",   age: "14",  characterType: "เด็กหนุ่มม.ต้น ผมตั้ง เสื้อยืดกราฟิก กางเกงยีนส์ สนุกสนาน" },
+        { name: "Turbo",   voiceTone: "energetic",    ageRange: "teen",   age: "16",  characterType: "วัยรุ่นสายเกม ผมทำสี หูฟังคล้องคอ เสื้อยืดโอเวอร์ไซส์" },
+        { name: "TanM",    voiceTone: "calm",         ageRange: "teen",   age: "15",  characterType: "วัยรุ่นสงบ ผมยาวปัดข้าง ใส่แว่น เสื้อเชิ้ต นักอ่าน" },
+        { name: "Frame",   voiceTone: "calm",         ageRange: "teen",   age: "18",  characterType: "หนุ่มม.ปลาย สุขุม ผมเรียบ เสื้อผ้ามินิมอล ช่างภาพ" },
+        { name: "IceM",    voiceTone: "calm",         ageRange: "teen",   age: "17",  characterType: "วัยรุ่นเงียบเท่ ผมยาว เสื้อผ้าสีเข้ม ดูลึกลับ นักดนตรี" },
+        { name: "Zen",     voiceTone: "calm",         ageRange: "teen",   age: "19",  characterType: "หนุ่มวัยรุ่นนิ่ง ผมสั้น เสื้อผ้าเรียบ สงบ นักเขียน" },
+        { name: "NutM",    voiceTone: "friendly",     ageRange: "teen",   age: "14",  characterType: "เด็กหนุ่มเป็นกันเอง ผมสั้น ยิ้มง่าย เสื้อยืดลำลอง คุยสนุก" },
+        { name: "GapM",    voiceTone: "friendly",     ageRange: "teen",   age: "16",  characterType: "วัยรุ่นอบอุ่น ผมหยิก ใส่เสื้อฮู้ด ยิ้มเป็นมิตร เพื่อนเยอะ" },
+        { name: "AekM",    voiceTone: "friendly",     ageRange: "teen",   age: "19",  characterType: "หนุ่มม.ปลาย ใจดี ผมเซ็ต เสื้อโปโล อบอุ่น รุ่นพี่ที่น่ารัก" },
+        { name: "Plan",    voiceTone: "professional", ageRange: "teen",   age: "18",  characterType: "วัยรุ่นสายวิชาการ ผมตัดสั้น ชุดนักเรียนเรียบ ประธานนักเรียน" },
+        { name: "Best",    voiceTone: "professional", ageRange: "teen",   age: "17",  characterType: "หนุ่มม.ปลายจริงจัง ใส่แว่น ผมเรียบ ชุดเนี้ยบ หัวหน้าห้อง" },
+        { name: "Title",   voiceTone: "professional", ageRange: "teen",   age: "20",  characterType: "นักศึกษาปี 1 มั่นใจ ผมเซ็ต เสื้อเชิ้ต นักพูด น่าเชื่อถือ" },
+        { name: "Champ",   voiceTone: "cute",         ageRange: "teen",   age: "14",  characterType: "เด็กหนุ่มหน้าใส ตาโต ผมม้า แก้มป่อง น่ารัก ไอดอลม.ต้น" },
+        { name: "BenzM",   voiceTone: "cute",         ageRange: "teen",   age: "15",  characterType: "วัยรุ่นหน้าเด็ก ผิวขาว ผมนิ่ม เสื้อผ้าพาสเทล สดใส" },
+        { name: "PopM",    voiceTone: "cute",         ageRange: "teen",   age: "16",  characterType: "วัยรุ่นซอฟท์บอย ผมปัดข้าง ตาหวาน ยิ้มละมุน อ่อนหวาน" },
+        // ── SENIOR (60+) — 20 personas ──
+        { name: "Sombat",  voiceTone: "energetic",    ageRange: "senior", age: "65",  characterType: "คุณลุงแข็งแรง ผมขาวสั้น ยิ้มกว้าง ชุดกีฬา ออกกำลังกายทุกวัน" },
+        { name: "Prasit",  voiceTone: "energetic",    ageRange: "senior", age: "62",  characterType: "ลุงพลังงานสูง ผมหงอกเล็กน้อย เสื้อโปโล กางเกงขายาว นักเดินทาง" },
+        { name: "Wichai",  voiceTone: "energetic",    ageRange: "senior", age: "70",  characterType: "คุณตาสุขภาพดี ผมขาว หุ่นดี เสื้อเชิ้ต พลังงานเยอะ ไลฟ์สด" },
+        { name: "Boonchai",voiceTone: "energetic",    ageRange: "senior", age: "68",  characterType: "คุณลุงร่าเริง ผมขาวสั้น แว่นตา เสื้อฮาวาย อารมณ์ดีตลอด" },
+        { name: "Boonmee", voiceTone: "calm",         ageRange: "senior", age: "72",  characterType: "คุณตาสุขุม ผมขาวยาว หนวดเครา เสื้อผ้าไทย ปราชญ์ชาวบ้าน" },
+        { name: "Surin",   voiceTone: "calm",         ageRange: "senior", age: "65",  characterType: "คุณลุงสงบ ผมหงอก ใส่แว่น เสื้อเชิ้ตขาว อดีตครู น่าเชื่อถือ" },
+        { name: "Prapas",  voiceTone: "calm",         ageRange: "senior", age: "68",  characterType: "คุณลุงนิ่งสง่า ผมขาวเรียบ เสื้อผ้าเรียบร้อย อดีตข้าราชการ" },
+        { name: "Somsong", voiceTone: "calm",         ageRange: "senior", age: "75",  characterType: "คุณตาใจดี ผมขาวทั้งหัว หน้าตายิ้มแย้ม เสื้อคอกลม สงบนิ่ง" },
+        { name: "Sawat",   voiceTone: "friendly",     ageRange: "senior", age: "63",  characterType: "คุณลุงข้างบ้าน ผมหงอก ยิ้มง่าย เสื้อยืด เป็นกันเอง คุยสนุก" },
+        { name: "Prasan",  voiceTone: "friendly",     ageRange: "senior", age: "67",  characterType: "คุณลุงอบอุ่น ผมขาวสั้น แว่นตา เสื้อโปโล ใจดี ช่วยเหลือคน" },
+        { name: "Amnuay",  voiceTone: "friendly",     ageRange: "senior", age: "70",  characterType: "คุณตาใจดี ผมขาว หน้าตาอบอุ่น เสื้อผ้าสบาย เล่าเรื่องเก่ง" },
+        { name: "SomjitM", voiceTone: "friendly",     ageRange: "senior", age: "64",  characterType: "ลุงยิ้มหวาน ผมหงอกเล็กน้อย เสื้อเชิ้ต อารมณ์ดี เป็นมิตร" },
+        { name: "Thaweesak",voiceTone: "professional",ageRange: "senior", age: "66",  characterType: "ผู้อาวุโสมากประสบการณ์ ผมขาวเรียบ สูทสากล อดีตผู้บริหาร น่าเชื่อถือ" },
+        { name: "Anant",   voiceTone: "professional", ageRange: "senior", age: "68",  characterType: "คุณลุงผู้เชี่ยวชาญ ผมขาว แว่นตา เสื้อเชิ้ตทางการ อาจารย์มหาวิทยาลัย" },
+        { name: "Wiwat",   voiceTone: "professional", ageRange: "senior", age: "65",  characterType: "อดีตแพทย์อาวุโส ผมขาวสั้น เสื้อกาวน์ ท่าทางน่าไว้วางใจ สุขุม" },
+        { name: "Vinai",   voiceTone: "professional", ageRange: "senior", age: "72",  characterType: "ศาสตราจารย์เกษียณ ผมขาว แว่นหนา สูท กูรูผู้รู้จริง" },
+        { name: "LungSak", voiceTone: "cute",         ageRange: "senior", age: "63",  characterType: "คุณลุงน่ารัก ผมหงอก ยิ้มซน ตาเป็นประกาย เสื้อยืด อารมณ์ดี" },
+        { name: "PuChart", voiceTone: "cute",         ageRange: "senior", age: "67",  characterType: "คุณตาขี้เล่น ผมขาว แว่นตากลม ยิ้มหวาน เสื้อลายดอก น่ารัก" },
+        { name: "DangM",   voiceTone: "cute",         ageRange: "senior", age: "70",  characterType: "คุณตายิ้มแฉ่ง ผมขาว หน้ากลม แก้มป่อง เสื้อผ้าสีสด น่ากอด" },
+        { name: "MaewM",   voiceTone: "cute",         ageRange: "senior", age: "65",  characterType: "คุณลุงหน้าเด็ก ผมหงอกนิด ยิ้มละไม อ่อนโยน น่ารักดูอ่อนกว่าวัย" },
     ],
     female: [
         // ── ENERGETIC (5 variants) ──
@@ -1230,6 +1290,66 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         { name: "Jiew",    voiceTone: "cute",         ageRange: "adult",        age: "32",      characterType: "ผู้หญิงเสน่ห์แรง หน้าเด็ก ยิ้มหวาน ดูอ่อนกว่าวัย มีเสน่ห์" },
         { name: "Bam",     voiceTone: "cute",         ageRange: "young-adult",  age: "20",      characterType: "สาวน้อยผมม้าหน้าเด็ก ตาแป๋ว แก้มป่อง ชุดน่ารักสไตล์ญี่ปุ่น" },
         { name: "Pim",     voiceTone: "cute",         ageRange: "adult",        age: "29",      characterType: "สาวหวานหน้าเด็ก ผมลอนยาว ผิวขาวใส ยิ้มหวานมีเสน่ห์ บิวตี้บล็อกเกอร์" },
+        // ── CHILD (6-12) — 20 personas ──
+        { name: "Fon",     voiceTone: "energetic",    ageRange: "child",  age: "10",  characterType: "เด็กหญิงร่าเริง ผมหางม้า ชุดนักเรียน ยิ้มสดใส วิ่งเล่นตลอด" },
+        { name: "Pleng",   voiceTone: "energetic",    ageRange: "child",  age: "8",   characterType: "เด็กหญิงซน ผมสั้นบ๊อบ เสื้อยืดสีสด กระโปรง พลังงานเยอะ" },
+        { name: "JoyF",    voiceTone: "energetic",    ageRange: "child",  age: "11",  characterType: "เด็กหญิงนักกีฬา ชุดกีฬา ผมถักเปีย แข็งแรง กระฉับกระเฉง" },
+        { name: "BeeJr",   voiceTone: "energetic",    ageRange: "child",  age: "7",   characterType: "เด็กหญิงตัวเล็กน่ารัก ผมสองข้าง แก้มแดง ชอบเต้น สนุกสนาน" },
+        { name: "NunJr",   voiceTone: "calm",         ageRange: "child",  age: "9",   characterType: "เด็กหญิงเงียบสงบ ผมยาวตรง ใส่แว่น ชอบอ่านหนังสือ นักเรียนดี" },
+        { name: "PanJr",   voiceTone: "calm",         ageRange: "child",  age: "12",  characterType: "เด็กหญิงสุขุม ผมยาวถักเปีย ท่าทางผู้ใหญ่ ชอบวาดรูป สงบ" },
+        { name: "NamJr",   voiceTone: "calm",         ageRange: "child",  age: "8",   characterType: "เด็กหญิงขี้อาย ผมยาว ตาโต เสื้อผ้าเรียบร้อย อ่อนหวาน" },
+        { name: "DaoJr",   voiceTone: "calm",         ageRange: "child",  age: "10",  characterType: "เด็กหญิงนิ่งๆ ผมตัดสั้น ใบหน้าจริงจัง ชอบเขียนไดอารี่ มีสมาธิ" },
+        { name: "NidJr",   voiceTone: "friendly",     ageRange: "child",  age: "7",   characterType: "เด็กหญิงยิ้มง่าย แก้มป่อง ผมหน้าม้า เป็นกันเอง คุยเก่ง" },
+        { name: "Prae",    voiceTone: "friendly",     ageRange: "child",  age: "11",  characterType: "เด็กหญิงร่าเริง ผมยาว ยิ้มตลอด ชอบเล่าเรื่อง เพื่อนเยอะ" },
+        { name: "FaiJr",   voiceTone: "friendly",     ageRange: "child",  age: "9",   characterType: "เด็กหญิงอ้วนนิด ใจดี ผมสั้น หน้าตาน่ารัก ชอบช่วยเหลือเพื่อน" },
+        { name: "TonNid",  voiceTone: "friendly",     ageRange: "child",  age: "10",  characterType: "เด็กหญิงหน้าตาดี ผมยาว เสื้อผ้าน่ารัก อบอุ่น เป็นมิตร" },
+        { name: "ViewJr",  voiceTone: "professional", ageRange: "child",  age: "12",  characterType: "เด็กหญิงฉลาด ใส่แว่น ชุดเรียบร้อย ท่าทางมั่นใจ หัวหน้าห้อง" },
+        { name: "EyeJr",   voiceTone: "professional", ageRange: "child",  age: "11",  characterType: "เด็กหญิงเรียนเก่ง ผมถักเปีย ยูนิฟอร์มเรียบ จริงจัง นักพูด" },
+        { name: "GamJr",   voiceTone: "professional", ageRange: "child",  age: "10",  characterType: "เด็กหญิงสายวิชาการ ใส่แว่น ผมเรียบ ชุดนักเรียน น่าเชื่อถือ" },
+        { name: "SmartF",  voiceTone: "professional", ageRange: "child",  age: "12",  characterType: "เด็กหญิงเป็นผู้นำ ผมยาว ท่าทางมั่นใจ ชุดเรียบร้อย ประธานนักเรียน" },
+        { name: "MewJr",   voiceTone: "cute",         ageRange: "child",  age: "6",   characterType: "เด็กหญิงตัวจิ๋ว หน้ากลม ตาโต แก้มป่อง น่ารักมาก น่าหยิก" },
+        { name: "NongPim", voiceTone: "cute",         ageRange: "child",  age: "8",   characterType: "เด็กหญิงอ้วนกลม ยิ้มหวาน ผมสองข้าง ตาหวาน น่ากอด อ้อนเก่ง" },
+        { name: "MookJr",  voiceTone: "cute",         ageRange: "child",  age: "7",   characterType: "เด็กหญิงตัวกลม แก้มแดง ผมหน้าม้า ยิ้มซน น่ารักสดใส" },
+        { name: "WanJr",   voiceTone: "cute",         ageRange: "child",  age: "9",   characterType: "เด็กหญิงหน้าใส ผมยาว ตาแป๋ว เสื้อลายดอกไม้ น่ารักใสซื่อ" },
+        // ── ADDITIONAL TEEN (13-20) — 17 more personas ──
+        { name: "Fern",    voiceTone: "energetic",    ageRange: "teen",   age: "15",  characterType: "สาววัยรุ่นสายแดนซ์ ผมยาว ชุดสปอร์ต กระฉับกระเฉง นักเต้น" },
+        { name: "PangF",   voiceTone: "energetic",    ageRange: "teen",   age: "19",  characterType: "สาววัยรุ่นไฟแรง ผมสั้น เสื้อผ้าสตรีท พลังงานสูง ยูทูบเบอร์" },
+        { name: "Punch",   voiceTone: "energetic",    ageRange: "teen",   age: "14",  characterType: "สาวม.ต้น ผมหางม้า เสื้อยืดกราฟิก กระโปรง สนุกสนาน" },
+        { name: "InkF",    voiceTone: "energetic",    ageRange: "teen",   age: "16",  characterType: "วัยรุ่นสาวสายเกม ผมทำสี หูฟัง เสื้อยืดโอเวอร์ไซส์ พลังเยอะ" },
+        { name: "NoonJr",  voiceTone: "calm",         ageRange: "teen",   age: "15",  characterType: "สาววัยรุ่นสงบ ผมยาวตรง ใส่แว่น เสื้อเชิ้ต นักอ่าน" },
+        { name: "PraewF",  voiceTone: "calm",         ageRange: "teen",   age: "18",  characterType: "สาวม.ปลาย สุขุม ผมยาว เสื้อผ้ามินิมอล ช่างภาพ" },
+        { name: "FilmF",   voiceTone: "calm",         ageRange: "teen",   age: "17",  characterType: "วัยรุ่นเงียบสง่า ผมยาว เสื้อผ้าสีอ่อน ดูสุขุม นักเขียน" },
+        { name: "WanTeen", voiceTone: "calm",         ageRange: "teen",   age: "19",  characterType: "สาววัยรุ่นนิ่ง ผมประบ่า เสื้อผ้าเรียบ สงบ นักวาดรูป" },
+        { name: "Tangmo",  voiceTone: "friendly",     ageRange: "teen",   age: "14",  characterType: "สาวม.ต้นเป็นกันเอง ผมสั้น ยิ้มง่าย เสื้อยืดลำลอง คุยสนุก" },
+        { name: "CreamF",  voiceTone: "friendly",     ageRange: "teen",   age: "16",  characterType: "วัยรุ่นสาวอบอุ่น ผมยาว ใส่เสื้อฮู้ด ยิ้มเป็นมิตร เพื่อนเยอะ" },
+        { name: "Peach",   voiceTone: "friendly",     ageRange: "teen",   age: "19",  characterType: "สาวม.ปลาย ใจดี ผมลอน เสื้อผ้าน่ารัก อบอุ่น รุ่นพี่ที่น่ารัก" },
+        { name: "Grace",   voiceTone: "professional", ageRange: "teen",   age: "18",  characterType: "วัยรุ่นสายวิชาการ ผมยาวตรง ชุดนักเรียนเรียบ ประธานนักเรียน" },
+        { name: "MindF",   voiceTone: "professional", ageRange: "teen",   age: "17",  characterType: "สาวม.ปลายจริงจัง ใส่แว่น ผมเรียบ ชุดเนี้ยบ หัวหน้าห้อง" },
+        { name: "Proud",   voiceTone: "professional", ageRange: "teen",   age: "20",  characterType: "นักศึกษาสาวปี 1 มั่นใจ ผมยาว เสื้อเชิ้ต นักพูด น่าเชื่อถือ" },
+        { name: "MinkF",   voiceTone: "cute",         ageRange: "teen",   age: "14",  characterType: "สาวม.ต้นหน้าใส ตาโต ผมสองข้าง แก้มป่อง น่ารัก ไอดอล" },
+        { name: "Pinky",   voiceTone: "cute",         ageRange: "teen",   age: "15",  characterType: "วัยรุ่นสาวหน้าเด็ก ผิวขาว ผมยาว เสื้อผ้าพาสเทล สดใส" },
+        { name: "PerryF",  voiceTone: "cute",         ageRange: "teen",   age: "16",  characterType: "วัยรุ่นหวานใส ผมลอน ตาหวาน ยิ้มละมุน อ่อนหวาน น่ารัก" },
+        // ── SENIOR (60+) — 20 personas ──
+        { name: "Somporn", voiceTone: "energetic",    ageRange: "senior", age: "65",  characterType: "คุณป้าแข็งแรง ผมสั้นขาว ยิ้มกว้าง ชุดกีฬา ออกกำลังกายทุกวัน" },
+        { name: "Pranee",  voiceTone: "energetic",    ageRange: "senior", age: "62",  characterType: "ป้าพลังงานสูง ผมสั้นหงอก เสื้อโปโล กางเกงขายาว นักเดินทาง" },
+        { name: "Siriporn",voiceTone: "energetic",    ageRange: "senior", age: "70",  characterType: "คุณย่าสุขภาพดี ผมขาวสั้น หุ่นดี เสื้อผ้าสีสด พลังงานเยอะ" },
+        { name: "Wilai",   voiceTone: "energetic",    ageRange: "senior", age: "68",  characterType: "คุณป้าร่าเริง ผมสั้นขาว แว่นตา เสื้อลายดอก อารมณ์ดีตลอด" },
+        { name: "Boonruang",voiceTone: "calm",        ageRange: "senior", age: "72",  characterType: "คุณย่าสุขุม ผมขาวยาวมวย เสื้อผ้าไทย ปราชญ์หญิง น่าเคารพ" },
+        { name: "Sunee",   voiceTone: "calm",         ageRange: "senior", age: "65",  characterType: "คุณป้าสงบ ผมสั้นหงอก ใส่แว่น เสื้อเชิ้ตขาว อดีตครู น่าเชื่อถือ" },
+        { name: "Prapai",  voiceTone: "calm",         ageRange: "senior", age: "68",  characterType: "คุณป้านิ่งสง่า ผมขาวเรียบ เสื้อผ้าเรียบร้อย อดีตข้าราชการ" },
+        { name: "Duangjai",voiceTone: "calm",         ageRange: "senior", age: "75",  characterType: "คุณย่าใจดี ผมขาวทั้งหัว หน้าตายิ้มแย้ม เสื้อผ้าไทย สงบนิ่ง" },
+        { name: "Sawang",  voiceTone: "friendly",     ageRange: "senior", age: "63",  characterType: "คุณป้าข้างบ้าน ผมสั้นหงอก ยิ้มง่าย เสื้อยืด เป็นกันเอง คุยสนุก" },
+        { name: "Prapa",   voiceTone: "friendly",     ageRange: "senior", age: "67",  characterType: "คุณป้าอบอุ่น ผมขาวสั้น แว่นตา เสื้อผ้าสบาย ใจดี ช่วยเหลือคน" },
+        { name: "Amporn",  voiceTone: "friendly",     ageRange: "senior", age: "70",  characterType: "คุณย่าใจดี ผมขาว หน้าตาอบอุ่น เสื้อผ้าไทย เล่าเรื่องเก่ง" },
+        { name: "SomjitF", voiceTone: "friendly",     ageRange: "senior", age: "64",  characterType: "ป้ายิ้มหวาน ผมหงอกเล็กน้อย เสื้อลายดอก อารมณ์ดี เป็นมิตร" },
+        { name: "Thawee",  voiceTone: "professional", ageRange: "senior", age: "66",  characterType: "ผู้หญิงอาวุโสมากประสบการณ์ ผมขาวสั้น สูทสากล อดีตผู้บริหาร น่าเชื่อถือ" },
+        { name: "Sudarat", voiceTone: "professional", ageRange: "senior", age: "72",  characterType: "คุณป้าผู้เชี่ยวชาญ ผมขาว แว่นตา เสื้อผ้าทางการ อาจารย์เกษียณ" },
+        { name: "Usa",     voiceTone: "professional", ageRange: "senior", age: "68",  characterType: "อดีตแพทย์หญิงอาวุโส ผมขาวสั้น เสื้อกาวน์ ท่าทางน่าไว้วางใจ" },
+        { name: "Wimol",   voiceTone: "professional", ageRange: "senior", age: "65",  characterType: "ศาสตราจารย์หญิงเกษียณ ผมขาว แว่น สูท กูรูผู้รู้จริง" },
+        { name: "YaSiri",  voiceTone: "cute",         ageRange: "senior", age: "63",  characterType: "คุณย่าน่ารัก ผมขาวสั้น ยิ้มซน ตาเป็นประกาย เสื้อยืด อารมณ์ดี" },
+        { name: "YaPim",   voiceTone: "cute",         ageRange: "senior", age: "67",  characterType: "คุณย่าขี้เล่น ผมขาว แว่นตากลม ยิ้มหวาน เสื้อลายดอก น่ารัก" },
+        { name: "YaNoi",   voiceTone: "cute",         ageRange: "senior", age: "70",  characterType: "คุณย่ายิ้มแฉ่ง ผมขาว หน้ากลม แก้มป่อง เสื้อผ้าสีสด น่ากอด" },
+        { name: "YaWan",   voiceTone: "cute",         ageRange: "senior", age: "65",  characterType: "คุณป้าหน้าเด็ก ผมหงอกนิด ยิ้มละไม อ่อนโยน น่ารักดูอ่อนกว่าวัย" },
     ]
 };
 
@@ -1301,7 +1421,7 @@ const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No dec
 // Face Identity Lock — preserve facial features while framing as anonymous/fictional character
 // CRITICAL: Avoid "identical likeness" or "direct match" phrasing that triggers Google's "famous person" policy.
 // Instead, frame as "original anonymous character inspired by reference style".
-const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE PRESERVATION: Use Image 1 ONLY as style inspiration for an ORIGINAL ANONYMOUS character. You MUST preserve the exact bone structure, face width, jawline shape, eye shape, and natural skin texture of the reference. Do NOT widen the face, do NOT exaggerate facial proportions. Keep the makeup natural, subtle, and exactly as shown in the reference (no heavy artificial makeup, no exaggerated lipstick unless in reference). This is an original fictional character but with the exact same natural facial anatomy and aesthetic style as the reference.";
+const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE & SKIN TONE PRESERVATION: Use Image 1 as the absolute visual blueprint for this anonymous fictional character. You MUST preserve the EXACT skin tone (match the exact complexion, warmth, and pigmentation perfectly — do NOT lighten, wash out, or alter the skin color). You MUST preserve the exact bone structure, face width, jawline shape, eye shape, nose shape, and natural skin texture of the reference. Do NOT widen the face, do NOT exaggerate facial proportions. Keep the makeup natural, subtle, and exactly as shown. This character must maintain the identical natural facial anatomy, ethnicity markers, and aesthetic style as the reference.";
 
 // Front-Facing Character Directive — ensures face consistency with reference input
 const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, looking directly into the lens. Face fully visible. Avoid extreme close-ups that distort facial proportions. Keep a natural, relaxed posture.";
@@ -1473,7 +1593,7 @@ const CATEGORY_IMAGE_INTERACTION: Partial<Record<ProductCategory, string>> = {
 };
 
 // Anti-Floating Hands — prevents unrealistic hand/product physics
-const ANTI_FLOATING_HANDS = "HAND REALISM: Product already held naturally from scene start — never spawns from thin air. No levitating hands, no disconnected fingers. Natural gripping with realistic weight.";
+const ANTI_FLOATING_HANDS = "HAND REALISM: Arms and hands MUST connect naturally to the character's body. NO floating hands, NO disembodied limbs entering from off-screen, NO third hands. Hands must firmly grasp the product with visible physical connection and realistic weight distribution. If holding a laptop/device, both hands must support it naturally from the bottom/sides.";
 
 /** Build category-specific contact + physics directive (full — for image prompts) */
 const buildContactPhysicsDirective = (category: ProductCategory): string => {
@@ -6276,7 +6396,7 @@ Keep response concise (max 150 words). No brand names. Focus on visual details u
 
 interface CharacterAnalysis {
     estimatedAge: number;       // e.g. 25
-    ageRange: string;           // teen, young-adult, adult, middle-age
+    ageRange: string;           // child, teen, young-adult, adult, middle-age, senior
     gender: string;             // male, female
     build: string;              // slim, athletic, average, muscular, curvy
     hairstyle: string;          // short black hair, long wavy brown hair, etc.
@@ -6289,8 +6409,8 @@ const CHARACTER_ANALYSIS_PROMPT = `Analyze this person's appearance for video ge
 
 Respond in EXACTLY this JSON format (no markdown, no extra text):
 {
-  "estimatedAge": <number 15-60>,
-  "ageRange": "<teen|young-adult|adult|middle-age>",
+  "estimatedAge": <number 6-80>,
+  "ageRange": "<child|teen|young-adult|adult|middle-age|senior>",
   "gender": "<male|female>",
   "build": "<slim|athletic|average|muscular|curvy>",
   "hairstyle": "<short description of hair style, length, color>",
@@ -6300,7 +6420,7 @@ Respond in EXACTLY this JSON format (no markdown, no extra text):
 }
 
 Rules:
-- teen = 15-19, young-adult = 20-29, adult = 30-44, middle-age = 45+
+- child = 6-12, teen = 13-20, young-adult = 21-29, adult = 30-44, middle-age = 45-59, senior = 60+
 - Be accurate with age estimation based on facial features, skin condition, body proportion
 - Focus on VISUAL details only, no personality assumptions
 - Keep descriptions concise and factual`;
@@ -6750,7 +6870,7 @@ const buildVideoPrompt = (
         `Outfit: ${clothingDesc}${aiClothing ? ` (${aiClothing})` : ''} — same outfit in EVERY scene, absolutely no wardrobe changes.`,
         `Expression baseline: ${expressionText}.`,
         `${dynamics}. ${movementDesc}.`,
-        `FACE LOCK: Preserve EXACT facial bone structure, face width, jawline shape, eye shape, nose shape, natural skin texture, skin tone from scene 1. Zero face changes between scenes.`,
+        `FACE & SKIN TONE LOCK: Preserve EXACT facial bone structure, face width, jawline shape, eye shape, nose shape, natural skin texture, and EXACT skin tone/complexion from the reference. Do NOT lighten or wash out the skin. Zero face changes between scenes.`,
         `BODY LOCK: Same body type, same build, same posture style, same height proportion across all scenes.`,
         `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture in every scene.`
     ].filter(Boolean).join(' ');

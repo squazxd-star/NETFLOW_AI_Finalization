@@ -50,7 +50,7 @@ function buildYouTubeMetadataPrompt(
     cachedProductInfo: string,
     category: string
 ): string {
-    return `คุณเป็นผู้เชี่ยวชาญการตลาดบน YouTube Shorts ระดับมืออาชีพ
+    return `คุณเป็น YouTube Shorts Content Expert ระดับมืออาชีพ — เชี่ยวชาญเรื่อง SEO, Hashtag Strategy, และ Viral Title
 
 ## ข้อมูลสินค้า
 - ชื่อสินค้า: "${productName}"
@@ -61,26 +61,32 @@ ${cachedProductInfo ? `- ข้อมูลจากการค้นหา: ${
 ## งาน: สร้าง Title และ Description สำหรับ YouTube Shorts
 
 ### กฎสำหรับ Title (ชื่อ):
-1. ความยาวไม่เกิน 50 ตัวอักษร (รวมช่องว่าง) — สั้น กระชับ จับตา
-2. ใช้ภาษาที่ดึงดูดในเชิงโฆษณา/รีวิวสินค้า
-3. ต้องมีชื่อแบรนด์/สินค้าจริงอยู่ใน title
-4. ใช้สไตล์ที่คนค้นหาบน YouTube จะคลิก (Clickbait ที่ดี ไม่หลอก)
-5. อ้างอิงจากสไตล์หัวข้อ YouTube Shorts ยอดนิยมในหมวด "${category}"
-6. ห้ามใส่ #Shorts (ระบบเติมให้อัตโนมัติ)
+1. ความยาวรวมไม่เกิน 55 ตัวอักษร (รวม #Shorts ที่ต่อท้าย) เพื่อไม่ให้ถูกตัดในหน้า Feed
+2. โครงสร้าง: [Hook ที่กระแทกใจ] + [ชื่อสินค้า/หัวข้อหลัก] + #Shorts
+3. **ต้องลงท้ายด้วย #Shorts เสมอ** (ตัว S ใหญ่, พหูพจน์ — ห้ามเขียน #Short)
+4. ต้องมีชื่อแบรนด์/สินค้าจริงอยู่ใน title
+5. ใช้ 1 ใน 3 สไตล์ต่อไปนี้:
+   - **Curiosity**: ตั้งคำถามให้อยากรู้คำตอบ เช่น "M5 แรงไปไหม!? 🔥 MacBook Pro 14 ตัวใหม่ #Shorts"
+   - **Benefit**: ชูจุดขายหลัก เช่น "แบตอึด 20 ชม.! 🔋 MacBook Pro M5 คุ้มสุดในปีนี้ #Shorts"
+   - **Hype**: ใช้คำสุดโต่ง เช่น "ที่สุดของปี! 😱 MacBook Pro M5 แรงจนน่ากลัว #Shorts"
+6. ใส่ Emoji 1 ตัวที่เข้ากับอารมณ์ (🔥😱🤯💥✨💡) เพื่อดึงสายตา
+7. ใช้ Emotional Trigger: "ที่สุดของปี", "อย่าเพิ่งซื้อ...", "ความลับที่...ไม่บอก", "คุ้มหรือแพง?"
 
 ### กฎสำหรับ Description (คำอธิบาย):
-1. เขียนฟีเจอร์เด่นของสินค้า 2-4 จุดสั้นๆ
-2. ใช้ emoji ประกอบพอประมาณให้ดูน่าสนใจ
-3. ต้องมี Hashtag (#) อย่างน้อย 5-8 อัน โดย:
-   - ต้องมี #ชื่อสินค้า #ชื่อแบรนด์
-   - Hashtag ที่เกี่ยวข้องกับหมวดหมู่สินค้า
-   - Hashtag ที่กำลังเป็นเทรนด์/ยอดนิยมบน YouTube ในหมวดนี้
-   - Hashtag ภาษาไทย + อังกฤษผสมกัน
-4. ความยาวรวม description ไม่เกิน 300 ตัวอักษร
-5. ต้องเขียนเป็นภาษาไทย (ผสมอังกฤษเฉพาะชื่อแบรนด์/คำศัพท์ที่จำเป็น)
+1. **3 บรรทัดแรก (Crucial SEO)**: สรุปความเจ๋งของสินค้าด้วย Keyword ที่คนค้นหา — YouTube ใช้ส่วนนี้จัดหมวดหมู่คลิป
+2. **CTA (Call to Action)**: เขียนประโยคชวนคุยเป็นกันเอง เช่น "ใครใช้รุ่นไหนอยู่ คอมเมนต์บอกหน่อย!", "กดซับรอรีวิวตัวต่อไป!"
+3. ใช้ emoji ประกอบพอประมาณให้ดูน่าสนใจ (✅🔥💡⭐)
+4. **Hashtag Strategy 3 ระดับ** (รวม 6-10 อัน):
+   - **System Hashtags** (บังคับ): #Shorts #YouTubeShorts
+   - **Category Hashtags**: เช่น #รีวิว #ไอที #Gadget #${category.replace(/\s/g, '')}
+   - **Product/Specific Hashtags**: เช่น #${productName.replace(/\s+/g, '')} + ชื่อแบรนด์ + รุ่น
+   - ผสม Hashtag ภาษาไทย + อังกฤษ
+5. ความยาวรวม description ไม่เกิน 400 ตัวอักษร
+6. เขียนเป็นภาษาไทย (ผสมอังกฤษเฉพาะชื่อแบรนด์/คำศัพท์)
+7. ห้ามใช้ภาษาบอท — ต้องเป็นกันเองเหมือนเพื่อนป้ายยาเพื่อน
 
 ## รูปแบบ Output (JSON เท่านั้น ห้ามมี markdown):
-{"title":"...","description":"..."}
+{"title":"...#Shorts","description":"..."}
 
 ตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่นนอกจาก JSON`;
 }
@@ -219,14 +225,28 @@ export async function generateYouTubeMetadata(params: {
     try {
         const parsed = JSON.parse(jsonMatch[0]) as YouTubeMetadataResult;
 
-        // Validate + trim title to 50 chars max
+        // Validate + ensure #Shorts suffix in title
         let title = (parsed.title || productName).trim();
-        if (title.length > 50) {
-            title = title.substring(0, 50).trim();
+
+        // Fix common AI mistakes: #Short → #Shorts, missing #Shorts
+        title = title.replace(/#Short\b(?!s)/gi, '#Shorts');
+        if (!title.includes('#Shorts')) {
+            title = title.replace(/\s*$/, '') + ' #Shorts';
         }
 
-        // Validate description
+        // Trim to 60 chars max (keep #Shorts at end)
+        if (title.length > 60) {
+            const shortsTag = ' #Shorts';
+            const maxBody = 60 - shortsTag.length;
+            const body = title.replace(/\s*#Shorts\s*$/i, '').substring(0, maxBody).trim();
+            title = body + shortsTag;
+        }
+
+        // Validate description — ensure #Shorts is in description too
         let description = (parsed.description || "").trim();
+        if (!description.includes('#Shorts')) {
+            description = description.trim() + '\n#Shorts';
+        }
         if (description.length > 500) {
             description = description.substring(0, 500).trim();
         }

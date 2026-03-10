@@ -1,4 +1,4 @@
-import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User, Shirt } from "lucide-react";
+import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User, Shirt, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
@@ -25,6 +25,7 @@ const ProductDataSection = ({
     onSyncedProductImageSelect
 }: ProductDataSectionProps) => {
     const gender = watch("gender");
+    const ageRange = watch("ageRange");
     const characterOutfit = watch("characterOutfit");
     const [outfitDropdownOpen, setOutfitDropdownOpen] = useState(false);
     const { toast } = useToast();
@@ -300,8 +301,38 @@ const ProductDataSection = ({
                             </div>
                         </div>
 
+                        {/* Age Group */}
+                        <div>
+                            <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
+                                <Calendar className="w-3 h-3 text-neon-red" />
+                                ช่วงอายุ
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    { value: "child", label: "เด็ก", desc: "6-12 ปี" },
+                                    { value: "teen", label: "วัยรุ่น", desc: "13-20 ปี" },
+                                    { value: "adult", label: "ผู้ใหญ่", desc: "21-60 ปี" },
+                                    { value: "senior", label: "คนแก่", desc: "60+ ปี" },
+                                ].map((ag) => (
+                                    <button
+                                        key={ag.value}
+                                        type="button"
+                                        onClick={() => setValue("ageRange", ag.value as any)}
+                                        className={`py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
+                                            ageRange === ag.value
+                                                ? 'bg-neon-red text-white shadow-sm shadow-neon-red/25'
+                                                : 'bg-background/50 text-muted-foreground border border-border hover:border-neon-red/30'
+                                        }`}
+                                    >
+                                        <span>{ag.label}</span>
+                                        <span className={`text-[9px] ${ageRange === ag.value ? 'text-white/70' : 'text-muted-foreground/60'}`}>{ag.desc}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {/* Character Outfit Dropdown */}
-                        <div className="relative">
+                        <div>
                             <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
                                 <Shirt className="w-3 h-3 text-neon-red" />
                                 เสื้อผ้าตัวละคร
@@ -320,7 +351,7 @@ const ProductDataSection = ({
                                 <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${outfitDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {outfitDropdownOpen && (
-                                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl bg-background border border-border shadow-xl">
+                                <div className="mt-1 w-full max-h-60 overflow-y-auto rounded-xl bg-background border border-border shadow-xl">
                                     {(() => {
                                         const groups = [...new Set(characterOutfitOptions.map(o => o.group))];
                                         return groups.map(group => (

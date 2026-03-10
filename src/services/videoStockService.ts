@@ -39,42 +39,59 @@ function openDB(): Promise<IDBDatabase> {
 export async function saveVideoToStock(
     item: Omit<VideoStockItem, 'id' | 'createdAt'>
 ): Promise<string> {
-    const db = await openDB();
+    // Synchronous cross-tab deduplication using localStorage
+    // This is bulletproof against multiple React hook instances firing simultaneously
+    const dedupKey = `netflow_saved_size_${item.fileSize}`;
+    const lastSaved = localStorage.getItem(dedupKey);
+    const now = Date.now();
     
-    // Deduplication check: Do we already have a video with the EXACT SAME file size saved recently?
-    const recentVideos = await new Promise<VideoStockItem[]>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const request = tx.objectStore(STORE_NAME).index('createdAt').getAll();
-        request.onsuccess = () => {
-            const all = request.result as VideoStockItem[];
-            // Only check videos saved in the last 2 minutes
-            const twoMinsAgo = Date.now() - (2 * 60 * 1000);
-            resolve(all.filter(v => v.createdAt > twoMinsAgo));
-        };
-        request.onerror = () => reject(request.error);
-    });
-
-    const isDuplicate = recentVideos.some(v => v.fileSize === item.fileSize);
-    if (isDuplicate) {
-        console.log(`[VideoStock] ⚠️ Duplicate video detected (same size: ${(item.fileSize / 1024 / 1024).toFixed(2)}MB). Skipping save.`);
+    if (lastSaved && (now - parseInt(lastSaved, 10)) < 2 * 60 * 1000) {
+        console.log(`[VideoStock] ⚠️ Duplicate video detected via localStorage (same size: ${(item.fileSize / 1024 / 1024).toFixed(2)}MB). Skipping.`);
         return "duplicate_skipped";
     }
+    
+    // Mark as saved immediately to block other concurrent tabs
+    localStorage.setItem(dedupKey, now.toString());
 
-    const id = crypto.randomUUID();
-    const record: VideoStockItem = {
-        ...item,
-        id,
-        createdAt: Date.now(),
-    };
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.put(record);
-        tx.oncomplete = () => {
-            console.log(`[VideoStock] Saved: ${id} (${(item.fileSize / 1024 / 1024).toFixed(1)} MB)`);
-            resolve(id);
+    // Use Web Locks API to prevent concurrent saves across multiple extension contexts (side panel, popup, etc.)
+    return navigator.locks.request('video_stock_save_lock', async () => {
+        const db = await openDB();
+        
+        // Deduplication check fallback: DB check
+        const recentVideos = await new Promise<VideoStockItem[]>((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const request = tx.objectStore(STORE_NAME).index('createdAt').getAll();
+            request.onsuccess = () => {
+                const all = request.result as VideoStockItem[];
+                // Only check videos saved in the last 2 minutes
+                const twoMinsAgo = Date.now() - (2 * 60 * 1000);
+                resolve(all.filter(v => v.createdAt > twoMinsAgo));
+            };
+            request.onerror = () => reject(request.error);
+        });
+
+        const isDuplicate = recentVideos.some(v => v.fileSize === item.fileSize);
+        if (isDuplicate) {
+            console.log(`[VideoStock] ⚠️ Duplicate video detected in DB (same size: ${(item.fileSize / 1024 / 1024).toFixed(2)}MB). Skipping.`);
+            return "duplicate_skipped";
+        }
+
+        const id = crypto.randomUUID();
+        const record: VideoStockItem = {
+            ...item,
+            id,
+            createdAt: Date.now(),
         };
-        tx.onerror = () => reject(tx.error);
+        return new Promise<string>((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.put(record);
+            tx.oncomplete = () => {
+                console.log(`[VideoStock] Saved: ${id} (${(item.fileSize / 1024 / 1024).toFixed(1)} MB)`);
+                resolve(id);
+            };
+            tx.onerror = () => reject(tx.error);
+        });
     });
 }
 

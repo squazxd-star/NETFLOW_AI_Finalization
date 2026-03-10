@@ -28,6 +28,9 @@ const INITIAL_TIKTOK_STATUS: TikTokPostProgress = {
     steps: []
 };
 
+// Global dedup guard: prevent multiple hook instances (e.g. CreateVideoTab & NetCastTab) from processing the same event
+let globalLastCompleteTimestamp = 0;
+
 export const useVideoGeneration = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -171,9 +174,6 @@ export const useVideoGeneration = () => {
         }
     };
 
-    // Dedup guard: prevent processing VIDEO_GENERATION_COMPLETE twice within 30s
-    const lastCompleteRef = { current: 0 };
-
     // Listen for TikTok messages from background script
     useEffect(() => {
         if (!isExtension) return;
@@ -183,13 +183,13 @@ export const useVideoGeneration = () => {
 
             // Handle video generation complete — trigger auto-posts + fetch preview
             if (message.type === "VIDEO_GENERATION_COMPLETE") {
-                // Dedup: ignore if we already handled this within 30 seconds
+                // Dedup: ignore if we already handled this within 30 seconds globally
                 const now = Date.now();
-                if (now - lastCompleteRef.current < 30000) {
-                    console.log('[useVideoGeneration] ⚠️ Duplicate VIDEO_GENERATION_COMPLETE ignored (within 30s)');
+                if (now - globalLastCompleteTimestamp < 30000) {
+                    console.log('[useVideoGeneration] ⚠️ Duplicate VIDEO_GENERATION_COMPLETE ignored (within 30s) by other tab');
                     return;
                 }
-                lastCompleteRef.current = now;
+                globalLastCompleteTimestamp = now;
 
                 setIsLoading(false);
                 const source = message.source || 'rpa';
