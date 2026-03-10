@@ -21,6 +21,7 @@
     "https://*.googleapis.com/*",
     "https://*.googleusercontent.com/*",
     "https://grok.com/*",
+    "*://*.tiktok.com/*",
     "*://api.openai.com/*",
     "https://studio.youtube.com/*"
   ],
@@ -59,6 +60,25 @@
     },
     {
       "matches": [
+        "https://www.tiktok.com/tiktokstudio/*",
+        "https://seller-th.tiktok.com/*",
+        "https://seller.tiktok.com/*"
+      ],
+      "js": ["src/content-tiktok.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://www.tiktok.com/tiktokstudio/upload*",
+        "https://seller-th.tiktok.com/tiktokstudio/*",
+        "https://seller.tiktok.com/tiktokstudio/*"
+      ],
+      "js": ["src/content-tiktok-upload.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
         "https://studio.youtube.com/*"
       ],
       "js": ["src/content-youtube-upload.js"],
@@ -68,7 +88,7 @@
   "web_accessible_resources": [
     {
       "resources": ["themes/*.jpg", "themes/*.png", "themes/*.webp"],
-      "matches": ["https://labs.google/*", "https://grok.com/*", "https://studio.youtube.com/*"]
+      "matches": ["https://labs.google/*", "https://grok.com/*", "*://*.tiktok.com/*", "https://studio.youtube.com/*"]
     }
   ],
   "content_security_policy": {

@@ -45,62 +45,137 @@ function closeAutomationTab(delayMs: number = 3000): void {
     }, delayMs);
 }
 
-// ─── Cross-platform file:// URL helper ───────────────────────────────────────
-/** Convert OS file path to proper file:// URL (works on both Windows and macOS) */
-function toFileUrl(filePath: string): string {
-    const normalized = filePath.replace(/\\/g, "/");
-    // macOS/Linux paths start with "/" → file:// + /path = file:///path (3 slashes)
-    // Windows paths start with drive letter → file:/// + C:/path (3 slashes)
-    return normalized.startsWith("/")
-        ? "file://" + normalized
-        : "file:///" + normalized;
-}
-
 // ─── TikTok Auto-Post: Capture video URL and notify React hook ──────────────
-/** Grab <video> src from the current page and pre-fetch via background for TikTok auto-post */
+/**
+ * Grab <video> src from the current page, fetch the blob DIRECTLY from the
+ * content script (which has Google auth cookies), convert to data URL,
+ * and cache it in the background service worker via CACHE_VIDEO_DATA.
+ *
+ * The background service worker CANNOT fetch Google's authenticated CDN URLs,
+ * but the content script CAN because it runs on the same origin (labs.google).
+ */
 async function captureVideoUrlAndPreFetch(): Promise<string | null> {
     try {
+        // ── FIRST: Check if background already has a cached video (from OPEN_LATEST_VIDEO download) ──
+        // If yes, DON'T overwrite — that's the correct FULL video, not a page preview
+        const alreadyCached = await new Promise<boolean>((resolve) => {
+            try {
+                chrome.runtime.sendMessage({ type: "PEEK_CACHED_VIDEO" }, (resp) => {
+                    if (chrome.runtime.lastError) { resolve(false); return; }
+                    resolve(!!resp?.cached);
+                });
+            } catch { resolve(false); }
+        });
+
+        if (alreadyCached) {
+            LOG("[TikTok] ✅ Background มี video cached อยู่แล้ว (จาก download) — ข้าม page capture เพื่อไม่ overwrite");
+            // Return the page video URL for reference only, but don't re-cache
+            const videos = document.querySelectorAll<HTMLVideoElement>("video");
+            for (const v of videos) {
+                const src = v.src || v.currentSrc || "";
+                if (src) return src;
+            }
+            return null;
+        }
+
+        LOG("[TikTok] ไม่มี cached video — จะ capture จากหน้า...");
+
         const videos = document.querySelectorAll<HTMLVideoElement>("video");
         let videoUrl: string | null = null;
+        let bestArea = 0;
+
+        // Find the LARGEST visible video element (most likely the generated video)
         for (const v of videos) {
-            if (v.src && v.src.startsWith("http") && v.getBoundingClientRect().width > 100) {
-                videoUrl = v.src;
-                break;
+            // Check v.src first, then <source> children
+            let src = v.src || "";
+            if (!src) {
+                const sourceEl = v.querySelector("source");
+                if (sourceEl) src = sourceEl.getAttribute("src") || "";
             }
-        }
-        if (!videoUrl) {
-            for (const v of videos) {
-                if (v.src && v.getBoundingClientRect().width > 50) {
-                    videoUrl = v.src;
-                    break;
-                }
+            // Also try currentSrc (works for blob: URLs and resolved sources)
+            if (!src && v.currentSrc) src = v.currentSrc;
+            if (!src) continue;
+
+            const r = v.getBoundingClientRect();
+            const area = r.width * r.height;
+            if (r.width > 50 && area > bestArea) {
+                bestArea = area;
+                videoUrl = src;
             }
         }
         if (!videoUrl) { LOG("[TikTok] ไม่พบ video URL บนหน้า"); return null; }
-        LOG(`[TikTok] พบ video URL: ${videoUrl.substring(0, 80)}...`);
+        LOG(`[TikTok] พบ video URL: ${videoUrl.substring(0, 80)}... (area=${bestArea.toFixed(0)})`);
 
-        // Pre-fetch via background (only works for https:// URLs)
-        if (videoUrl.startsWith("https://")) {
-            try {
-                await new Promise<void>((resolve) => {
-                    chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: videoUrl }, (resp) => {
-                        if (chrome.runtime.lastError) {
-                            LOG(`[TikTok] PRE_FETCH_VIDEO error: ${chrome.runtime.lastError.message}`);
-                        } else if (resp?.success) {
-                            LOG(`[TikTok] Video pre-fetched: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
-                        } else {
-                            LOG(`[TikTok] PRE_FETCH_VIDEO failed: ${resp?.error}`);
-                        }
-                        resolve();
-                    });
+        // ── Fetch the video blob FROM the content script (has auth cookies) ──
+        try {
+            LOG("[TikTok] กำลัง fetch video blob จาก content script (มี auth)...");
+            const resp = await fetch(videoUrl);
+            if (!resp.ok) {
+                LOG(`[TikTok] fetch failed: HTTP ${resp.status}`);
+                // Fallback: try PRE_FETCH_VIDEO via background (may fail for auth URLs)
+                await preFetchViaBackground(videoUrl);
+                return videoUrl;
+            }
+            const blob = await resp.blob();
+            const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
+            LOG(`[TikTok] Video blob fetched: ${sizeMB} MB, type: ${blob.type}`);
+
+            if (blob.size < 100000) {
+                LOG(`[TikTok] ⚠️ Blob เล็กเกินไป (${blob.size} bytes) — อาจเป็น thumbnail`);
+                // Still cache it as fallback, but warn
+            }
+
+            // Convert blob → data URL
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => reject(new Error("FileReader error"));
+                reader.readAsDataURL(blob);
+            });
+            LOG(`[TikTok] Data URL พร้อม: ${(dataUrl.length / 1024 / 1024).toFixed(1)} MB`);
+
+            // Send data URL to background for caching
+            await new Promise<void>((resolve) => {
+                chrome.runtime.sendMessage({ type: "CACHE_VIDEO_DATA", data: dataUrl }, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        LOG(`[TikTok] CACHE_VIDEO_DATA error: ${chrome.runtime.lastError.message}`);
+                    } else if (resp?.success) {
+                        LOG("[TikTok] ✅ Video cached in background service worker");
+                    } else {
+                        LOG(`[TikTok] CACHE_VIDEO_DATA failed: ${resp?.error}`);
+                    }
+                    resolve();
                 });
-            } catch (_) { /* silent */ }
+            });
+        } catch (e: any) {
+            LOG(`[TikTok] Content script fetch error: ${e.message}`);
+            // Fallback: try PRE_FETCH_VIDEO via background
+            await preFetchViaBackground(videoUrl);
         }
         return videoUrl;
     } catch (e: any) {
         LOG(`[TikTok] captureVideoUrl error: ${e.message}`);
         return null;
     }
+}
+
+/** Fallback: ask background to fetch (works only for public/non-auth URLs) */
+async function preFetchViaBackground(videoUrl: string): Promise<void> {
+    if (!videoUrl.startsWith("https://")) return;
+    try {
+        await new Promise<void>((resolve) => {
+            chrome.runtime.sendMessage({ type: "PRE_FETCH_VIDEO", url: videoUrl }, (resp) => {
+                if (chrome.runtime.lastError) {
+                    LOG(`[TikTok] PRE_FETCH_VIDEO error: ${chrome.runtime.lastError.message}`);
+                } else if (resp?.success) {
+                    LOG(`[TikTok] Video pre-fetched via background: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
+                } else {
+                    LOG(`[TikTok] PRE_FETCH_VIDEO failed: ${resp?.error}`);
+                }
+                resolve();
+            });
+        });
+    } catch (_) { /* silent */ }
 }
 
 /** Send VIDEO_GENERATION_COMPLETE to React hook so TikTok auto-post can trigger */
@@ -116,25 +191,12 @@ function sendVideoGenerationComplete(videoUrl: string | null): void {
     } catch (_) { /* popup/sidepanel closed */ }
 }
 
-// ─── Per-Tab Instance ID (survives same-tab navigation via sessionStorage) ───
-const _instanceId: string = (() => {
-    const KEY = 'netflow_instance_id';
-    let id = sessionStorage.getItem(KEY);
-    if (!id) {
-        id = crypto.randomUUID().slice(0, 8);
-        sessionStorage.setItem(KEY, id);
-    }
-    return id;
-})();
-/** Storage key for pending action — namespaced per tab instance */
-const PENDING_KEY = `netflow_pending_${_instanceId}`;
-
 // ─── Platform Detection ─────────────────────────────────────────────────────
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isWindows = /Win/i.test(navigator.userAgent);
 const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
-LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag} [${_instanceId}]`);
+LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -142,41 +204,14 @@ class NetflowAbortError extends Error {
     constructor() { super("AUTOMATION_STOPPED"); this.name = "NetflowAbortError"; }
 }
 
-// ─── Web Worker Timer (throttle-proof — works in background/minimized tabs) ──
-const _timerWorker: Worker | null = (() => {
-    const code = `self.onmessage=e=>{const{id,ms}=e.data;setTimeout(()=>self.postMessage(id),ms)};`;
-    try {
-        return new Worker(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
-    } catch (_) {
-        return null; // CSP or Worker unavailable — fall back to setTimeout
-    }
-})();
-let _sleepIdCounter = 0;
-const _sleepCallbacks = new Map<number, () => void>();
-if (_timerWorker) {
-    _timerWorker.onmessage = (e: MessageEvent) => {
-        const cb = _sleepCallbacks.get(e.data);
-        if (cb) { _sleepCallbacks.delete(e.data); cb(); }
-    };
-}
-
 const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
     if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
-    if (_timerWorker) {
-        const id = ++_sleepIdCounter;
-        _sleepCallbacks.set(id, () => {
-            if ((window as any).__NETFLOW_STOP__) { reject(new NetflowAbortError()); return; }
-            resolve();
-        });
-        _timerWorker.postMessage({ id, ms });
-    } else {
-        // Fallback to setTimeout (throttled in background tabs)
-        const tid = setTimeout(() => {
-            if ((window as any).__NETFLOW_STOP__) { reject(new NetflowAbortError()); return; }
-            resolve();
-        }, ms);
-        (sleep as any)._lastId = tid;
-    }
+    const id = setTimeout(() => {
+        if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
+        resolve();
+    }, ms);
+    // Store timeout id for potential cleanup
+    (sleep as any)._lastId = id;
 });
 
 /** Check if automation should stop (user clicked stop button) */
@@ -195,12 +230,7 @@ function isGenerationFailed(): string | null {
         "unable to generate", "ไม่สามารถสร้างวิดีโอ",
         "couldn't generate video", "couldn't generate image",
     ];
-    // Use textContent body scan first (fast, no reflow) before falling back to element scan
-    const bodyText = (document.body.textContent || "").toLowerCase();
-    const hasAnyPattern = failurePatterns.some(p => bodyText.includes(p));
-    if (!hasAnyPattern) return null; // fast exit: no failure text anywhere on page
-    // Only do targeted element scan if a pattern exists somewhere
-    const allEls = document.querySelectorAll<HTMLElement>("span, p, h1, h2, h3, li");
+    const allEls = document.querySelectorAll<HTMLElement>("div, span, p, h1, h2, h3, li");
     for (const el of allEls) {
         if (el.closest("#netflow-engine-overlay")) continue;
         const txt = (el.textContent || "").trim().toLowerCase();
@@ -1608,17 +1638,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     if (!selectedImage) LOG("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว");
 
     // Select orientation
-    const targetOrientationIdPart = orientation === "horizontal" ? "LANDSCAPE" : "PORTRAIT";
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
-    let orientationSelected = false;
-
-    // Strategy 1: Match by ID or aria-controls containing LANDSCAPE/PORTRAIT
-    const tabElements = document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"], button[role="tab"]');
-    for (const btn of tabElements) {
-        const id = (btn.id || "").toUpperCase();
-        const ariaControls = (btn.getAttribute("aria-controls") || "").toUpperCase();
-        
-        if (id.includes(targetOrientationIdPart) || ariaControls.includes(targetOrientationIdPart)) {
+    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
+        const txt = (btn.textContent || "").trim();
+        if (txt === orientationText || txt.toLowerCase() === (orientation === "horizontal" ? "landscape" : "portrait")) {
             const oRect = btn.getBoundingClientRect();
             const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
             btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
@@ -1627,47 +1650,17 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
             btn.dispatchEvent(new MouseEvent("click", oOpts));
-            LOG(`✅ เลือกทิศทางผ่าน ID: ${targetOrientationIdPart}`);
-            orientationSelected = true;
+            LOG(`เลือกทิศทาง: ${orientationText}`);
             await sleep(400);
             break;
         }
     }
 
-    // Strategy 2: text match (fallback)
-    if (!orientationSelected) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
-            const txt = (btn.textContent || "").trim();
-            // Using includes because textContent might be "crop_16_9แนวนอน"
-            if (txt.includes(orientationText) || txt.toLowerCase().includes(orientation === "horizontal" ? "landscape" : "portrait")) {
-                const oRect = btn.getBoundingClientRect();
-                const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
-                btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                btn.dispatchEvent(new MouseEvent("mousedown", oOpts));
-                await sleep(80);
-                btn.dispatchEvent(new PointerEvent("pointerup", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                btn.dispatchEvent(new MouseEvent("mouseup", oOpts));
-                btn.dispatchEvent(new MouseEvent("click", oOpts));
-                LOG(`✅ เลือกทิศทางผ่าน Text: ${orientationText}`);
-                orientationSelected = true;
-                await sleep(400);
-                break;
-            }
-        }
-    }
-
     // Select count
-    const countStr = String(outputCount); // "1", "2", "3", "4"
     const countText = `x${outputCount}`;
-    let countSelected = false;
-
-    // Strategy 1: Match by ID/aria-controls ending in -1, -2, -3, -4 or exact text
-    for (const btn of document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"], button[role="tab"]')) {
-        const id = (btn.id || "").toUpperCase();
-        const ariaControls = (btn.getAttribute("aria-controls") || "").toUpperCase();
+    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
         const txt = (btn.textContent || "").trim();
-        
-        if (id.includes(`TRIGGER-${countStr}`) || ariaControls.includes(`CONTENT-${countStr}`) || txt === countText) {
+        if (txt === countText) {
             const cRect = btn.getBoundingClientRect();
             const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
             btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
@@ -1676,31 +1669,9 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
             btn.dispatchEvent(new MouseEvent("click", cOpts));
-            LOG(`✅ เลือกจำนวนผ่าน ID/Text: ${countText}`);
-            countSelected = true;
+            LOG(`เลือกจำนวน: ${countText}`);
             await sleep(400);
             break;
-        }
-    }
-
-    // Strategy 2: text match (fallback)
-    if (!countSelected) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
-            const txt = (btn.textContent || "").trim();
-            if (txt === countText || txt.includes(countText)) {
-                const cRect = btn.getBoundingClientRect();
-                const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
-                btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                btn.dispatchEvent(new MouseEvent("mousedown", cOpts));
-                await sleep(80);
-                btn.dispatchEvent(new PointerEvent("pointerup", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                btn.dispatchEvent(new MouseEvent("mouseup", cOpts));
-                btn.dispatchEvent(new MouseEvent("click", cOpts));
-                LOG(`✅ เลือกจำนวนผ่าน Text (fallback): ${countText}`);
-                countSelected = true;
-                await sleep(400);
-                break;
-            }
         }
     }
 
@@ -1771,18 +1742,7 @@ async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
     }
 
     if (!dropdownBtn) {
-        // Try to detect current quality from any visible text on the page
-        let detectedQuality = "ไม่ทราบ";
-        for (const btn of allBtns) {
-            const txt = (btn.textContent || "").replace(/\s+/g, " ").trim();
-            if (txt.includes("Veo 3.1") && btn.getBoundingClientRect().width > 0) {
-                if (txt.includes("Quality")) detectedQuality = "Veo 3.1 - Quality";
-                else if (txt.includes("Fast")) detectedQuality = "Veo 3.1 - Fast";
-                else detectedQuality = txt.substring(0, 30);
-                break;
-            }
-        }
-        WARN(`ไม่พบปุ่ม Veo quality dropdown — ค่าปัจจุบันบนหน้าจอ: ${detectedQuality}`);
+        WARN("ไม่พบปุ่ม Veo quality dropdown");
         return false;
     }
 
@@ -1923,14 +1883,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 0.5: Select Veo quality (Fast / Quality) ──
     try {
         const veoQuality = req.veoQuality || "fast";
-        const veoLabel = veoQuality === "quality" ? "Veo 3.1 - Quality" : "Veo 3.1 - Fast";
         const qOk = await selectVeoQuality(veoQuality);
         if (qOk) {
-            steps.push(`✅ ${veoLabel}`);
-            LOG(`✅ Veo quality ที่ใช้: ${veoLabel}`);
+            steps.push(`✅ Veo ${veoQuality}`);
+            LOG(`✅ Veo quality: ${veoQuality}`);
         } else {
             steps.push(`⚠️ Veo quality`);
-            WARN(`ไม่สามารถเลือก ${veoLabel} ได้ — ใช้ค่าเดิมที่แสดงบนหน้าจอ`);
+            WARN("ไม่สามารถเลือก Veo quality ได้ — ใช้ค่าเดิม");
         }
     } catch (e: any) {
         WARN(`Veo quality error: ${e.message}`);
@@ -1940,21 +1899,18 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 1: Upload reference images ──
     LOG("=== ขั้น 1: อัพโหลดรูปอ้างอิง ===");
 
-    /** Check if any upload is still in progress (look for % text on thumbnails in prompt bar area) */
+    /** Check if any upload is still in progress (look for % text on thumbnails) */
     const isUploadInProgress = (): string | null => {
-        // Only check small leaf-like elements in the bottom half of the screen (prompt bar area)
-        const allElements = document.querySelectorAll<HTMLElement>("span, small, label");
+        const allElements = document.querySelectorAll<HTMLElement>("span, div, p, label");
         for (const el of allElements) {
-            if (el.closest("#netflow-engine-overlay")) continue;
             const txt = (el.textContent || "").trim();
-            // Must be EXACTLY "XX%" with nothing else — avoid matching container elements
-            if (txt.length > 5 || !/^\d{1,3}%$/.test(txt)) continue;
-            if (txt === "100%") return null;
-            const rect = el.getBoundingClientRect();
-            // Must be in prompt bar area (bottom 50% of screen), small element, visible
-            if (rect.width > 0 && rect.height > 0 && rect.width < 80 && rect.height < 40
-                && rect.top > window.innerHeight * 0.5 && rect.top < window.innerHeight) {
-                return txt;
+            if (/^\d{1,3}%$/.test(txt)) {
+                // 100% means upload finished — treat as complete
+                if (txt === "100%") return null;
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0 && rect.top > 0 && rect.top < window.innerHeight) {
+                    return txt;
+                }
             }
         }
         return null;
@@ -2093,9 +2049,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     LOG(`บันทึกรูปเดิม: ${existingImageSrcs.size} รูปก่อน Generate`);
 
     // ── Step 3: ALWAYS click Generate → (even if some steps failed) ──
-    LOG("=== ขั้น 3: รอ 5 วินาทีก่อนคลิก Generate → ===");
+    LOG("=== ขั้น 3: คลิก Generate → ===");
     updateStep("img-generate", "active");
-    await sleep(5000); // ★ Add 5 seconds delay before generate to let UI settle
+    await sleep(500);
     const genBtn = findGenerateButton();
     if (genBtn) {
         // React needs full mouse event sequence, not just .click()
@@ -2480,34 +2436,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
         LOG(`=== ขั้น 6: รอวิดีโอ + ${totalScenes > 1 ? `ต่อ ${totalScenes} ฉาก` : 'ดาวน์โหลด'} ===`);
 
-        // ── Shared: Scan for "X%" — optimized to avoid expensive full-DOM scans ──
-        let _lastPctEl: HTMLElement | null = null; // cache last-found % element
+        // ── Shared: Scan for "X%" by querying ALL elements directly ──
         const scanForPct = (): number | null => {
-            // Fast path: re-check the last element that had % text
-            if (_lastPctEl && _lastPctEl.isConnected && !_lastPctEl.closest("#netflow-engine-overlay")) {
-                const txt = (_lastPctEl.textContent || "").trim();
-                if (txt.length <= 15) {
-                    const m = txt.match(/(\d{1,3})\s*%/);
-                    if (m) {
-                        const pct = parseInt(m[1], 10);
-                        if (pct >= 1 && pct <= 100) return pct;
-                    }
-                }
-                _lastPctEl = null; // element no longer valid
-            }
-            // Targeted scan: use aria-valuenow first (cheapest)
-            const progressBars = document.querySelectorAll('[role="progressbar"]');
-            for (const pb of progressBars) {
-                if ((pb as HTMLElement).closest("#netflow-engine-overlay")) continue;
-                const val = pb.getAttribute('aria-valuenow');
-                if (val) { const pct = parseFloat(val); if (pct >= 1 && pct <= 100) return pct; }
-            }
-            // Fallback: scan small text elements for "XX%" pattern (includes div, strong — Veo may render % in any tag)
             const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
             for (const el of els) {
+                // Skip elements inside our own overlay (they echo the % back, causing feedback loop)
                 if (el.closest("#netflow-engine-overlay")) continue;
                 const txt = (el.textContent || "").trim();
-                if (txt.length > 15 || txt.length < 2) continue;
+                if (txt.length > 10) continue;
                 const m = txt.match(/(\d{1,3})\s*%/);
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
@@ -2515,7 +2451,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.width > 150) continue;
                 if (rect.top < 0 || rect.top > window.innerHeight) continue;
-                _lastPctEl = el; // cache for fast re-check
                 return pct;
             }
             return null;
@@ -2567,11 +2502,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             let lastPct = -1;
             let lastPctTime = 0;
             let completed = false;
-            let pollIter = 0; // throttle counter for expensive checks
 
             // Poll until completion
             while (Date.now() - start < timeoutMs) {
-                pollIter++;
                 const pct = scanForPct();
                 if (pct !== null) {
                     if (pct !== lastPct) {
@@ -2585,8 +2518,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         completed = true;
                         break;
                     }
-                } else if (lastPct > 0) {
-                    // % disappeared = video generation likely finished (confirm after 5s)
+                } else if (lastPct > 30) {
+                    // % disappeared = video generation finished
                     const lostFor = Math.floor((Date.now() - lastPctTime) / 1000);
                     if (lostFor >= 5) {
                         LOG(`✅ % หายไปที่ ${lastPct}% (หาย ${lostFor} วินาที) — วิดีโอเสร็จ!`);
@@ -2602,34 +2535,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 }
 
                 // Secondary completion signal: if a video card appeared, video is done
-                // Throttled: check every 5th iteration (~15s) to avoid expensive DOM traversal
-                // Also run when no % ever found after 30s grace period
-                const elapsedSec = Math.floor((Date.now() - start) / 1000);
-                if (!completed && (lastPct > 0 || elapsedSec >= 30) && pollIter % 5 === 0) {
+                if (!completed && lastPct > 0) {
                     const newCard = findFirstVideoCard(true);
                     if (newCard && !earlyVideoCard) {
-                        LOG(`✅ การ์ดวิดีโอปรากฏขึ้น${lastPct > 0 ? `ที่ ${lastPct}%` : ' (ไม่พบ %)'} — วิดีโอเสร็จ!`);
+                        LOG(`✅ การ์ดวิดีโอปรากฏขึ้นที่ ${lastPct}% — วิดีโอเสร็จ!`);
                         completed = true;
                         break;
-                    }
-                    // Fallback: check for playing <video> element when no % was ever detected
-                    if (lastPct <= 0) {
-                        const vids = document.querySelectorAll<HTMLVideoElement>('video');
-                        for (const v of vids) {
-                            const r = v.getBoundingClientRect();
-                            if (r.width > 200 && r.height > 100 && v.readyState >= 2 && v.src) {
-                                LOG(`✅ พบ <video> พร้อมเล่น (ไม่พบ %) — วิดีโอเสร็จ!`);
-                                completed = true;
-                                break;
-                            }
-                        }
-                        if (completed) break;
-                        // Ultimate fallback: no % found for 90s — assume gen is done
-                        if (elapsedSec >= 90) {
-                            LOG(`✅ ไม่พบ % มานาน ${elapsedSec} วินาที — ถือว่าเสร็จ`);
-                            completed = true;
-                            break;
-                        }
                     }
                 }
 
@@ -2638,8 +2549,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     LOG("⛔ ผู้ใช้สั่งหยุดระหว่างรอวิดีโอ");
                     return null;
                 }
-                // Throttle isGenerationFailed: check every 5th iteration (~15s)
-                if (lastPct < 1 && pollIter % 5 === 0) {
+                if (lastPct < 1) {
                     const failMsg = isGenerationFailed();
                     if (failMsg) {
                         WARN(`❌ สร้างวิดีโอล้มเหลว: ${failMsg}`);
@@ -2700,7 +2610,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             // ★ Save pending action BEFORE clicking (page will navigate, destroying this script)
             try {
-                chrome.storage.local.set({ [PENDING_KEY]: { timestamp: Date.now(), action: "mute_video", sceneCount: totalScenes, scenePrompts: scenePrompts, theme: req.theme } });
+                chrome.storage.local.set({ netflow_pending_action: { timestamp: Date.now(), action: "mute_video", sceneCount: totalScenes, scenePrompts: scenePrompts, theme: req.theme } });
                 LOG(`💾 บันทึก pending action: mute_video (${totalScenes} ฉาก, ${scenePrompts.length} prompts, theme: ${req.theme})`);
             } catch (e: any) {
                 LOG(`⚠️ ไม่สามารถบันทึก pending action: ${e.message}`);
@@ -2750,14 +2660,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 // Wait 3s then check — if pending action is still unclaimed, execute it directly.
                 await sleep(3000);
                 const pendingCheck = await new Promise<any>((resolve) => {
-                    chrome.storage.local.get(PENDING_KEY, (data) => {
+                    chrome.storage.local.get("netflow_pending_action", (data) => {
                         if (chrome.runtime.lastError) { resolve(null); return; }
-                        resolve(data?.[PENDING_KEY] || null);
+                        resolve(data?.netflow_pending_action || null);
                     });
                 });
                 if (pendingCheck && !pendingCheck._claimed) {
                     LOG("🔄 สคริปต์ยังทำงานอยู่หลังคลิกการ์ด (SPA navigation) — เรียก pending action โดยตรง");
-                    chrome.storage.local.remove(PENDING_KEY);
+                    chrome.storage.local.remove("netflow_pending_action");
                     if (pendingCheck.action === "mute_video") {
                         await standaloneMuteAndDownload(pendingCheck.sceneCount || 1, pendingCheck.scenePrompts || [], pendingCheck.theme);
                     } else if (pendingCheck.action === "wait_scene_gen_and_download") {
@@ -2804,6 +2714,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         const doneSteps = ["settings", "upload-char", "upload-prod", "img-prompt", "img-generate", "img-wait", "animate", "vid-prompt", "vid-generate", "vid-wait"];
         for (const s of doneSteps) updateStep(s, "done");
         if (sceneCount >= 2) updateStep("scene2-prompt", "active");
+        LOG(`✅ overlay restored: ${doneSteps.length} steps done, sceneCount=${sceneCount}`);
     } catch (e: any) { LOG(`⚠️ overlay restore error: ${e.message}`); }
 
     // ── Step A: Mute video ──
@@ -2833,8 +2744,8 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("⚠️ ไม่พบปุ่มปิดเสียง — ข้าม");
     }
 
-    // ── Capture video URL for TikTok auto-post (before download starts) ──
-    const tiktokVideoUrl = await captureVideoUrlAndPreFetch();
+    // ── TikTok video URL will be captured from download URL (not page video) ──
+    let tiktokVideoUrl: string | null = null;
 
     // ── 2+ scenes: paste remaining scene prompts, generate each, then download Full Video 720p ──
     if (sceneCount >= 2) {
@@ -2934,7 +2845,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             // Save pending action BEFORE clicking Generate — Google Flow may navigate to new page
             await new Promise<void>((resolve) => {
                 chrome.storage.local.set({
-                    [PENDING_KEY]: {
+                    netflow_pending_action: {
                         timestamp: Date.now(),
                         action: "wait_scene_gen_and_download",
                         theme: theme,
@@ -3001,7 +2912,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             try { updateStep(`scene${scene}-wait`, "done", 100); } catch (_) {}
 
             // Clear pending action — page didn't navigate, we completed tracking here
-            chrome.storage.local.remove(PENDING_KEY);
+            chrome.storage.local.remove("netflow_pending_action");
             LOG("🗑️ ลบ pending action (tracking เสร็จแล้วบนหน้านี้)");
             await sleep(2000);
         }
@@ -3130,20 +3041,21 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("รอไฟล์ดาวน์โหลดพร้อม...");
         await sleep(5000);
         let opened2 = false;
-        let fullVideoFilename: string | null = null;
-        let fullVideoFileTabId: number | null = null;
         const openPoll2 = Date.now();
         while (Date.now() - openPoll2 < 60000 && !opened2) {
             try {
                 await new Promise<void>((resolve) => {
-                    chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt2 }, (res) => {
+                    chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt2 }, (res: any) => {
                         if (chrome.runtime.lastError) {
                             WARN(`ตรวจสอบดาวน์โหลดผิดพลาด: ${chrome.runtime.lastError.message}`);
                         } else if (res?.success) {
                             LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                             opened2 = true;
-                            fullVideoFilename = res.filename || null;
-                            fullVideoFileTabId = res.fileTabId || null;
+                            // Capture download URL for TikTok auto-post
+                            if (res.downloadUrl) {
+                                tiktokVideoUrl = res.downloadUrl;
+                                LOG(`[TikTok] จะใช้ download URL: ${res.downloadUrl.substring(0, 80)}...`);
+                            }
                         } else {
                             LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                         }
@@ -3157,32 +3069,14 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         }
         if (!opened2) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
 
+        // Always cache video blob from content script (has Google auth cookies)
+        LOG("[TikTok] กำลัง capture + cache video blob จาก content script...");
+        const capturedUrl = await captureVideoUrlAndPreFetch();
+        if (!tiktokVideoUrl) tiktokVideoUrl = capturedUrl;
+
         try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
         LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น ═══");
-
-        // Cache the FULL combined video from the local downloaded file (inject into the file:// tab)
-        if (fullVideoFileTabId) {
-            LOG(`[FullVideo] อ่านวิดีโอจากไฟล์ที่ดาวน์โหลด (tab ${fullVideoFileTabId})...`);
-            await new Promise<void>((resolve) => {
-                chrome.runtime.sendMessage({ type: "CACHE_VIDEO_FROM_FILE", fileTabId: fullVideoFileTabId }, (resp) => {
-                    if (chrome.runtime.lastError) {
-                        WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE error: ${chrome.runtime.lastError.message}`);
-                    } else if (resp?.success) {
-                        LOG(`[FullVideo] ✅ Full video cached from file: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
-                    } else {
-                        WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE failed: ${resp?.error}`);
-                    }
-                    resolve();
-                });
-            });
-            // Construct file:// URL for sidepanel preview (cross-platform)
-            const fileUrl = fullVideoFilename ? toFileUrl(fullVideoFilename) : null;
-            sendVideoGenerationComplete(fileUrl || tiktokVideoUrl);
-        } else {
-            LOG("[FullVideo] ไม่มี fileTabId — fallback ใช้ video จากหน้า");
-            const freshVideoUrl = await captureVideoUrlAndPreFetch();
-            sendVideoGenerationComplete(freshVideoUrl || tiktokVideoUrl);
-        }
+        sendVideoGenerationComplete(tiktokVideoUrl);
         closeAutomationTab(2000);
         return;
     }
@@ -3322,12 +3216,17 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     while (Date.now() - openPollStart < 60000 && !opened) {
         try {
             await new Promise<void>((resolve) => {
-                chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt }, (res) => {
+                chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt }, (res: any) => {
                     if (chrome.runtime.lastError) {
                         WARN(`ตรวจสอบดาวน์โหลดผิดพลาด: ${chrome.runtime.lastError.message}`);
                     } else if (res?.success) {
                         LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                         opened = true;
+                        // Capture download URL for TikTok auto-post
+                        if (res.downloadUrl) {
+                            tiktokVideoUrl = res.downloadUrl;
+                            LOG(`[TikTok] จะใช้ download URL: ${res.downloadUrl.substring(0, 80)}...`);
+                        }
                     } else {
                         LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                     }
@@ -3343,10 +3242,13 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้");
     }
 
+    // Always cache video blob from content script (has Google auth cookies)
+    LOG("[TikTok] กำลัง capture + cache video blob จาก content script...");
+    const capturedUrl = await captureVideoUrlAndPreFetch();
+    if (!tiktokVideoUrl) tiktokVideoUrl = capturedUrl;
+
     LOG("═══ ดาวน์โหลดเสร็จสิ้น ═══");
-    // Re-capture video URL to ensure we send the latest (not stale)
-    const freshVideoUrl1 = await captureVideoUrlAndPreFetch();
-    sendVideoGenerationComplete(freshVideoUrl1 || tiktokVideoUrl);
+    sendVideoGenerationComplete(tiktokVideoUrl);
     closeAutomationTab(2000);
 }
 
@@ -3396,7 +3298,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         LOG("⚠️ ไม่พบปุ่มปิดเสียง — ข้าม");
     }
 
-    // ── Track generation % (optimized: cached element + targeted selectors) ──
+    // ── Track generation % ──
     LOG(`── รอวิดีโอ scene ${currentScene} gen เสร็จ (หลัง page navigate) ──`);
     let lastPct = 0;
     let pctGoneAt = 0;
@@ -3405,39 +3307,19 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     const PCT_GONE_CONFIRM = 5000;
     let sceneGenDone = false;
     let noPctCount = 0;
-    let _scenePctEl: HTMLElement | null = null; // cache last-found % element
 
     while (Date.now() - scenePollStart < SCENE_TIMEOUT) {
         let foundPct: number | null = null;
-        // Fast path: re-check cached element
-        if (_scenePctEl && _scenePctEl.isConnected && !_scenePctEl.closest("#netflow-engine-overlay")) {
-            const txt = (_scenePctEl.textContent || "").trim();
+        const els = document.querySelectorAll<HTMLElement>("div, span, p, label, strong, small");
+        for (const el of els) {
+            if (el.closest("#netflow-engine-overlay")) continue;
+            const txt = (el.textContent || "").trim();
             const m = txt.match(/^(\d{1,3})%$/);
-            if (m) { foundPct = parseInt(m[1], 10); }
-            else { _scenePctEl = null; }
-        }
-        // Targeted scan: aria-valuenow first, then small text elements
-        if (foundPct === null) {
-            const progressBars = document.querySelectorAll('[role="progressbar"]');
-            for (const pb of progressBars) {
-                if ((pb as HTMLElement).closest("#netflow-engine-overlay")) continue;
-                const val = pb.getAttribute('aria-valuenow');
-                if (val) { const pct = parseFloat(val); if (pct >= 1 && pct <= 100) { foundPct = pct; break; } }
-            }
-        }
-        if (foundPct === null) {
-            const els = document.querySelectorAll<HTMLElement>("span, small, label, p");
-            for (const el of els) {
-                if (el.closest("#netflow-engine-overlay")) continue;
-                const txt = (el.textContent || "").trim();
-                const m = txt.match(/^(\d{1,3})%$/);
-                if (m) {
-                    const r = el.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0 && r.width < 120 && r.height < 60) {
-                        foundPct = parseInt(m[1], 10);
-                        _scenePctEl = el; // cache for fast re-check
-                        break;
-                    }
+            if (m) {
+                const r = el.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0 && r.width < 120 && r.height < 60) {
+                    foundPct = parseInt(m[1], 10);
+                    break;
                 }
             }
         }
@@ -3551,7 +3433,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             // Save pending action before clicking (in case page navigates again)
             await new Promise<void>((resolve) => {
                 chrome.storage.local.set({
-                    [PENDING_KEY]: {
+                    netflow_pending_action: {
                         timestamp: Date.now(),
                         action: "wait_scene_gen_and_download",
                         theme: theme,
@@ -3624,7 +3506,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             LOG(`✅ ฉาก ${scene} เสร็จแล้ว`);
 
             // Clear pending action — completed on this page
-            chrome.storage.local.remove(PENDING_KEY);
+            chrome.storage.local.remove("netflow_pending_action");
             await sleep(2000);
         }
     }
@@ -3650,6 +3532,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     };
 
     // ── Download: Full Video → 720p (Radix UI selectors) ──
+    let tiktokVideoUrlNav: string | null = null;
     try { updateStep("download", "active"); } catch (_) {}
     LOG("── เริ่มดาวน์โหลด Full Video (หลัง page navigate) ──");
     const downloadStartedAt = Date.now();
@@ -3769,20 +3652,21 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     LOG("รอไฟล์ดาวน์โหลดพร้อม...");
     await sleep(5000);
     let opened = false;
-    let fullVideoFilenameNav: string | null = null;
-    let fullVideoFileTabIdNav: number | null = null;
     const openPoll = Date.now();
     while (Date.now() - openPoll < 60000 && !opened) {
         try {
             await new Promise<void>((resolve) => {
-                chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt }, (res) => {
+                chrome.runtime.sendMessage({ action: "OPEN_LATEST_VIDEO", afterTimestamp: downloadStartedAt }, (res: any) => {
                     if (chrome.runtime.lastError) {
                         WARN(`ตรวจสอบดาวน์โหลดผิดพลาด: ${chrome.runtime.lastError.message}`);
                     } else if (res?.success) {
                         LOG(`✅ เปิดวิดีโอใน Chrome แล้ว: ${res.message}`);
                         opened = true;
-                        fullVideoFilenameNav = res.filename || null;
-                        fullVideoFileTabIdNav = res.fileTabId || null;
+                        // Capture download URL for TikTok auto-post
+                        if (res.downloadUrl) {
+                            tiktokVideoUrlNav = res.downloadUrl;
+                            LOG(`[TikTok] จะใช้ download URL: ${res.downloadUrl.substring(0, 80)}...`);
+                        }
                     } else {
                         LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
                     }
@@ -3795,32 +3679,15 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         if (!opened) await sleep(3000);
     }
     if (!opened) { WARN("ไม่สามารถหา/เปิดวิดีโอที่ดาวน์โหลดได้"); }
+
+    // Always cache video blob from content script (has Google auth cookies)
+    LOG("[TikTok] กำลัง capture + cache video blob จาก content script...");
+    const capturedUrlNav = await captureVideoUrlAndPreFetch();
+    if (!tiktokVideoUrlNav) tiktokVideoUrlNav = capturedUrlNav;
+
     try { updateStep("open", "done"); completeOverlay(8000); } catch (_) {}
     LOG("═══ ดาวน์โหลด Full Video เสร็จสิ้น (หลัง page navigate) ═══");
-
-    // Cache the FULL combined video from the local downloaded file (inject into the file:// tab)
-    if (fullVideoFileTabIdNav) {
-        LOG(`[FullVideo] อ่านวิดีโอจากไฟล์ที่ดาวน์โหลด (tab ${fullVideoFileTabIdNav})...`);
-        await new Promise<void>((resolve) => {
-            chrome.runtime.sendMessage({ type: "CACHE_VIDEO_FROM_FILE", fileTabId: fullVideoFileTabIdNav }, (resp) => {
-                if (chrome.runtime.lastError) {
-                    WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE error: ${chrome.runtime.lastError.message}`);
-                } else if (resp?.success) {
-                    LOG(`[FullVideo] ✅ Full video cached from file: ${((resp.size || 0) / 1024 / 1024).toFixed(1)} MB`);
-                } else {
-                    WARN(`[FullVideo] CACHE_VIDEO_FROM_FILE failed: ${resp?.error}`);
-                }
-                resolve();
-            });
-        });
-        // Construct file:// URL for sidepanel preview (cross-platform)
-        const fileUrlNav = fullVideoFilenameNav ? toFileUrl(fullVideoFilenameNav) : null;
-        sendVideoGenerationComplete(fileUrlNav);
-    } else {
-        LOG("[FullVideo] ไม่มี fileTabId — fallback ใช้ video จากหน้า");
-        const tiktokVideoUrlNav = await captureVideoUrlAndPreFetch();
-        sendVideoGenerationComplete(tiktokVideoUrlNav);
-    }
+    sendVideoGenerationComplete(tiktokVideoUrlNav);
     closeAutomationTab(2000);
 }
 
@@ -3828,9 +3695,9 @@ async function checkAndRunPendingAction(): Promise<void> {
     try {
         // Step 1: Read the pending action
         const result = await new Promise<any>((resolve) => {
-            chrome.storage.local.get(PENDING_KEY, (data) => {
+            chrome.storage.local.get("netflow_pending_action", (data) => {
                 if (chrome.runtime.lastError) { resolve(null); return; }
-                resolve(data?.[PENDING_KEY] || null);
+                resolve(data?.netflow_pending_action || null);
             });
         });
 
@@ -3853,7 +3720,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         const age = Date.now() - result.timestamp;
         if (age > 300000) {
             LOG("⏰ พบ pending action แต่เก่าเกินไป — ข้าม");
-            chrome.storage.local.remove(PENDING_KEY);
+            chrome.storage.local.remove("netflow_pending_action");
             return;
         }
 
@@ -3861,14 +3728,14 @@ async function checkAndRunPendingAction(): Promise<void> {
         const claimToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         result._claimed = claimToken;
         await new Promise<void>((resolve) => {
-            chrome.storage.local.set({ [PENDING_KEY]: result }, () => resolve());
+            chrome.storage.local.set({ netflow_pending_action: result }, () => resolve());
         });
 
         // Step 3: Wait for any competing tab to also write, then verify our claim
         await sleep(300);
         const verified = await new Promise<boolean>((resolve) => {
-            chrome.storage.local.get(PENDING_KEY, (data) => {
-                const action = data?.[PENDING_KEY];
+            chrome.storage.local.get("netflow_pending_action", (data) => {
+                const action = data?.netflow_pending_action;
                 resolve((action as any)?._claimed === claimToken);
             });
         });
@@ -3878,7 +3745,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         }
 
         // Step 4: We won the claim — clear and execute
-        chrome.storage.local.remove(PENDING_KEY);
+        chrome.storage.local.remove("netflow_pending_action");
 
         LOG(`🔄 ตรวจพบ pending action: ${result.action} (อายุ ${Math.round(age / 1000)} วินาที)`);
 
@@ -3894,101 +3761,78 @@ async function checkAndRunPendingAction(): Promise<void> {
     }
 }
 
-// ─── Message Listener (singleton guard: prevent duplicate from re-injection) ──
+// ─── Message Listener ───────────────────────────────────────────────────────
 
-if (!(window as any).__NETFLOW_LISTENER_REGISTERED__) {
-    (window as any).__NETFLOW_LISTENER_REGISTERED__ = true;
-
-    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-        if (message?.action === "GENERATE_IMAGE") {
-            // ★ Concurrency guard: prevent duplicate execution from multiple script instances
-            if ((window as any).__NETFLOW_RUNNING__) {
-                // Auto-reset if stuck for more than 10 minutes (macOS hang recovery)
-                const startedAt = (window as any).__NETFLOW_STARTED_AT__ || 0;
-                if (startedAt > 0 && Date.now() - startedAt > 10 * 60 * 1000) {
-                    LOG("⚠️ __NETFLOW_RUNNING__ ค้างเกิน 10 นาที — auto-reset");
-                    (window as any).__NETFLOW_RUNNING__ = false;
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.action === "GENERATE_IMAGE") {
+        (window as any).__NETFLOW_STOP__ = false;
+        LOG("ได้รับคำสั่ง GENERATE_IMAGE");
+        // Respond immediately to prevent MV3 service-worker message-channel timeout
+        sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
+        // Fire-and-forget: run the long automation in the background
+        handleGenerateImage(message as GenerateImageRequest)
+            .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
+            .catch(err => {
+                if (err instanceof NetflowAbortError || err?.name === "NetflowAbortError") {
+                    LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
+                    try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
+                    try { hideOverlay(); } catch (_) {}
                 } else {
-                    LOG("⚠️ GENERATE_IMAGE ถูกเรียกซ้ำ — ข้าม (มี instance ทำงานอยู่แล้ว)");
-                    sendResponse({ success: false, message: "Already running" });
-                    return false;
+                    console.error("[Netflow AI] Generate error:", err);
                 }
+            });
+        return false;
+    }
+
+    if (message?.action === "STOP_AUTOMATION") {
+        LOG("⛔ ได้รับ STOP_AUTOMATION — ตั้งค่าสถานะหยุด");
+        (window as any).__NETFLOW_STOP__ = true;
+        sendResponse({ success: true, message: "Stop signal sent" });
+        return false;
+    }
+
+    if (message?.action === "PING") {
+        sendResponse({ status: "ready" });
+        return false;
+    }
+
+    if (message?.action === "CLICK_FIRST_IMAGE") {
+        sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
+        (async () => {
+            LOG("CLICK_FIRST_IMAGE — ค้นหาการ์ดรูปแรกผ่านไอคอน <i>image</i>...");
+            await sleep(500);
+
+            // Element-based detection: find card with <i>image</i> icon (works on any screen size)
+            const imageCard = findFirstImageCard();
+            if (!imageCard) {
+                WARN("ไม่พบการ์ดรูปผ่านไอคอน <i>image</i>");
+                return;
             }
-            (window as any).__NETFLOW_RUNNING__ = true;
-            (window as any).__NETFLOW_STARTED_AT__ = Date.now();
-            (window as any).__NETFLOW_STOP__ = false;
-            LOG("ได้รับคำสั่ง GENERATE_IMAGE");
-            // Respond immediately to prevent MV3 service-worker message-channel timeout
-            sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
-            // Fire-and-forget: run the long automation in the background
-            handleGenerateImage(message as GenerateImageRequest)
-                .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
-                .catch(err => {
-                    if (err instanceof NetflowAbortError || err?.name === "NetflowAbortError") {
-                        LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
-                        try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
-                        try { hideOverlay(); } catch (_) {}
-                    } else {
-                        console.error("[Netflow AI] Generate error:", err);
-                    }
-                })
-                .finally(() => { (window as any).__NETFLOW_RUNNING__ = false; });
-            return false;
-        }
 
-        if (message?.action === "STOP_AUTOMATION") {
-            LOG("⛔ ได้รับ STOP_AUTOMATION — ตั้งค่าสถานะหยุด");
-            (window as any).__NETFLOW_STOP__ = true;
-            (window as any).__NETFLOW_RUNNING__ = false; // allow re-trigger after stop
-            sendResponse({ success: true, message: "Stop signal sent" });
-            return false;
-        }
+            const r = imageCard.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            LOG(`การ์ดรูปที่ (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — คลิก 2 ครั้ง`);
 
-        if (message?.action === "PING") {
-            sendResponse({ status: "ready" });
-            return false;
-        }
-
-        if (message?.action === "CLICK_FIRST_IMAGE") {
-            sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
-            (async () => {
-                LOG("CLICK_FIRST_IMAGE — ค้นหาการ์ดรูปแรกผ่านไอคอน <i>image</i>...");
-                await sleep(500);
-
-                // Element-based detection: find card with <i>image</i> icon (works on any screen size)
-                const imageCard = findFirstImageCard();
-                if (!imageCard) {
-                    WARN("ไม่พบการ์ดรูปผ่านไอคอน <i>image</i>");
-                    return;
+            for (let i = 0; i < 2; i++) {
+                const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
+                if (target) {
+                    await robustClick(target);
+                    LOG(`คลิก ${i + 1}/2 บน <${target.tagName.toLowerCase()}>`);
+                } else {
+                    await robustClick(imageCard);
+                    LOG(`คลิก ${i + 1}/2 บนการ์ด (สำรอง)`);
                 }
+                await sleep(300);
+            }
+            LOG("✅ คลิกการ์ดรูป 2 ครั้งเสร็จ");
+        })();
+        return false;
+    }
+});
 
-                const r = imageCard.getBoundingClientRect();
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
-                LOG(`การ์ดรูปที่ (${cx.toFixed(0)}, ${cy.toFixed(0)}) ${r.width.toFixed(0)}x${r.height.toFixed(0)} — คลิก 2 ครั้ง`);
+LOG("สคริปต์ Google Flow พร้อมแล้ว — รอคำสั่ง");
 
-                for (let i = 0; i < 2; i++) {
-                    const target = document.elementFromPoint(cx, cy) as HTMLElement | null;
-                    if (target) {
-                        await robustClick(target);
-                        LOG(`คลิก ${i + 1}/2 บน <${target.tagName.toLowerCase()}>`);
-                    } else {
-                        await robustClick(imageCard);
-                        LOG(`คลิก ${i + 1}/2 บนการ์ด (สำรอง)`);
-                    }
-                    await sleep(300);
-                }
-                LOG("✅ คลิกการ์ดรูป 2 ครั้งเสร็จ");
-            })();
-            return false;
-        }
-    });
-
-    LOG("สคริปต์ Google Flow พร้อมแล้ว — รอคำสั่ง");
-
-    // ★ Check for pending action from previous page (video card click caused navigation)
-    checkAndRunPendingAction();
-} else {
-    console.log("[Netflow AI] ⚡ สคริปต์ถูกโหลดซ้ำ — ข้ามการลงทะเบียน listener (ใช้ตัวเดิม)");
-}
+// ★ Check for pending action from previous page (video card click caused navigation)
+checkAndRunPendingAction();
 

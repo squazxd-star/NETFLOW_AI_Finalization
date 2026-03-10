@@ -5137,32 +5137,29 @@ const generateThaiScript = (
     const action = pickRandom(scene2Action[category] || ["ลองใช้แล้ว"]);
     const reviewPhrase = CATEGORY_REVIEW_PHRASE[category] ? pickRandom(CATEGORY_REVIEW_PHRASE[category]!) : `${action} ${productName} แล้วบอกเลย`;
 
+    // ── SHORT SCRIPTS — 1 short sentence per scene (~8s at comfortable pace) ──
+    // IMPORTANT: Keep each line SHORT so character speaks slowly and naturally, not rushed.
     if (sceneCount === 1) {
-        scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} ${powerWord}!"`);
-    } else if (sceneCount === 2) {
         scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
-        scriptParts.push(`🎬 ฉาก2: "${benefit} ${powerWord} ${closingCTA} ${urgency}"`);
+    } else if (sceneCount === 2) {
+        scriptParts.push(`🎬 ฉาก1: "${intro} ${productName} กัน!"`);
+        scriptParts.push(`🎬 ฉาก2: "${benefit} ${closingCTA}"`);
     } else {
-        // 3+ scenes: hook → review with variety → closing CTA
-        // Build middle scene variety pool so each scene covers a different topic
+        // 3+ scenes: hook → short review → closing CTA
         const middleTopics = [
-            `${reviewPhrase} ${productName} ${powerWord} ${benefit}`,
-            `${action} ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ดีมากจริงๆ`,
-            `${productName} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} เลย`,
-            `ที่ชอบมากคือ ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)}`,
-            `${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ใช้แล้วติดใจ`,
-            `บอกเลย ${productName} ตัวนี้ ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)}`,
-            `ลองมาแล้ว ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} จริงๆ`,
-            `${productName} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} ${pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other)}`,
+            `${action} ${productName} ${benefit}`,
+            `${productName} ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)} จริงๆ`,
+            `ที่ชอบมากคือ ${productName} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)}`,
+            `บอกเลย ${productName} ตัวนี้ ${pickRandom(CATEGORY_POWER_WORDS[category] || CATEGORY_POWER_WORDS.other)}`,
+            `ลองมาแล้ว ${productName} ดีจริง`,
         ];
 
-        scriptParts.push(`🎬 ฉาก1: "${openingHook} ${intro} ${productName} กัน!"`);
-        // Fill middle scenes (2 to sceneCount-1) with distinct topics
+        scriptParts.push(`🎬 ฉาก1: "${intro} ${productName} กัน!"`);
         for (let i = 1; i < sceneCount - 1; i++) {
             const topicIdx = (i - 1) % middleTopics.length;
             scriptParts.push(`🎬 ฉาก${i + 1}: "${middleTopics[topicIdx]}"`);
         }
-        scriptParts.push(`🎬 ฉาก${sceneCount}: "${closingCTA} ${pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other)} ${urgency}"`);
+        scriptParts.push(`🎬 ฉาก${sceneCount}: "${closingCTA}"`);
     }
     
     return scriptParts.join("\n");
@@ -5790,6 +5787,14 @@ const buildVideoPrompt = (
 
     const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}`;
 
+    // ── RANDOM TALK-ONLY SCENE — one scene is "character talks to camera without product" ──
+    // For multi-scene (2+), randomly pick which scene is talk-only (0-indexed).
+    // For 1-scene, always show product (talkOnlySceneIndex = -1 means none).
+    const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
+    const talkOnlySceneIndex = sceneCount >= 2 ? Math.floor(Math.random() * Math.min(sceneCount, 2)) : -1;
+    const isScene1TalkOnly = talkOnlySceneIndex === 0;
+    console.log(`🎲 Talk-only scene: ${talkOnlySceneIndex === -1 ? 'NONE (1 scene)' : `Scene ${talkOnlySceneIndex + 1}`} | Total scenes: ${sceneCount}`);
+
     // ── Build Scene 1 prompt — Hierarchical format ──
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
@@ -5829,26 +5834,42 @@ const buildVideoPrompt = (
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
     const productAnchor = `The ${veoSafeProductName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ${productUsageRealism}`;
 
+    // ── REALISM DIRECTIVE — ensures all actions look natural and believable ──
+    const realismDirective = `REALISM: All character actions must look natural, authentic, and believable — real human movement, real physical interaction. No exaggerated or theatrical gestures. Photorealistic rendering only. Every motion grounded in reality.`;
+
+    // ── Scene 1 prompt varies based on whether it's a TALK-ONLY scene or PRODUCT scene ──
+    const scene1ProductBlock = isScene1TalkOnly
+        ? `${templateConfig.englishName} commercial video. Character speaks directly to camera in a confident, engaging manner. Product is NOT visible yet — this is the hook scene. Character builds anticipation through storytelling and natural body language.`
+        : `${templateConfig.englishName} commercial video. ${productAnchor}`;
+
+    const scene1ActionBlock = isScene1TalkOnly
+        ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
+        : `${contactPhysics} ${speakingDirective}`;
+
+    const scene1PresentationBlock = isScene1TalkOnly
+        ? `Character talks directly to viewer, no product interaction. Natural conversational body language, hands visible but empty.`
+        : `${getScenePresentationDirective(category, 1)}`;
+
     let prompt = sanitizePromptForPolicy([
         // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity
         `${characterAnchor}`,
         // ★ [2. VOICE PERSONA + SCRIPT] — voice persona + dialogue
         `${voiceoverDescriptor}`,
         `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${veoSafeProductName} กัน!`}"`,
-        // ★ [3. PRODUCT IDENTITY] — product anchor with usage realism
-        `${templateConfig.englishName} commercial video. ${productAnchor}`,
-        // [4. ACTION] — character interaction + product presentation
-        `${contactPhysics} ${speakingDirective}`,
-        // [4.5. PRODUCT PRESENTATION] — category-specific visual action for this scene
-        `${getScenePresentationDirective(category, 1)}`,
+        // ★ [3. PRODUCT IDENTITY or TALK-ONLY] — depends on random assignment
+        scene1ProductBlock,
+        // [4. ACTION] — character interaction or talk-only
+        scene1ActionBlock,
+        // [4.5. PRODUCT PRESENTATION or TALK-ONLY BODY LANGUAGE]
+        scene1PresentationBlock,
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
-        // [7. STYLE/MOOD]
-        `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
-        // [8. CONSTRAINTS] — condensed policy + technical (avoids bloated 3000-char directives that cause Veo truncation/rejection)
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
+        // [7. STYLE/MOOD + REALISM]
+        `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
+        // [8. CONSTRAINTS] — condensed policy + technical
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. PRODUCT LOCK: Product appearance, packaging, shape, and color are FIXED constants — identical in every scene where product is shown. FACE LOCK REMINDER: Character face is a FIXED constant — same bone structure, same features, same skin, ZERO changes. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), veoSafeProductName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
@@ -5880,7 +5901,8 @@ const buildVideoPrompt = (
         personaName: persona.name,
         clothingDesc,
         productUsageRealism,
-        category
+        category,
+        talkOnlySceneIndex
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -5917,36 +5939,51 @@ export const buildSceneVideoPromptJSON = (
     // ── SEAMLESS TRANSITION ──
     const transitionDirective = `Seamless continuous flow from scene ${sceneNumber - 1}, one unbroken take.`;
 
-    // ── SLIM PRODUCT IDENTITY — frame reference handles visual details ──
-    // Full productAnchor is ~1000 chars; slim version keeps only essential identity
+    // ── Determine if this scene is TALK-ONLY (no product shown) ──
+    const isTalkOnly = meta.talkOnlySceneIndex === (sceneNumber - 1);
+    console.log(`🎬 Scene ${sceneNumber}: ${isTalkOnly ? 'TALK-ONLY (no product)' : 'PRODUCT REVIEW'}`);
+
     const productName = meta.product?.split(',')[0]?.trim() || 'the product';
-    const slimProductIdentity = `${meta.template} commercial. The ${productName} is the HERO — always visible, prominent, centered. Same product appearance, same size, same position as scene ${sceneNumber - 1}. ${meta.productUsageRealism}`;
+
+    // ── PRODUCT or TALK-ONLY block ──
+    const productBlock = isTalkOnly
+        ? `${meta.template} commercial. Character speaks directly to camera in a confident, engaging manner. Product is NOT visible — character builds anticipation through storytelling and natural body language.`
+        : `${meta.template} commercial. The ${productName} is the HERO — always visible, prominent, centered. Same product appearance, same size, same position as scene ${sceneNumber - 1}. PRODUCT LOCK: exact same packaging, shape, color, proportions. ${meta.productUsageRealism}`;
+
+    // ── ACTION block ──
+    const actionBlock = isTalkOnly
+        ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
+        : `Character holds and presents ${productName}. ${speakingDirective}`;
+
+    const presentationBlock = isTalkOnly
+        ? `Character talks directly to viewer, no product interaction. Natural conversational body language, hands visible but empty.`
+        : (sceneVideoAction?.trim()
+            ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
+            : getScenePresentationDirective(meta.category, sceneNumber));
 
     const prompt = sanitizePromptForPolicy([
         // [1. CHARACTER VISUAL DNA] — full anchor for face/body consistency
         meta.characterAnchor,
 
-        // [2. PRODUCT IDENTITY] — slim version (frame reference has the visual details)
-        slimProductIdentity,
+        // [2. PRODUCT or TALK-ONLY] — depends on talkOnlySceneIndex
+        productBlock,
 
         // [3. VOICE + SCRIPT] — voiceoverDescriptor already contains voice lock
         meta.voiceoverDescriptor,
         `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — not rendered on screen): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
 
-        // [4. ACTION] — what happens in this scene
-        `Character holds and presents ${productName}. ${speakingDirective}`,
-        sceneVideoAction?.trim()
-            ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
-            : getScenePresentationDirective(meta.category, sceneNumber),
+        // [4. ACTION] — talk-only or product interaction
+        actionBlock,
+        presentationBlock,
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
 
-        // [6. CONTINUITY]
-        `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}.`,
+        // [6. CONTINUITY + REALISM]
+        `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
 
-        // [7. CONSTRAINTS] — slim: no 2860-char restrictions block, frame reference handles the rest
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. No invented accessories. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment. ${meta.cameraMovement}. Photorealistic only.`
+        // [7. CONSTRAINTS + LOCKS]
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. No invented accessories. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. FACE LOCK: same bone structure, same features, same skin, ZERO changes. ${meta.cameraMovement}. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers

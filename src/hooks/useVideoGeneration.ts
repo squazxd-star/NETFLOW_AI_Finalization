@@ -4,7 +4,6 @@ import { VideoGenerationResponse } from "../types/netflow";
 import { useToast } from "./use-toast";
 import { getActiveProduct } from "../services/tiktokProductService";
 import { uploadToTikTok, isTikTokAutoPostEnabled, addPostHistory } from "../services/tiktokUploadService";
-import { uploadToYouTube, isYouTubeAutoPostEnabled, getYouTubeConfig } from "../services/youtubeUploadService";
 
 // Check if running as Chrome Extension
 const isExtension = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage;
@@ -114,46 +113,6 @@ export const useVideoGeneration = () => {
         }
     };
 
-    // Handle YouTube auto-post after video generation
-    const handleYouTubeAutoPost = async (videoUrl: string) => {
-        try {
-            const autoPostEnabled = await isYouTubeAutoPostEnabled();
-            if (!autoPostEnabled) {
-                console.log("[useVideoGeneration] YouTube auto-post disabled");
-                return;
-            }
-
-            const config = await getYouTubeConfig();
-            if (!config) {
-                console.log("[useVideoGeneration] No YouTube config found");
-                return;
-            }
-
-            toast({
-                title: "📤 กำลังโพสต์ไป YouTube Shorts...",
-                description: `กำลังอัพโหลด "${config.title || 'Netflow Video'}" ขึ้น YouTube`,
-            });
-
-            const uploadResult = await uploadToYouTube({ videoUrl, config });
-
-            if (uploadResult.success) {
-                toast({
-                    title: "✅ YouTube Shorts อัพโหลดสำเร็จ!",
-                    description: `"${config.title}" ถูกอัพโหลดขึ้น YouTube แล้ว`,
-                    className: "bg-green-600 text-white"
-                });
-            } else {
-                toast({
-                    title: "❌ YouTube อัพโหลดไม่สำเร็จ",
-                    description: uploadResult.error || "เกิดข้อผิดพลาดในการอัพโหลดไป YouTube",
-                    variant: "destructive"
-                });
-            }
-        } catch (error) {
-            console.error("[useVideoGeneration] YouTube auto-post error:", error);
-        }
-    };
-
     // Listen for TikTok messages from background script
     useEffect(() => {
         if (!isExtension) return;
@@ -178,11 +137,8 @@ export const useVideoGeneration = () => {
                     description: source === 'grok' ? "Grok Imagine สร้างวิดีโอเสร็จแล้ว!" : "VideoFX RPA ทำงานเสร็จสิ้น",
                     className: "bg-green-600 text-white"
                 });
-                // Trigger auto-posts if enabled
-                if (message.videoUrl) {
-                    handleTikTokAutoPost(message.videoUrl);
-                    handleYouTubeAutoPost(message.videoUrl);
-                }
+                // Trigger TikTok auto-post if enabled
+                if (message.videoUrl) handleTikTokAutoPost(message.videoUrl);
             }
 
             if (message.type === "VIDEO_GENERATION_ERROR") {
