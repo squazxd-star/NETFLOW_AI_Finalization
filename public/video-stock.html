@@ -398,7 +398,11 @@
             const gridEl = document.getElementById('videoGrid');
 
             try {
-                _videos = await getAllVideos();
+                // Timeout after 5 seconds to prevent infinite loading
+                _videos = await Promise.race([
+                    getAllVideos(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB timeout')), 5000))
+                ]);
             } catch (e) {
                 console.error('Failed to load videos:', e);
                 _videos = [];
