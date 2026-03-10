@@ -1784,43 +1784,80 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
  */
 async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
     const targetLabel = quality === "quality" ? "Veo 3.1 - Quality" : "Veo 3.1 - Fast";
-    LOG(`=== เลือกคุณภาพ Veo: ${targetLabel} ===`);
+    const shortLabel = quality === "quality" ? "Quality" : "Fast";
+    const oppositeShortLabel = quality === "quality" ? "Fast" : "Quality";
+    
+    const thShortLabel = quality === "quality" ? "คุณภาพ" : "เร็ว";
+    const thOppositeShortLabel = quality === "quality" ? "เร็ว" : "คุณภาพ";
+    
+    LOG(`=== เลือกคุณภาพ Veo: ${targetLabel} (${thShortLabel}) ===`);
 
-    // Step 1: Find the dropdown trigger button — contains "Veo 3.1" text + arrow_drop_down icon
+    // Step 1: Find the dropdown trigger button
     let dropdownBtn: HTMLElement | null = null;
-    const allBtns = document.querySelectorAll<HTMLElement>("button");
+    const allBtns = document.querySelectorAll<HTMLElement>("button, [role='button'], [role='combobox'], [aria-haspopup], div[class*='dropdown']");
+    
+    // Strategy A: Look for "Veo" and popup indicator
     for (const btn of allBtns) {
         const txt = (btn.textContent || "").trim();
-        if (txt.includes("Veo 3.1") && txt.includes("arrow_drop_down")) {
-            dropdownBtn = btn;
-            LOG(`พบปุ่ม Veo dropdown: "${txt.substring(0, 40).trim()}"`);
-            break;
+        if (txt.length > 60) continue; // Skip large text blocks
+
+        if (txt.includes("Veo")) {
+            // Check if it looks like a dropdown trigger
+            if (btn.hasAttribute("aria-haspopup") || 
+                btn.hasAttribute("aria-expanded") || 
+                btn.getAttribute("role") === "combobox" || 
+                txt.includes("arrow_drop_down") || 
+                btn.querySelector("svg")) {
+                dropdownBtn = btn;
+                LOG(`พบปุ่ม Veo dropdown (Strategy A): "${txt.substring(0, 40).trim()}"`);
+                break;
+            }
         }
     }
 
-    // Fallback: button with aria-haspopup="menu" containing "Veo"
+    // Strategy B: Just any button containing "Veo" near bottom
     if (!dropdownBtn) {
         for (const btn of allBtns) {
-            if (btn.getAttribute("aria-haspopup") === "menu") {
-                const txt = (btn.textContent || "").trim();
-                if (txt.includes("Veo")) {
+            const txt = (btn.textContent || "").trim();
+            if (txt.length > 60) continue;
+
+            if (txt.includes("Veo")) {
+                const rect = btn.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.5) {
                     dropdownBtn = btn;
-                    LOG(`พบปุ่ม Veo dropdown (aria-haspopup): "${txt.substring(0, 40).trim()}"`);
+                    LOG(`พบปุ่ม Veo dropdown (Strategy B - bottom area): "${txt.substring(0, 40).trim()}"`);
                     break;
                 }
             }
         }
     }
 
-    // Fallback 2: any button at the bottom containing "Veo 3.1"
+    // Strategy C: Check if it says "Fast"/"Quality" or "เร็ว"/"คุณภาพ" with popup
     if (!dropdownBtn) {
         for (const btn of allBtns) {
             const txt = (btn.textContent || "").trim();
-            if (txt.includes("Veo 3.1")) {
-                const rect = btn.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight * 0.7) {
+            if (txt.length > 40) continue;
+
+            if (txt.includes("Fast") || txt.includes("Quality") || txt.includes("เร็ว") || txt.includes("คุณภาพ")) {
+                if (btn.hasAttribute("aria-haspopup") || btn.hasAttribute("aria-expanded") || btn.querySelector("svg")) {
                     dropdownBtn = btn;
-                    LOG(`พบปุ่ม Veo dropdown (bottom area): "${txt.substring(0, 40).trim()}"`);
+                    LOG(`พบปุ่ม dropdown จากคำว่า Fast/Quality/TH (Strategy C): "${txt.substring(0, 40).trim()}"`);
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Strategy D: Fallback to finding any element with text matching quality at the bottom
+    if (!dropdownBtn) {
+        const allDivs = document.querySelectorAll<HTMLElement>("div, span");
+        for (const div of allDivs) {
+            const txt = (div.textContent || "").trim();
+            if (txt === "Veo 3.1 - Fast" || txt === "Veo 3.1 - Quality" || txt === "Fast" || txt === "Quality" || txt === "Veo 3.1 - เร็ว" || txt === "Veo 3.1 - คุณภาพสูง") {
+                const rect = div.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.6 && rect.width > 0) {
+                    dropdownBtn = div;
+                    LOG(`พบปุ่มโดยข้อความเป๊ะๆ (Strategy D): "${txt}"`);
                     break;
                 }
             }
@@ -1834,8 +1871,12 @@ async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
 
     // Check if already showing the target quality
     const currentTxt = (dropdownBtn.textContent || "").trim();
-    if (currentTxt.includes(targetLabel)) {
-        LOG(`✅ Veo quality เป็น "${targetLabel}" อยู่แล้ว — ไม่ต้องเปลี่ยน`);
+    if (
+        currentTxt.includes(targetLabel) || 
+        (currentTxt.includes(shortLabel) && !currentTxt.includes(oppositeShortLabel)) ||
+        (currentTxt.includes(thShortLabel) && !currentTxt.includes(thOppositeShortLabel))
+    ) {
+        LOG(`✅ Veo quality เป็น "${currentTxt}" อยู่แล้ว — ไม่ต้องเปลี่ยน`);
         return true;
     }
 
@@ -1854,62 +1895,38 @@ async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
     await sleep(1000);
 
     // Step 3: Find and click the target option in the dropdown menu
-    // Look for buttons/menu-items containing the target text
     let found = false;
-    const menuItems = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option']");
+    const menuItems = document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], [role='listitem'], li, div[role='button']");
     for (const item of menuItems) {
-        // Check spans inside for exact text match
-        const spans = item.querySelectorAll("span");
-        for (const span of spans) {
-            const spanTxt = (span.textContent || "").trim();
-            if (spanTxt === targetLabel) {
-                const iRect = item.getBoundingClientRect();
-                if (iRect.width > 0 && iRect.height > 0) {
-                    const iCx = iRect.left + iRect.width / 2;
-                    const iCy = iRect.top + iRect.height / 2;
-                    const iOpts = { bubbles: true, cancelable: true, clientX: iCx, clientY: iCy, button: 0 };
-                    item.dispatchEvent(new PointerEvent("pointerdown", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                    item.dispatchEvent(new MouseEvent("mousedown", iOpts));
-                    await sleep(80);
-                    item.dispatchEvent(new PointerEvent("pointerup", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                    item.dispatchEvent(new MouseEvent("mouseup", iOpts));
-                    item.dispatchEvent(new MouseEvent("click", iOpts));
-                    LOG(`✅ เลือก "${targetLabel}" สำเร็จ`);
-                    found = true;
-                    break;
-                }
-            }
-        }
-        if (found) break;
-
-        // Fallback: check textContent directly
-        if (!found) {
-            const itemTxt = (item.textContent || "").trim();
-            if (itemTxt.includes(targetLabel) && !itemTxt.includes("arrow_drop_down")) {
-                const iRect = item.getBoundingClientRect();
-                if (iRect.width > 0 && iRect.height > 0) {
-                    const iCx = iRect.left + iRect.width / 2;
-                    const iCy = iRect.top + iRect.height / 2;
-                    const iOpts = { bubbles: true, cancelable: true, clientX: iCx, clientY: iCy, button: 0 };
-                    item.dispatchEvent(new PointerEvent("pointerdown", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                    item.dispatchEvent(new MouseEvent("mousedown", iOpts));
-                    await sleep(80);
-                    item.dispatchEvent(new PointerEvent("pointerup", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                    item.dispatchEvent(new MouseEvent("mouseup", iOpts));
-                    item.dispatchEvent(new MouseEvent("click", iOpts));
-                    LOG(`✅ เลือก "${targetLabel}" สำเร็จ (fallback)`);
-                    found = true;
-                    break;
-                }
+        // Check spans inside for exact text match or check full text content
+        const itemTxt = (item.textContent || "").trim();
+        const hasTargetText = itemTxt === targetLabel || itemTxt === shortLabel || itemTxt.includes(targetLabel) || itemTxt.includes(thShortLabel);
+        
+        if (hasTargetText && !itemTxt.includes("arrow_drop_down")) {
+            const iRect = item.getBoundingClientRect();
+            if (iRect.width > 0 && iRect.height > 0) {
+                const iCx = iRect.left + iRect.width / 2;
+                const iCy = iRect.top + iRect.height / 2;
+                const iOpts = { bubbles: true, cancelable: true, clientX: iCx, clientY: iCy, button: 0 };
+                item.dispatchEvent(new PointerEvent("pointerdown", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                item.dispatchEvent(new MouseEvent("mousedown", iOpts));
+                await sleep(80);
+                item.dispatchEvent(new PointerEvent("pointerup", { ...iOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                item.dispatchEvent(new MouseEvent("mouseup", iOpts));
+                item.dispatchEvent(new MouseEvent("click", iOpts));
+                LOG(`✅ เลือก "${itemTxt}" สำเร็จ`);
+                found = true;
+                break;
             }
         }
     }
 
     if (!found) {
-        WARN(`ไม่พบตัวเลือก "${targetLabel}" ใน dropdown`);
+        WARN(`ไม่พบตัวเลือก "${targetLabel}" หรือ "${thShortLabel}" ใน dropdown`);
         // Close the dropdown
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
         await sleep(300);
+        document.body.click();
         return false;
     }
 
@@ -3086,7 +3103,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("คลิก 720p ✅");
 
         // Step 4: Wait for toast "Downloading your extended video." → "Download complete!"
-        LOG("รอดาวน์โหลดเสร็จ...");
+        LOG("⏳ รอระบบเตรียมไฟล์ Full Video (Rendering)...");
         const dlWaitStart = Date.now();
         let dlDone = false;
         let sawDownloading = false;
@@ -3095,12 +3112,12 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             for (const el of document.querySelectorAll<HTMLElement>("div[data-title] div, div[data-content] div")) {
                 const t = (el.textContent || "").trim();
                 if (t === "Download complete!" || t === "ดาวน์โหลดเสร็จ") {
-                    LOG("✅ Download complete! (toast)");
+                    LOG("✅ เตรียมไฟล์เสร็จสิ้น! (toast)");
                     dlDone = true;
                     break;
                 }
                 if (t.includes("Downloading your extended video") || t.includes("กำลังดาวน์โหลด")) {
-                    if (!sawDownloading) { sawDownloading = true; LOG("⏳ กำลังดาวน์โหลด..."); }
+                    if (!sawDownloading) { sawDownloading = true; LOG("⏳ กำลังเตรียมไฟล์วิดีโอรวม..."); }
                 }
             }
             if (dlDone) break;
@@ -3112,19 +3129,19 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                     if (t.includes("Downloading")) { stillDownloading = true; break; }
                 }
                 if (!stillDownloading) {
-                    LOG("✅ ดาวน์โหลดเสร็จ (toast หายไป)");
+                    LOG("✅ เตรียมไฟล์เสร็จสิ้น (toast หายไป)");
                     dlDone = true;
                     break;
                 }
             }
-            if (checkStop()) { LOG("⛔ ผู้ใช้สั่งหยุดระหว่างดาวน์โหลด"); return; }
+            if (checkStop()) { LOG("⛔ ผู้ใช้สั่งหยุดระหว่างเตรียมไฟล์"); return; }
             await sleep(2000);
         }
-        if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
+        if (!dlDone) { WARN("เตรียมไฟล์หมดเวลา"); return; }
         try { updateStep("upscale", "done", 100); updateStep("open", "active"); } catch (_) {}
 
         // Step 5: Open in Chrome
-        LOG("รอไฟล์ดาวน์โหลดพร้อม...");
+        LOG("⬇️ รอ Chrome ดาวน์โหลดไฟล์ลงเครื่อง...");
         await sleep(5000);
         let opened2 = false;
         const openPoll2 = Date.now();
@@ -3143,7 +3160,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                                 LOG(`[TikTok] จะใช้ download URL: ${res.downloadUrl.substring(0, 80)}...`);
                             }
                         } else {
-                            LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
+                            LOG(`⏳ กำลังดาวน์โหลดไฟล์ลงเครื่อง... (${Math.round((Date.now() - openPoll2) / 1000)}s)`);
                         }
                         resolve();
                     });
@@ -3295,7 +3312,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     }
 
     // ── STEP 4: Open downloaded file in Chrome ──
-    LOG("รอไฟล์ดาวน์โหลดพร้อม...");
+    LOG("⬇️ รอ Chrome ดาวน์โหลดไฟล์ลงเครื่อง...");
     await sleep(5000);
     let opened = false;
     const openPollStart = Date.now();
@@ -3314,7 +3331,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                             LOG(`[TikTok] จะใช้ download URL: ${res.downloadUrl.substring(0, 80)}...`);
                         }
                     } else {
-                        LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
+                        LOG(`⏳ กำลังดาวน์โหลดไฟล์ลงเครื่อง... (${Math.round((Date.now() - openPollStart) / 1000)}s)`);
                     }
                     resolve();
                 });
@@ -3700,7 +3717,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     LOG("คลิก 720p ✅");
 
     // Step 4: Wait for toast "Downloading your extended video." → "Download complete!"
-    LOG("รอดาวน์โหลดเสร็จ...");
+    LOG("⏳ รอระบบเตรียมไฟล์ Full Video (Rendering)...");
     const dlWaitStart = Date.now();
     let dlDone = false;
     let sawDownloading = false;
@@ -3708,12 +3725,12 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         for (const el of document.querySelectorAll<HTMLElement>("div[data-title] div, div[data-content] div")) {
             const t = (el.textContent || "").trim();
             if (t === "Download complete!" || t === "ดาวน์โหลดเสร็จ") {
-                LOG("✅ Download complete! (toast)");
+                LOG("✅ เตรียมไฟล์เสร็จสิ้น! (toast)");
                 dlDone = true;
                 break;
             }
             if (t.includes("Downloading your extended video") || t.includes("กำลังดาวน์โหลด")) {
-                if (!sawDownloading) { sawDownloading = true; LOG("⏳ กำลังดาวน์โหลด..."); }
+                if (!sawDownloading) { sawDownloading = true; LOG("⏳ กำลังเตรียมไฟล์วิดีโอรวม..."); }
             }
         }
         if (dlDone) break;
@@ -3724,18 +3741,18 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                 if (t.includes("Downloading")) { stillDownloading = true; break; }
             }
             if (!stillDownloading) {
-                LOG("✅ ดาวน์โหลดเสร็จ (toast หายไป)");
+                LOG("✅ เตรียมไฟล์เสร็จสิ้น (toast หายไป)");
                 dlDone = true;
                 break;
             }
         }
         await sleep(2000);
     }
-    if (!dlDone) { WARN("ดาวน์โหลดหมดเวลา"); return; }
+    if (!dlDone) { WARN("เตรียมไฟล์หมดเวลา"); return; }
     try { updateStep("upscale", "done", 100); updateStep("open", "active"); } catch (_) {}
 
     // Step 5: Open in Chrome
-    LOG("รอไฟล์ดาวน์โหลดพร้อม...");
+    LOG("⬇️ รอ Chrome ดาวน์โหลดไฟล์ลงเครื่อง...");
     await sleep(5000);
     let opened = false;
     const openPoll = Date.now();
@@ -3754,7 +3771,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                             LOG(`[TikTok] จะใช้ download URL: ${res.downloadUrl.substring(0, 80)}...`);
                         }
                     } else {
-                        LOG(`ดาวน์โหลดยังไม่พร้อม: ${res?.message}`);
+                        LOG(`⏳ กำลังดาวน์โหลดไฟล์ลงเครื่อง... (${Math.round((Date.now() - openPoll) / 1000)}s)`);
                     }
                     resolve();
                 });
