@@ -268,10 +268,23 @@ const GenerationSettingsSection = ({
                 productContext += "\n(มีรูปสินค้าแนบมา — ให้ดูรูปประกอบ)";
             }
 
-            // Include real product data if available
-            const realDataSection = productDataText
-                ? `\n\nข้อมูลสินค้าจริง (ใช้ข้อมูลนี้ในสคริปต์):\n${productDataText}`
-                : `\n\nไม่มีข้อมูลเพิ่มเติม — ให้ใช้ความรู้ของคุณเกี่ยวกับสินค้า "${productName}" เขียนสคริปต์ที่มีสเปคจริง ฟีเจอร์จริง ราคาจริง อุปกรณ์เสริมจริง ห้ามเขียนสคริปต์กว้างๆ ที่ไม่มีข้อมูลเฉพาะ`;
+            // Include real product data + review flow guidance if available
+            let realDataSection = "";
+            if (productDataText) {
+                realDataSection = `\n\nข้อมูลสินค้าจริง (ใช้ข้อมูลนี้ในสคริปต์):\n${productDataText}`;
+                // Inject review flow keyPoints into scene allocation if available
+                if (productInfo?.reviewFlow?.keyPoints?.length > 0) {
+                    realDataSection += `\n\n🎯 ลำดับหัวข้อที่ควรพูดถึง (เรียงตามความน่าสนใจ):\n${productInfo.reviewFlow.keyPoints.map((p: string, i: number) => `${i + 1}. ${p}`).join('\n')}`;
+                    realDataSection += `\nให้กระจายหัวข้อเหล่านี้ลงในแต่ละฉากกลาง (ฉาก 2 ถึงฉากก่อนสุดท้าย) — ฉากละ 1 หัวข้อ`;
+                }
+                // Add pronunciation guide if available
+                if (productInfo?.pronunciationGuide && Object.keys(productInfo.pronunciationGuide).length > 0) {
+                    const pronEntries = Object.entries(productInfo.pronunciationGuide);
+                    realDataSection += `\n\n🗣️ คำอ่านที่ถูกต้อง (ใช้คำไทยในสคริปต์แทนคำอังกฤษ):\n${pronEntries.map(([en, th]: [string, string]) => `- ${en} → ให้เขียนว่า "${th}" ในสคริปต์`).join('\n')}`;
+                }
+            } else {
+                realDataSection = `\n\nไม่มีข้อมูลเพิ่มเติม — ให้ใช้ความรู้ของคุณเกี่ยวกับสินค้า "${productName}" เขียนสคริปต์ที่มีสเปคจริง ฟีเจอร์จริง ราคาจริง อุปกรณ์เสริมจริง ห้ามเขียนสคริปต์กว้างๆ ที่ไม่มีข้อมูลเฉพาะ`;
+            }
 
             const userPrompt = `สร้างสคริปต์รีวิวสินค้าสำหรับวิดีโอสั้น!
 
@@ -950,7 +963,7 @@ Do not explain. Only output the lines above.`;
                                     <div className="text-sm font-semibold text-foreground flex items-center gap-2">
                                         {sceneCount} ฉาก
                                         <span className="text-[10px] font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">
-                                            {sceneCount * 8}s
+                                            {sceneCount === 1 ? '8s' : `~${sceneCount * 6}-${sceneCount * 8}s`}
                                         </span>
                                         {sceneCount === 2 && (
                                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md animate-pulse" style={{ color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` }}>
@@ -1013,7 +1026,7 @@ Do not explain. Only output the lines above.`;
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-sm font-semibold ${isSelected ? '' : ''}`} style={isSelected ? { color: themeConfig.hex } : {}}>{opt.label}</span>
-                                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{opt.count * 8}s</span>
+                                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{opt.count === 1 ? '8s' : `~${opt.count * 6}-${opt.count * 8}s`}</span>
                                                     {opt.badge && (
                                                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
                                                             opt.badge === "แนะนำ" ? '' :

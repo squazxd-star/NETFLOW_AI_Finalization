@@ -19,7 +19,8 @@
     "https://labs.google/*",
     "https://grok.com/*",
     "*://*.tiktok.com/*",
-    "*://api.openai.com/*"
+    "*://api.openai.com/*",
+    "https://studio.youtube.com/*"
   ],
   "side_panel": {
     "default_path": "index.html"
@@ -74,12 +75,19 @@
       ],
       "js": ["src/content-tiktok-upload.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://studio.youtube.com/*"
+      ],
+      "js": ["src/content-youtube-upload.js"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["themes/*.jpg", "themes/*.png", "themes/*.webp"],
-      "matches": ["https://labs.google/*", "https://grok.com/*", "*://*.tiktok.com/*"]
+      "matches": ["https://labs.google/*", "https://grok.com/*", "*://*.tiktok.com/*", "https://studio.youtube.com/*"]
     }
   ],
   "content_security_policy": {

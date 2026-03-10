@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ImageIcon, ChevronDown, Loader2 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { sceneBackgroundOptions } from "@/types/netflow";
-import { autoSelectBackground, autoSelectBackgroundWithAI } from "@/utils/autoBackground";
+import { autoSelectBackgroundTop3, autoSelectBackgroundTop3WithAI } from "@/utils/autoBackground";
 import { SectionProps } from "./types";
 
 interface BackgroundPickerProps extends SectionProps {
@@ -16,6 +16,10 @@ const BackgroundPickerSection = ({ setValue, watch, productImage }: BackgroundPi
     const [autoFlash, setAutoFlash] = useState(false);
     const [isAutoLoading, setIsAutoLoading] = useState(false);
 
+    // Cache top 3 results + cycle index
+    const top3Cache = useRef<string[]>([]);
+    const cycleIndex = useRef(0);
+
     const handleAutoSelect = async () => {
         const name = watch("productName") || "";
         const desc = watch("productDescription") || "";
@@ -25,18 +29,30 @@ const BackgroundPickerSection = ({ setValue, watch, productImage }: BackgroundPi
             return;
         }
 
+        // If we already have cached results → just cycle to next
+        if (top3Cache.current.length > 0) {
+            cycleIndex.current = (cycleIndex.current + 1) % top3Cache.current.length;
+            const next = top3Cache.current[cycleIndex.current];
+            setValue("sceneBackground", next);
+            setAutoFlash(true);
+            setTimeout(() => setAutoFlash(false), 800);
+            return;
+        }
+
+        // First click → fetch top 3 from AI/keyword
         setIsAutoLoading(true);
         try {
-            const best = await autoSelectBackgroundWithAI(name, desc, productImage);
-            setValue("sceneBackground", best);
-
-            // Flash feedback
+            const top3 = await autoSelectBackgroundTop3WithAI(name, desc, productImage);
+            top3Cache.current = top3;
+            cycleIndex.current = 0;
+            setValue("sceneBackground", top3[0]);
             setAutoFlash(true);
             setTimeout(() => setAutoFlash(false), 800);
         } catch {
-            // Fallback keyword
-            const best = autoSelectBackground(name, desc);
-            setValue("sceneBackground", best);
+            const top3 = autoSelectBackgroundTop3(name, desc);
+            top3Cache.current = top3;
+            cycleIndex.current = 0;
+            setValue("sceneBackground", top3[0]);
             setAutoFlash(true);
             setTimeout(() => setAutoFlash(false), 800);
         } finally {

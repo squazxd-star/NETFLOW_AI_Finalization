@@ -10,9 +10,10 @@ export default defineConfig({
     build: {
         outDir: "dist",
         emptyOutDir: false,
+        copyPublicDir: false,
         rollupOptions: {
             input: {
-                "content-grok": path.resolve(__dirname, "src/content-grok.ts"),
+                "content-youtube-upload": path.resolve(__dirname, "src/content-youtube-upload.ts"),
             },
             output: {
                 entryFileNames: "src/[name].js",

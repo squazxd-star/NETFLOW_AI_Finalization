@@ -803,13 +803,13 @@ const runUploadFlow = async (payload: UploadPayload): Promise<{ success: boolean
     sendProgress(1, T, 'รอหน้าอัปโหลด TikTok Studio', 'done');
 
     // ── 2/13: ดาวน์โหลดวิดีโอ ──
-    sendProgress(2, T, 'ดาวน์โหลดวิดีโอจาก Grok');
+    sendProgress(2, T, 'ดาวน์โหลดวิดีโอ');
     const uploadOk = await uploadVideoFile(payload.videoUrl, !!payload.videoDataReady);
     if (!uploadOk) {
       sendProgress(2, T, 'ดาวน์โหลดวิดีโอล้มเหลว', 'error');
       return { success: false, error: 'ไม่สามารถอัปโหลดวิดีโอได้' };
     }
-    sendProgress(2, T, 'ดาวน์โหลดวิดีโอจาก Grok', 'done');
+    sendProgress(2, T, 'ดาวน์โหลดวิดีโอ', 'done');
 
     // ── 3/13: รอ TikTok ประมวลผลวิดีโอ ──
     sendProgress(3, T, 'รอ TikTok ประมวลผลวิดีโอ...');

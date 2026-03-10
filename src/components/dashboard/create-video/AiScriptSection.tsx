@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Controller } from "react-hook-form";
 import {
     FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe,
@@ -7,7 +7,7 @@ import {
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
 import { useTheme } from "@/contexts/ThemeContext";
-import { autoSelectBackground, autoSelectBackgroundWithAI } from "@/utils/autoBackground";
+import { autoSelectBackgroundTop3, autoSelectBackgroundTop3WithAI } from "@/utils/autoBackground";
 import {
     templateOptions,
     voiceToneOptions,
@@ -37,6 +37,10 @@ const AiScriptSection = ({
     const [autoFlash, setAutoFlash] = useState(false);
     const [isAutoBgLoading, setIsAutoBgLoading] = useState(false);
 
+    // Cache top 3 results + cycle index
+    const top3Cache = useRef<string[]>([]);
+    const cycleIndex = useRef(0);
+
     const handleAutoBackground = async () => {
         const name = watch("productName") || "";
         const desc = watch("productDescription") || "";
@@ -44,15 +48,31 @@ const AiScriptSection = ({
             alert("กรุณากรอกชื่อสินค้าก่อน แล้วกด Auto อีกครั้ง");
             return;
         }
+
+        // If we already have cached results → just cycle to next
+        if (top3Cache.current.length > 0) {
+            cycleIndex.current = (cycleIndex.current + 1) % top3Cache.current.length;
+            const next = top3Cache.current[cycleIndex.current];
+            setValue("sceneBackground", next);
+            setAutoFlash(true);
+            setTimeout(() => setAutoFlash(false), 800);
+            return;
+        }
+
+        // First click → fetch top 3 from AI/keyword
         setIsAutoBgLoading(true);
         try {
-            const best = await autoSelectBackgroundWithAI(name, desc, productImage);
-            setValue("sceneBackground", best);
+            const top3 = await autoSelectBackgroundTop3WithAI(name, desc, productImage);
+            top3Cache.current = top3;
+            cycleIndex.current = 0;
+            setValue("sceneBackground", top3[0]);
             setAutoFlash(true);
             setTimeout(() => setAutoFlash(false), 800);
         } catch {
-            const best = autoSelectBackground(name, desc);
-            setValue("sceneBackground", best);
+            const top3 = autoSelectBackgroundTop3(name, desc);
+            top3Cache.current = top3;
+            cycleIndex.current = 0;
+            setValue("sceneBackground", top3[0]);
             setAutoFlash(true);
             setTimeout(() => setAutoFlash(false), 800);
         } finally {

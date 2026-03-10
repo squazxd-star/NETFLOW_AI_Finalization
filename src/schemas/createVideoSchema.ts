@@ -46,6 +46,11 @@ export const createVideoSchema = z.object({
     // Engine Selection
     videoEngine: z.enum(["veo", "grok"]).default("veo"),
 
+    // Grok Settings
+    grokAspectRatio: z.enum(["16:9", "9:16", "1:1", "3:2", "2:3"]).default("9:16"),
+    grokResolution: z.enum(["480p", "720p"]).default("480p"),
+    grokDuration: z.enum(["6s", "10s"]).default("6s"),
+
     // Google Flow Settings (Veo)
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
@@ -53,14 +58,16 @@ export const createVideoSchema = z.object({
     veoQuality: z.enum(["fast", "quality"]).default("fast"),
     sceneCount: z.number().int().min(1).max(10).default(2),
 
-    // Grok Settings
-    grokAspectRatio: z.enum(["16:9", "9:16", "1:1", "3:2", "2:3"]).default("9:16"),
-    grokResolution: z.enum(["480p", "720p"]).default("480p"),
-    grokDuration: z.enum(["6s", "10s"]).default("6s"),
 
     // Posting Settings
     autoPostYoutube: z.boolean().default(false),
     autoPostTikTok: z.boolean().default(false),
+
+    // YouTube Shorts Settings
+    youtubeTitle: z.string().default(""),
+    youtubeDescription: z.string().default(""),
+    youtubeMadeForKids: z.boolean().default(false),
+    youtubeVisibility: z.enum(["public", "unlisted", "private"]).default("public"),
 
     // Scene Background
     sceneBackground: z.string().default("studio"),
@@ -111,6 +118,10 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     grokDuration: "6s" as const,
     autoPostYoutube: false,
     autoPostTikTok: false,
+    youtubeTitle: "",
+    youtubeDescription: "",
+    youtubeMadeForKids: false,
+    youtubeVisibility: "public" as const,
     sceneBackground: "studio",
     mustUseKeywords: "",
     avoidKeywords: "",

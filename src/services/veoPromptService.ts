@@ -1163,6 +1163,12 @@ const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Reproduce the reference produ
 // Anti-Text Directive — strongest possible anti-text/font rendering prevention
 const ANTI_TEXT_DIRECTIVE = "CRITICAL NO TEXT DIRECTIVE: Absolutely NO subtitles, NO captions, NO watermarks, NO floating text, NO on-screen graphics, NO gibberish fonts, NO banners, NO UI elements anywhere in the video. The video must be purely visual action and audio dialogue. Do NOT attempt to render any language or letters visually.";
 
+// Anti-Addition Directive — prevents AI from inventing accessories/elements not in the reference
+const ANTI_ADDITION_DIRECTIVE = "ZERO INVENTION POLICY: Do NOT add ANY accessory, prop, or element that is NOT explicitly shown in the reference images. Specifically: NO glasses/sunglasses unless in reference. NO hats/headbands unless in reference. NO scarves/neckwear unless in reference. NO earphones/AirPods unless the product IS earphones. NO extra jewelry unless in reference. NO tattoos unless in reference. NO background logos or brand signs. NO secondary products or props not in the brief. If the reference shows a plain-faced person, the output MUST show a plain-faced person. Every visible element must be traceable to either the character reference or the product reference.";
+
+// Clothing Fidelity Directive — ensures AI reproduces outfit accurately from reference or description
+const CLOTHING_FIDELITY_DIRECTIVE = "CLOTHING ACCURACY: Reproduce the character's outfit with 90%+ fidelity to the reference or description. Match: neckline shape, sleeve length, fabric color (exact hue/saturation), pattern/print, layering order, fit (loose/slim/oversized). Do NOT substitute a described casual t-shirt with a formal blouse. Do NOT change colors or add patterns not in the reference. If reference shows a white round-neck t-shirt, output MUST show a white round-neck t-shirt — not a V-neck, not cream, not striped.";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CATEGORY-SPECIFIC GRIP + CONTACT PHYSICS (20 subcategories in 5 groups)
 // Prevents mangled hands, floating products, and unnatural interactions
@@ -4695,6 +4701,8 @@ ${FRONT_FACING_DIRECTIVE}
 ${PRODUCT_MATCH_DIRECTIVE}
 ${ANTI_DISTORTION_DIRECTIVE}
 ${FACE_IDENTITY_LOCK}
+${ANTI_ADDITION_DIRECTIVE}
+${CLOTHING_FIDELITY_DIRECTIVE}
 
 Reference Images:
 - Image 1: Character style reference — use as visual inspiration for an ORIGINAL ANONYMOUS fictional character with similar aesthetic${hasProductImage ? `
@@ -4899,7 +4907,7 @@ const buildVideoPrompt = (
         // [7. STYLE/MOOD]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
         // [8. CONSTRAINTS] — policy + technical
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice '${persona.name}' must carry identically through every subsequent scene. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${ANTI_ADDITION_DIRECTIVE} ${CLOTHING_FIDELITY_DIRECTIVE} Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — this exact voice '${persona.name}' must carry identically through every subsequent scene. PRODUCT SIZE LOCK: The product must maintain CONSISTENT apparent size throughout the entire video — never shrink, never grow, never change scale relative to the character's hands and body. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
@@ -4914,7 +4922,7 @@ const buildVideoPrompt = (
         productAnchor: productAnchor,
         template: templateConfig.englishName,
         pacing: durationConfig.pacing,
-        restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${buildContactPhysicsDirectiveSlim(category)} ${VIDEO_POLICY_DIRECTIVE}`,
+        restrictions: `${ANTI_TEXT_DIRECTIVE} ${FACE_IDENTITY_LOCK} ${FRONT_FACING_DIRECTIVE} ${PRODUCT_MATCH_DIRECTIVE} ${ANTI_ADDITION_DIRECTIVE} ${CLOTHING_FIDELITY_DIRECTIVE} ${buildContactPhysicsDirectiveSlim(category)} ${VIDEO_POLICY_DIRECTIVE}`,
         voiceoverDescriptor,
         cameraMovement: cameraMove,
         sceneTransition: transition,
@@ -4970,7 +4978,7 @@ export const buildSceneVideoPromptJSON = (
         // ★ [2. PRODUCT IDENTITY] — full product anchor repeated
         `${meta.template} commercial video. ${meta.productAnchor}`,
         // ★ [2.5. PRODUCT POSITION LOCK — CRITICAL for Extend] — prevents product from shrinking/disappearing across scenes
-        `[CRITICAL] PRODUCT POSITION LOCK: The product MUST remain in the EXACT same position on the surface as the previous scene. Same size, same scale, same placement — NEVER shrink, NEVER fade, NEVER drift off-screen, NEVER disappear. Product occupies the same screen area and proportions as scene ${sceneNumber - 1}. If product was on the table, it stays on the table at the same spot. Zero size change, zero position change.`,
+        `[CRITICAL] PRODUCT POSITION LOCK: The product MUST remain in the EXACT same position on the surface as the previous scene. Same size, same scale, same placement — NEVER shrink, NEVER fade, NEVER drift off-screen, NEVER disappear. Product occupies the same screen area and proportions as scene ${sceneNumber - 1}. If product was on the table, it stays on the table at the same spot. Zero size change, zero position change. PRODUCT SIZE CONSISTENCY: The product's apparent size relative to the character's hands and body must be IDENTICAL to scene 1. If the bottle was 20% of frame height in scene 1, it must be 20% in this scene. GESTURE CONTROL: Character interacts with product using natural, purposeful gestures only — demonstrate, present, point at features. No random waving, no awkward product tossing, no unnatural arm positions. Hands move smoothly and deliberately.`,
 
         // ★ [3. VOICE PERSONA + SCRIPT] — full voice persona in every scene
         `${meta.voiceoverDescriptor}`,

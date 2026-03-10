@@ -1,4 +1,4 @@
-import { Share2, Youtube, Save } from "lucide-react";
+import { Share2, Youtube, Save, Globe, Lock, EyeOff } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 );
 
 const ProductionPreviewSection = ({
+    register,
     setValue,
     watch,
     isOpen,
@@ -21,6 +22,8 @@ const ProductionPreviewSection = ({
 }: ProductionPreviewSectionProps) => {
     const autoPostYoutube = watch("autoPostYoutube");
     const autoPostTikTok = watch("autoPostTikTok");
+    const youtubeVisibility = watch("youtubeVisibility");
+    const youtubeMadeForKids = watch("youtubeMadeForKids");
     const { toast } = useToast();
 
     const handleTikTokToggle = () => {
@@ -94,11 +97,112 @@ const ProductionPreviewSection = ({
                         </div>
                         {/* Auto Post description */}
                         <p className="text-[10px] text-muted-foreground/70 leading-relaxed mt-1">
-                            {autoPostTikTok 
+                            {autoPostYoutube && autoPostTikTok
+                                ? "✅ YouTube Shorts + TikTok Auto Post เปิดอยู่"
+                                : autoPostYoutube
+                                ? "✅ YouTube Shorts Auto Post เปิดอยู่ — หลัง Generate คลิปเสร็จ ระบบจะโพสต์ขึ้น YouTube อัตโนมัติ"
+                                : autoPostTikTok 
                                 ? "✅ TikTok Auto Post เปิดอยู่ — หลัง Generate คลิปเสร็จ ระบบจะโพสต์ + ปักตะกร้าอัตโนมัติ"
-                                : "เปิด TikTok Auto Post เพื่อโพสต์อัตโนมัติหลัง Generate คลิปเสร็จ"}
+                                : "เปิด Auto Post เพื่อโพสต์อัตโนมัติหลัง Generate คลิปเสร็จ"}
                         </p>
                     </div>
+
+                    {/* YouTube Shorts Form — shown when YouTube is selected */}
+                    {autoPostYoutube && (
+                        <div className="space-y-3 p-3 rounded-xl bg-background/50 border border-border/50">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Youtube className="w-4 h-4 text-red-500" />
+                                <span className="text-xs font-medium text-white">YouTube Shorts</span>
+                            </div>
+
+                            {/* Title */}
+                            <div>
+                                <label className="text-[11px] text-muted-foreground mb-1 block">ชื่อ (Title)</label>
+                                <input
+                                    {...register("youtubeTitle")}
+                                    placeholder="ชื่อวิดีโอ (ระบบจะเติม #Shorts ให้อัตโนมัติ)"
+                                    className="w-full px-3 py-2 text-xs bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <label className="text-[11px] text-muted-foreground mb-1 block">คำอธิบาย (Description)</label>
+                                <textarea
+                                    {...register("youtubeDescription")}
+                                    placeholder="คำอธิบายวิดีโอ (ไม่จำเป็น)"
+                                    rows={2}
+                                    className="w-full px-3 py-2 text-xs bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                />
+                            </div>
+
+                            {/* Made for Kids */}
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] text-muted-foreground">สร้างมาเพื่อเด็ก?</label>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setValue("youtubeMadeForKids", false)}
+                                        className={`px-3 py-1 text-[10px] rounded-md transition-all ${
+                                            !youtubeMadeForKids
+                                                ? 'bg-primary/20 text-primary border border-primary/30'
+                                                : 'bg-background text-muted-foreground border border-border hover:bg-white/5'
+                                        }`}
+                                    >
+                                        ไม่ใช่
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setValue("youtubeMadeForKids", true)}
+                                        className={`px-3 py-1 text-[10px] rounded-md transition-all ${
+                                            youtubeMadeForKids
+                                                ? 'bg-primary/20 text-primary border border-primary/30'
+                                                : 'bg-background text-muted-foreground border border-border hover:bg-white/5'
+                                        }`}
+                                    >
+                                        ใช่
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Visibility */}
+                            <div>
+                                <label className="text-[11px] text-muted-foreground mb-1.5 block">การเผยแพร่</label>
+                                <div className="flex gap-1.5">
+                                    {([
+                                        { value: "public", label: "สาธารณะ", icon: Globe },
+                                        { value: "unlisted", label: "ไม่แสดง", icon: EyeOff },
+                                        { value: "private", label: "ส่วนตัว", icon: Lock },
+                                    ] as const).map(({ value, label, icon: Icon }) => (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            onClick={() => setValue("youtubeVisibility", value)}
+                                            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] rounded-lg transition-all ${
+                                                youtubeVisibility === value
+                                                    ? 'bg-primary/20 text-primary border border-primary/30'
+                                                    : 'bg-background text-muted-foreground border border-border hover:bg-white/5'
+                                            }`}
+                                        >
+                                            <Icon className="w-3 h-3" />
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Shorts Info Tip */}
+                            <div className="mt-2 p-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/15">
+                                <p className="text-[10px] font-medium text-yellow-400/90 mb-1.5">💡 เกร็ดความรู้ YouTube Shorts</p>
+                                <ul className="text-[9.5px] text-muted-foreground/80 space-y-1 leading-relaxed">
+                                    <li>• <span className="text-yellow-400/70">อัตราส่วนภาพ:</span> ต้องเป็นแนวตั้ง (9:16) หรือสี่เหลี่ยม (1:1)</li>
+                                    <li>• <span className="text-yellow-400/70">ความยาว:</span> ต้องไม่เกิน 60 วินาที — เกินจะกลายเป็นวิดีโอปกติ</li>
+                                    <li>• <span className="text-yellow-400/70">#Shorts:</span> ระบบเติม #Shorts ใน Title ให้อัตโนมัติ เพื่อช่วยให้ YouTube จัดหมวดแม่นยำขึ้น</li>
+                                </ul>
+                                <p className="text-[9px] text-muted-foreground/50 mt-1.5 italic">คลิปจาก Veo เป็น 9:16 + สั้นกว่า 60 วิ → จัดเข้า Shorts อัตโนมัติ</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </section>

@@ -3,7 +3,7 @@
  * Shared Prompt Types — ทุก Engine ต้อง implement interface นี้
  * ═══════════════════════════════════════════════════════════
  * 
- * ไฟล์นี้กำหนด interface กลางที่ทั้ง Veo และ Grok (และ engine อื่นๆ ในอนาคต)
+ * ไฟล์นี้กำหนด interface กลางที่ Veo (และ engine อื่นๆ ในอนาคต)
  * ต้อง implement เพื่อให้ระบบ Prompt Router ทำงานได้
  */
 

@@ -344,17 +344,78 @@ const generateOpenAISpeech = async (text: string, apiKey: string): Promise<strin
     }
 };
 
+// ═══════════════════════════════════════════════════════════
+// TTS Pronunciation Preprocessing — replaces English brand/tech
+// names with Thai phonetic equivalents for accurate speech output
+// ═══════════════════════════════════════════════════════════
+const TTS_PRONUNCIATION: Record<string, string> = {
+    "iPhone": "ไอโฟน", "MacBook": "แม็คบุ๊ค", "AirPods": "แอร์พอดส์", "iPad": "ไอแพด",
+    "Apple": "แอปเปิ้ล", "Samsung": "ซัมซุง", "Galaxy": "กาแล็คซี่", "Huawei": "หัวเว่ย",
+    "Xiaomi": "เสียวหมี่", "OPPO": "ออปโป้", "Vivo": "วีโว่", "Realme": "เรียลมี",
+    "OnePlus": "วันพลัส", "Google": "กูเกิ้ล", "Pixel": "พิกเซล", "Sony": "โซนี่",
+    "Nike": "ไนกี้", "Adidas": "อาดิดาส", "Puma": "พูม่า", "New Balance": "นิวบาลานซ์",
+    "Uniqlo": "ยูนิโคล่", "Zara": "ซาร่า", "Gucci": "กุชชี่",
+    "Louis Vuitton": "หลุยส์วิตตอง", "Chanel": "ชาแนล", "Dior": "ดิออร์", "Hermès": "แอร์เมส",
+    "Dyson": "ไดสัน", "Panasonic": "พานาโซนิค", "Philips": "ฟิลิปส์",
+    "JBL": "เจบีแอล", "Bose": "โบส", "Marshall": "มาร์แชลล์",
+    "Nintendo": "นินเทนโด", "PlayStation": "เพลย์สเตชั่น", "Xbox": "เอ็กซ์บ็อกซ์",
+    "Logitech": "โลจิเทค", "Razer": "เรเซอร์",
+    "GoPro": "โกโปร", "DJI": "ดีเจไอ", "Canon": "แคนนอน", "Nikon": "นิคอน",
+    "OLED": "โอแอลอีดี", "AMOLED": "อะโมเลด", "USB-C": "ยูเอสบีซี", "Bluetooth": "บลูทูธ",
+    "Wi-Fi": "ไวไฟ", "NFC": "เอ็นเอฟซี", "HDR": "เอชดีอาร์", "ANC": "เอเอ็นซี",
+    "Snapdragon": "สแนปดรากอน", "Dimensity": "ไดเมนซิตี้",
+    "NVIDIA": "เอ็นวิเดีย", "GeForce": "จีฟอร์ซ", "Ryzen": "ไรเซน",
+    "Whiskas": "วิสกัส", "Royal Canin": "รอยัลคานิน",
+    "Starbucks": "สตาร์บัคส์", "Nescafé": "เนสกาแฟ",
+    "CeraVe": "เซราวี", "La Roche-Posay": "ลา โรช โพเซย์", "Cetaphil": "เซตาฟิล",
+    "Garnier": "การ์นิเย่", "Nivea": "นีเวีย", "Vaseline": "วาสลีน",
+    "L'Oréal": "ลอรีอัล", "Maybelline": "เมย์เบลลีน", "NARS": "นาร์ส",
+    "Innisfree": "อินนิสฟรี", "Laneige": "ลาเนจ",
+    "The Ordinary": "ดิออร์ดินารี่", "Bioderma": "ไบโอเดอร์มา",
+    "Colgate": "คอลเกต", "Sensodyne": "เซ็นโซดายน์",
+    "Core Ultra": "คอร์อัลตร้า", "Fujifilm": "ฟูจิฟิล์ม",
+};
+
+/**
+ * Preprocess script text for TTS: replace English brand/tech names with Thai phonetics.
+ * Also accepts an optional custom pronunciation map (e.g. from product search results).
+ */
+export const preprocessScriptForTTS = (
+    text: string,
+    customPronunciation?: Record<string, string>
+): string => {
+    let result = text;
+    // Merge custom pronunciation (higher priority) with static map
+    const fullMap = { ...TTS_PRONUNCIATION, ...(customPronunciation || {}) };
+    // Sort by length descending to match longer phrases first (e.g. "La Roche-Posay" before "La")
+    const sorted = Object.entries(fullMap).sort((a, b) => b[0].length - a[0].length);
+    for (const [eng, thai] of sorted) {
+        const escaped = eng.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'gi');
+        result = result.replace(regex, thai);
+    }
+    return result;
+};
+
 /**
  * Synthesizes text to speech using Google Cloud TTS API (with OpenAI fallback)
+ * Now with automatic pronunciation preprocessing for brand/tech names.
  */
-export const generateSpeech = async (text: string): Promise<string | null> => {
+export const generateSpeech = async (
+    text: string,
+    customPronunciation?: Record<string, string>
+): Promise<string | null> => {
+    // Preprocess text for better TTS pronunciation
+    const processedText = preprocessScriptForTTS(text, customPronunciation);
+    console.log("🗣️ TTS preprocessed text:", processedText.substring(0, 100) + "...");
+
     // 1. Try Google Cloud TTS first
     try {
         const googleKey = await getApiKey('gemini');
         if (googleKey) {
             const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleKey}`;
             const requestBody = {
-                input: { text },
+                input: { text: processedText },
                 voice: { languageCode: "th-TH", ssmlGender: "FEMALE" },
                 audioConfig: { audioEncoding: "MP3" },
             };
@@ -382,7 +443,7 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
     // 2. Fallback to OpenAI TTS
     const openaiKey = await getApiKey('openai');
     if (openaiKey) {
-        return await generateOpenAISpeech(text, openaiKey);
+        return await generateOpenAISpeech(processedText, openaiKey);
     }
 
     return null;

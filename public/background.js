@@ -184,6 +184,79 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // async
     }
 
+    // ── UPLOAD_YOUTUBE: Open YouTube Studio + send upload command ──
+    if (message?.action === 'UPLOAD_YOUTUBE') {
+        (async () => {
+            try {
+                console.log('[Netflow BG] UPLOAD_YOUTUBE — opening YouTube Studio');
+
+                // First, pre-fetch the video if we have a URL
+                if (message.videoUrl && !_cachedVideoDataUrl) {
+                    console.log('[Netflow BG] Pre-fetching video for YouTube...');
+                    try {
+                        const resp = await fetch(message.videoUrl);
+                        if (resp.ok) {
+                            const blob = await resp.blob();
+                            const reader = new FileReader();
+                            await new Promise((resolve, reject) => {
+                                reader.onloadend = () => { _cachedVideoDataUrl = reader.result; resolve(true); };
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                            console.log('[Netflow BG] Video cached for YouTube');
+                        }
+                    } catch (e) {
+                        console.warn('[Netflow BG] Pre-fetch failed:', e.message);
+                    }
+                }
+
+                // Find existing YouTube Studio tab or create new one
+                let ytTabs = await chrome.tabs.query({ url: 'https://studio.youtube.com/*' });
+                let ytTab;
+                if (ytTabs.length > 0) {
+                    ytTab = ytTabs[0];
+                    await chrome.tabs.update(ytTab.id, { active: true });
+                } else {
+                    ytTab = await chrome.tabs.create({ url: 'https://studio.youtube.com' });
+                }
+
+                // Wait for tab to load
+                await new Promise(resolve => setTimeout(resolve, 4000));
+
+                // Ensure content script is injected
+                try {
+                    await chrome.scripting.executeScript({
+                        target: { tabId: ytTab.id },
+                        files: ['src/content-youtube-upload.js']
+                    });
+                } catch (e) {
+                    console.warn('[Netflow BG] YT script injection:', e.message);
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Send upload command to content script
+                chrome.tabs.sendMessage(ytTab.id, {
+                    action: 'UPLOAD_YOUTUBE',
+                    title: message.title || '',
+                    description: message.description || '',
+                    madeForKids: message.madeForKids || false,
+                    visibility: message.visibility || 'public',
+                }, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn('[Netflow BG] YT sendMessage error:', chrome.runtime.lastError.message);
+                        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                    } else {
+                        sendResponse(resp || { success: true });
+                    }
+                });
+            } catch (err) {
+                console.error('[Netflow BG] UPLOAD_YOUTUBE error:', err.message);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+        return true; // async
+    }
+
     // Close the automation tab (Google Flow) after automation is complete
     if (message?.action === "CLOSE_AUTOMATION_TAB") {
         const tabId = sender?.tab?.id;

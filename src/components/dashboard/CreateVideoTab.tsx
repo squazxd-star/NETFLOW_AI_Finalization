@@ -8,6 +8,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { playAutomationSound } from "@/utils/soundEffects";
 import { getSyncedProducts } from "@/services/tiktokProductService";
 import { setTikTokAutoPostEnabled } from "@/services/tiktokUploadService";
+import { setYouTubeAutoPostEnabled, saveYouTubeConfig } from "@/services/youtubeUploadService";
 import {
     AiScriptSection,
     ProductDataSection,
@@ -69,6 +70,26 @@ const CreateVideoTab = () => {
     useEffect(() => {
         setTikTokAutoPostEnabled(!!autoPostTikTok);
     }, [autoPostTikTok]);
+
+    // When YouTube settings change, persist to storage
+    const autoPostYoutube = watch("autoPostYoutube");
+    const youtubeTitle = watch("youtubeTitle");
+    const youtubeDescription = watch("youtubeDescription");
+    const youtubeMadeForKids = watch("youtubeMadeForKids");
+    const youtubeVisibility = watch("youtubeVisibility");
+    useEffect(() => {
+        setYouTubeAutoPostEnabled(!!autoPostYoutube);
+    }, [autoPostYoutube]);
+    useEffect(() => {
+        if (autoPostYoutube) {
+            saveYouTubeConfig({
+                title: youtubeTitle || '',
+                description: youtubeDescription || '',
+                madeForKids: !!youtubeMadeForKids,
+                visibility: youtubeVisibility || 'public',
+            });
+        }
+    }, [autoPostYoutube, youtubeTitle, youtubeDescription, youtubeMadeForKids, youtubeVisibility]);
 
     // UI State — single image per slot (base64)
     const [productImage, setProductImage] = useState<string | null>(null);
@@ -455,7 +476,7 @@ const CreateVideoTab = () => {
                 <div className={`space-y-2 transition-opacity duration-200 ${!generatedImagePrompt ? 'opacity-40 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
                         <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
-                        {(watch("videoEngine") || "veo") === "grok" ? "เปิดหน้างาน (Grok)" : "เปิดหน้างาน (Google Flow)"}
+{(watch("videoEngine") || "veo") === "grok" ? "เปิดหน้างาน (Grok)" : "เปิดหน้างาน (Google Flow)"}
                     </label>
                     <button
                         type="button"
@@ -486,7 +507,7 @@ const CreateVideoTab = () => {
                         }`}
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        {(() => {
+{(() => {
                             const eng = watch("videoEngine") || "veo";
                             const label = eng === "grok" ? "Grok" : "Google Flow";
                             if (flowConnected) return `✓ เชื่อมต่อ ${label} แล้ว`;

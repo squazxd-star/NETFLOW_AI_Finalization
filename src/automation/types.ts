@@ -2,7 +2,7 @@
  * Netflow AI — Automation Engine Types
  * 
  * Shared types/interfaces for all video generation engines.
- * Each engine (Veo, Grok, etc.) implements these interfaces.
+ * Each engine (Veo, etc.) implements these interfaces.
  */
 
 /** Supported video generation engines */

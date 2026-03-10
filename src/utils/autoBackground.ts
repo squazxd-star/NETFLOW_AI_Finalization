@@ -415,9 +415,21 @@ export async function autoSelectBackgroundWithAI(
     productDescription?: string,
     productImage?: string | null
 ): Promise<string> {
+    const top3 = await autoSelectBackgroundTop3WithAI(productName, productDescription, productImage);
+    return top3[0];
+}
+
+/**
+ * AI-powered: คืน top 3 ฉากที่เหมาะสมที่สุด (เรียงจากดีที่สุด → รองลงมา)
+ */
+export async function autoSelectBackgroundTop3WithAI(
+    productName: string,
+    productDescription?: string,
+    productImage?: string | null
+): Promise<string[]> {
     // ถ้าไม่มีรูป หรือไม่มี API key → fallback keyword matching
     if (!productImage) {
-        return autoSelectBackground(productName, productDescription);
+        return autoSelectBackgroundTop3(productName, productDescription);
     }
 
     try {
@@ -427,23 +439,24 @@ export async function autoSelectBackgroundWithAI(
         const apiKey = await getApiKey("gemini");
         if (!apiKey) {
             console.warn("[AutoBG] ไม่มี Gemini API Key → ใช้ keyword matching");
-            return autoSelectBackground(productName, productDescription);
+            return autoSelectBackgroundTop3(productName, productDescription);
         }
 
         const bgList = Array.from(VALID_BACKGROUNDS).join(", ");
 
-        const prompt = `You are a video production background selector. Analyze the product image and name to pick the BEST background scene.
+        const prompt = `You are a video production background selector. Analyze the product image and name to pick the TOP 3 BEST background scenes, ranked from best to good.
 
 Product name: "${productName}"
 ${productDescription ? `Description: "${productDescription}"` : ""}
 
-Available backgrounds (pick EXACTLY one value):
+Available backgrounds:
 ${bgList}
 
 Rules:
-- Pick the background that creates the BEST visual context for selling this product in a TikTok/Reels video
+- Pick the 3 backgrounds that create the BEST visual context for selling this product in a TikTok/Reels video
 - Consider the product category, target audience, and mood
-- Reply with ONLY the background value (e.g. "cafe"), nothing else`;
+- Rank from #1 (best) to #3 (good alternative)
+- Reply with EXACTLY 3 values separated by commas, nothing else (e.g. "cafe, living-room, white-minimal")`;
 
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -456,24 +469,36 @@ Rules:
             { inlineData: { data: base64Data, mimeType } }
         ]);
 
-        const answer = result.response.text().trim().toLowerCase().replace(/[^a-z-]/g, "");
-        console.log(`[AutoBG] AI เลือก: "${answer}"`);
+        const raw = result.response.text().trim().toLowerCase();
+        const candidates = raw.split(/[,\n]+/).map(s => s.trim().replace(/[^a-z-]/g, "")).filter(Boolean);
+        console.log(`[AutoBG] AI เลือก top 3: ${JSON.stringify(candidates)}`);
 
-        if (VALID_BACKGROUNDS.has(answer)) {
-            return answer;
+        const validated: string[] = [];
+        for (const c of candidates) {
+            if (VALID_BACKGROUNDS.has(c) && !validated.includes(c)) {
+                validated.push(c);
+            } else {
+                for (const bg of VALID_BACKGROUNDS) {
+                    if (c.includes(bg) && !validated.includes(bg)) { validated.push(bg); break; }
+                }
+            }
+            if (validated.length >= 3) break;
         }
 
-        // AI ตอบไม่ตรง format → หา partial match
-        for (const bg of VALID_BACKGROUNDS) {
-            if (answer.includes(bg)) return bg;
+        // ถ้า AI ได้ไม่ครบ 3 → เติมจาก keyword matching
+        if (validated.length < 3) {
+            const kwTop3 = autoSelectBackgroundTop3(productName, productDescription);
+            for (const bg of kwTop3) {
+                if (!validated.includes(bg)) validated.push(bg);
+                if (validated.length >= 3) break;
+            }
         }
 
-        console.warn(`[AutoBG] AI ตอบ "${answer}" ไม่ตรง → fallback keyword`);
-        return autoSelectBackground(productName, productDescription);
+        return validated.length > 0 ? validated : autoSelectBackgroundTop3(productName, productDescription);
 
     } catch (err: any) {
         console.warn(`[AutoBG] AI error: ${err.message} → fallback keyword`);
-        return autoSelectBackground(productName, productDescription);
+        return autoSelectBackgroundTop3(productName, productDescription);
     }
 }
 
@@ -481,21 +506,44 @@ Rules:
  * วิเคราะห์ชื่อ/คำอธิบายสินค้า แล้วเลือกฉากพื้นหลังที่เหมาะสมที่สุด (keyword matching)
  */
 export function autoSelectBackground(productName: string, productDescription?: string): string {
+    return autoSelectBackgroundTop3(productName, productDescription)[0];
+}
+
+/**
+ * คืน top 3 ฉากจาก keyword matching (เรียงจากดีที่สุด → รองลงมา)
+ */
+export function autoSelectBackgroundTop3(productName: string, productDescription?: string): string[] {
     const text = `${productName} ${productDescription || ""}`.toLowerCase();
 
-    let bestMatch: { background: string; score: number } = { background: "studio", score: 0 };
+    const scored: { background: string; score: number }[] = [];
 
     for (const mapping of CATEGORY_BG_MAP) {
         let score = 0;
         for (const keyword of mapping.keywords) {
             if (text.includes(keyword.toLowerCase())) {
-                score += keyword.length; // ยิ่ง keyword ยาว ยิ่งเจาะจง
+                score += keyword.length;
             }
         }
-        if (score > bestMatch.score) {
-            bestMatch = { background: mapping.background, score };
+        if (score > 0) {
+            scored.push({ background: mapping.background, score });
         }
     }
 
-    return bestMatch.background;
+    scored.sort((a, b) => b.score - a.score);
+
+    // Dedupe (same background may appear from multiple mappings)
+    const unique: string[] = [];
+    for (const s of scored) {
+        if (!unique.includes(s.background)) unique.push(s.background);
+        if (unique.length >= 3) break;
+    }
+
+    // ถ้าได้ไม่ครบ 3 → เติม default
+    const defaults = ["studio", "white-minimal", "living-room"];
+    for (const d of defaults) {
+        if (!unique.includes(d)) unique.push(d);
+        if (unique.length >= 3) break;
+    }
+
+    return unique;
 }

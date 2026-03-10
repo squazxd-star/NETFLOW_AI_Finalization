@@ -9,7 +9,6 @@
  * │  UI (CreateVideoTab) ──→ background.js ──→ Engine Tab   │
  * │       │                      │                │         │
  * │  videoEngine: "veo"    findEngineTab()   content-flow   │
- * │  videoEngine: "grok"   route by engine   content-grok   │
  * │                                                         │
  * │  Files:                                                 │
  * │  ├── src/automation/           ← You are here           │
@@ -17,10 +16,8 @@
  * │  │   ├── types.ts              ← Shared types           │
  * │  │   ├── engine-config.ts      ← Engine registry        │
  * │  │   └── engines/                                       │
- * │  │       ├── veo/README.md     ← Veo docs               │
- * │  │       └── grok/README.md    ← Grok docs              │
+ * │  │       └── veo/README.md     ← Veo docs               │
  * │  ├── src/content-flow.ts       ← Veo automation (165KB) │
- * │  ├── src/content-grok.ts       ← Grok automation (TODO) │
  * │  ├── src/netflow-overlay.ts    ← Shared overlay UI      │
  * │  └── public/background.js      ← Message router         │
  * └─────────────────────────────────────────────────────────┘

@@ -185,7 +185,7 @@ const NetCastProductionSection = ({
 
                         {/* Total Duration */}
                         <div className="flex flex-col items-center p-4 rounded-xl border border-neon-red/30 bg-neon-red/5">
-                            <span className="text-2xl font-bold text-neon-red">~{sceneCount * 8}s</span>
+                            <span className="text-2xl font-bold text-neon-red">{sceneCount === 1 ? '8s' : `~${sceneCount * 6}-${sceneCount * 8}s`}</span>
                             <span className="text-[10px] text-muted-foreground">ความยาวรวม</span>
                         </div>
                     </div>

@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════
  * 
  * ระบบนี้ทำหน้าที่เป็นตัวกลาง:
- * - User เลือก Engine (Veo / Grok)
+ * - User เลือก Engine (Veo)
  * - Router ส่งไปยัง Prompt Service ที่ถูกตัว
  * - Return GeneratedPrompts กลับมาในรูปแบบเดียวกัน
  * 
@@ -29,7 +29,6 @@ import {
     analyzeProductImage as veoAnalyzeProductImage,
     buildSceneVideoPromptJSON as veoBuildScenePrompt,
 } from "./veoPromptService";
-import { grokPromptBuilder } from "./grokPromptService";
 
 // ═══════════════════════════════════════════════════════════
 // Veo Prompt Builder — wrapper ที่ครอบ veoPromptService
@@ -59,6 +58,24 @@ const veoPromptBuilder: EnginePromptBuilder = {
 // ═══════════════════════════════════════════════════════════
 // Engine Registry — ลงทะเบียน Engine ทั้งหมดตรงนี้
 // ═══════════════════════════════════════════════════════════
+
+// Grok placeholder — falls back to Veo until grokPromptService is rebuilt
+const grokPromptBuilder: EnginePromptBuilder = {
+    engineName: "grok",
+    async generatePrompts(config: PromptGenerationConfig): Promise<GeneratedPrompts> {
+        console.warn("⚠️ Grok prompt builder not yet implemented, using Veo fallback");
+        return veoPromptBuilder.generatePrompts(config);
+    },
+    generateQuickPrompts(config: PromptGenerationConfig): GeneratedPrompts {
+        return veoPromptBuilder.generateQuickPrompts(config);
+    },
+    async analyzeProductImage(imageBase64: string, productName: string): Promise<string> {
+        return veoPromptBuilder.analyzeProductImage(imageBase64, productName);
+    },
+    buildScenePrompt(meta: VideoPromptMeta, sceneScript: string, sceneNumber: number, sceneVideoAction?: string): string {
+        return veoPromptBuilder.buildScenePrompt(meta, sceneScript, sceneNumber, sceneVideoAction);
+    },
+};
 
 const ENGINE_PROMPT_BUILDERS: Record<VideoEngine, EnginePromptBuilder> = {
     veo: veoPromptBuilder,
