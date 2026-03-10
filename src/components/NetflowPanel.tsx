@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, RefreshCw, Wand2, Radio, ShoppingBag } from "lucide-react";
+import { Settings, RefreshCw, Wand2, Radio, ShoppingBag, HardDrive } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import logoIcon from "/icons/icon128.png";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -90,6 +90,21 @@ const NetflowPanel = () => {
                                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-200"
                             >
                                 <RefreshCw className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const isExt = typeof chrome !== 'undefined' && chrome.runtime?.getURL;
+                                    if (isExt) {
+                                        const url = chrome.runtime.getURL('video-stock.html');
+                                        chrome.tabs.create({ url });
+                                    } else {
+                                        window.open('/video-stock.html', '_blank');
+                                    }
+                                }}
+                                title="คลังวิดีโอ (Video Stock)"
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-200"
+                            >
+                                <HardDrive className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setSettingsDialogOpen(true)}

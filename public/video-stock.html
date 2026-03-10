@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflow AI — คลังวิดีโอ</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #111118;
+            --card: #16161f;
+            --border: rgba(255,255,255,0.06);
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --primary: #00ff41;
+            --primary-rgb: 0, 255, 65;
+            --danger: #ef4444;
+            --danger-rgb: 239, 68, 68;
+        }
+
+        body {
+            font-family: 'Inter', 'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        .header {
+            position: sticky; top: 0; z-index: 50;
+            background: rgba(10,10,15,0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-logo {
+            font-size: 20px; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase;
+            background: linear-gradient(135deg, var(--primary), #00ffb4);
+            background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 12px rgba(var(--primary-rgb), 0.5));
+        }
+        .header-logo span { font-weight: 300; font-size: 0.75em; letter-spacing: 0.35em; -webkit-text-fill-color: rgba(255,255,255,0.85); }
+        .header-subtitle { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+        .stats-bar {
+            display: flex; gap: 20px; align-items: center;
+        }
+        .stat {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 999px;
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            font-size: 12px; color: var(--text-muted);
+        }
+        .stat-value { color: var(--text); font-weight: 700; }
+
+        /* ── Empty State ── */
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 60vh; gap: 16px; opacity: 0.6;
+        }
+        .empty-icon { font-size: 64px; opacity: 0.3; }
+        .empty-title { font-size: 18px; font-weight: 700; }
+        .empty-desc { font-size: 13px; color: var(--text-muted); text-align: center; max-width: 360px; }
+
+        /* ── Grid ── */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 24px 32px 48px;
+        }
+
+        /* ── Card ── */
+        .video-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .video-card:hover {
+            border-color: rgba(var(--primary-rgb), 0.3);
+            box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.08), 0 8px 32px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+
+        .card-thumb {
+            position: relative; width: 100%; aspect-ratio: 16/9;
+            background: #0d0d14; cursor: pointer; overflow: hidden;
+        }
+        .card-thumb img, .card-thumb video {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .card-thumb .play-overlay {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.4);
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .card-thumb:hover .play-overlay { opacity: 1; }
+        .play-btn {
+            width: 56px; height: 56px; border-radius: 50%;
+            background: rgba(var(--primary-rgb), 0.9);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.4);
+        }
+        .play-btn svg { width: 24px; height: 24px; fill: #000; margin-left: 3px; }
+
+        .card-duration {
+            position: absolute; bottom: 8px; right: 8px;
+            background: rgba(0,0,0,0.8); color: #fff;
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 600;
+        }
+
+        .card-body { padding: 14px 16px; }
+        .card-title {
+            font-size: 14px; font-weight: 700; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .card-meta {
+            display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); margin-bottom: 12px;
+        }
+
+        .card-actions {
+            display: flex; gap: 6px; flex-wrap: wrap;
+        }
+        .card-actions button {
+            flex: 1; min-width: 0;
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
+            background: rgba(255,255,255,0.03); color: var(--text-muted);
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;
+        }
+        .card-actions button:hover {
+            background: rgba(var(--primary-rgb), 0.1); color: var(--primary);
+            border-color: rgba(var(--primary-rgb), 0.3);
+        }
+        .card-actions button.danger:hover {
+            background: rgba(var(--danger-rgb), 0.1); color: var(--danger);
+            border-color: rgba(var(--danger-rgb), 0.3);
+        }
+
+        /* ── Video Player Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            max-width: 90vw; max-height: 90vh; position: relative;
+            border-radius: 16px; overflow: hidden;
+            background: #000; box-shadow: 0 0 60px rgba(0,0,0,0.5);
+        }
+        .modal-content video {
+            max-width: 90vw; max-height: 85vh; display: block;
+        }
+        .modal-close {
+            position: absolute; top: 12px; right: 12px; z-index: 10;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .modal-close:hover { background: rgba(255,255,255,0.2); }
+
+        /* ── Loading ── */
+        .loading {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 60vh; gap: 12px; color: var(--text-muted);
+        }
+        .spinner {
+            width: 24px; height: 24px; border: 3px solid var(--border);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Confirm Dialog ── */
+        .confirm-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 24px; max-width: 400px; width: 90%;
+            text-align: center;
+        }
+        .confirm-box h3 { font-size: 16px; margin-bottom: 8px; }
+        .confirm-box p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+        .confirm-btns { display: flex; gap: 10px; justify-content: center; }
+        .confirm-btns button {
+            padding: 8px 24px; border-radius: 8px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); transition: all 0.2s;
+        }
+        .btn-cancel { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+        .btn-cancel:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .btn-delete { background: rgba(var(--danger-rgb), 0.15); color: var(--danger); border-color: rgba(var(--danger-rgb), 0.3); }
+        .btn-delete:hover { background: rgba(var(--danger-rgb), 0.3); }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; z-index: 300;
+            padding: 12px 20px; border-radius: 10px;
+            background: rgba(var(--primary-rgb), 0.15); border: 1px solid rgba(var(--primary-rgb), 0.3);
+            color: var(--primary); font-size: 13px; font-weight: 600;
+            transform: translateY(100px); opacity: 0; transition: all 0.3s ease;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <div>
+                <div class="header-logo">NETFLOW <span>AI</span></div>
+                <div class="header-subtitle">📦 คลังวิดีโอ — Video Stock</div>
+            </div>
+        </div>
+        <div class="stats-bar">
+            <div class="stat">🎬 <span class="stat-value" id="totalCount">0</span> คลิป</div>
+            <div class="stat">💾 <span class="stat-value" id="totalSize">0 MB</span></div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <span>กำลังโหลดคลังวิดีโอ...</span>
+    </div>
+
+    <div id="emptyState" class="empty-state" style="display:none;">
+        <div class="empty-icon">📦</div>
+        <div class="empty-title">ยังไม่มีวิดีโอในคลัง</div>
+        <div class="empty-desc">เมื่อคุณ Generate วิดีโอเสร็จ ระบบจะบันทึกลงคลังอัตโนมัติ คุณสามารถดึงมาใช้ Upload ได้ทุกเมื่อ</div>
+    </div>
+
+    <div id="videoGrid" class="video-grid" style="display:none;"></div>
+
+    <!-- Video Player Modal -->
+    <div class="modal-overlay" id="playerModal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">✕</button>
+            <video id="modalVideo" controls autoplay></video>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Dialog -->
+    <div class="confirm-overlay" id="confirmDialog">
+        <div class="confirm-box">
+            <h3>🗑️ ลบวิดีโอ?</h3>
+            <p>วิดีโอนี้จะถูกลบออกจากคลังถาวร ไม่สามารถกู้คืนได้</p>
+            <div class="confirm-btns">
+                <button class="btn-cancel" id="confirmCancel">ยกเลิก</button>
+                <button class="btn-delete" id="confirmDelete">ลบเลย</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ════════════════════════════════════════════════════════════════
+        // IndexedDB Access (same schema as videoStockService.ts)
+        // ════════════════════════════════════════════════════════════════
+        const DB_NAME = 'netflow_video_stock';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'videos';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        store.createIndex('createdAt', 'createdAt', { unique: false });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getAllVideos() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const req = tx.objectStore(STORE_NAME).index('createdAt').getAll();
+                req.onsuccess = () => resolve(req.result.reverse());
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function deleteVideo(id) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Thumbnail Generator
+        // ════════════════════════════════════════════════════════════════
+        function generateThumbnail(videoBlob) {
+            return new Promise((resolve) => {
+                const video = document.createElement('video');
+                video.muted = true;
+                video.playsInline = true;
+                const url = URL.createObjectURL(videoBlob);
+                video.src = url;
+
+                video.onloadeddata = () => {
+                    video.currentTime = Math.min(1, video.duration * 0.1);
+                };
+                video.onseeked = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 384;
+                        canvas.height = 216;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0, 384, 216);
+                        URL.revokeObjectURL(url);
+                        resolve(canvas.toDataURL('image/jpeg', 0.75));
+                    } catch (e) {
+                        URL.revokeObjectURL(url);
+                        resolve(null);
+                    }
+                };
+                video.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                };
+                // Safety timeout
+                setTimeout(() => { URL.revokeObjectURL(url); resolve(null); }, 8000);
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Helpers
+        // ════════════════════════════════════════════════════════════════
+        function formatBytes(bytes) {
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+        }
+
+        function formatDate(ts) {
+            const d = new Date(ts);
+            const day = d.getDate().toString().padStart(2, '0');
+            const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+            const month = months[d.getMonth()];
+            const year = d.getFullYear() + 543;
+            const h = d.getHours().toString().padStart(2, '0');
+            const m = d.getMinutes().toString().padStart(2, '0');
+            return `${day} ${month} ${year} ${h}:${m}`;
+        }
+
+        function formatDuration(sec) {
+            if (!sec || sec <= 0) return '--:--';
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Render
+        // ════════════════════════════════════════════════════════════════
+        let _videos = [];
+        let _deleteTargetId = null;
+        const _blobUrls = new Map(); // id → objectURL (for cleanup)
+
+        async function loadAndRender() {
+            const loadingEl = document.getElementById('loading');
+            const emptyEl = document.getElementById('emptyState');
+            const gridEl = document.getElementById('videoGrid');
+
+            try {
+                _videos = await getAllVideos();
+            } catch (e) {
+                console.error('Failed to load videos:', e);
+                _videos = [];
+            }
+
+            loadingEl.style.display = 'none';
+
+            if (_videos.length === 0) {
+                emptyEl.style.display = 'flex';
+                gridEl.style.display = 'none';
+                document.getElementById('totalCount').textContent = '0';
+                document.getElementById('totalSize').textContent = '0 MB';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            gridEl.style.display = 'grid';
+
+            // Stats
+            const totalSize = _videos.reduce((sum, v) => sum + (v.fileSize || 0), 0);
+            document.getElementById('totalCount').textContent = _videos.length;
+            document.getElementById('totalSize').textContent = formatBytes(totalSize);
+
+            // Render cards
+            gridEl.innerHTML = '';
+            for (const video of _videos) {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.dataset.id = video.id;
+
+                // Get video duration from blob
+                let duration = video.duration || 0;
+
+                card.innerHTML = `
+                    <div class="card-thumb" data-id="${video.id}">
+                        <div style="width:100%;height:100%;background:#1a1a24;display:flex;align-items:center;justify-content:center;">
+                            <div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>
+                        </div>
+                        <div class="play-overlay">
+                            <div class="play-btn">
+                                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </div>
+                        </div>
+                        <div class="card-duration">${formatDuration(duration)}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-title" title="${video.title || 'Netflow AI Video'}">${video.title || 'Netflow AI Video'}</div>
+                        <div class="card-meta">
+                            <span>📅 ${formatDate(video.createdAt)}</span>
+                            <span>💾 ${formatBytes(video.fileSize)}</span>
+                            <span>🎬 ${video.source || 'veo'}</span>
+                        </div>
+                        <div class="card-actions">
+                            <button onclick="downloadVideo('${video.id}')" title="ดาวน์โหลด">⬇️ โหลด</button>
+                            <button onclick="uploadYouTube('${video.id}')" title="อัพ YouTube">▶️ YouTube</button>
+                            <button onclick="uploadTikTok('${video.id}')" title="อัพ TikTok">🎵 TikTok</button>
+                            <button class="danger" onclick="confirmDeleteVideo('${video.id}')" title="ลบ">🗑️</button>
+                        </div>
+                    </div>
+                `;
+                gridEl.appendChild(card);
+
+                // Generate thumbnail async
+                generateThumbForCard(video, card);
+            }
+        }
+
+        async function generateThumbForCard(video, card) {
+            const thumbContainer = card.querySelector('.card-thumb');
+            const durationEl = card.querySelector('.card-duration');
+
+            if (!(video.videoBlob instanceof Blob)) {
+                thumbContainer.querySelector('div').innerHTML = '<span style="color:var(--text-muted);font-size:12px;">⚠️ No video data</span>';
+                return;
+            }
+
+            // Generate thumbnail
+            const thumb = video.thumbnailDataUrl || await generateThumbnail(video.videoBlob);
+
+            // Get duration
+            const blobUrl = URL.createObjectURL(video.videoBlob);
+            _blobUrls.set(video.id, blobUrl);
+
+            const tempVideo = document.createElement('video');
+            tempVideo.src = blobUrl;
+            tempVideo.onloadedmetadata = () => {
+                if (tempVideo.duration && isFinite(tempVideo.duration)) {
+                    durationEl.textContent = formatDuration(tempVideo.duration);
+                }
+            };
+
+            if (thumb) {
+                thumbContainer.querySelector('div').outerHTML = `<img src="${thumb}" alt="thumbnail">`;
+            } else {
+                thumbContainer.querySelector('div').outerHTML = `<video src="${blobUrl}" muted style="pointer-events:none;"></video>`;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Actions
+        // ════════════════════════════════════════════════════════════════
+        function playVideo(id) {
+            const video = _videos.find(v => v.id === id);
+            if (!video || !video.videoBlob) return;
+
+            const modal = document.getElementById('playerModal');
+            const modalVideo = document.getElementById('modalVideo');
+
+            let url = _blobUrls.get(id);
+            if (!url) {
+                url = URL.createObjectURL(video.videoBlob);
+                _blobUrls.set(id, url);
+            }
+            modalVideo.src = url;
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('playerModal');
+            const modalVideo = document.getElementById('modalVideo');
+            modalVideo.pause();
+            modalVideo.src = '';
+            modal.classList.remove('active');
+        }
+
+        function downloadVideo(id) {
+            const video = _videos.find(v => v.id === id);
+            if (!video || !video.videoBlob) return;
+
+            const url = URL.createObjectURL(video.videoBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = (video.title || 'netflow-video') + '.mp4';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showToast('⬇️ กำลังดาวน์โหลด...');
+        }
+
+        function uploadYouTube(id) {
+            const video = _videos.find(v => v.id === id);
+            if (!video || !video.videoBlob) return;
+
+            // Cache the video in background, then trigger YouTube upload
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                chrome.runtime.sendMessage({ type: 'CACHE_VIDEO_DATA', data: reader.result }, () => {
+                    chrome.runtime.sendMessage({
+                        action: 'UPLOAD_YOUTUBE',
+                        title: video.title || 'Netflow AI Video',
+                        description: video.productName ? `สินค้า: ${video.productName}` : '',
+                        madeForKids: false,
+                        visibility: 'public',
+                    });
+                    showToast('▶️ กำลังเปิด YouTube Studio...');
+                });
+            };
+            reader.readAsDataURL(video.videoBlob);
+        }
+
+        function uploadTikTok(id) {
+            const video = _videos.find(v => v.id === id);
+            if (!video || !video.videoBlob) return;
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                chrome.runtime.sendMessage({ type: 'CACHE_VIDEO_DATA', data: reader.result }, () => {
+                    chrome.runtime.sendMessage({ action: 'UPLOAD_TIKTOK' });
+                    showToast('🎵 กำลังเปิด TikTok...');
+                });
+            };
+            reader.readAsDataURL(video.videoBlob);
+        }
+
+        function confirmDeleteVideo(id) {
+            _deleteTargetId = id;
+            document.getElementById('confirmDialog').classList.add('active');
+        }
+
+        async function doDelete() {
+            if (!_deleteTargetId) return;
+            try {
+                await deleteVideo(_deleteTargetId);
+                // Cleanup blob URL
+                const url = _blobUrls.get(_deleteTargetId);
+                if (url) { URL.revokeObjectURL(url); _blobUrls.delete(_deleteTargetId); }
+                showToast('🗑️ ลบวิดีโอเรียบร้อย');
+                loadAndRender();
+            } catch (e) {
+                showToast('❌ ลบไม่สำเร็จ: ' + e.message);
+            }
+            _deleteTargetId = null;
+            document.getElementById('confirmDialog').classList.remove('active');
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Event Listeners
+        // ════════════════════════════════════════════════════════════════
+        document.getElementById('modalClose').addEventListener('click', closeModal);
+        document.getElementById('playerModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('playerModal')) closeModal();
+        });
+        document.getElementById('confirmCancel').addEventListener('click', () => {
+            _deleteTargetId = null;
+            document.getElementById('confirmDialog').classList.remove('active');
+        });
+        document.getElementById('confirmDelete').addEventListener('click', doDelete);
+
+        // Click on thumbnail to play
+        document.getElementById('videoGrid').addEventListener('click', (e) => {
+            const thumb = e.target.closest('.card-thumb');
+            if (thumb && thumb.dataset.id) {
+                playVideo(thumb.dataset.id);
+            }
+        });
+
+        // Keyboard: Escape closes modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.getElementById('confirmDialog').classList.remove('active');
+            }
+        });
+
+        // ════════════════════════════════════════════════════════════════
+        // Theme: read from chrome.storage and apply
+        // ════════════════════════════════════════════════════════════════
+        const THEME_COLORS = {
+            green:  { hex: '#00ff41', rgb: '0, 255, 65' },
+            red:    { hex: '#dc2626', rgb: '220, 38, 38' },
+            blue:   { hex: '#2b7de9', rgb: '43, 125, 233' },
+            yellow: { hex: '#eab308', rgb: '234, 179, 8' },
+            purple: { hex: '#8b5cf6', rgb: '139, 92, 246' },
+        };
+
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            chrome.storage.local.get(['netflow_app_theme'], (result) => {
+                const key = result.netflow_app_theme || 'green';
+                const t = THEME_COLORS[key] || THEME_COLORS.green;
+                document.documentElement.style.setProperty('--primary', t.hex);
+                document.documentElement.style.setProperty('--primary-rgb', t.rgb);
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // Init
+        // ════════════════════════════════════════════════════════════════
+        loadAndRender();
+    </script>
+</body>
+</html>

@@ -6634,13 +6634,13 @@ const buildVideoPrompt = (
 
     const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}`;
 
-    // ── RANDOM TALK-ONLY SCENE — one scene is "character talks to camera without product" ──
-    // For multi-scene (2+), randomly pick which scene is talk-only (0-indexed).
+    // ── TALK-ONLY SCENE 1 — character talks to camera WITHOUT product, product appears from Scene 2+ ──
+    // For multi-scene (2+), Scene 1 is ALWAYS talk-only (index 0). Product is introduced from Scene 2 onward.
     // For 1-scene, always show product (talkOnlySceneIndex = -1 means none).
     const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
-    const talkOnlySceneIndex = sceneCount >= 2 ? Math.floor(Math.random() * Math.min(sceneCount, 2)) : -1;
+    const talkOnlySceneIndex = sceneCount >= 2 ? 0 : -1;
     const isScene1TalkOnly = talkOnlySceneIndex === 0;
-    console.log(`🎲 Talk-only scene: ${talkOnlySceneIndex === -1 ? 'NONE (1 scene)' : `Scene ${talkOnlySceneIndex + 1}`} | Total scenes: ${sceneCount}`);
+    console.log(`🎬 Talk-only scene: ${talkOnlySceneIndex === -1 ? 'NONE (1 scene)' : 'Scene 1 (ALWAYS)'} | Product from: ${sceneCount >= 2 ? 'Scene 2+' : 'Scene 1'} | Total scenes: ${sceneCount}`);
 
     // ── Build Scene 1 prompt — Hierarchical format ──
     // SAFETY: Do NOT use "lip sync" or "lip-sync" — gets truncated to "Lip." triggering safety filters.

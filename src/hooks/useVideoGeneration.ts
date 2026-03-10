@@ -5,6 +5,7 @@ import { useToast } from "./use-toast";
 import { getActiveProduct } from "../services/tiktokProductService";
 import { uploadToTikTok, isTikTokAutoPostEnabled, addPostHistory } from "../services/tiktokUploadService";
 import { isYouTubeAutoPostEnabled, getYouTubeConfig, uploadToYouTube } from "../services/youtubeUploadService";
+import { saveVideoToStock, dataUrlToBlob } from "../services/videoStockService";
 
 // Check if running as Chrome Extension
 const isExtension = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage;
@@ -182,7 +183,7 @@ export const useVideoGeneration = () => {
                 setIsLoading(false);
                 const source = message.source || 'rpa';
 
-                // Fetch cached video data URL for preview playback
+                // Fetch cached video data URL for preview playback + save to Video Stock
                 fetchCachedVideoDataUrl().then((cachedDataUrl) => {
                     const previewUrl = cachedDataUrl || message.videoUrl;
                     setResult({
@@ -193,6 +194,27 @@ export const useVideoGeneration = () => {
                             videoUrl: previewUrl
                         }
                     });
+
+                    // Auto-save to Video Stock (IndexedDB)
+                    if (cachedDataUrl) {
+                        try {
+                            const blob = dataUrlToBlob(cachedDataUrl);
+                            saveVideoToStock({
+                                title: 'Netflow AI Video',
+                                videoBlob: blob,
+                                duration: 0,
+                                fileSize: blob.size,
+                                source: source,
+                                mimeType: blob.type || 'video/mp4',
+                            }).then((id) => {
+                                console.log('[useVideoGeneration] ✅ Video saved to stock:', id);
+                            }).catch((err) => {
+                                console.warn('[useVideoGeneration] Failed to save to stock:', err);
+                            });
+                        } catch (e) {
+                            console.warn('[useVideoGeneration] Stock save error:', e);
+                        }
+                    }
                 });
 
                 toast({
