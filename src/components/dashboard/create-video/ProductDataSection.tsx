@@ -368,7 +368,7 @@ const ProductDataSection = ({
                         </div>
 
                         {/* Character Outfit Dropdown */}
-                        <div className="relative">
+                        <div>
                             <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
                                 <Shirt className="w-3 h-3 text-neon-red" />
                                 เสื้อผ้าตัวละคร
@@ -387,7 +387,7 @@ const ProductDataSection = ({
                                 <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${outfitDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {outfitDropdownOpen && (
-                                <div className="absolute z-50 mt-1 w-full max-h-80 overflow-y-auto rounded-xl bg-background border border-border shadow-xl pb-2">
+                                <div className="mt-1 w-full max-h-80 overflow-y-auto rounded-xl bg-background border border-border shadow-xl pb-2">
                                     {(() => {
                                         const groups = [...new Set(characterOutfitOptions.map(o => o.group))];
                                         return groups.map(group => (

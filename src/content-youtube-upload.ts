@@ -561,6 +561,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             }
         }
         hudUpdate(0, 'done');
+        await delay(3000);
 
         // ══════════════════════════════════════════════════════════════════════
         // Step 2: Upload video file
@@ -650,6 +651,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             return { success: false, error: 'อัพโหลดไม่สำเร็จ — ไม่พบช่อง Title' };
         }
         hudUpdate(1, 'done');
+        await delay(3000);
 
         // ══════════════════════════════════════════════════════════════════════
         // Step 3: Fill Title + Description
@@ -694,6 +696,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             }
         }
         hudUpdate(2, 'done');
+        await delay(3000);
 
         // ══════════════════════════════════════════════════════════════════════
         // Step 4: Made for Kids selection
@@ -732,7 +735,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             }
         }
         hudUpdate(3, 'done');
-        await delay(1000);
+        await delay(3000);
 
         // ══════════════════════════════════════════════════════════════════════
         // Step 5: Click "ถัดไป"/"Next" 3 times
@@ -769,6 +772,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
             }
         }
         hudUpdate(4, 'done');
+        await delay(3000);
 
         // ══════════════════════════════════════════════════════════════════════
         // Step 6: Select Visibility + Publish/Schedule

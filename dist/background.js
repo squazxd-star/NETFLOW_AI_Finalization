@@ -252,8 +252,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 console.log('[Netflow BG] UPLOAD_YOUTUBE — opening YouTube Studio');
 
-                // Pre-fetch only for HTTP URLs (file:// URLs are already cached via CACHE_VIDEO_FROM_FILE)
+                // ── Cache the correct video for YouTube upload ──
                 if (message.videoUrl && message.videoUrl.startsWith('http')) {
+                    // HTTP URL: fetch directly and cache
                     console.log('[Netflow BG] Pre-fetching video for YouTube...');
                     try {
                         const resp = await fetch(message.videoUrl);
@@ -265,10 +266,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                 reader.onerror = reject;
                                 reader.readAsDataURL(blob);
                             });
-                            console.log('[Netflow BG] Video cached for YouTube');
+                            console.log('[Netflow BG] Video cached for YouTube (HTTP fetch)');
                         }
                     } catch (e) {
                         console.warn('[Netflow BG] Pre-fetch failed:', e.message);
+                    }
+                } else if (message.videoUrl && message.videoUrl.startsWith('file://')) {
+                    // file:// URL: find the tab showing this file and read via injected script
+                    console.log('[Netflow BG] Video is file:// URL — reading from file tab...');
+                    try {
+                        const allTabs = await chrome.tabs.query({});
+                        const fileTab = allTabs.find(t => t.url && t.url.replace(/\\/g, '/') === message.videoUrl.replace(/\\/g, '/'));
+                        if (fileTab && fileTab.id) {
+                            // Wait for the tab to finish loading
+                            for (let wi = 0; wi < 15; wi++) {
+                                try {
+                                    const tabInfo = await chrome.tabs.get(fileTab.id);
+                                    if (tabInfo.status === 'complete') break;
+                                } catch (_) { break; }
+                                await new Promise(r => setTimeout(r, 1000));
+                            }
+                            // Read video as data URL from the file tab
+                            const results = await chrome.scripting.executeScript({
+                                target: { tabId: fileTab.id },
+                                func: async () => {
+                                    try {
+                                        const resp = await fetch(window.location.href);
+                                        if (!resp.ok) return null;
+                                        const blob = await resp.blob();
+                                        return await new Promise((resolve) => {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => resolve({ data: reader.result, size: blob.size });
+                                            reader.onerror = () => resolve(null);
+                                            reader.readAsDataURL(blob);
+                                        });
+                                    } catch (e) { return null; }
+                                }
+                            });
+                            const fileResult = results?.[0]?.result;
+                            if (fileResult?.data) {
+                                _cachedVideoDataUrl = fileResult.data;
+                                console.log('[Netflow BG] ✅ Video cached from file tab:', (fileResult.size / 1024 / 1024).toFixed(1), 'MB');
+                            } else {
+                                console.warn('[Netflow BG] Could not read video from file tab');
+                            }
+                        } else {
+                            console.warn('[Netflow BG] No tab found with file URL:', message.videoUrl);
+                        }
+                    } catch (e) {
+                        console.warn('[Netflow BG] file:// cache failed:', e.message);
                     }
                 } else if (_cachedVideoDataUrl) {
                     console.log('[Netflow BG] Using existing cached video for YouTube');
