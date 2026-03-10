@@ -105,12 +105,25 @@ function sendVideoGenerationComplete(videoUrl: string | null): void {
     } catch (_) { /* popup/sidepanel closed */ }
 }
 
+// ─── Per-Tab Instance ID (survives same-tab navigation via sessionStorage) ───
+const _instanceId: string = (() => {
+    const KEY = 'netflow_instance_id';
+    let id = sessionStorage.getItem(KEY);
+    if (!id) {
+        id = crypto.randomUUID().slice(0, 8);
+        sessionStorage.setItem(KEY, id);
+    }
+    return id;
+})();
+/** Storage key for pending action — namespaced per tab instance */
+const PENDING_KEY = `netflow_pending_${_instanceId}`;
+
 // ─── Platform Detection ─────────────────────────────────────────────────────
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isWindows = /Win/i.test(navigator.userAgent);
 const platformTag = isMac ? '🍎 Mac' : isWindows ? '🪟 Win' : '🐧 Other';
 
-LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag}`);
+LOG(`สคริปต์โหลดบนหน้า Google Flow แล้ว ${platformTag} [${_instanceId}]`);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -118,14 +131,41 @@ class NetflowAbortError extends Error {
     constructor() { super("AUTOMATION_STOPPED"); this.name = "NetflowAbortError"; }
 }
 
+// ─── Web Worker Timer (throttle-proof — works in background/minimized tabs) ──
+const _timerWorker: Worker | null = (() => {
+    const code = `self.onmessage=e=>{const{id,ms}=e.data;setTimeout(()=>self.postMessage(id),ms)};`;
+    try {
+        return new Worker(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
+    } catch (_) {
+        return null; // CSP or Worker unavailable — fall back to setTimeout
+    }
+})();
+let _sleepIdCounter = 0;
+const _sleepCallbacks = new Map<number, () => void>();
+if (_timerWorker) {
+    _timerWorker.onmessage = (e: MessageEvent) => {
+        const cb = _sleepCallbacks.get(e.data);
+        if (cb) { _sleepCallbacks.delete(e.data); cb(); }
+    };
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
     if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
-    const id = setTimeout(() => {
-        if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
-        resolve();
-    }, ms);
-    // Store timeout id for potential cleanup
-    (sleep as any)._lastId = id;
+    if (_timerWorker) {
+        const id = ++_sleepIdCounter;
+        _sleepCallbacks.set(id, () => {
+            if ((window as any).__NETFLOW_STOP__) { reject(new NetflowAbortError()); return; }
+            resolve();
+        });
+        _timerWorker.postMessage({ id, ms });
+    } else {
+        // Fallback to setTimeout (throttled in background tabs)
+        const tid = setTimeout(() => {
+            if ((window as any).__NETFLOW_STOP__) { reject(new NetflowAbortError()); return; }
+            resolve();
+        }, ms);
+        (sleep as any)._lastId = tid;
+    }
 });
 
 /** Check if automation should stop (user clicked stop button) */
@@ -1720,7 +1760,18 @@ async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
     }
 
     if (!dropdownBtn) {
-        WARN("ไม่พบปุ่ม Veo quality dropdown");
+        // Try to detect current quality from any visible text on the page
+        let detectedQuality = "ไม่ทราบ";
+        for (const btn of allBtns) {
+            const txt = (btn.textContent || "").replace(/\s+/g, " ").trim();
+            if (txt.includes("Veo 3.1") && btn.getBoundingClientRect().width > 0) {
+                if (txt.includes("Quality")) detectedQuality = "Veo 3.1 - Quality";
+                else if (txt.includes("Fast")) detectedQuality = "Veo 3.1 - Fast";
+                else detectedQuality = txt.substring(0, 30);
+                break;
+            }
+        }
+        WARN(`ไม่พบปุ่ม Veo quality dropdown — ค่าปัจจุบันบนหน้าจอ: ${detectedQuality}`);
         return false;
     }
 
@@ -1861,13 +1912,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 0.5: Select Veo quality (Fast / Quality) ──
     try {
         const veoQuality = req.veoQuality || "fast";
+        const veoLabel = veoQuality === "quality" ? "Veo 3.1 - Quality" : "Veo 3.1 - Fast";
         const qOk = await selectVeoQuality(veoQuality);
         if (qOk) {
-            steps.push(`✅ Veo ${veoQuality}`);
-            LOG(`✅ Veo quality: ${veoQuality}`);
+            steps.push(`✅ ${veoLabel}`);
+            LOG(`✅ Veo quality ที่ใช้: ${veoLabel}`);
         } else {
             steps.push(`⚠️ Veo quality`);
-            WARN("ไม่สามารถเลือก Veo quality ได้ — ใช้ค่าเดิม");
+            WARN(`ไม่สามารถเลือก ${veoLabel} ได้ — ใช้ค่าเดิมที่แสดงบนหน้าจอ`);
         }
     } catch (e: any) {
         WARN(`Veo quality error: ${e.message}`);
@@ -2637,7 +2689,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             // ★ Save pending action BEFORE clicking (page will navigate, destroying this script)
             try {
-                chrome.storage.local.set({ netflow_pending_action: { timestamp: Date.now(), action: "mute_video", sceneCount: totalScenes, scenePrompts: scenePrompts, theme: req.theme } });
+                chrome.storage.local.set({ [PENDING_KEY]: { timestamp: Date.now(), action: "mute_video", sceneCount: totalScenes, scenePrompts: scenePrompts, theme: req.theme } });
                 LOG(`💾 บันทึก pending action: mute_video (${totalScenes} ฉาก, ${scenePrompts.length} prompts, theme: ${req.theme})`);
             } catch (e: any) {
                 LOG(`⚠️ ไม่สามารถบันทึก pending action: ${e.message}`);
@@ -2687,14 +2739,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 // Wait 3s then check — if pending action is still unclaimed, execute it directly.
                 await sleep(3000);
                 const pendingCheck = await new Promise<any>((resolve) => {
-                    chrome.storage.local.get("netflow_pending_action", (data) => {
+                    chrome.storage.local.get(PENDING_KEY, (data) => {
                         if (chrome.runtime.lastError) { resolve(null); return; }
-                        resolve(data?.netflow_pending_action || null);
+                        resolve(data?.[PENDING_KEY] || null);
                     });
                 });
                 if (pendingCheck && !pendingCheck._claimed) {
                     LOG("🔄 สคริปต์ยังทำงานอยู่หลังคลิกการ์ด (SPA navigation) — เรียก pending action โดยตรง");
-                    chrome.storage.local.remove("netflow_pending_action");
+                    chrome.storage.local.remove(PENDING_KEY);
                     if (pendingCheck.action === "mute_video") {
                         await standaloneMuteAndDownload(pendingCheck.sceneCount || 1, pendingCheck.scenePrompts || [], pendingCheck.theme);
                     } else if (pendingCheck.action === "wait_scene_gen_and_download") {
@@ -2871,7 +2923,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             // Save pending action BEFORE clicking Generate — Google Flow may navigate to new page
             await new Promise<void>((resolve) => {
                 chrome.storage.local.set({
-                    netflow_pending_action: {
+                    [PENDING_KEY]: {
                         timestamp: Date.now(),
                         action: "wait_scene_gen_and_download",
                         theme: theme,
@@ -2938,7 +2990,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             try { updateStep(`scene${scene}-wait`, "done", 100); } catch (_) {}
 
             // Clear pending action — page didn't navigate, we completed tracking here
-            chrome.storage.local.remove("netflow_pending_action");
+            chrome.storage.local.remove(PENDING_KEY);
             LOG("🗑️ ลบ pending action (tracking เสร็จแล้วบนหน้านี้)");
             await sleep(2000);
         }
@@ -3459,7 +3511,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             // Save pending action before clicking (in case page navigates again)
             await new Promise<void>((resolve) => {
                 chrome.storage.local.set({
-                    netflow_pending_action: {
+                    [PENDING_KEY]: {
                         timestamp: Date.now(),
                         action: "wait_scene_gen_and_download",
                         theme: theme,
@@ -3532,7 +3584,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             LOG(`✅ ฉาก ${scene} เสร็จแล้ว`);
 
             // Clear pending action — completed on this page
-            chrome.storage.local.remove("netflow_pending_action");
+            chrome.storage.local.remove(PENDING_KEY);
             await sleep(2000);
         }
     }
@@ -3711,9 +3763,9 @@ async function checkAndRunPendingAction(): Promise<void> {
     try {
         // Step 1: Read the pending action
         const result = await new Promise<any>((resolve) => {
-            chrome.storage.local.get("netflow_pending_action", (data) => {
+            chrome.storage.local.get(PENDING_KEY, (data) => {
                 if (chrome.runtime.lastError) { resolve(null); return; }
-                resolve(data?.netflow_pending_action || null);
+                resolve(data?.[PENDING_KEY] || null);
             });
         });
 
@@ -3736,7 +3788,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         const age = Date.now() - result.timestamp;
         if (age > 300000) {
             LOG("⏰ พบ pending action แต่เก่าเกินไป — ข้าม");
-            chrome.storage.local.remove("netflow_pending_action");
+            chrome.storage.local.remove(PENDING_KEY);
             return;
         }
 
@@ -3744,14 +3796,14 @@ async function checkAndRunPendingAction(): Promise<void> {
         const claimToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         result._claimed = claimToken;
         await new Promise<void>((resolve) => {
-            chrome.storage.local.set({ netflow_pending_action: result }, () => resolve());
+            chrome.storage.local.set({ [PENDING_KEY]: result }, () => resolve());
         });
 
         // Step 3: Wait for any competing tab to also write, then verify our claim
         await sleep(300);
         const verified = await new Promise<boolean>((resolve) => {
-            chrome.storage.local.get("netflow_pending_action", (data) => {
-                const action = data?.netflow_pending_action;
+            chrome.storage.local.get(PENDING_KEY, (data) => {
+                const action = data?.[PENDING_KEY];
                 resolve((action as any)?._claimed === claimToken);
             });
         });
@@ -3761,7 +3813,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         }
 
         // Step 4: We won the claim — clear and execute
-        chrome.storage.local.remove("netflow_pending_action");
+        chrome.storage.local.remove(PENDING_KEY);
 
         LOG(`🔄 ตรวจพบ pending action: ${result.action} (อายุ ${Math.round(age / 1000)} วินาที)`);
 

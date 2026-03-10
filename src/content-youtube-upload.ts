@@ -364,15 +364,23 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
         }, 10000) as HTMLInputElement | null;
 
         if (fileInput) {
-            // Make file input visible for DataTransfer
-            fileInput.style.display = 'block';
+            // Make file input fully visible — YouTube hides it with multiple CSS props:
+            // style="position:absolute; height:0; width:0; opacity:0; display:none"
+            const origStyle = fileInput.getAttribute('style') || '';
+            fileInput.style.cssText = 'display:block !important; opacity:1; width:auto; height:auto; position:static; overflow:visible;';
+            await delay(200);
+
             const dt = new DataTransfer();
             dt.items.add(videoFile);
             fileInput.files = dt.files;
             fileInput.dispatchEvent(new Event('change', { bubbles: true }));
             fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-            log('ฉีดไฟล์ผ่าน file input ใน ytcp-uploads-file-picker');
+            log(`ฉีดไฟล์ผ่าน file input (${videoFile.name}, ${(videoFile.size / 1024 / 1024).toFixed(1)} MB)`);
             fileInjected = true;
+
+            // Restore original style after a short delay
+            await delay(500);
+            fileInput.setAttribute('style', origStyle);
         }
 
         // Strategy 2: Drop on the upload area (#content inside file picker)
@@ -434,10 +442,12 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
 
         // Description
         if (config.description) {
-            const descField = document.querySelector('#description-textarea #textbox[contenteditable="true"]') ||
-                              document.querySelector('div[contenteditable="true"][aria-label*="คำอธิบาย"]') ||
-                              document.querySelector('div[contenteditable="true"][aria-label*="description" i]') ||
-                              document.querySelector('div[contenteditable="true"][aria-label*="บอกข้อมูล"]');
+            const descField = await waitForElement(() => {
+                return document.querySelector('#description-textarea #textbox[contenteditable="true"]') ||
+                       document.querySelector('div[contenteditable="true"][aria-label*="คำอธิบาย"]') ||
+                       document.querySelector('div[contenteditable="true"][aria-label*="description" i]') ||
+                       document.querySelector('div[contenteditable="true"][aria-label*="บอกข้อมูล"]');
+            }, 8000);
             if (descField) {
                 await typeIntoContentEditable(descField as HTMLElement, config.description);
                 log(`กรอกคำอธิบาย: "${config.description.substring(0, 50)}..."`);

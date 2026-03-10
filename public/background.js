@@ -22,18 +22,28 @@ const ENGINE_CONFIG = {
 };
 
 // ─── Smart tab finder — finds the correct tab based on engine ───
-async function findEngineTab(engine) {
+// preferWindowId: when sidepanel sends its windowId, prefer tabs in that window
+async function findEngineTab(engine, preferWindowId) {
     const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
     
     // Strategy 1: Find tab matching engine URL pattern (most reliable)
     const engineTabs = await chrome.tabs.query({ url: config.urlPatterns });
     if (engineTabs.length > 0) {
+        // Multi-window: prefer tab in the SAME window as the requesting sidepanel
+        if (preferWindowId) {
+            const sameWindow = engineTabs.find(t => t.windowId === preferWindowId);
+            if (sameWindow) {
+                console.log(`[Netflow] Found ${config.label} tab in same window (${preferWindowId})`);
+                return { tab: sameWindow, config };
+            }
+        }
         const active = engineTabs.find(t => t.active) || engineTabs[0];
         return { tab: active, config };
     }
 
-    // Strategy 2: Fallback to active tab in current window
-    const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    // Strategy 2: Fallback to active tab in preferred or current window
+    const windowQuery = preferWindowId ? { active: true, windowId: preferWindowId } : { active: true, currentWindow: true };
+    const activeTabs = await chrome.tabs.query(windowQuery);
     if (activeTabs.length > 0) {
         const match = activeTabs.find(t => (t.url || "").includes(config.urlIncludes));
         if (match) return { tab: match, config };
@@ -168,7 +178,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 // ── Engine-aware routing ──
                 const engine = message.videoEngine || "veo";
-                const { tab, config } = await findEngineTab(engine);
+                const { tab, config } = await findEngineTab(engine, message.windowId);
                 if (!tab?.id) {
                     const engineLabel = config.label || engine;
                     sendResponse({ success: false, message: `ไม่พบแท็บ ${engineLabel} — กรุณาเปิด ${config.urlIncludes} ก่อน` });
@@ -220,8 +230,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     ytTab = await chrome.tabs.create({ url: 'https://studio.youtube.com' });
                 }
 
-                // Wait for tab to load
-                await new Promise(resolve => setTimeout(resolve, 4000));
+                // Wait for tab to finish loading
+                await new Promise((resolve) => {
+                    let resolved = false;
+                    const checkTab = async () => {
+                        try {
+                            const tab = await chrome.tabs.get(ytTab.id);
+                            if (tab.status === 'complete') { if (!resolved) { resolved = true; resolve(true); } return; }
+                        } catch (_) {}
+                        if (!resolved) setTimeout(checkTab, 500);
+                    };
+                    setTimeout(checkTab, 2000);
+                    // Safety timeout: resolve after 15 seconds regardless
+                    setTimeout(() => { if (!resolved) { resolved = true; resolve(true); } }, 15000);
+                });
+                console.log('[Netflow BG] YouTube Studio tab loaded');
 
                 // Ensure content script is injected
                 try {
@@ -232,7 +255,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 } catch (e) {
                     console.warn('[Netflow BG] YT script injection:', e.message);
                 }
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Ping content script to verify it's ready (retry up to 10 times)
+                let scriptReady = false;
+                for (let attempt = 0; attempt < 10; attempt++) {
+                    try {
+                        const pingResp = await new Promise((resolve) => {
+                            chrome.tabs.sendMessage(ytTab.id, { action: 'PING' }, (resp) => {
+                                if (chrome.runtime.lastError) { resolve(null); return; }
+                                resolve(resp);
+                            });
+                        });
+                        if (pingResp && pingResp.success) {
+                            console.log('[Netflow BG] Content script ready (attempt ' + (attempt + 1) + ')');
+                            scriptReady = true;
+                            break;
+                        }
+                    } catch (_) {}
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                }
+                if (!scriptReady) {
+                    console.warn('[Netflow BG] Content script not responding after 10 attempts');
+                    sendResponse({ success: false, error: 'YouTube content script not ready' });
+                    return;
+                }
 
                 // Send upload command to content script
                 chrome.tabs.sendMessage(ytTab.id, {

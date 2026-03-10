@@ -40,6 +40,7 @@ export interface ProductionPreviewSectionProps extends SectionProps {
     onDownloadVideo: () => void;
     isTikTokReady?: boolean;
     onTikTokNotReady?: () => void;
+    productImage?: string | null;
 }
 
 export interface GenerationSettingsSectionProps extends SectionProps {

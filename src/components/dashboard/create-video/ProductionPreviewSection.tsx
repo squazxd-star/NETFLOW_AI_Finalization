@@ -1,7 +1,9 @@
-import { Share2, Youtube, Save, Globe, Lock, EyeOff, Calendar, Clock } from "lucide-react";
+import { useState } from "react";
+import { Share2, Youtube, Save, Globe, Lock, EyeOff, Calendar, Clock, Sparkles, Loader2 } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
+import { generateYouTubeMetadata } from "@/services/youtubeMetadataService";
 
 const TikTokIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -19,6 +21,7 @@ const ProductionPreviewSection = ({
     onDownloadVideo,
     isTikTokReady,
     onTikTokNotReady,
+    productImage,
 }: ProductionPreviewSectionProps) => {
     const autoPostYoutube = watch("autoPostYoutube");
     const autoPostTikTok = watch("autoPostTikTok");
@@ -26,6 +29,80 @@ const ProductionPreviewSection = ({
     const youtubeMadeForKids = watch("youtubeMadeForKids");
     const youtubeScheduleEnabled = watch("youtubeScheduleEnabled");
     const { toast } = useToast();
+    const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+    const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+
+    const handleGenerateTitle = async () => {
+        const productName = watch("productName") as string;
+        if (!productName?.trim()) {
+            toast({ title: "⚠️ ใส่ชื่อสินค้าก่อน", description: "กรุณากรอกชื่อสินค้าในส่วน 'ข้อมูลสินค้า' ก่อนใช้ AI", variant: "destructive" });
+            return;
+        }
+        setIsGeneratingTitle(true);
+        try {
+            const result = await generateYouTubeMetadata({
+                productName,
+                productDescription: watch("productDescription") as string,
+                productImage,
+                cachedProductInfo: watch("cachedProductInfo") as string,
+            });
+            setValue("youtubeTitle", result.title);
+            toast({ title: "✨ สร้าง Title สำเร็จ", description: `"${result.title}"` });
+        } catch (err: any) {
+            toast({ title: "❌ สร้าง Title ไม่สำเร็จ", description: err.message, variant: "destructive" });
+        } finally {
+            setIsGeneratingTitle(false);
+        }
+    };
+
+    const handleGenerateDesc = async () => {
+        const productName = watch("productName") as string;
+        if (!productName?.trim()) {
+            toast({ title: "⚠️ ใส่ชื่อสินค้าก่อน", description: "กรุณากรอกชื่อสินค้าในส่วน 'ข้อมูลสินค้า' ก่อนใช้ AI", variant: "destructive" });
+            return;
+        }
+        setIsGeneratingDesc(true);
+        try {
+            const result = await generateYouTubeMetadata({
+                productName,
+                productDescription: watch("productDescription") as string,
+                productImage,
+                cachedProductInfo: watch("cachedProductInfo") as string,
+            });
+            setValue("youtubeDescription", result.description);
+            toast({ title: "✨ สร้าง Description สำเร็จ" });
+        } catch (err: any) {
+            toast({ title: "❌ สร้าง Description ไม่สำเร็จ", description: err.message, variant: "destructive" });
+        } finally {
+            setIsGeneratingDesc(false);
+        }
+    };
+
+    const handleGenerateBoth = async () => {
+        const productName = watch("productName") as string;
+        if (!productName?.trim()) {
+            toast({ title: "⚠️ ใส่ชื่อสินค้าก่อน", description: "กรุณากรอกชื่อสินค้าในส่วน 'ข้อมูลสินค้า' ก่อนใช้ AI", variant: "destructive" });
+            return;
+        }
+        setIsGeneratingTitle(true);
+        setIsGeneratingDesc(true);
+        try {
+            const result = await generateYouTubeMetadata({
+                productName,
+                productDescription: watch("productDescription") as string,
+                productImage,
+                cachedProductInfo: watch("cachedProductInfo") as string,
+            });
+            setValue("youtubeTitle", result.title);
+            setValue("youtubeDescription", result.description);
+            toast({ title: "✨ สร้าง Title + Description สำเร็จ", description: `"${result.title}"` });
+        } catch (err: any) {
+            toast({ title: "❌ สร้างไม่สำเร็จ", description: err.message, variant: "destructive" });
+        } finally {
+            setIsGeneratingTitle(false);
+            setIsGeneratingDesc(false);
+        }
+    };
 
     const handleTikTokToggle = () => {
         if (!isTikTokReady && !autoPostTikTok) {
@@ -116,23 +193,61 @@ const ProductionPreviewSection = ({
                                 <span className="text-xs font-medium text-white">YouTube Shorts</span>
                             </div>
 
+                            {/* AI Generate All Button */}
+                            <button
+                                type="button"
+                                onClick={handleGenerateBoth}
+                                disabled={isGeneratingTitle || isGeneratingDesc}
+                                className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium rounded-lg transition-all bg-gradient-to-r from-primary/20 to-purple-500/20 text-primary border border-primary/30 hover:from-primary/30 hover:to-purple-500/30 hover:shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {(isGeneratingTitle || isGeneratingDesc) ? (
+                                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> AI กำลังคิด...</>
+                                ) : (
+                                    <><Sparkles className="w-3.5 h-3.5" /> AI สร้าง Title + Description</>
+                                )}
+                            </button>
+
                             {/* Title */}
                             <div>
-                                <label className="text-[11px] text-muted-foreground mb-1 block">ชื่อ (Title)</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-[11px] text-muted-foreground">ชื่อ (Title)</label>
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateTitle}
+                                        disabled={isGeneratingTitle}
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[9px] rounded-md transition-all bg-primary/10 text-primary/80 border border-primary/20 hover:bg-primary/20 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isGeneratingTitle ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
+                                        AI คิดชื่อ
+                                    </button>
+                                </div>
                                 <input
                                     {...register("youtubeTitle")}
                                     placeholder="ชื่อวิดีโอ (ระบบจะเติม #Shorts ให้อัตโนมัติ)"
+                                    maxLength={30}
                                     className="w-full px-3 py-2 text-xs bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
                                 />
+                                <p className="text-[9px] text-muted-foreground/50 mt-0.5 text-right">{(watch("youtubeTitle") || "").length}/30</p>
                             </div>
 
                             {/* Description */}
                             <div>
-                                <label className="text-[11px] text-muted-foreground mb-1 block">คำอธิบาย (Description)</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-[11px] text-muted-foreground">คำอธิบาย (Description)</label>
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateDesc}
+                                        disabled={isGeneratingDesc}
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[9px] rounded-md transition-all bg-primary/10 text-primary/80 border border-primary/20 hover:bg-primary/20 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isGeneratingDesc ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
+                                        AI เขียน
+                                    </button>
+                                </div>
                                 <textarea
                                     {...register("youtubeDescription")}
-                                    placeholder="คำอธิบายวิดีโอ (ไม่จำเป็น)"
-                                    rows={2}
+                                    placeholder="คำอธิบายวิดีโอ + Hashtag (AI จะสร้างให้อัตโนมัติ)"
+                                    rows={3}
                                     className="w-full px-3 py-2 text-xs bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
                                 />
                             </div>

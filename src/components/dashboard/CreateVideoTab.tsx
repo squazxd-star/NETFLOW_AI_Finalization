@@ -116,11 +116,24 @@ const CreateVideoTab = () => {
     const [promptPage, setPromptPage] = useState(0); // 0 = image, 1 = video
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
     const [flowLogs, setFlowLogs] = useState<string[]>(["✅ ระบบพร้อมทำงาน..."]);
+    const [myWindowId, setMyWindowId] = useState<number | null>(null);
+
+    // Detect this sidepanel's Chrome window ID (for multi-window log isolation)
+    useEffect(() => {
+        if (typeof chrome !== "undefined" && chrome.windows?.getCurrent) {
+            chrome.windows.getCurrent((win: any) => { if (win?.id) setMyWindowId(win.id); });
+        }
+    }, []);
 
     // Listen for FLOW_LOG + AUTOMATION_STOPPED messages from content-flow.ts
+    // Filter by sender's windowId so each sidepanel only shows its own window's logs
     useEffect(() => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
-        const handler = (message: any) => {
+        const handler = (message: any, sender: any) => {
+            // Multi-window isolation: only accept logs from tabs in OUR window
+            if (myWindowId !== null && sender?.tab?.windowId !== undefined && sender.tab.windowId !== myWindowId) {
+                return;
+            }
             if (message?.action === "FLOW_LOG" && message.msg) {
                 const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
                 setFlowLogs(prev => [...prev.slice(-199), `[${ts}] ${message.msg}`]);
@@ -132,7 +145,7 @@ const CreateVideoTab = () => {
         };
         chrome.runtime.onMessage.addListener(handler);
         return () => chrome.runtime.onMessage.removeListener(handler);
-    }, []);
+    }, [myWindowId]);
 
     // Fix #3: Auto-PING content script to check connection
     // Runs when prompt is generated or flowOpened changes
@@ -140,7 +153,7 @@ const CreateVideoTab = () => {
         if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
         if (!generatedImagePrompt || !flowOpened) return;
         const pingFlow = () => {
-            chrome.runtime.sendMessage({ action: "PING" }, (res) => {
+            chrome.runtime.sendMessage({ action: "PING", windowId: myWindowId || undefined }, (res) => {
                 if (chrome.runtime.lastError) {
                     setFlowConnected(false);
                     return;
@@ -231,6 +244,7 @@ const CreateVideoTab = () => {
                 onTikTokNotReady={() => {
                     // Navigate user to sync products
                 }}
+                productImage={productImage}
             />
 
             {/* 5. Generation Settings - การตั้งค่าการสร้าง */}
@@ -496,7 +510,7 @@ const CreateVideoTab = () => {
                             // Auto-ping after a delay to check if content script loads
                             setTimeout(() => {
                                 if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-                                    chrome.runtime.sendMessage({ action: "PING", videoEngine: engine }, (res) => {
+                                    chrome.runtime.sendMessage({ action: "PING", videoEngine: engine, windowId: myWindowId || undefined }, (res) => {
                                         if (!chrome.runtime.lastError && res?.status === "ready") {
                                             setFlowConnected(true);
                                         }
@@ -564,6 +578,7 @@ const CreateVideoTab = () => {
                                                 grokResolution: formData.grokResolution || "480p",
                                                 grokDuration: formData.grokDuration || "6s",
                                                 theme: localStorage.getItem("netflow_app_theme") || "red",
+                                                windowId: myWindowId || undefined,
                                             },
                                             (res) => {
                                                 if (chrome.runtime.lastError) {
