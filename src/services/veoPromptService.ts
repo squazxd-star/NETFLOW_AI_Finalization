@@ -142,6 +142,236 @@ const CLOTHING_MAP: Record<string, string> = {
     uniform: "clean professional uniform"
 };
 
+// ── OUTFIT_PROMPT_MAP: characterOutfit → array of diverse English prompt descriptions ──
+// Each outfit has 3-5 variants — picked randomly each generation so prompts never repeat.
+const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
+    "tshirt-casual": [
+        "relaxed cotton crew-neck t-shirt with comfortable fit, paired with casual pants",
+        "soft everyday round-neck tee in solid color, untucked relaxed style",
+        "classic cotton t-shirt with natural drape, casual effortless vibe",
+        "basic premium-cotton tee with clean neckline, relaxed street-ready look",
+    ],
+    "shirt-button": [
+        "crisp button-down collared shirt with rolled-up sleeves, smart casual look",
+        "tailored cotton dress shirt with neat collar, tucked in with polished style",
+        "clean pressed button-up shirt with structured collar, professional yet approachable",
+        "classic oxford button-down shirt, sleeves folded to elbow, refined casual aesthetic",
+    ],
+    "polo": [
+        "fitted polo shirt with neat collar, smart-casual preppy style",
+        "cotton piqué polo with subtle texture, collar slightly popped, clean sporty look",
+        "classic polo shirt in solid color, buttons half-open, relaxed confident vibe",
+    ],
+    "hoodie": [
+        "cozy oversized hoodie with front kangaroo pocket, relaxed streetwear energy",
+        "soft fleece zip-up hoodie with drawstring hood, comfortable casual style",
+        "premium cotton hoodie with clean silhouette, laid-back urban look",
+        "thick pullover hoodie with ribbed cuffs, warm cozy everyday wear",
+    ],
+    "sweater-knit": [
+        "soft chunky knit sweater with cable pattern, warm cozy aesthetic",
+        "fine-gauge merino wool sweater with crew neck, elegant understated warmth",
+        "oversized ribbed knit pullover in neutral tone, relaxed autumn/winter style",
+        "cashmere-blend turtleneck sweater, smooth luxurious texture, sophisticated warmth",
+    ],
+    "jacket-denim": [
+        "classic blue denim jacket with metal buttons, casual rugged Americana style",
+        "fitted washed denim jacket with turned-up collar, effortless cool look",
+        "vintage-wash jean jacket with chest pockets, layered over casual outfit",
+    ],
+    "jacket-leather": [
+        "black leather biker jacket with silver zippers, edgy rebellious style",
+        "sleek fitted leather jacket with mandarin collar, sharp modern silhouette",
+        "vintage brown leather jacket with worn patina, rugged sophisticated look",
+    ],
+    "blazer": [
+        "tailored single-breasted blazer over casual tee, smart-casual layered look",
+        "structured fitted blazer with peak lapels, polished business-casual style",
+        "relaxed unstructured linen blazer, sleeves pushed up, effortless elegance",
+    ],
+    "suit-formal": [
+        "sharp tailored two-piece suit with pressed trousers, formal executive look",
+        "classic fitted business suit with crisp white shirt and tie, professional authority",
+        "modern slim-fit suit in dark tone, clean lines, confident corporate style",
+        "elegant double-breasted suit with satin lapels, sophisticated formal presence",
+    ],
+    "tank-top": [
+        "fitted ribbed tank top showing toned arms, casual summer vibe",
+        "clean cotton sleeveless tank with scoop neck, relaxed warm-weather look",
+        "athletic-fit muscle tank top, sporty confident casual energy",
+    ],
+    "crop-top": [
+        "trendy cropped top with high-waist bottoms, youthful fashionable look",
+        "fitted ribbed crop top showing midriff, paired with high-waisted jeans",
+        "off-shoulder cropped blouse, feminine stylish summer aesthetic",
+        "sporty crop tank with matching high-waist leggings, gym-to-street style",
+    ],
+    "oversize-tee": [
+        "baggy oversized graphic tee tucked at front, effortless street style",
+        "extra-large drop-shoulder t-shirt with relaxed fit, trendy Gen-Z aesthetic",
+        "loose oversized cotton tee dress-length, comfortable gender-neutral look",
+    ],
+    "dress-casual": [
+        "flowy casual midi dress with relaxed silhouette, easy everyday elegance",
+        "soft cotton wrap dress with subtle print, feminine laid-back charm",
+        "simple A-line day dress in solid color, comfortable effortless style",
+        "breezy shirt dress with belt cinch, casual smart weekend look",
+    ],
+    "dress-elegant": [
+        "stunning floor-length evening gown with elegant draping, red-carpet glamour",
+        "sleek fitted cocktail dress with sophisticated neckline, luxurious fabric sheen",
+        "structured satin midi dress with clean lines, understated timeless elegance",
+        "flowing chiffon formal dress with delicate details, ethereal graceful beauty",
+    ],
+    "dress-korean": [
+        "pastel Korean-style midi dress with puff sleeves, soft feminine K-fashion look",
+        "fitted Korean minimalist dress with clean collar, sweet elegant aesthetic",
+        "romantic floral Korean dress with cinched waist, K-drama inspired style",
+        "layered Korean-style outfit with pleated skirt and knit vest, cute coordinated look",
+    ],
+    "dress-mini": [
+        "chic fitted mini dress with modern cut, confident youthful style",
+        "flirty A-line mini dress with structured bodice, playful party-ready look",
+        "bodycon mini dress with sleek fabric, bold fashion-forward silhouette",
+    ],
+    "skirt-outfit": [
+        "pleated midi skirt with tucked-in blouse, feminine polished look",
+        "high-waisted A-line skirt with cropped top, balanced elegant proportion",
+        "flowing maxi skirt with fitted top, bohemian romantic style",
+        "structured pencil skirt with silk blouse, professional feminine power look",
+    ],
+    "jeans-outfit": [
+        "classic straight-leg jeans with casual top, timeless denim everyday style",
+        "slim-fit dark wash jeans with fitted tee, clean modern casual look",
+        "high-waisted boyfriend jeans with tucked shirt, relaxed trendy aesthetic",
+        "distressed skinny jeans with leather jacket, edgy urban street style",
+    ],
+    "sportswear": [
+        "matching athletic tracksuit with zippered jacket, sporty dynamic energy",
+        "breathable sports jersey with athletic shorts, game-ready active look",
+        "sleek performance sportswear with moisture-wicking fabric, competitive athlete style",
+    ],
+    "gym-wear": [
+        "fitted compression gym top with athletic leggings, workout-ready physique",
+        "athletic tank top with training shorts, sweat-ready gym aesthetic",
+        "sports bra and high-waist leggings set, toned active fitness look",
+        "performance dry-fit gym outfit, muscular active training style",
+    ],
+    "yoga-wear": [
+        "stretchy yoga pants with fitted crop top, zen athletic flexibility",
+        "seamless yoga set in earthy tones, mindful movement aesthetic",
+        "flowing yoga top with flexible leggings, balanced calm-energy style",
+    ],
+    "streetwear": [
+        "bold graphic hoodie with cargo pants and chunky sneakers, urban streetwear flex",
+        "oversized bomber jacket with baggy jeans and bucket hat, hypebeast aesthetic",
+        "layered streetwear with zip-up vest and joggers, edgy city style",
+        "vintage band tee with wide-leg pants and platform shoes, alternative street look",
+    ],
+    "vintage": [
+        "retro 70s-inspired outfit with flared pants and patterned shirt, nostalgic vintage charm",
+        "classic 90s grunge flannel over band tee with ripped jeans, throwback cool",
+        "elegant vintage-style tea dress with pearl accessories, timeless retro beauty",
+        "old-school varsity jacket with high-waist trousers, preppy vintage aesthetic",
+    ],
+    "minimal-chic": [
+        "clean monochrome outfit with structured silhouette, effortless minimalist elegance",
+        "neutral-tone fitted basics with one statement piece, curated minimalist style",
+        "simple white shirt with tailored black trousers, sleek understated chic",
+        "muted earth-tone layered outfit, Scandinavian minimalist aesthetic",
+    ],
+    "korean-style": [
+        "soft pastel coordinated K-fashion outfit, clean youthful Korean aesthetic",
+        "oversized blazer with pleated skirt and loafers, trendy Seoul street style",
+        "layered Korean casual with knit vest over shirt, cute balanced proportion",
+        "fitted turtleneck with wide-leg pants, modern Korean minimalist look",
+    ],
+    "japanese-style": [
+        "structured Japanese streetwear with clean lines, Harajuku-meets-minimal aesthetic",
+        "layered Japanese casual with oversized silhouette, Uniqlo-inspired simplicity",
+        "modern kimono-inspired wrap top with wide pants, contemporary Japanese fusion",
+        "clean Japanese workwear with utility details, functional aesthetic style",
+    ],
+    "thai-traditional": [
+        "elegant Thai silk outfit with intricate patterns, traditional cultural beauty",
+        "modern Thai-inspired dress with silk details, contemporary Thai elegance",
+        "classic Thai traditional formal wear with gold embroidery, regal heritage style",
+    ],
+    "uniform-nurse": [
+        "clean white nurse uniform with professional cap, trustworthy medical professional look",
+        "modern medical scrubs in soft blue, healthcare professional appearance",
+        "crisp nursing uniform with stethoscope, caring medical staff aesthetic",
+    ],
+    "uniform-office": [
+        "professional office blouse with pencil skirt, corporate business attire",
+        "smart office shirt with tailored trousers, polished workplace look",
+        "business-casual blazer with dress pants, modern office professional style",
+    ],
+    "uniform-school": [
+        "classic school uniform with white shirt and dark skirt/pants, student look",
+        "neat school uniform with tie and blazer, well-dressed student style",
+        "clean pressed school uniform, youthful academic aesthetic",
+    ],
+    "uniform-chef": [
+        "professional white chef coat with double-breasted buttons, culinary expert look",
+        "clean chef uniform with toque hat, professional kitchen authority",
+        "modern chef jacket with rolled sleeves, contemporary culinary style",
+    ],
+    "pajamas": [
+        "soft silk pajama set with relaxed fit, luxurious at-home comfort",
+        "cozy cotton loungewear with cute pattern, warm bedtime aesthetic",
+        "matching satin sleepwear set, elegant comfortable nighttime style",
+    ],
+    "beach-wear": [
+        "breezy linen beach outfit with sun hat, tropical vacation vibes",
+        "colorful floral resort wear with sandals, summer beach-ready look",
+        "casual beach cover-up with swimwear peaking through, coastal holiday style",
+    ],
+    "luxury-brand": [
+        "high-end designer outfit with impeccable tailoring, luxury fashion statement",
+        "premium branded ensemble with signature details, affluent sophisticated style",
+        "couture-inspired outfit with luxurious fabric and accessories, elite fashion presence",
+    ],
+    "cardigan": [
+        "soft knit cardigan over simple tee, cozy layered casual warmth",
+        "oversized chunky cardigan with buttons open, relaxed autumn comfort",
+        "fitted ribbed cardigan with delicate buttons, polished feminine layering",
+    ],
+    "trenchcoat": [
+        "classic beige trench coat with belt cinched, timeless Parisian elegance",
+        "long structured trench coat over fitted outfit, sophisticated autumn style",
+        "modern oversized trench in neutral tone, dramatic fashion-forward silhouette",
+    ],
+    "bomber-jacket": [
+        "satin bomber jacket with ribbed cuffs, sporty urban cool",
+        "classic MA-1 bomber with patch details, military-inspired street style",
+        "sleek fitted bomber jacket in dark tone, modern casual edge",
+    ],
+    "linen-casual": [
+        "breathable linen shirt with matching pants, relaxed summer Mediterranean style",
+        "natural linen tunic with cotton bottoms, effortless warm-weather elegance",
+        "loose-fit linen blouse with high-waist linen trousers, coastal resort aesthetic",
+    ],
+    "ruffle-blouse": [
+        "romantic ruffle-front blouse with tiered detail, feminine elegant charm",
+        "soft chiffon blouse with cascading ruffles, delicate fashion-forward look",
+        "Victorian-inspired ruffle-collar blouse, dramatic sophisticated feminine style",
+    ],
+    "off-shoulder": [
+        "elegant off-shoulder top revealing collarbones, romantic feminine allure",
+        "structured Bardot neckline blouse, sophisticated shoulder-baring style",
+        "flowing off-shoulder dress with cinched waist, graceful evening elegance",
+    ],
+};
+
+// Helper: pick random outfit prompt variant
+function getOutfitDescription(outfitKey?: string): string {
+    if (!outfitKey) return "casual everyday wear";
+    const variants = OUTFIT_PROMPT_MAP[outfitKey];
+    if (!variants || variants.length === 0) return "casual everyday wear";
+    return variants[Math.floor(Math.random() * variants.length)];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MASTER FORMULA — คัมภีร์ 5 ส่วน (The 5-Part Master Formula)
 // Based on Gemini expert recommendation for platform-safe commercial prompts
@@ -3579,7 +3809,88 @@ const ANTI_DISTORTION_DIRECTIVE = "PRODUCT ACCURACY: Frontal eye-level shot, per
 
 // Brand & Policy Safety — words to auto-sanitize from prompts
 const BRAND_REPLACEMENTS: [RegExp, string][] = [
-    // Tech brands
+    // ── Apple product lines (MUST come before generic "apple" brand match) ──
+    [/\bmacbook\s*pro\b/gi, "premium professional laptop"],
+    [/\bmacbook\s*air\b/gi, "premium slim laptop"],
+    [/\bmacbook\b/gi, "premium laptop"],
+    [/\bipad\s*pro\b/gi, "premium professional tablet"],
+    [/\bipad\s*air\b/gi, "premium slim tablet"],
+    [/\bipad\s*mini\b/gi, "compact premium tablet"],
+    [/\bipad\b/gi, "premium tablet"],
+    [/\bairpods?\s*pro\b/gi, "premium wireless earbuds"],
+    [/\bairpods?\s*max\b/gi, "premium over-ear headphones"],
+    [/\bairpods?\b/gi, "wireless earbuds"],
+    [/\bapple\s*watch\b/gi, "premium smart watch"],
+    [/\bapple\s*tv\b/gi, "premium streaming device"],
+    [/\bimac\b/gi, "premium all-in-one desktop"],
+    [/\bhomepod\b/gi, "premium smart speaker"],
+    [/\bapple\s*vision\s*pro\b/gi, "premium mixed reality headset"],
+    // ── Samsung product lines ──
+    [/\bgalaxy\s*s\d+/gi, "flagship smartphone"],
+    [/\bgalaxy\s*z\s*fold\d*/gi, "premium foldable smartphone"],
+    [/\bgalaxy\s*z\s*flip\d*/gi, "premium flip smartphone"],
+    [/\bgalaxy\s*tab\b/gi, "premium tablet"],
+    [/\bgalaxy\s*buds?\d*\b/gi, "wireless earbuds"],
+    [/\bgalaxy\s*watch\d*\b/gi, "smart watch"],
+    [/\bgalaxy\s*ring\b/gi, "smart ring"],
+    [/\bgalaxy\s*book\b/gi, "premium laptop"],
+    [/\bgalaxy\b/gi, "flagship device"],
+    // ── Microsoft product lines ──
+    [/\bsurface\s*pro\b/gi, "premium 2-in-1 laptop"],
+    [/\bsurface\s*laptop\b/gi, "premium laptop"],
+    [/\bsurface\s*go\b/gi, "compact laptop tablet"],
+    [/\bsurface\b/gi, "premium laptop"],
+    [/\bxbox\s*series\s*[xs]\b/gi, "gaming console"],
+    [/\bxbox\b/gi, "gaming console"],
+    // ── Google product lines ──
+    [/\bpixel\s*\d+\s*pro\b/gi, "flagship smartphone"],
+    [/\bpixel\s*\d+[a]?\b/gi, "premium smartphone"],
+    [/\bpixel\s*watch\b/gi, "smart watch"],
+    [/\bpixel\s*buds?\b/gi, "wireless earbuds"],
+    [/\bpixel\s*tablet\b/gi, "premium tablet"],
+    [/\bnest\s*hub\b/gi, "smart display"],
+    [/\bchromecast\b/gi, "streaming device"],
+    [/\bchromebook\b/gi, "affordable laptop"],
+    // ── Sony product lines ──
+    [/\bplaystation\s*\d*\b/gi, "gaming console"],
+    [/\bps5\b/gi, "gaming console"],
+    [/\bps4\b/gi, "gaming console"],
+    [/\bxperia\b/gi, "premium smartphone"],
+    [/\bsony\b/gi, "premium electronics"],
+    // ── Other tech product lines ──
+    [/\bnintendo\s*switch\b/gi, "portable gaming console"],
+    [/\bnintendo\b/gi, "gaming brand"],
+    [/\bdyson\b/gi, "premium home appliance"],
+    [/\btesla\b/gi, "premium electric vehicle"],
+    [/\bmarshall\b/gi, "premium audio brand"],
+    [/\bbose\b/gi, "premium audio brand"],
+    [/\bjbl\b/gi, "popular audio brand"],
+    [/\bsennheiser\b/gi, "professional audio brand"],
+    [/\bbeats\b(?!\s*(per|by\s+dre))/gi, "premium headphones"],
+    [/\bbeats\s*by\s*dre\b/gi, "premium headphones"],
+    [/\brazer\b/gi, "gaming gear brand"],
+    [/\blogitech\b/gi, "computer accessory brand"],
+    [/\basus\b/gi, "premium computer brand"],
+    [/\blenovo\b/gi, "computer brand"],
+    [/\bthinkpad\b/gi, "professional laptop"],
+    [/\bdell\b/gi, "computer brand"],
+    [/\bacer\b/gi, "computer brand"],
+    [/\bmsi\b(?!\s*afterburner)/gi, "gaming computer brand"],
+    [/\bhp\b(?!\s*(sauce|lovecraft))/gi, "computer brand"],
+    // ── Car brands ──
+    [/\bbmw\b/gi, "luxury car brand"],
+    [/\bmercedes[\s-]*benz\b/gi, "luxury car brand"],
+    [/\bmercedes\b/gi, "luxury car brand"],
+    [/\bporsche\b/gi, "luxury sports car brand"],
+    [/\bferrari\b/gi, "luxury sports car brand"],
+    [/\blamborghini\b/gi, "luxury sports car brand"],
+    [/\btoyota\b/gi, "popular car brand"],
+    [/\bhonda\b/gi, "popular car brand"],
+    [/\bmazda\b/gi, "popular car brand"],
+    [/\baudi\b/gi, "luxury car brand"],
+    [/\blexus\b/gi, "luxury car brand"],
+    // ── Original tech brands ──
+    [/\biphone\s*\d*\s*(?:pro\s*max|pro|plus|mini)?\b/gi, "premium smartphone"],
     [/\biphone\b/gi, "premium smartphone"],
     [/\bsamsung\b/gi, "flagship device"],
     [/\bapple\b(?!\s*(cider|juice|pie|fruit))/gi, "premium tech brand"],
@@ -3587,11 +3898,15 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\bhuawei\b/gi, "flagship smartphone"],
     [/\bxiaomi\b/gi, "popular smartphone"],
     [/\boppo\b/gi, "stylish smartphone"],
+    [/\bvivo\b/gi, "stylish smartphone"],
+    [/\brealme\b/gi, "popular smartphone"],
+    [/\boneplus\b/gi, "premium smartphone"],
+    [/\bnothing\s*phone\b/gi, "premium smartphone"],
     // Athletic/Fashion brands
     [/\bnike\b/gi, "athletic brand"],
     [/\badidas\b/gi, "sportswear brand"],
     [/\bgucci\b/gi, "luxury fashion brand"],
-    [/\blouis vuitton\b/gi, "luxury brand"],
+    [/\blouis\s*vuitton\b/gi, "luxury brand"],
     [/\bchanel\b/gi, "high-end fashion brand"],
     [/\brolex\b/gi, "luxury watch brand"],
     [/\bprada\b/gi, "luxury fashion brand"],
@@ -3600,6 +3915,12 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\bbalenciaga\b/gi, "designer fashion brand"],
     [/\bzara\b/gi, "fashion brand"],
     [/\buniqlo\b/gi, "casual fashion brand"],
+    [/\bh&m\b/gi, "fashion brand"],
+    [/\bfendi\b/gi, "luxury fashion brand"],
+    [/\bcartier\b/gi, "luxury jewelry brand"],
+    [/\btiffany\b/gi, "luxury jewelry brand"],
+    [/\bomega\b/gi, "luxury watch brand"],
+    [/\btag\s*heuer\b/gi, "luxury watch brand"],
     // Beauty/Fragrance brands
     [/\bversace\b/gi, "luxury fragrance brand"],
     [/\bbulgari\b/gi, "luxury brand"],
@@ -3613,10 +3934,17 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\bla mer\b/gi, "luxury skincare brand"],
     [/\bclinique\b/gi, "premium skincare brand"],
     [/\bnars\b/gi, "professional makeup brand"],
+    [/\bloreall?\b/gi, "beauty brand"],
+    [/\bmaybelline\b/gi, "beauty brand"],
+    [/\bshu\s*uemura\b/gi, "premium beauty brand"],
+    [/\bbobbi\s*brown\b/gi, "premium beauty brand"],
     // Social platforms
     [/\binstagram\b/gi, "social media platform"],
     [/\bfacebook\b/gi, "social network"],
     [/\byoutube\b/gi, "video platform"],
+    [/\btiktok\b/gi, "short video platform"],
+    [/\btwitter\b/gi, "social platform"],
+    [/\bx\.com\b/gi, "social platform"],
     // Celebrity/public figure references — replace with generic descriptions
     [/\blisa\b(?!\s*(simpson|kudrow))/gi, "young woman"],
     [/\bbambi?i?\b/gi, "young woman"],
@@ -3686,9 +4014,22 @@ const POLICY_UNSAFE_WORDS = [
     "influencer ชื่อดัง", "ไอดอล",
 ];
 
+/** Sanitize a product name for Veo visual prompts — replaces known brand/trademark
+ *  words with generic visual descriptions. The product IMAGE reference handles visual
+ *  identity, so we don't need trademarked names in the text prompt.
+ *  Original name is kept only in SPOKEN DIALOGUE (audio-only section).
+ */
+const sanitizeProductNameForVeo = (productName: string): string => {
+    let result = productName;
+    for (const [pattern, replacement] of BRAND_REPLACEMENTS) {
+        result = result.replace(pattern, replacement);
+    }
+    return result.replace(/\s{2,}/g, ' ').trim();
+};
+
 /** Sanitize brand names and policy-unsafe keywords from a prompt.
- *  If productName is provided, it will be preserved as-is (not sanitized).
- *  This is important because the user's product name IS the brand they're selling.
+ *  If productName is provided, a Veo-safe (brand-stripped) version is preserved
+ *  so it won't be double-sanitized, but trademarked words are already removed.
  */
 const sanitizePromptForPolicy = (text: string, productName?: string): string => {
     let result = text;
@@ -3709,10 +4050,11 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
         }
     }
 
-    // Protect user's product name from brand replacement
+    // Protect Veo-safe product name from further brand replacement (already sanitized)
     const placeholder = "___PRODUCT_NAME_PRESERVE___";
-    if (productName) {
-        result = result.replace(new RegExp(productName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), placeholder);
+    const safeProductName = productName ? sanitizeProductNameForVeo(productName) : undefined;
+    if (safeProductName) {
+        result = result.replace(new RegExp(safeProductName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), placeholder);
     }
     for (const [pattern, replacement] of BRAND_REPLACEMENTS) {
         result = result.replace(pattern, replacement);
@@ -3733,9 +4075,9 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
             result = result.replace(ph, directive);
         }
     }
-    // Restore product name
-    if (productName) {
-        result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), productName);
+    // Restore Veo-safe product name
+    if (safeProductName) {
+        result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), safeProductName);
     }
     // Deduplicate repeated SENTENCES only (split on sentence-ending punctuation, not "," to preserve structure)
     const sentences = result.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(Boolean);
@@ -4856,6 +5198,7 @@ export interface PromptGenerationConfig {
     expression?: string;        // neutral, happy, excited, serious
     movement?: string;          // static, minimal, active
     clothingStyles?: string[];  // casual, formal, sporty, fashion, uniform
+    characterOutfit?: string;   // detailed outfit key from characterOutfitOptions
     cameraAngles?: string[];    // front, side, close-up, full-body, dynamic
     
     // Video Settings
@@ -5246,7 +5589,9 @@ const buildImagePrompt = (
     const hasProductImage = !!config.productImage;
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
-    const clothingDesc = (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
+    const clothingDesc = config.characterOutfit
+        ? getOutfitDescription(config.characterOutfit)
+        : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles → cinematic direction ──
     const cameraMap: Record<string, string> = {
@@ -5343,7 +5688,9 @@ const buildVideoPrompt = (
     const voiceTone = config.voiceTone || 'friendly';
     
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
-    const clothingDesc = (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
+    const clothingDesc = config.characterOutfit
+        ? getOutfitDescription(config.characterOutfit)
+        : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles ──
     const cameraAngleMap: Record<string, string> = {
@@ -5445,7 +5792,10 @@ const buildVideoPrompt = (
     const speakingDirective = `Character speaks directly to camera throughout. Mouth opens and closes naturally matching spoken words. Realistic speaking animation, never silent or static expression.`;
 
     const contactPhysics = buildContactPhysicsDirectiveSlim(category);
-    const videoProductAnatomy = buildProductAnatomyDirective(category, config.productName);
+    // ── Veo-safe product name — strip trademarked brands for visual prompt (product IMAGE handles identity) ──
+    const veoSafeProductName = sanitizeProductNameForVeo(config.productName);
+    console.log(`🛡️ Product name sanitized for Veo: "${config.productName}" → "${veoSafeProductName}"`);
+    const videoProductAnatomy = buildProductAnatomyDirective(category, veoSafeProductName);
 
     // ── Product Usage Realism — prevents illogical actions (e.g. spraying with cap on) ──
     const productUsageRealism = PRODUCT_USAGE_REALISM[category] || "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage.";
@@ -5474,14 +5824,14 @@ const buildVideoPrompt = (
 
     // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
-    const productAnchor = `The ${config.productName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ${productUsageRealism}`;
+    const productAnchor = `The ${veoSafeProductName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ${productUsageRealism}`;
 
     let prompt = sanitizePromptForPolicy([
         // ★ [1. CHARACTER VISUAL DNA — HIGHEST PRIORITY] — full character identity
         `${characterAnchor}`,
         // ★ [2. VOICE PERSONA + SCRIPT] — voice persona + dialogue
         `${voiceoverDescriptor}`,
-        `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${config.productName} กัน!`}"`,
+        `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${veoSafeProductName} กัน!`}"`,
         // ★ [3. PRODUCT IDENTITY] — product anchor with usage realism
         `${templateConfig.englishName} commercial video. ${productAnchor}`,
         // [4. ACTION] — character interaction + product presentation
@@ -5496,7 +5846,7 @@ const buildVideoPrompt = (
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
         // [8. CONSTRAINTS] — condensed policy + technical (avoids bloated 3000-char directives that cause Veo truncation/rejection)
         `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
-    ].join(' '), config.productName);
+    ].join(' '), veoSafeProductName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
     const MAX_SCENE1_PROMPT_LENGTH = 3500;
@@ -5513,7 +5863,7 @@ const buildVideoPrompt = (
         genderVoice: `${genderVoice} ${voiceLanguage} voice speaking`,
         expression: expressionText,
         camera: `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}`,
-        product: `${config.productName}, ${fullProductHighlight}`,
+        product: `${veoSafeProductName}, ${fullProductHighlight}`,
         productAnchor: productAnchor,
         template: templateConfig.englishName,
         pacing: durationConfig.pacing,

@@ -1,4 +1,4 @@
-import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User } from "lucide-react";
+import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User, Shirt } from "lucide-react";
 import { useState, useEffect, useCallback, DragEvent } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
@@ -10,6 +10,7 @@ import {
     openTikTokStudio,
     TikTokProduct
 } from "@/services/tiktokProductService";
+import { characterOutfitOptions } from "@/types/netflow";
 
 const ProductDataSection = ({
     register,
@@ -26,6 +27,8 @@ const ProductDataSection = ({
     onSyncedProductImageSelect
 }: ProductDataSectionProps) => {
     const gender = watch("gender");
+    const characterOutfit = watch("characterOutfit");
+    const [outfitDropdownOpen, setOutfitDropdownOpen] = useState(false);
     const { toast } = useToast();
 
     // Drag-and-drop state
@@ -351,6 +354,59 @@ const ProductDataSection = ({
                                     <span className="text-sm">♀</span> หญิง
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Character Outfit Dropdown */}
+                        <div className="relative">
+                            <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
+                                <Shirt className="w-3 h-3 text-neon-red" />
+                                เสื้อผ้าตัวละคร
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setOutfitDropdownOpen(!outfitDropdownOpen)}
+                                className="w-full py-2 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-between gap-2 bg-background/50 text-foreground border border-border hover:border-neon-red/30"
+                            >
+                                <span>
+                                    {(() => {
+                                        const selected = characterOutfitOptions.find(o => o.value === characterOutfit);
+                                        return selected ? `${selected.emoji} ${selected.label}` : "เลือกชุด...";
+                                    })()}
+                                </span>
+                                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${outfitDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {outfitDropdownOpen && (
+                                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl bg-background border border-border shadow-xl">
+                                    {(() => {
+                                        const groups = [...new Set(characterOutfitOptions.map(o => o.group))];
+                                        return groups.map(group => (
+                                            <div key={group}>
+                                                <div className="px-3 py-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider bg-muted/30 sticky top-0">
+                                                    {group}
+                                                </div>
+                                                {characterOutfitOptions.filter(o => o.group === group).map(option => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setValue("characterOutfit", option.value);
+                                                            setOutfitDropdownOpen(false);
+                                                        }}
+                                                        className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors ${
+                                                            characterOutfit === option.value
+                                                                ? 'bg-neon-red/10 text-neon-red font-medium'
+                                                                : 'text-foreground hover:bg-muted/50'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm">{option.emoji}</span>
+                                                        <span>{option.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                            )}
                         </div>
                     </div>
 

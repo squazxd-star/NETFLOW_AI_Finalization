@@ -27,6 +27,19 @@ export type EmotionSyncOption = "natural" | "lively" | "calm";
 export type AgeRangeOption = "teen" | "young-adult" | "adult" | "middle-age" | "senior";
 export type PersonalityOption = "cheerful" | "calm" | "professional" | "playful" | "mysterious";
 export type ClothingStyleOption = "casual" | "formal" | "sporty" | "fashion" | "uniform";
+export type CharacterOutfitOption =
+    | "tshirt-casual" | "shirt-button" | "polo" | "hoodie" | "sweater-knit"
+    | "jacket-denim" | "jacket-leather" | "blazer" | "suit-formal"
+    | "tank-top" | "crop-top" | "oversize-tee"
+    | "dress-casual" | "dress-elegant" | "dress-korean" | "dress-mini"
+    | "skirt-outfit" | "jeans-outfit"
+    | "sportswear" | "gym-wear" | "yoga-wear"
+    | "streetwear" | "vintage" | "minimal-chic"
+    | "korean-style" | "japanese-style" | "thai-traditional"
+    | "uniform-nurse" | "uniform-office" | "uniform-school" | "uniform-chef"
+    | "pajamas" | "beach-wear" | "luxury-brand"
+    | "cardigan" | "trenchcoat" | "bomber-jacket"
+    | "linen-casual" | "ruffle-blouse" | "off-shoulder";
 export type BackgroundOption = "studio" | "outdoor" | "home" | "office" | "abstract";
 export type VoiceSettingOption = "original" | "ai-generated" | "text-to-speech";
 export type ExpressionOption = "neutral" | "happy" | "excited" | "serious";
@@ -99,6 +112,56 @@ export const sceneBackgroundOptions: { value: string; label: string; emoji: stri
     { value: "school", label: "ห้องเรียน", emoji: "🎓", description: "บรรยากาศการเรียน เหมาะคอร์สออนไลน์" },
     { value: "temple", label: "วัด/ศาสนา", emoji: "🛕", description: "สงบ ศักดิ์สิทธิ์ บรรยากาศจิตใจ" },
     { value: "custom", label: "กำหนดเอง", emoji: "✏️", description: "พิมพ์ฉากที่ต้องการ" },
+];
+
+export const characterOutfitOptions: { value: CharacterOutfitOption; label: string; emoji: string; group: string }[] = [
+    // ── เสื้อผ้าพื้นฐาน ──
+    { value: "tshirt-casual", label: "เสื้อยืดลำลอง", emoji: "👕", group: "พื้นฐาน" },
+    { value: "shirt-button", label: "เสื้อเชิ้ต", emoji: "👔", group: "พื้นฐาน" },
+    { value: "polo", label: "เสื้อโปโล", emoji: "🎽", group: "พื้นฐาน" },
+    { value: "tank-top", label: "เสื้อกล้าม", emoji: "🩱", group: "พื้นฐาน" },
+    { value: "oversize-tee", label: "เสื้อโอเวอร์ไซส์", emoji: "👚", group: "พื้นฐาน" },
+    // ── เสื้อคลุม / แจ็คเก็ต ──
+    { value: "hoodie", label: "เสื้อฮู้ด", emoji: "🧥", group: "เสื้อคลุม" },
+    { value: "sweater-knit", label: "เสื้อไหมพรม/สเวตเตอร์", emoji: "🧶", group: "เสื้อคลุม" },
+    { value: "cardigan", label: "คาร์ดิแกน", emoji: "🧣", group: "เสื้อคลุม" },
+    { value: "jacket-denim", label: "แจ็คเก็ตยีนส์", emoji: "🧥", group: "เสื้อคลุม" },
+    { value: "jacket-leather", label: "แจ็คเก็ตหนัง", emoji: "🖤", group: "เสื้อคลุม" },
+    { value: "bomber-jacket", label: "บอมเบอร์แจ็คเก็ต", emoji: "🧥", group: "เสื้อคลุม" },
+    { value: "blazer", label: "เบลเซอร์", emoji: "🤵", group: "เสื้อคลุม" },
+    { value: "trenchcoat", label: "เทรนช์โค้ท", emoji: "🧥", group: "เสื้อคลุม" },
+    // ── ชุดเดรส / กระโปรง ──
+    { value: "dress-casual", label: "เดรสลำลอง", emoji: "👗", group: "เดรส" },
+    { value: "dress-elegant", label: "เดรสหรูหรา", emoji: "✨", group: "เดรส" },
+    { value: "dress-korean", label: "เดรสสไตล์เกาหลี", emoji: "🇰🇷", group: "เดรส" },
+    { value: "dress-mini", label: "มินิเดรส", emoji: "💃", group: "เดรส" },
+    { value: "skirt-outfit", label: "ชุดกระโปรง", emoji: "👗", group: "เดรส" },
+    { value: "crop-top", label: "เสื้อครอป", emoji: "👙", group: "เดรส" },
+    { value: "ruffle-blouse", label: "เสื้อระบาย", emoji: "🌸", group: "เดรส" },
+    { value: "off-shoulder", label: "เสื้อเปิดไหล่", emoji: "💫", group: "เดรส" },
+    // ── ทางการ / ทำงาน ──
+    { value: "suit-formal", label: "ชุดสูทเต็มยศ", emoji: "🤵", group: "ทางการ" },
+    { value: "uniform-office", label: "ชุดออฟฟิศ", emoji: "💼", group: "ทางการ" },
+    { value: "uniform-nurse", label: "ชุดพยาบาล", emoji: "🏥", group: "ทางการ" },
+    { value: "uniform-school", label: "ชุดนักเรียน", emoji: "🎓", group: "ทางการ" },
+    { value: "uniform-chef", label: "ชุดเชฟ", emoji: "👨‍🍳", group: "ทางการ" },
+    // ── กีฬา / ออกกำลังกาย ──
+    { value: "sportswear", label: "ชุดกีฬา", emoji: "⚽", group: "กีฬา" },
+    { value: "gym-wear", label: "ชุดออกกำลังกาย", emoji: "💪", group: "กีฬา" },
+    { value: "yoga-wear", label: "ชุดโยคะ", emoji: "🧘", group: "กีฬา" },
+    // ── สไตล์แฟชั่น ──
+    { value: "streetwear", label: "สตรีทแวร์", emoji: "🛹", group: "แฟชั่น" },
+    { value: "vintage", label: "วินเทจ", emoji: "📻", group: "แฟชั่น" },
+    { value: "minimal-chic", label: "มินิมอลชิค", emoji: "⬜", group: "แฟชั่น" },
+    { value: "korean-style", label: "สไตล์เกาหลี", emoji: "🇰🇷", group: "แฟชั่น" },
+    { value: "japanese-style", label: "สไตล์ญี่ปุ่น", emoji: "🇯🇵", group: "แฟชั่น" },
+    { value: "luxury-brand", label: "ชุดแบรนด์หรู", emoji: "👑", group: "แฟชั่น" },
+    { value: "jeans-outfit", label: "ชุดยีนส์", emoji: "👖", group: "แฟชั่น" },
+    { value: "linen-casual", label: "ชุดลินิน/ผ้าฝ้าย", emoji: "🌾", group: "แฟชั่น" },
+    // ── อื่นๆ ──
+    { value: "thai-traditional", label: "ชุดไทย", emoji: "🇹🇭", group: "อื่นๆ" },
+    { value: "pajamas", label: "ชุดนอน", emoji: "😴", group: "อื่นๆ" },
+    { value: "beach-wear", label: "ชุดเที่ยวทะเล", emoji: "🏖️", group: "อื่นๆ" },
 ];
 
 export const voiceToneOptions: { value: VoiceToneOption; label: string }[] = [

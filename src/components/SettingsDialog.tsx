@@ -337,29 +337,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 onClick={() => {
-                                    localStorage.setItem("netflow_ai_provider", "openai");
-                                    toast({
-                                        title: "เปลี่ยนเป็น OpenAI ✅",
-                                        description: "ระบบจะใช้ OpenAI GPT-4 ในการสร้าง Script",
-                                        className: "toast-theme-bg"
-                                    });
-                                }}
-                                className={`p-3 rounded-xl border-2 transition-all duration-200 text-center ${
-                                    aiProvider === "openai"
-                                        ? ""
-                                        : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]"
-                                }`}
-                                style={aiProvider === "openai" ? {
-                                    background: `rgba(${themeConfig.hexRgb}, 0.1)`,
-                                    borderColor: `rgba(${themeConfig.hexRgb}, 0.5)`,
-                                    boxShadow: `0 0 12px rgba(${themeConfig.hexRgb}, 0.1)`,
-                                } : {}}
-                            >
-                                <div className={`text-sm font-bold ${aiProvider === "openai" ? "" : "text-white/60"}`} style={aiProvider === "openai" ? { color: themeConfig.hex } : {}}>OpenAI</div>
-                                <div className={`text-[10px] mt-0.5 ${aiProvider === "openai" ? "" : "text-white/25"}`} style={aiProvider === "openai" ? { color: `rgba(${themeConfig.hexRgb}, 0.6)` } : {}}>GPT-4o-mini</div>
-                            </button>
-                            <button
-                                onClick={() => {
                                     localStorage.setItem("netflow_ai_provider", "gemini");
                                     toast({
                                         title: "เปลี่ยนเป็น Gemini ✅",
@@ -380,6 +357,29 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                             >
                                 <div className={`text-sm font-bold ${aiProvider === "gemini" ? "" : "text-white/60"}`} style={aiProvider === "gemini" ? { color: themeConfig.hex } : {}}>Gemini</div>
                                 <div className={`text-[10px] mt-0.5 ${aiProvider === "gemini" ? "" : "text-white/25"}`} style={aiProvider === "gemini" ? { color: `rgba(${themeConfig.hexRgb}, 0.6)` } : {}}>Gemini 2.0 Flash</div>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    localStorage.setItem("netflow_ai_provider", "openai");
+                                    toast({
+                                        title: "เปลี่ยนเป็น OpenAI ✅",
+                                        description: "ระบบจะใช้ OpenAI GPT-4 ในการสร้าง Script",
+                                        className: "toast-theme-bg"
+                                    });
+                                }}
+                                className={`p-3 rounded-xl border-2 transition-all duration-200 text-center ${
+                                    aiProvider === "openai"
+                                        ? ""
+                                        : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]"
+                                }`}
+                                style={aiProvider === "openai" ? {
+                                    background: `rgba(${themeConfig.hexRgb}, 0.1)`,
+                                    borderColor: `rgba(${themeConfig.hexRgb}, 0.5)`,
+                                    boxShadow: `0 0 12px rgba(${themeConfig.hexRgb}, 0.1)`,
+                                } : {}}
+                            >
+                                <div className={`text-sm font-bold ${aiProvider === "openai" ? "" : "text-white/60"}`} style={aiProvider === "openai" ? { color: themeConfig.hex } : {}}>OpenAI</div>
+                                <div className={`text-[10px] mt-0.5 ${aiProvider === "openai" ? "" : "text-white/25"}`} style={aiProvider === "openai" ? { color: `rgba(${themeConfig.hexRgb}, 0.6)` } : {}}>GPT-4o-mini</div>
                             </button>
                         </div>
                         <p className="text-[9px] text-white/25 text-center">เลือก AI ที่จะใช้สร้าง Script (ต้องใส่ API Key ด้วย)</p>

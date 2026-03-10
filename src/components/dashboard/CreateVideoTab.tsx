@@ -312,6 +312,7 @@ const CreateVideoTab = () => {
                                     avoidKeywords: data.avoidKeywords || "",
                                     userScript: data.sceneScriptsRaw || "",
                                     clothingStyles: data.clothingStyles || ["casual"],
+                                    characterOutfit: data.characterOutfit || "tshirt-casual",
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
                                     sceneBackground: data.sceneBackground || "studio",
                                 };
