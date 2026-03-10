@@ -1502,17 +1502,17 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         LOG("── ขั้น 2: คลิกปุ่ม 'อัปโหลดรูปภาพ' ──");
         let clickedUpload = false;
         const menuPollStart = Date.now();
-        while (!clickedUpload && Date.now() - menuPollStart < 5000) {
+        while (!clickedUpload && Date.now() - menuPollStart < 8000) {
             const menuElements = document.querySelectorAll<HTMLElement>(
-                "button, [role='menuitem'], [role='option'], li, div[role='button']"
+                "button, [role='menuitem'], [role='option'], li, div[role='button'], [role='menuitemradio'], a[role='button']"
             );
             // Icon-based detection first (look for "upload" icon)
             for (const el of menuElements) {
                 if (el === addBtn) continue;
-                const icons = el.querySelectorAll("i");
+                const icons = el.querySelectorAll("i, .material-icons, .material-symbols-outlined, [class*='icon']");
                 for (const icon of icons) {
                     const it = icon.textContent?.trim() || "";
-                    if (it === "upload" || it === "upload_file") {
+                    if (it === "upload" || it === "upload_file" || it === "add_photo_alternate" || it === "image" || it === "photo_library") {
                         const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
                         if (!allIconTexts.includes("drive_folder_upload")) {
                             el.click();
@@ -1528,17 +1528,44 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             if (!clickedUpload) {
                 for (const el of menuElements) {
                     if (el === addBtn) continue;
-                    const directText = el.childNodes.length <= 5 ? (el.textContent || "").trim() : "";
-                    if (directText.length > 0 && directText.length < 40) {
+                    const directText = el.childNodes.length <= 8 ? (el.textContent || "").trim() : "";
+                    if (directText.length > 0 && directText.length < 60) {
                         const lower = directText.toLowerCase();
                         if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
                             || lower.includes("upload image") || lower.includes("upload photo")
+                            || lower.includes("upload a file") || lower.includes("upload file")
                             || lower.includes("อัปโหลดรูปภาพ") || lower.includes("อัพโหลดรูปภาพ")
-                            || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")) {
+                            || lower.includes("อัปโหลดไฟล์") || lower.includes("อัพโหลดไฟล์")
+                            || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")
+                            || lower.includes("from device") || lower.includes("จากอุปกรณ์")
+                            || lower.includes("my computer") || lower.includes("คอมพิวเตอร์ของฉัน")) {
                             el.click();
                             clickedUpload = true;
                             LOG(`คลิกปุ่มอัปโหลด (ข้อความ: "${directText}") ✅`);
                             break;
+                        }
+                    }
+                }
+            }
+            // ★ Broader fallback: any menu item that's NOT "สร้าง"/"Create"/"Google Drive"
+            if (!clickedUpload) {
+                for (const el of menuElements) {
+                    if (el === addBtn) continue;
+                    const txt = (el.textContent || "").trim().toLowerCase();
+                    if (txt.length > 0 && txt.length < 60) {
+                        // Skip known non-upload items
+                        if (txt.includes("drive") || txt.includes("ไดรฟ์") || txt.includes("google") 
+                            || txt.includes("สร้าง") || txt.includes("create") || txt.includes("cancel")
+                            || txt.includes("ยกเลิก")) continue;
+                        // If it contains upload-related keywords in any language
+                        if (txt.includes("upload") || txt.includes("อัป") || txt.includes("อัพ") || txt.includes("file") || txt.includes("ไฟล์") || txt.includes("รูปภาพ") || txt.includes("image") || txt.includes("photo")) {
+                            const rect = el.getBoundingClientRect();
+                            if (rect.width > 0 && rect.height > 0) {
+                                el.click();
+                                clickedUpload = true;
+                                LOG(`คลิกปุ่มอัปโหลด (broad match: "${txt.substring(0, 40)}") ✅`);
+                                break;
+                            }
                         }
                     }
                 }
@@ -1548,7 +1575,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             }
         }
         if (!clickedUpload) {
-            WARN("ไม่พบปุ่มอัปโหลดในเมนูหลังรอ 5 วินาที");
+            WARN("ไม่พบปุ่มอัปโหลดในเมนูหลังรอ 8 วินาที");
             return false;
         }
 
@@ -1792,81 +1819,110 @@ async function selectVeoQuality(quality: "fast" | "quality"): Promise<boolean> {
     
     LOG(`=== เลือกคุณภาพ Veo: ${targetLabel} (${thShortLabel}) ===`);
 
-    // Step 1: Find the dropdown trigger button
+    // ★ Retry loop — dropdown may not be rendered immediately after page load
     let dropdownBtn: HTMLElement | null = null;
-    const allBtns = document.querySelectorAll<HTMLElement>("button, [role='button'], [role='combobox'], [aria-haspopup], div[class*='dropdown']");
-    
-    // Strategy A: Look for "Veo" and popup indicator
-    for (const btn of allBtns) {
-        const txt = (btn.textContent || "").trim();
-        if (txt.length > 60) continue; // Skip large text blocks
+    const retryDeadline = Date.now() + 10000; // 10 seconds total
 
-        if (txt.includes("Veo")) {
-            // Check if it looks like a dropdown trigger
-            if (btn.hasAttribute("aria-haspopup") || 
-                btn.hasAttribute("aria-expanded") || 
-                btn.getAttribute("role") === "combobox" || 
-                txt.includes("arrow_drop_down") || 
-                btn.querySelector("svg")) {
-                dropdownBtn = btn;
-                LOG(`พบปุ่ม Veo dropdown (Strategy A): "${txt.substring(0, 40).trim()}"`);
-                break;
-            }
-        }
-    }
-
-    // Strategy B: Just any button containing "Veo" near bottom
-    if (!dropdownBtn) {
+    while (!dropdownBtn && Date.now() < retryDeadline) {
+        const allBtns = document.querySelectorAll<HTMLElement>("button, [role='button'], [role='combobox'], [aria-haspopup], div[class*='dropdown'], [class*='select'], [class*='picker']");
+        
+        // Strategy A: Look for "Veo" and popup indicator
         for (const btn of allBtns) {
             const txt = (btn.textContent || "").trim();
-            if (txt.length > 60) continue;
+            if (txt.length > 80) continue;
 
-            if (txt.includes("Veo")) {
-                const rect = btn.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight * 0.5) {
+            if (txt.includes("Veo") || txt.includes("veo")) {
+                if (btn.hasAttribute("aria-haspopup") || 
+                    btn.hasAttribute("aria-expanded") || 
+                    btn.getAttribute("role") === "combobox" || 
+                    txt.includes("arrow_drop_down") || 
+                    btn.querySelector("svg")) {
                     dropdownBtn = btn;
-                    LOG(`พบปุ่ม Veo dropdown (Strategy B - bottom area): "${txt.substring(0, 40).trim()}"`);
+                    LOG(`พบปุ่ม Veo dropdown (Strategy A): "${txt.substring(0, 50).trim()}"`);
                     break;
                 }
             }
         }
-    }
 
-    // Strategy C: Check if it says "Fast"/"Quality" or "เร็ว"/"คุณภาพ" with popup
-    if (!dropdownBtn) {
-        for (const btn of allBtns) {
-            const txt = (btn.textContent || "").trim();
-            if (txt.length > 40) continue;
+        // Strategy B: Any button/element containing "Veo" anywhere on page
+        if (!dropdownBtn) {
+            for (const btn of allBtns) {
+                const txt = (btn.textContent || "").trim();
+                if (txt.length > 80) continue;
 
-            if (txt.includes("Fast") || txt.includes("Quality") || txt.includes("เร็ว") || txt.includes("คุณภาพ")) {
-                if (btn.hasAttribute("aria-haspopup") || btn.hasAttribute("aria-expanded") || btn.querySelector("svg")) {
-                    dropdownBtn = btn;
-                    LOG(`พบปุ่ม dropdown จากคำว่า Fast/Quality/TH (Strategy C): "${txt.substring(0, 40).trim()}"`);
-                    break;
+                if (txt.includes("Veo") || txt.includes("veo")) {
+                    const rect = btn.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        dropdownBtn = btn;
+                        LOG(`พบปุ่ม Veo dropdown (Strategy B): "${txt.substring(0, 50).trim()}"`);
+                        break;
+                    }
                 }
             }
         }
-    }
-    
-    // Strategy D: Fallback to finding any element with text matching quality at the bottom
-    if (!dropdownBtn) {
-        const allDivs = document.querySelectorAll<HTMLElement>("div, span");
-        for (const div of allDivs) {
-            const txt = (div.textContent || "").trim();
-            if (txt === "Veo 3.1 - Fast" || txt === "Veo 3.1 - Quality" || txt === "Fast" || txt === "Quality" || txt === "Veo 3.1 - เร็ว" || txt === "Veo 3.1 - คุณภาพสูง") {
-                const rect = div.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight * 0.6 && rect.width > 0) {
-                    dropdownBtn = div;
-                    LOG(`พบปุ่มโดยข้อความเป๊ะๆ (Strategy D): "${txt}"`);
-                    break;
+
+        // Strategy C: Check if it says "Fast"/"Quality" or "เร็ว"/"คุณภาพ" with popup
+        if (!dropdownBtn) {
+            for (const btn of allBtns) {
+                const txt = (btn.textContent || "").trim();
+                if (txt.length > 50) continue;
+
+                if (txt.includes("Fast") || txt.includes("Quality") || txt.includes("เร็ว") || txt.includes("คุณภาพ")) {
+                    if (btn.hasAttribute("aria-haspopup") || btn.hasAttribute("aria-expanded") || btn.querySelector("svg")) {
+                        dropdownBtn = btn;
+                        LOG(`พบปุ่ม dropdown จากคำว่า Fast/Quality/TH (Strategy C): "${txt.substring(0, 50).trim()}"`);
+                        break;
+                    }
                 }
             }
+        }
+        
+        // Strategy D: Any visible element with exact matching text
+        if (!dropdownBtn) {
+            const allEls = document.querySelectorAll<HTMLElement>("div, span, button, [role='button']");
+            for (const el of allEls) {
+                const txt = (el.textContent || "").trim();
+                if (
+                    txt === "Veo 3.1 - Fast" || txt === "Veo 3.1 - Quality" || 
+                    txt === "Fast" || txt === "Quality" || 
+                    txt === "Veo 3.1 - เร็ว" || txt === "Veo 3.1 - คุณภาพสูง" || txt === "Veo 3.1 - คุณภาพ" ||
+                    txt === "Veo 2 - Fast" || txt === "Veo 2 - Quality"
+                ) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        dropdownBtn = el;
+                        LOG(`พบปุ่มโดยข้อความเป๊ะๆ (Strategy D): "${txt}"`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Strategy E: Look for any clickable element containing "3.1" near the prompt bar area (bottom half)
+        if (!dropdownBtn) {
+            const allEls = document.querySelectorAll<HTMLElement>("button, [role='button'], div[tabindex], span[tabindex]");
+            for (const el of allEls) {
+                const txt = (el.textContent || "").trim();
+                if (txt.length > 60) continue;
+                if (txt.includes("3.1") || txt.includes("model") || txt.includes("โมเดล")) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.bottom > window.innerHeight * 0.4 && rect.width > 0 && rect.height > 0) {
+                        dropdownBtn = el;
+                        LOG(`พบปุ่ม model selector (Strategy E): "${txt.substring(0, 50).trim()}"`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!dropdownBtn) {
+            await sleep(1000);
         }
     }
 
     if (!dropdownBtn) {
-        WARN("ไม่พบปุ่ม Veo quality dropdown");
-        return false;
+        WARN("ไม่พบปุ่ม Veo quality dropdown หลังรอ 10 วินาที — ข้ามขั้นตอน (ใช้ค่าเดิม)");
+        return true; // ★ Return true (non-fatal) — don't block automation just because dropdown wasn't found
     }
 
     // Check if already showing the target quality

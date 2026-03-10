@@ -143,6 +143,7 @@ const MAX_LOG_LINES = 4;
 
 function generateProcessSteps(scenes: number): ProcessStep[] {
     const steps: ProcessStep[] = [
+        { stepId: "settings", label: "กำหนดค่าเริ่มต้น", status: "waiting" },
         { stepId: "upload-char", label: "อัปโหลดภาพตัวละคร", status: "waiting" },
         { stepId: "upload-prod", label: "อัปโหลดภาพสินค้า", status: "waiting" },
         { stepId: "img-prompt", label: "ใส่คำสั่งสร้างภาพ", status: "waiting" },
@@ -2726,6 +2727,8 @@ function buildOverlay(): HTMLDivElement {
     const stopBtn = document.createElement("button");
     stopBtn.className = "nf-stop-btn";
     stopBtn.innerHTML = '<span class="nf-stop-icon"></span> หยุด';
+    // ★ Inline critical styles as CSP fallback
+    stopBtn.style.cssText = 'position:absolute !important;top:14px !important;right:110px !important;z-index:2147483646 !important;cursor:pointer !important;pointer-events:auto !important;background:rgba(255,60,60,0.08) !important;border:1px solid rgba(255,60,60,0.25) !important;border-radius:8px !important;color:rgba(255,100,100,0.8) !important;font-size:13px !important;padding:6px 14px !important;font-family:inherit !important;display:flex !important;align-items:center !important;gap:6px !important;';
     stopBtn.onclick = () => {
         (window as any).__NETFLOW_STOP__ = true;
         try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
@@ -2742,6 +2745,8 @@ function buildOverlay(): HTMLDivElement {
     const closeBtn = document.createElement("button");
     closeBtn.className = "nf-close-btn";
     closeBtn.textContent = "✕ ซ่อน";
+    // ★ Inline critical styles as CSP fallback — ensures button is always visible & clickable
+    closeBtn.style.cssText = 'position:absolute !important;top:14px !important;right:14px !important;z-index:2147483646 !important;cursor:pointer !important;pointer-events:auto !important;background:rgba(0,0,0,0.6) !important;border:1px solid rgba(255,255,255,0.3) !important;border-radius:8px !important;color:#fff !important;font-size:19px !important;padding:6px 14px !important;font-family:inherit !important;';
     closeBtn.onclick = () => toggleOverlayVisibility();
     root.appendChild(closeBtn);
 
@@ -3347,6 +3352,8 @@ function ensureToggleButton(): void {
     toggleBtn.className = "nf-toggle-visible";
     toggleBtn.innerHTML = overlayHidden ? NF_ICON_BOLT : NF_ICON_CLOSE;
     toggleBtn.title = "ซ่อน/แสดง Netflow Overlay";
+    // ★ Inline critical styles as CSP fallback
+    toggleBtn.style.cssText = 'position:fixed !important;top:20px !important;right:20px !important;z-index:2147483647 !important;width:48px !important;height:48px !important;border-radius:50% !important;border:2px solid rgba(255,255,255,0.5) !important;background:rgba(0,0,0,0.85) !important;color:#fff !important;font-size:23px !important;cursor:pointer !important;display:flex !important;align-items:center !important;justify-content:center !important;pointer-events:auto !important;';
     toggleBtn.onclick = () => toggleOverlayVisibility();
     document.body.appendChild(toggleBtn);
 }
@@ -3421,6 +3428,19 @@ export function showOverlay(sceneCount: number = 1): void {
     updateThemeComponents();
 
     if (overlayRoot && overlayRoot.isConnected) {
+        // ★ Reset all step states for a fresh run even when reusing existing overlay
+        for (const mod of modules) {
+            for (const step of mod.steps) {
+                step.status = "waiting";
+                step.progress = step.progress !== undefined ? 0 : undefined;
+            }
+        }
+        currentSceneCount = sceneCount;
+        processSteps = generateProcessSteps(sceneCount);
+        rebuildTerminalDom();
+        for (const mod of modules) rebuildModuleDom(mod);
+        refreshModules();
+        refreshTerminal();
         // If overlay exists and still in DOM, just show it if hidden
         if (overlayHidden) {
             toggleOverlayVisibility();
@@ -3434,6 +3454,13 @@ export function showOverlay(sceneCount: number = 1): void {
     // Re-inject styles with resolved theme (remove old if exists)
     if (styleEl) { styleEl.remove(); styleEl = null; }
     injectStyles();
+    // ★ Reset ALL module steps to "waiting" to clear stale state from previous runs
+    for (const mod of modules) {
+        for (const step of mod.steps) {
+            step.status = "waiting";
+            step.progress = step.progress !== undefined ? 0 : undefined;
+        }
+    }
     // Configure process steps for the correct scene count from the start
     currentSceneCount = sceneCount;
     processSteps = generateProcessSteps(sceneCount);
@@ -3498,7 +3525,7 @@ export function hideOverlay(): void {
 // ── Stats Bar Auto-Refresh ──────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, string> = {
-    "settings": "CONFIG",
+    "settings": "SETTINGS",
     "upload-char": "UPLOAD",
     "upload-prod": "UPLOAD",
     "img-prompt": "PROMPT",
