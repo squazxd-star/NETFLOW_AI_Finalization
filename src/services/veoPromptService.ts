@@ -5242,6 +5242,7 @@ export interface VideoPromptMeta {
     clothingDesc: string;          // Clothing description for character consistency
     productUsageRealism: string;   // Category-specific usage realism (e.g. open cap before spray)
     category: ProductCategory;     // Product category for per-scene presentation guide lookup
+    talkOnlySceneIndex: number;    // 0-indexed scene that is "talk-only" (character speaks to camera, NO product shown)
 }
 
 /**
