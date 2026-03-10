@@ -69,7 +69,7 @@ export const createVideoSchema = z.object({
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
     outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
-    veoQuality: z.enum(["fast", "quality"]).default("fast"),
+    veoQuality: z.enum(["fast", "quality"]).default("quality"),
     sceneCount: z.number().int().min(1).max(10).default(2),
 
 
@@ -127,9 +127,9 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     ctaEnabled: true,
     videoEngine: "veo",
     outputType: "video",
-    orientation: "horizontal",
+    orientation: "vertical",
     outputCount: 1,
-    veoQuality: "fast" as const,
+    veoQuality: "quality" as const,
     sceneCount: 2,
     grokAspectRatio: "9:16" as const,
     grokResolution: "480p" as const,

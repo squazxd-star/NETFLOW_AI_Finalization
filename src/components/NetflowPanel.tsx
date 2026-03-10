@@ -46,7 +46,7 @@ const NetflowPanel = () => {
                                 <div className="absolute inset-0" style={{ boxShadow: `inset 0 0 10px rgba(${themeConfig.hexRgb},0.4)` }} />
                             </div>
                         </div>
-                        <h1 className="text-[17px] font-black tracking-[0.25em] uppercase text-foreground" style={{ fontFamily: "'Inter', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif" }}>
+                        <h1 className="text-[17px] font-black tracking-[0.25em] uppercase text-foreground whitespace-nowrap" style={{ fontFamily: "'Inter', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif" }}>
                             <span
                                 className="bg-clip-text text-transparent"
                                 style={{
