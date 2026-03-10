@@ -4028,8 +4028,9 @@ const sanitizeProductNameForVeo = (productName: string): string => {
 };
 
 /** Sanitize brand names and policy-unsafe keywords from a prompt.
- *  If productName is provided, a Veo-safe (brand-stripped) version is preserved
- *  so it won't be double-sanitized, but trademarked words are already removed.
+ *  If productName is provided, it will be preserved as-is (not sanitized).
+ *  For VIDEO prompts: caller should pass veoSafeProductName (already brand-stripped).
+ *  For IMAGE prompts: caller passes raw productName (ImageFX is more lenient with brands).
  */
 const sanitizePromptForPolicy = (text: string, productName?: string): string => {
     let result = text;
@@ -4050,11 +4051,10 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
         }
     }
 
-    // Protect Veo-safe product name from further brand replacement (already sanitized)
+    // Protect product name from brand replacement (caller decides what name to pass)
     const placeholder = "___PRODUCT_NAME_PRESERVE___";
-    const safeProductName = productName ? sanitizeProductNameForVeo(productName) : undefined;
-    if (safeProductName) {
-        result = result.replace(new RegExp(safeProductName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), placeholder);
+    if (productName) {
+        result = result.replace(new RegExp(productName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), placeholder);
     }
     for (const [pattern, replacement] of BRAND_REPLACEMENTS) {
         result = result.replace(pattern, replacement);
@@ -4075,9 +4075,9 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
             result = result.replace(ph, directive);
         }
     }
-    // Restore Veo-safe product name
-    if (safeProductName) {
-        result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), safeProductName);
+    // Restore product name
+    if (productName) {
+        result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), productName);
     }
     // Deduplicate repeated SENTENCES only (split on sentence-ending punctuation, not "," to preserve structure)
     const sentences = result.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(Boolean);
@@ -5632,11 +5632,13 @@ const buildImagePrompt = (
         ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}`
         : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}`;
 
-    const productAnatomy = buildProductAnatomyDirective(category, config.productName);
+    // ── Sanitize product name for ImageFX too — copyright filter also rejects trademarked names ──
+    const imageSafeProductName = sanitizeProductNameForVeo(config.productName);
+    const productAnatomy = buildProductAnatomyDirective(category, imageSafeProductName);
 
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
-[PRODUCT] ${config.productName}: ${productDesc}. ${productAnatomy} PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette, material texture and finish — all from reference image. Render with extreme surface detail: visible material grain, realistic light response (specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass/transparent elements, light dispersion on faceted surfaces). The text "${config.productName}" must appear on the product label exactly as spelled letter-by-letter — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality.
+[PRODUCT] ${imageSafeProductName}: ${productDesc}. ${productAnatomy} PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette, material texture and finish — all from reference image. Render with extreme surface detail: visible material grain, realistic light response (specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass/transparent elements, light dispersion on faceted surfaces). Reproduce all text, logos, and branding on the product label exactly as shown in the reference image — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality.
 [CHARACTER] ${characterLine}.
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
@@ -5659,7 +5661,7 @@ Reference Images:
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
 
-    return sanitizePromptForPolicy(prompt.trim(), config.productName);
+    return sanitizePromptForPolicy(prompt.trim(), imageSafeProductName);
 };
 
 /**

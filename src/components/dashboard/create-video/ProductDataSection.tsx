@@ -8,6 +8,7 @@ import {
     triggerProductSync,
     setActiveProduct,
     openTikTokStudio,
+    openSellerCenter,
     TikTokProduct
 } from "@/services/tiktokProductService";
 import { characterOutfitOptions } from "@/types/netflow";
@@ -90,7 +91,7 @@ const ProductDataSection = ({
             } else {
                 toast({
                     title: "❌ ซิงค์ไม่สำเร็จ",
-                    description: result.error || "กรุณาเปิดหน้าสินค้าใน TikTok Studio ก่อน",
+                    description: result.error || "กรุณาเปิดหน้า Seller Center หรือ TikTok Studio ก่อน",
                     variant: "destructive"
                 });
             }
@@ -158,14 +159,24 @@ const ProductDataSection = ({
                             {isSyncing ? "กำลังซิงค์..." : "ซิงค์สินค้าจาก TikTok Studio"}
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => openTikTokStudio()}
-                            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <ExternalLink className="w-3 h-3" />
-                            เปิด TikTok Studio
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => openSellerCenter()}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/30"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                Seller Center
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => openTikTokStudio()}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/30"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                TikTok Studio
+                            </button>
+                        </div>
 
                         {/* Synced product dropdown */}
                         {syncedProducts.length > 0 && (
@@ -188,9 +199,9 @@ const ProductDataSection = ({
                                                 className="w-full flex items-center gap-2 p-2 text-xs hover:bg-muted/50 transition-colors"
                                             >
                                                 {p.imageUrl ? (
-                                                    <img src={p.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
+                                                    <img src={p.imageUrl} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" />
                                                 ) : (
-                                                    <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                                                    <ShoppingBag className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                                                 )}
                                                 <div className="flex-1 min-w-0 text-left">
                                                     <p className="truncate text-foreground">{p.name}</p>
@@ -376,7 +387,7 @@ const ProductDataSection = ({
                                 <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${outfitDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {outfitDropdownOpen && (
-                                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl bg-background border border-border shadow-xl">
+                                <div className="absolute z-50 mt-1 w-full max-h-80 overflow-y-auto rounded-xl bg-background border border-border shadow-xl pb-2">
                                     {(() => {
                                         const groups = [...new Set(characterOutfitOptions.map(o => o.group))];
                                         return groups.map(group => (

@@ -211,7 +211,7 @@ export const triggerProductSync = async (): Promise<{ success: boolean; product?
     // Step 1: Find TikTok tab
     const tab = await findTikTokTab();
     if (!tab || !tab.id) {
-      return { success: false, error: 'ไม่พบแท็บ TikTok Studio กรุณาเปิดหน้า TikTok Studio ในแท็บอื่นก่อน แล้วกดซิงค์อีกครั้ง' };
+      return { success: false, error: 'ไม่พบแท็บ TikTok กรุณาเปิดหน้า Seller Center หรือ TikTok Studio ในแท็บอื่นก่อน แล้วกดซิงค์อีกครั้ง' };
     }
 
     console.log('[TikTokProductService] Found TikTok tab:', tab.url);
@@ -219,7 +219,7 @@ export const triggerProductSync = async (): Promise<{ success: boolean; product?
     // Step 2: Ensure content script is loaded
     const scriptReady = await ensureContentScript(tab.id);
     if (!scriptReady) {
-      return { success: false, error: 'ไม่สามารถโหลด script ได้ กรุณา refresh หน้า TikTok Studio แล้วลองใหม่' };
+      return { success: false, error: 'ไม่สามารถโหลด script ได้ กรุณา refresh หน้า TikTok แล้วลองใหม่' };
     }
 
     // Step 3: Send scrape request
@@ -227,12 +227,12 @@ export const triggerProductSync = async (): Promise<{ success: boolean; product?
       chrome.tabs.sendMessage(tab.id!, { type: 'SCRAPE_TIKTOK_PRODUCT' }, async (response) => {
         if (chrome.runtime.lastError) {
           console.error('[TikTokProductService] Scrape error:', chrome.runtime.lastError);
-          resolve({ success: false, error: 'ไม่สามารถสื่อสารกับหน้า TikTok Studio ได้ กรุณา refresh แล้วลองใหม่' });
+          resolve({ success: false, error: 'ไม่สามารถสื่อสารกับหน้า TikTok ได้ กรุณา refresh แล้วลองใหม่' });
           return;
         }
 
         if (!response?.success || !response.product) {
-          resolve({ success: false, error: response?.error || 'ไม่พบข้อมูลสินค้า กรุณาตรวจสอบว่าหน้า TikTok Studio มีรายการสินค้าแสดงอยู่' });
+          resolve({ success: false, error: response?.error || 'ไม่พบข้อมูลสินค้า กรุณาตรวจสอบว่าหน้า Seller Center หรือ TikTok Studio มีรายการสินค้าแสดงอยู่' });
           return;
         }
 
@@ -267,5 +267,17 @@ export const openTikTokStudio = (): void => {
     chrome.tabs.create({ url: 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center' });
   } else {
     window.open('https://www.tiktok.com/tiktokstudio/upload?from=creator_center', '_blank');
+  }
+};
+
+/**
+ * Open TikTok Seller Center product management page
+ */
+export const openSellerCenter = (): void => {
+  const url = 'https://seller-th.tiktok.com/product/manage';
+  if (chrome?.tabs?.create) {
+    chrome.tabs.create({ url });
+  } else {
+    window.open(url, '_blank');
   }
 };

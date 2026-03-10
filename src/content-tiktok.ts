@@ -3,11 +3,11 @@
  * Runs on tiktok.com/tiktokstudio/* and seller-th.tiktok.com/*
  *
  * KEY DESIGN:
- *   1. Find the "เพิ่มลิงก์สินค้า" modal first — scope ALL queries to it
- *   2. Inside the modal, find product rows by looking for 16-20 digit IDs
+ *   1. Find the product container first — modal (TikTok Studio) OR page content (Seller Center)
+ *   2. Inside the container, find product rows by looking for 16-20 digit IDs
  *   3. For each ID, walk up to the nearest <tr> or tight container
  *   4. Extract name + image + price from that tight row only
- *   5. NEVER search the full document — avoids picking up extension sidebar or page content
+ *   5. Scope queries to container — avoids picking up extension sidebar or unrelated content
  */
 
 console.log('[NetFlow TikTok] Content script loaded on:', window.location.href);
@@ -32,15 +32,32 @@ const SKIP_NAMES = new Set([
   'Product', 'Price', 'Stock', 'Status', 'Name', 'ID',
   'Action', 'Actions', 'Select', 'Cancel', 'Next', 'Previous',
   'นำเสนอสินค้า', 'ยกเลิก', 'ถัดไป',
+  // Seller Center specific action/button text
+  'แก้ไข', 'เปิดใช้งาน', 'ปิดใช้งาน', 'ปิดขาย',
+  'เลือกแล้ว', 'ดูรายละเอียด', 'รายงานข้อมูล',
+  'การตลาดกับพันธมิตร', 'ดูจัดการไลฟ์',
+  'ศูนย์การเรียนรู้สำหรับผู้ขาย', 'หน้าแรก',
+  'ผลิตภัณฑ์', 'จัดการผลิตภัณฑ์', 'ชุดสินค้า',
+  'เพิ่มประสิทธิภาพสินค้า', 'เพิ่มสินค้าใหม่',
+  'การให้สิทธิ์พันธมิตร', 'เครื่องมือจัดการการพิม',
+  'สั่งซื้อ', 'ข้อความจากลูกค้า', 'ราคาขายปลีก', 'อัปเดตล่าสุด',
+  'รายงาน', 'ค้นหาชื่อผลิตภัณฑ์', 'SKU',
+  'Set Affiliate', 'ดูข้อมูล', 'ดูเพิ่มเติม',
+  'ราคาขายหลัก', 'สต็อก', 'ยอดขาย',
 ]);
 
-// ── Step 0: Find the product modal ──────────────────────────────
-// TikTok renders the "เพิ่มลิงก์สินค้า" modal as a dialog/overlay.
-// We try multiple selectors to find it. If found, all scraping is
-// scoped to this container. This prevents reading extension sidebar
-// or other page content.
+// ── Step 0: Find the product container ───────────────────────────
+// Supports BOTH:
+//   A) TikTok Studio "เพิ่มลิงก์สินค้า" modal (dialog/overlay)
+//   B) Seller Center "จัดการผลิตภัณฑ์" page (regular page with product list)
+// All scraping is scoped to the found container.
 
-const findModalContainer = (): Element | null => {
+const isSellerCenterPage = (): boolean => {
+  const url = window.location.href;
+  return url.includes('seller-th.tiktok.com') || url.includes('seller.tiktok.com');
+};
+
+const findProductContainer = (): Element | null => {
   // Strategy 1: Look for a dialog/modal that contains product-related text
   const modals = Array.from(document.querySelectorAll(
     '[role="dialog"], [role="modal"], .modal, .dialog, [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"], [class*="drawer"], [class*="Drawer"], [class*="overlay"], [class*="Overlay"], [class*="popup"], [class*="Popup"]'
@@ -48,7 +65,6 @@ const findModalContainer = (): Element | null => {
 
   for (const modal of modals) {
     const tc = modal.textContent || '';
-    // Must contain a 16-20 digit product ID
     if (/\d{16,20}/.test(tc)) {
       console.log('[NetFlow TikTok] Found modal via role/class, tag:', modal.tagName, 'textLen:', tc.length);
       return modal;
@@ -60,15 +76,12 @@ const findModalContainer = (): Element | null => {
   for (const el of allElements) {
     const directText = getDirectText(el);
     if (directText.includes('เพิ่มลิงก์สินค้า') || directText.includes('นำเสนอสินค้า')) {
-      // Walk up to find the modal wrapper (usually 2-5 levels up)
       let wrapper: Element | null = el;
       for (let i = 0; i < 8 && wrapper; i++) {
         wrapper = wrapper.parentElement;
         if (!wrapper) break;
         const wrapperTc = wrapper.textContent || '';
-        // Good modal: has product ID + reasonable size
         if (/\d{16,20}/.test(wrapperTc) && wrapperTc.length > 100 && wrapperTc.length < 10000) {
-          // Make sure it's not the whole page
           if (wrapper.tagName !== 'BODY' && wrapper.tagName !== 'HTML') {
             console.log('[NetFlow TikTok] Found modal via header text, tag:', wrapper.tagName, 'textLen:', wrapperTc.length);
             return wrapper;
@@ -78,7 +91,7 @@ const findModalContainer = (): Element | null => {
     }
   }
 
-  // Strategy 3: Find any container with a <table> or product-table-like structure containing IDs
+  // Strategy 3: Find any container with a <table> containing IDs
   const tables = Array.from(document.querySelectorAll('table'));
   for (const table of tables) {
     const tc = table.textContent || '';
@@ -88,7 +101,65 @@ const findModalContainer = (): Element | null => {
     }
   }
 
-  console.log('[NetFlow TikTok] No modal container found');
+  // Strategy 4: Seller Center page — find main content area with product IDs
+  // Seller Center uses div-based layouts, not modals or <table> elements.
+  if (isSellerCenterPage()) {
+    console.log('[NetFlow TikTok] Seller Center detected, scanning page content...');
+
+    // Look for Seller Center specific containers
+    const sellerSelectors = [
+      '[class*="product-list"]', '[class*="ProductList"]',
+      '[class*="product-table"]', '[class*="ProductTable"]',
+      '[class*="goods-list"]', '[class*="GoodsList"]',
+      '[class*="list-container"]', '[class*="ListContainer"]',
+      '[class*="table-container"]', '[class*="TableContainer"]',
+      '[class*="content-container"]', '[class*="ContentContainer"]',
+      '[class*="arco-table"]', '[class*="semi-table"]',
+      'main', '[role="main"]',
+    ];
+
+    for (const sel of sellerSelectors) {
+      const containers = Array.from(document.querySelectorAll(sel));
+      for (const container of containers) {
+        const tc = container.textContent || '';
+        if (/\d{16,20}/.test(tc) && tc.length > 80) {
+          console.log('[NetFlow TikTok] Found Seller Center container via:', sel, 'tag:', container.tagName, 'textLen:', tc.length);
+          return container;
+        }
+      }
+    }
+  }
+
+  // Strategy 5: Universal fallback — find the tightest div/section containing 2+ product IDs
+  // This works for any div-based product list layout.
+  const idPattern = /(?<!\d)\d{16,20}(?!\d)/g;
+  let bestContainer: Element | null = null;
+  let bestSize = Infinity;
+
+  const blockEls = Array.from(document.querySelectorAll('div, section, article, main, aside'));
+  for (const el of blockEls) {
+    if (el.tagName === 'BODY' || el.tagName === 'HTML') continue;
+    const tc = el.textContent || '';
+    const idMatches = tc.match(idPattern);
+    if (!idMatches) continue;
+    const uniqueIds = new Set(idMatches).size;
+    // Need at least 1 product ID (prefer containers with multiple)
+    if (uniqueIds >= 1 && tc.length < bestSize && tc.length > 50) {
+      // Prefer containers with multiple IDs (product list area)
+      // But accept single-ID containers if nothing better found
+      if (uniqueIds >= 2 || !bestContainer) {
+        bestContainer = el;
+        bestSize = tc.length;
+      }
+    }
+  }
+
+  if (bestContainer) {
+    console.log('[NetFlow TikTok] Found container via fallback scan, tag:', bestContainer.tagName, 'textLen:', bestSize);
+    return bestContainer;
+  }
+
+  console.log('[NetFlow TikTok] No product container found');
   return null;
 };
 
@@ -110,10 +181,21 @@ const findProductIds = (scope: Element): Array<{ pid: string; element: Element }
   const seenIds = new Set<string>();
 
   // Find leaf elements whose trimmed text is exactly a 16-20 digit number
+  // Also handles Seller Center format: "ID:1729672270394142972" or "ID 172967..."
   const candidates = Array.from(scope.querySelectorAll('span, td, div, p, a, li, em, strong, b'));
   for (const el of candidates) {
-    const text = (el.textContent || '').trim();
-    if (!/^\d{16,20}$/.test(text)) continue;
+    const rawText = (el.textContent || '').trim();
+    // Direct match: pure digits
+    let text = rawText;
+    if (!/^\d{16,20}$/.test(text)) {
+      // Try stripping common prefixes: "ID:", "ID ", "id:"
+      const stripped = rawText.replace(/^ID\s*[:：]?\s*/i, '').trim();
+      if (/^\d{16,20}$/.test(stripped)) {
+        text = stripped;
+      } else {
+        continue;
+      }
+    }
 
     // Skip if a child also matches (prefer leaf)
     let childMatches = false;
@@ -160,7 +242,7 @@ const findProductIds = (scope: Element): Array<{ pid: string; element: Element }
     }
   }
 
-  console.log('[NetFlow TikTok] Total IDs in modal:', results.length);
+  console.log('[NetFlow TikTok] Total IDs in container:', results.length);
   return results;
 };
 
@@ -316,19 +398,19 @@ const scrapeAllProducts = (): TikTokProduct[] => {
   console.log('[NetFlow TikTok] === Starting scrape ===');
   console.log('[NetFlow TikTok] URL:', window.location.href);
 
-  // CRITICAL: Find the modal first — only search inside it
-  const modal = findModalContainer();
-  if (!modal) {
-    console.log('[NetFlow TikTok] No product modal found on page');
+  // CRITICAL: Find the product container first — only search inside it
+  const container = findProductContainer();
+  if (!container) {
+    console.log('[NetFlow TikTok] No product container found on page');
     return [];
   }
 
-  console.log('[NetFlow TikTok] Modal found, textLen:', (modal.textContent || '').length);
+  console.log('[NetFlow TikTok] Container found, textLen:', (container.textContent || '').length);
 
-  // Find product IDs within the modal only
-  const idElements = findProductIds(modal);
+  // Find product IDs within the container only
+  const idElements = findProductIds(container);
   if (idElements.length === 0) {
-    console.log('[NetFlow TikTok] No product IDs found inside modal');
+    console.log('[NetFlow TikTok] No product IDs found inside container');
     return [];
   }
 
@@ -394,7 +476,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
         } else {
           sendResponse({
             success: false,
-            error: 'ไม่พบสินค้า กรุณาเปิด "เพิ่มลิงก์สินค้า" ให้แสดงรายการสินค้าก่อนกดซิงค์',
+            error: 'ไม่พบสินค้า กรุณาเปิดหน้า "จัดการผลิตภัณฑ์" ใน Seller Center หรือ "เพิ่มลิงก์สินค้า" ใน TikTok Studio ก่อนกดซิงค์',
           });
         }
       } catch (err) {
