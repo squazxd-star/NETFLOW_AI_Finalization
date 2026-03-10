@@ -5750,130 +5750,148 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     // ── Pet & Baby ── (VISUAL PROOF: must show PET/BABY REACTING POSITIVELY)
     // ═══════════════════════════════════════════════════════════════
     pet: [
-        {
-            script: (name) => `น้องลอง ${name} แล้ว ชอบมาก`,
-            action: "Presenter offers product to pet — pet immediately approaches with enthusiasm, eats eagerly or plays happily. Tail wagging or purring. The PROOF is the pet's visible enthusiastic positive reaction."
-        },
-        {
-            script: (name) => `${name} วัตถุดิบดี น้องสุขภาพดี`,
-            action: "Presenter shows product label/ingredients, then gives to pet. Pet eats completely. Presenter pets happy healthy-looking animal with shiny coat. The PROOF is the pet finishing the food + visible healthy appearance."
-        },
+        { script: (name) => `น้องลอง ${name} แล้ว ชอบมาก`, action: "CAMERA: Medium tracking. Offers product to pet — approaches enthusiastically, eats/plays happily. Tail wagging/purring. Enthusiastic positive reaction PROOF." },
+        { script: (name) => `${name} วัตถุดิบดี น้องสุขภาพดี`, action: "CAMERA: Close-up label then pet. Shows ingredients — gives to pet. Eats completely. Shiny coat, healthy appearance. Pet health + quality PROOF." },
+        { script: (name) => `น้องกิน ${name} หมดเลย ชอบมาก`, action: "CAMERA: Close-up of pet eating. Eats eagerly — cleans bowl completely. Looks up wanting more. Can't-get-enough PROOF." },
+        { script: (name) => `${name} เล่นสนุกมาก น้องชอบ`, action: "CAMERA: Dynamic tracking of play. Pet playing with toy — active, happy, engaged. Natural playful behavior. Fun engaging play PROOF." },
+        { script: (name) => `ใช้ ${name} อาบน้ำน้อง สะอาดมาก`, action: "CAMERA: Close-up grooming. Bathing/grooming pet — pet tolerates well. Clean fluffy result. Grooming effectiveness PROOF." },
+        { script: (name) => `${name} ขนน้องนุ่มสลวยเลย`, action: "CAMERA: Macro on fur/coat. After using product — soft silky coat, visible shine. Presenter strokes pet's fur. Coat quality improvement PROOF." },
+        { script: (name) => `น้องนอนบน ${name} สบายมาก`, action: "CAMERA: Gentle medium shot. Pet lying on bed/cushion — comfortable, relaxed, content. Cozy pet comfort PROOF." },
+        { script: (name) => `${name} ทนทาน น้องกัดก็ไม่พัง`, action: "CAMERA: Close-up durability test. Pet chewing/playing rough — product holds up. Durable pet-proof PROOF." },
+        { script: (name) => `${name} ปลอดภัยสำหรับน้อง`, action: "CAMERA: Close-up label + pet using. Non-toxic, safe materials — pet uses comfortably. Safety assurance PROOF." },
+        { script: (name) => `พก ${name} พาน้องเที่ยวสะดวก`, action: "CAMERA: Outdoor medium shot. Travel with pet gear — portable, convenient. Pet happy on the go. Travel convenience PROOF." },
     ],
     baby: [
-        {
-            script: (name) => `ลูกใช้ ${name} แล้ว ชอบมากเลย`,
-            action: "Presenter gently gives/applies product to baby — baby responds with smile or comfortable relaxed expression. No fussing. The PROOF is the baby's visible comfortable happy reaction."
-        },
-        {
-            script: (name) => `${name} อ่อนโยน ปลอดภัยสำหรับลูก`,
-            action: "Presenter applies product with gentle careful touches — shows product touching delicate baby skin with zero irritation. Baby stays calm and content. The PROOF is the gentle application + baby showing zero discomfort."
-        },
+        { script: (name) => `ลูกใช้ ${name} แล้ว ชอบมากเลย`, action: "CAMERA: Gentle close-up. Gives/applies to baby — smile or comfortable relaxed expression. No fussing. Baby comfort + happy reaction PROOF." },
+        { script: (name) => `${name} อ่อนโยน ปลอดภัยสำหรับลูก`, action: "CAMERA: Soft close-up. Gentle careful application — zero irritation on delicate skin. Baby calm and content. Gentle + zero discomfort PROOF." },
+        { script: (name) => `${name} นุ่มมาก ลูกใส่สบาย`, action: "CAMERA: Macro on soft material. Touches baby skin gently — soft fabric/material. Baby comfortable, no fussing. Soft comfortable PROOF." },
+        { script: (name) => `ลูกกิน ${name} แล้ว ชอบเลย`, action: "CAMERA: Close-up feeding. Baby eating/drinking product — happy acceptance, no rejection. Enjoys the taste. Baby food acceptance PROOF." },
+        { script: (name) => `${name} ดูดซึมเร็ว ไม่เหนียว`, action: "CAMERA: Close-up on baby skin. Quick absorption — leaves clean soft skin. No residue. Baby skincare absorption PROOF." },
+        { script: (name) => `${name} กลิ่นอ่อนโยน หอมนุ่ม`, action: "CAMERA: Gentle medium. Presenter smells product — soft pleasant scent. Applies to baby, baby relaxed. Gentle fragrance PROOF." },
+        { script: (name) => `${name} ซึมซับดี ลูกนอนสบาย`, action: "CAMERA: Soft medium shot. Diaper/pad change — excellent absorption. Baby dry and comfortable. Absorbency comfort PROOF." },
+        { script: (name) => `ลูกเล่น ${name} สนุกมาก พัฒนาการดี`, action: "CAMERA: Playful medium. Baby interacting with toy — engaged, learning, smiling. Developmental play PROOF." },
+        { script: (name) => `${name} ส่วนผสมปลอดภัย มั่นใจได้`, action: "CAMERA: Close-up label. Shows safe/organic ingredients — parent reads confidently. Applies to baby. Safe ingredients PROOF." },
+        { script: (name) => `${name} ใช้ง่าย คุณแม่มือใหม่ก็ทำได้`, action: "CAMERA: Tutorial medium. Easy application/use — parent does it simply. No complicated steps. Parent-friendly ease PROOF." },
     ],
     // ═══════════════════════════════════════════════════════════════
     // ── Vehicle & Auto ── (VISUAL PROOF: must show INSTALLED + WORKING)
     // ═══════════════════════════════════════════════════════════════
     auto: [
-        {
-            script: (name) => `ติดตั้ง ${name} ง่ายมาก ใช้ได้ทันที`,
-            action: "Presenter installs product on/in vehicle — clips in, plugs in, or mounts easily. Quick secure attachment. Then demonstrates it working. The PROOF is the visible easy installation + immediate working functionality."
-        },
-        {
-            script: (name) => `${name} ทำให้รถดูดีขึ้นเลย`,
-            action: "Presenter shows car with product installed — visible upgrade. Steps back to admire. Premium appearance. The PROOF is the before→after vehicle appearance upgrade."
-        },
+        { script: (name) => `ติดตั้ง ${name} ง่ายมาก ใช้ได้ทันที`, action: "CAMERA: Step-by-step close-up. Installs on vehicle — clips/plugs/mounts easily. Quick secure attachment. Demonstrates working. Easy install + working PROOF." },
+        { script: (name) => `${name} ทำให้รถดูดีขึ้นเลย`, action: "CAMERA: Wide before→after vehicle shot. Product installed — visible upgrade. Steps back to admire. Vehicle appearance upgrade PROOF." },
+        { script: (name) => `${name} ทนทาน ใช้ได้นาน`, action: "CAMERA: Close-up of durable construction. Quality materials — weather-resistant, solid build. Long-lasting auto accessory PROOF." },
+        { script: (name) => `ใช้ ${name} ขับรถสะดวกขึ้นมาก`, action: "CAMERA: In-car medium shot. Using product while driving — enhanced convenience. Practical daily driving improvement PROOF." },
+        { script: (name) => `${name} พอดีรถเลย ดีไซน์เข้ากัน`, action: "CAMERA: Close-up of fit. Perfect integration with vehicle interior/exterior — seamless design match. OEM-quality fit PROOF." },
+        { script: (name) => `${name} ปกป้องรถได้ดีมาก`, action: "CAMERA: Close-up protective application. Product protecting paint/interior — shield visible. Vehicle protection PROOF." },
+        { script: (name) => `กลิ่น ${name} หอมมาก ในรถสดชื่น`, action: "CAMERA: In-car medium shot. Presenter inhales — fresh pleasant scent. Car interior freshness PROOF." },
+        { script: (name) => `${name} ทำความสะอาดรถง่าย`, action: "CAMERA: Before→after cleaning shot. Dirty→clean vehicle surface. Sparkling result. Car cleaning PROOF." },
+        { script: (name) => `ภาพ ${name} ชัดมาก ถ่ายติดหมด`, action: "CAMERA: Close-up of dashcam/camera screen. Clear recording quality — sharp footage visible on screen. Recording quality PROOF." },
+        { script: (name) => `${name} ชาร์จในรถได้ สะดวกมาก`, action: "CAMERA: Close-up of charging setup. Plugs in — device charges. LED indicator, fast charging. In-car charging convenience PROOF." },
     ],
     // ═══════════════════════════════════════════════════════════════
     // ── Education & Stationery ── (VISUAL PROOF: must show USING + RESULT)
     // ═══════════════════════════════════════════════════════════════
     book: [
-        {
-            script: (name) => `อ่าน ${name} แล้ว สนุกมาก วางไม่ลง`,
-            action: "Presenter reading book — completely absorbed, turning pages. Smiles or reacts to content. Can't put it down. The PROOF is the visible deep engagement — lost in the book."
-        },
-        {
-            script: (name) => `${name} เนื้อหาดีมาก ได้ความรู้เพียบ`,
-            action: "Presenter reads and nods — highlights passage, looks up inspired. Shows pages with rich content. The PROOF is the visible learning moment — the 'aha' expression."
-        },
+        { script: (name) => `อ่าน ${name} แล้ว สนุกมาก วางไม่ลง`, action: "CAMERA: Gentle dolly-in on reader. Completely absorbed — turning pages, smiles at content. Can't put down. Deep engagement PROOF." },
+        { script: (name) => `${name} เนื้อหาดีมาก ได้ความรู้เพียบ`, action: "CAMERA: Close-up of pages then face. Reads and nods — highlights passage, looks up inspired. Learning 'aha' moment PROOF." },
+        { script: (name) => `ปก ${name} สวยมาก อยากหยิบอ่าน`, action: "CAMERA: Macro on cover design. Beautiful cover art — presenter admires, opens to read. Visual appeal drawing reader in PROOF." },
+        { script: (name) => `${name} อ่านง่าย เข้าใจง่าย`, action: "CAMERA: Medium comfortable reading shot. Relaxed posture — reads fluently, nods understanding. Accessible writing style PROOF." },
+        { script: (name) => `กระดาษ ${name} คุณภาพดี จับแล้วดี`, action: "CAMERA: Macro on paper quality. Thick quality pages — smooth texture, clear printing. Presenter feels pages. Print quality PROOF." },
+        { script: (name) => `${name} เล่มนี้ เปลี่ยนมุมมองเลย`, action: "CAMERA: Medium reflective shot. Reads passage — pauses, looks thoughtful. Mind-expanding reaction. Perspective-changing PROOF." },
+        { script: (name) => `อ่าน ${name} จบเร็วมาก สนุก`, action: "CAMERA: Time-progression reading. Pages turning quickly — can't stop reading. Reaches end, satisfied. Page-turner PROOF." },
+        { script: (name) => `${name} เหมาะซื้อเป็นของขวัญ`, action: "CAMERA: Gift wrapping medium. Wraps book — gives to friend. Recipient opens happily. Gift-worthy PROOF." },
+        { script: (name) => `${name} มีภาพประกอบสวยมาก`, action: "CAMERA: Close-up of illustrations. Beautiful images/diagrams — colorful, detailed. Presenter points at visuals. Illustration quality PROOF." },
+        { script: (name) => `อ่าน ${name} ก่อนนอน ผ่อนคลายมาก`, action: "CAMERA: Warm evening medium shot. Reading in bed — relaxing wind-down. Peaceful bedtime reading PROOF." },
     ],
     stationery: [
-        {
-            script: (name) => `เขียนด้วย ${name} ลื่นมากเลย`,
-            action: "Presenter writing with pen/pencil — smooth continuous strokes, ink flowing evenly, no skipping. Beautiful handwriting result on paper. The PROOF is the visible smooth ink flow and clean line quality."
-        },
-        {
-            script: (name) => `สี ${name} สดสวย ระบายง่าย`,
-            action: "Presenter coloring/drawing — vivid pigmented colors on paper, smooth consistent application. Rich color payoff visible. The PROOF is the intense visible color saturation and smooth coverage."
-        },
+        { script: (name) => `เขียนด้วย ${name} ลื่นมากเลย`, action: "CAMERA: Macro tracking on writing. Smooth continuous strokes — ink flowing evenly. Beautiful handwriting result. Smooth ink flow PROOF." },
+        { script: (name) => `สี ${name} สดสวย ระบายง่าย`, action: "CAMERA: Close-up of coloring. Vivid pigmented colors on paper — smooth application. Rich color payoff. Color saturation PROOF." },
+        { script: (name) => `${name} จับถนัดมือ เขียนไม่เมื่อย`, action: "CAMERA: Close-up of grip. Ergonomic pen/pencil — comfortable natural hold. Writes for extended period easily. Ergonomic comfort PROOF." },
+        { script: (name) => `หมึก ${name} ไม่เลอะ แห้งเร็ว`, action: "CAMERA: Close-up smear test. Writes then touches — no smudge. Quick-dry ink quality PROOF." },
+        { script: (name) => `${name} ดีไซน์สวย วางบนโต๊ะก็ดูดี`, action: "CAMERA: Medium desk setup. Stationery on desk — aesthetic premium look. Premium design PROOF." },
+        { script: (name) => `${name} เส้นคม ชัดมาก`, action: "CAMERA: Extreme macro on line quality. Sharp consistent lines — no bleeding, no skipping. Line precision PROOF." },
+        { script: (name) => `${name} มีหลายสี เลือกได้เลย`, action: "CAMERA: Wide shot of color range. Multiple colors displayed — presenter tests each. Color variety PROOF." },
+        { script: (name) => `จด ${name} แล้ว ดูเรียบร้อยมาก`, action: "CAMERA: Overhead on notebook. Neat notes/lettering — organized beautiful handwriting. Satisfying result PROOF." },
+        { script: (name) => `${name} คุ้มค่า ใช้ได้นาน`, action: "CAMERA: Medium product showcase. Shows quantity/durability — long-lasting supply. Value for money PROOF." },
+        { script: (name) => `เอา ${name} ไปทำงานก็ดี ไปเรียนก็สะดวก`, action: "CAMERA: Multi-context shots. Office and school use — versatile practical stationery. Universal utility PROOF." },
     ],
     toy: [
-        {
-            script: (name) => `เด็กๆ เล่น ${name} สนุกมาก`,
-            action: "Child or presenter playing with toy — genuine joy and laughter. Toy functions as expected — lights, sounds, movement. The PROOF is the visible genuine fun reaction + toy actually working."
-        },
-        {
-            script: (name) => `${name} พัฒนาสมอง เด็กชอบมาก`,
-            action: "Child concentrating on educational toy — solving puzzle, building, or creating. Achievement moment — completed task with proud smile. The PROOF is the visible problem-solving engagement + completion satisfaction."
-        },
+        { script: (name) => `เด็กๆ เล่น ${name} สนุกมาก`, action: "CAMERA: Dynamic tracking of play. Genuine joy and laughter — toy functions as expected, lights/sounds/movement. Fun reaction + working toy PROOF." },
+        { script: (name) => `${name} พัฒนาสมอง เด็กชอบมาก`, action: "CAMERA: Close-up of concentration. Solving puzzle/building/creating — achievement moment, proud smile. Problem-solving engagement PROOF." },
+        { script: (name) => `${name} ทนทาน เล่นหนักได้`, action: "CAMERA: Close-up of build quality. Solid construction — handles rough play. Durable build PROOF." },
+        { script: (name) => `เล่น ${name} ได้ทั้งครอบครัว`, action: "CAMERA: Wide family shot. Family playing together — shared fun, bonding. Family bonding PROOF." },
+        { script: (name) => `${name} สีสดสวย ปลอดภัยสำหรับเด็ก`, action: "CAMERA: Macro on bright colors. Vibrant non-toxic colors — child-safe materials. Safe colorful PROOF." },
+        { script: (name) => `${name} ต่อง่าย เด็กทำเองได้`, action: "CAMERA: Step-by-step medium. Child assembles independently — easy intuitive construction. Independent play PROOF." },
+        { script: (name) => `แกะกล่อง ${name} ตื่นเต้นมาก`, action: "CAMERA: Unboxing close-up. Opens box — excited reaction at contents. Joyful unboxing PROOF." },
+        { script: (name) => `${name} เล่นได้หลายแบบ ไม่เบื่อ`, action: "CAMERA: Multi-play montage. Different play modes — versatile entertainment. Long-lasting play value PROOF." },
+        { script: (name) => `${name} ขนาดพอดี เก็บง่าย`, action: "CAMERA: Medium storage demo. Compact — fits in toy box/shelf. Easy cleanup PROOF." },
+        { script: (name) => `เด็กๆ เล่น ${name} ด้วยกัน สนุกมาก`, action: "CAMERA: Social play medium. Multiple children playing together — sharing, laughing, cooperative play. Social play PROOF." },
     ],
     craft: [
-        {
-            script: (name) => `ใช้ ${name} ทำ DIY สวยมาก`,
-            action: "Presenter creating with craft product — visible artistic process. Finished result looks impressive and beautiful. Shows comparison to camera proudly. The PROOF is the visible creation process producing a beautiful result."
-        },
+        { script: (name) => `ใช้ ${name} ทำ DIY สวยมาก`, action: "CAMERA: Overhead tracking of creation. Artistic process visible — finished result impressive. Shows to camera proudly. Creation process PROOF." },
+        { script: (name) => `${name} ใช้ง่าย แม้มือใหม่ก็ทำได้`, action: "CAMERA: Tutorial medium. Beginner-friendly — follows simple steps. Beautiful result despite being new. Beginner accessible PROOF." },
+        { script: (name) => `สี ${name} สดมาก ติดแน่น`, action: "CAMERA: Macro on color application. Vibrant pigment — sticks well to surface. Long-lasting color PROOF." },
+        { script: (name) => `${name} อุปกรณ์ครบ พร้อมทำเลย`, action: "CAMERA: Overhead unboxing of kit. Complete set — all materials included. Ready to create immediately. Complete kit PROOF." },
+        { script: (name) => `ทำ ${name} แล้ว เอาไปตกแต่งบ้านได้`, action: "CAMERA: Before→after home display. Finished craft on display — enhances decor. Decorative result PROOF." },
+        { script: (name) => `${name} ให้เป็นของขวัญ handmade ได้`, action: "CAMERA: Gift wrapping medium. Handmade gift — recipient delighted. Personal meaningful gift PROOF." },
+        { script: (name) => `ทำ ${name} ผ่อนคลาย สนุกมาก`, action: "CAMERA: Peaceful medium shot. Crafting mindfully — relaxing creative process. Stress-relief hobby PROOF." },
+        { script: (name) => `${name} คุณภาพดี ทำงานได้ละเอียด`, action: "CAMERA: Macro on fine detail. Precise detailed work — premium material enabling quality. Fine craftsmanship PROOF." },
+        { script: (name) => `ใช้ ${name} กับเด็กๆ สนุกมาก`, action: "CAMERA: Family craft medium. Parent and child crafting together — bonding, learning. Family creative time PROOF." },
+        { script: (name) => `${name} มีหลายแบบ ทำได้ไม่เบื่อ`, action: "CAMERA: Wide shot of project variety. Multiple project options — diverse creative possibilities. Creative variety PROOF." },
     ],
     // ═══════════════════════════════════════════════════════════════
     // ── Tech extras ── (wearable, camera)
     // ═══════════════════════════════════════════════════════════════
     wearable: [
-        {
-            script: (name) => `ใส่ ${name} แล้ว เช็คสุขภาพง่ายมาก`,
-            action: "Presenter wearing smartwatch/band — taps screen showing health stats (heart rate, steps). Glances at wrist naturally. The PROOF is the visible health data on the wearable's screen responding to real-time checks."
-        },
-        {
-            script: (name) => `${name} ดีไซน์สวย ใส่ได้ทุกวัน`,
-            action: "Presenter shows wearable on wrist from angles — premium materials, comfortable strap. Pairs with both casual and formal outfit. The PROOF is the visible design quality and outfit versatility."
-        },
+        { script: (name) => `ใส่ ${name} แล้ว เช็คสุขภาพง่ายมาก`, action: "CAMERA: Close-up wrist shot. Taps screen — health stats (heart rate, steps) visible on ANIMATED display. Natural wrist glance. Real-time health data PROOF." },
+        { script: (name) => `${name} ดีไซน์สวย ใส่ได้ทุกวัน`, action: "CAMERA: Medium orbit around wrist. Premium materials, comfortable strap — pairs with casual and formal. Screen shows ANIMATED watch face. Design quality + versatility PROOF." },
+        { script: (name) => `${name} แจ้งเตือนครบ ไม่พลาดอะไร`, action: "CAMERA: Close-up of notification on screen. Message/call notification appears on ANIMATED display — presenter glances, taps to respond. Smart notification PROOF." },
+        { script: (name) => `ออกกำลังกายด้วย ${name} แทร็คได้หมด`, action: "CAMERA: Dynamic exercise tracking. Working out — wearable tracking metrics on ANIMATED screen (distance, calories, heart rate). Fitness tracking PROOF." },
+        { script: (name) => `${name} กันน้ำ อาบน้ำก็ใส่ได้`, action: "CAMERA: Water-contact close-up. Water splashes on wearable — still functions. Screen ANIMATED and responsive. Water resistance PROOF." },
+        { script: (name) => `แบต ${name} อยู่ได้หลายวัน`, action: "CAMERA: Medium daily-use montage. Multiple days of use — battery lasting. Screen still bright and ANIMATED. Long battery life PROOF." },
+        { script: (name) => `เปลี่ยนหน้าปัด ${name} ได้หลายแบบ`, action: "CAMERA: Close-up of watch face changing. Swipes through different ANIMATED watch faces — customizable designs. Personalization PROOF." },
+        { script: (name) => `${name} วัดการนอนแม่นมาก`, action: "CAMERA: Morning wrist check. Wakes up — checks sleep data on ANIMATED screen. Detailed sleep tracking visible. Sleep tracking PROOF." },
+        { script: (name) => `สาย ${name} ใส่สบาย เปลี่ยนง่าย`, action: "CAMERA: Close-up strap swap. Quick-release strap — changes style easily. Multiple strap options. Strap comfort + swappability PROOF." },
+        { script: (name) => `${name} จอสว่าง มองชัดแม้กลางแจ้ง`, action: "CAMERA: Outdoor bright-sun shot. Screen clearly visible in sunlight — ANIMATED content readable. Outdoor screen visibility PROOF." },
     ],
     camera: [
-        {
-            script: (name) => `ถ่ายด้วย ${name} คมชัดมาก`,
-            action: "Presenter takes photo with camera — viewfinder/LCD shows sharp detailed preview. Then shows captured image on LCD — crisp clear result. The PROOF is the visible sharp detailed captured image on the camera LCD."
-        },
-        {
-            script: (name) => `${name} ถ่ายวีดีโอ สวยมากเลย`,
-            action: "Presenter records video with camera — smooth panning motion. Flips LCD to show recording in progress — cinematic quality visible. The PROOF is the visible high-quality video footage on the camera's screen."
-        },
+        { script: (name) => `ถ่ายด้วย ${name} คมชัดมาก`, action: "CAMERA: Over-shoulder then LCD close-up. Takes photo — viewfinder shows sharp preview. Shows captured image on LCD. Sharp detailed capture PROOF." },
+        { script: (name) => `${name} ถ่ายวีดีโอ สวยมากเลย`, action: "CAMERA: Tracking alongside filming. Records video — smooth pan. Flips LCD showing ANIMATED recording in progress. Cinematic video quality PROOF." },
+        { script: (name) => `โฟกัส ${name} แม่นมาก ไวมาก`, action: "CAMERA: Close-up of AF in action. Points at subject — instant focus lock, sharp result on LCD. Fast accurate autofocus PROOF." },
+        { script: (name) => `สี ${name} ถ่ายมาสวยมาก สมจริง`, action: "CAMERA: Comparison shot — real scene vs LCD. Accurate color reproduction on screen — vivid, true-to-life. Color science PROOF." },
+        { script: (name) => `${name} ถ่ายกลางคืนก็สวย`, action: "CAMERA: Low-light shooting close-up. Night photo — LCD shows bright clear result despite darkness. Low-light capability PROOF." },
+        { script: (name) => `ถือ ${name} จับถนัดมือ ถ่ายมั่นคง`, action: "CAMERA: Medium ergonomic shot. Holds camera naturally — comfortable grip, stable shooting posture. Ergonomic handling PROOF." },
+        { script: (name) => `เลนส์ ${name} คมมาก ละเอียดสุด`, action: "CAMERA: Macro on lens then sample shot. Glass quality — sharp detailed capture showing resolution. Lens sharpness PROOF." },
+        { script: (name) => `${name} กันสั่นดีมาก ภาพไม่เบลอ`, action: "CAMERA: Handheld motion test. Moving while shooting — LCD shows stable non-blurry result. Image stabilization PROOF." },
+        { script: (name) => `${name} เชื่อมต่อมือถือได้ ส่งรูปทันที`, action: "CAMERA: Close-up of wireless transfer. Camera to phone — photo appears on phone screen instantly. Wireless connectivity PROOF." },
+        { script: (name) => `ดีไซน์ ${name} สวย พกไปถ่ายรูปเท่มาก`, action: "CAMERA: Lifestyle medium shot. Stylish camera design — presenter carries/uses outdoors. Premium photographic aesthetic PROOF." },
     ],
     // ═══════════════════════════════════════════════════════════════
     // ── Generic fallbacks ── (must still show DEMONSTRATING + REACTION)
     // ═══════════════════════════════════════════════════════════════
     gadget: [
-        {
-            script: (name) => `ใช้ ${name} แล้ว สะดวกมาก`,
-            action: "Presenter demonstrates product in real use case — shows actual problem being solved by the product. Before: struggle. After: effortless. The PROOF is the visible problem→solution demonstration."
-        },
-        {
-            script: (name) => `ฟีเจอร์ ${name} ครบจบเลย`,
-            action: "Presenter demonstrates multiple features one by one — each feature shown actually working. Button press → visible response. The PROOF is each feature visibly functioning as claimed."
-        },
-        {
-            script: (name) => `${name} ดีไซน์สวย พรีเมียมมาก`,
-            action: "Presenter holds product showing premium build — runs finger across material, shows precision fit of parts, premium finish catching light. The PROOF is the visible material quality and craftsmanship details."
-        },
+        { script: (name) => `ใช้ ${name} แล้ว สะดวกมาก`, action: "CAMERA: Before→after medium shot. Problem being solved — before: struggle, after: effortless. Visible problem→solution PROOF." },
+        { script: (name) => `ฟีเจอร์ ${name} ครบจบเลย`, action: "CAMERA: Close-up feature demo sequence. Multiple features — each shown working. Button press → visible response. Feature functionality PROOF." },
+        { script: (name) => `${name} ดีไซน์สวย พรีเมียมมาก`, action: "CAMERA: Macro orbit around product. Premium build — material quality, precision fit, finish catching light. Craftsmanship detail PROOF." },
+        { script: (name) => `${name} ใช้ง่าย ไม่ต้องอ่านคู่มือ`, action: "CAMERA: Intuitive-use medium shot. Picks up and uses immediately — no manual needed. Intuitive simplicity PROOF." },
+        { script: (name) => `ชาร์จ ${name} ทีเดียว ใช้ได้นาน`, action: "CAMERA: Close-up of charging then usage. Full charge → extended use through day. LED indicator, battery lasting. Long battery PROOF." },
+        { script: (name) => `${name} เชื่อมต่อง่าย ใช้ได้ทันที`, action: "CAMERA: Close-up of pairing/connecting. Plug in or pair — instant connection, working immediately. Seamless connectivity PROOF." },
+        { script: (name) => `${name} เบา พกพาสะดวก`, action: "CAMERA: Size comparison close-up. Compact lightweight — fits in pocket/bag. Portable convenience PROOF." },
+        { script: (name) => `${name} ทนทาน ใช้ได้นาน`, action: "CAMERA: Close-up of build quality. Solid construction — durable materials. Long-lasting reliability PROOF." },
+        { script: (name) => `แกะกล่อง ${name} อุปกรณ์ครบ`, action: "CAMERA: Overhead unboxing. Opens package — complete accessories included. Ready to use immediately. Complete package PROOF." },
+        { script: (name) => `${name} คุ้มค่า ราคาดี ฟีเจอร์เยอะ`, action: "CAMERA: Medium product showcase. Shows many features for the price — impressed at value. Feature-rich value PROOF." },
     ],
     other: [
-        {
-            script: (name) => `ลองใช้ ${name} แล้ว ดีจริง`,
-            action: "Presenter uses product for its intended purpose — genuine positive reaction to quality. Product performing its function visibly. The PROOF is the product actually working + authentic positive reaction."
-        },
-        {
-            script: (name) => `${name} ดีเกินคาดมาก`,
-            action: "Presenter demonstrates product — surprised impressed expression at quality exceeding expectations. Shows details to camera. The PROOF is the genuine 'exceeded expectations' surprise reaction."
-        },
-        {
-            script: (name) => `คุณภาพ ${name} ดี คุ้มค่ามาก`,
-            action: "Presenter examines product quality close-up — touches materials, tests mechanisms, inspects details. Nods approvingly. The PROOF is the visible quality inspection passing with flying colors."
-        },
+        { script: (name) => `ลองใช้ ${name} แล้ว ดีจริง`, action: "CAMERA: Medium practical demo. Uses for intended purpose — genuine positive reaction. Product performing visibly. Working + authentic reaction PROOF." },
+        { script: (name) => `${name} ดีเกินคาดมาก`, action: "CAMERA: Close-up reaction shot. Demonstrates product — surprised impressed at quality exceeding expectations. Shows details. Exceeded expectations PROOF." },
+        { script: (name) => `คุณภาพ ${name} ดี คุ้มค่ามาก`, action: "CAMERA: Macro quality inspection. Examines quality — touches materials, tests mechanisms. Nods approvingly. Quality inspection PROOF." },
+        { script: (name) => `${name} ใช้ง่าย สะดวกมาก`, action: "CAMERA: Step-by-step medium. Simple intuitive use — no learning curve. Effortless operation. Ease of use PROOF." },
+        { script: (name) => `แพ็คเกจ ${name} สวย ของครบ`, action: "CAMERA: Overhead unboxing. Opens package — premium presentation, complete contents. Unboxing satisfaction PROOF." },
+        { script: (name) => `${name} ทนทาน ใช้ได้นานมาก`, action: "CAMERA: Close-up of build. Solid durable construction — quality materials visible. Built to last PROOF." },
+        { script: (name) => `ดีไซน์ ${name} สวยมาก`, action: "CAMERA: Smooth orbit around product. Attractive design — catches light, clean lines. Premium aesthetic PROOF." },
+        { script: (name) => `${name} ตอบโจทย์ทุกอย่างเลย`, action: "CAMERA: Multi-use demo medium. Several use cases — all successful. Versatile all-rounder PROOF." },
+        { script: (name) => `${name} ให้เป็นของขวัญก็ดี`, action: "CAMERA: Gift presentation medium. Premium packaging — perfect for gifting. Recipient delighted. Gift-worthy PROOF." },
+        { script: (name) => `${name} แนะนำเลย ดีจริงๆ`, action: "CAMERA: Confident medium closing shot. Presenter holds product proudly — genuine recommendation, thumbs up. Authentic endorsement PROOF." },
     ],
 };
 

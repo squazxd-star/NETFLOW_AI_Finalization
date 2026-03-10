@@ -100,7 +100,7 @@
             aspect-ratio: 3/4;
             background: #09090f;
             border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 1.25rem;
+            border-radius: 1rem;
             overflow: hidden;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
@@ -113,9 +113,9 @@
             transform: translateY(-4px);
         }
 
-        /* Thumbnail: 74% of card height */
+        /* Thumbnail: 76% of card height */
         .card-thumb {
-            position: relative; width: 100%; height: 74%;
+            position: relative; width: 100%; height: 76%;
             background: #06060a; cursor: pointer; overflow: hidden;
         }
         .card-thumb img, .card-thumb video {
@@ -135,50 +135,45 @@
         }
         .video-card:hover .play-overlay { opacity: 1; }
         .play-btn {
-            width: 52px; height: 52px; border-radius: 50%;
+            width: 44px; height: 44px; border-radius: 50%;
             background: rgba(255,255,255,0.18); backdrop-filter: blur(8px);
             border: 1px solid rgba(255,255,255,0.25);
             display: flex; align-items: center; justify-content: center;
             transition: all 0.25s;
         }
         .play-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
-        .play-btn svg { width: 24px; height: 24px; fill: #fff; margin-left: 2px; }
+        .play-btn svg { width: 20px; height: 20px; fill: #fff; margin-left: 2px; }
 
         /* Badges (glassmorphism) */
         .card-badge-row {
-            position: absolute; top: 14px; left: 14px; right: 14px;
+            position: absolute; top: 10px; left: 10px; right: 10px;
             display: flex; justify-content: space-between; align-items: flex-start;
             pointer-events: none;
         }
         .card-source {
-            padding: 5px 12px; border-radius: 8px;
+            padding: 4px 10px; border-radius: 6px;
             background: rgba(0,0,0,0.4); backdrop-filter: blur(12px);
             border: 1px solid rgba(255,255,255,0.18);
-            font-size: 10px; font-weight: 800; color: #fff;
+            font-size: 9px; font-weight: 800; color: #fff;
             text-transform: uppercase; letter-spacing: 0.12em;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         .card-duration {
-            padding: 5px 12px; border-radius: 8px;
+            padding: 4px 10px; border-radius: 6px;
             background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
-            color: #fff; font-size: 11px; font-weight: 600;
+            color: #fff; font-size: 10px; font-weight: 600;
             font-variant-numeric: tabular-nums;
         }
 
-        /* Body: 26% of card */
+        /* Body: 24% of card */
         .card-body {
-            padding: 14px 18px 16px; flex: 1;
+            padding: 10px 14px 12px; flex: 1;
             display: flex; flex-direction: column; justify-content: space-between;
             background: #09090f;
         }
-        .card-title {
-            font-size: 15px; font-weight: 600; color: #fff;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            line-height: 1.3;
-        }
         .card-meta {
             display: flex; align-items: center; gap: 0;
-            font-size: 11px; color: #71717a; margin-top: 3px;
+            font-size: 10px; color: #71717a; margin-top: 1px;
             font-weight: 500;
         }
         .card-meta .dot {
@@ -187,11 +182,16 @@
             margin: 0 6px;
         }
         .card-title-row {
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center; gap: 6px;
         }
-        .card-title-row .card-title { flex: 1; min-width: 0; }
+        .card-title-row .card-title { 
+            flex: 1; min-width: 0; 
+            font-size: 14px; font-weight: 600; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            line-height: 1.2;
+        }
         .btn-rename {
-            width: 28px; height: 28px; border-radius: 8px;
+            width: 24px; height: 24px; border-radius: 6px;
             background: rgba(var(--primary-rgb), 0.1);
             border: 1px solid rgba(var(--primary-rgb), 0.2);
             color: var(--primary); cursor: pointer;
@@ -199,20 +199,20 @@
             transition: all 0.2s; flex-shrink: 0;
         }
         .btn-rename:hover { background: rgba(var(--primary-rgb), 0.2); }
-        .btn-rename svg { width: 14px; height: 14px; }
+        .btn-rename svg { width: 12px; height: 12px; }
 
         /* Actions: evenly distributed */
         .card-actions {
             display: flex; justify-content: space-between; align-items: center;
-            margin-top: 10px;
+            margin-top: 8px;
         }
         .btn-icon {
-            width: 44px; height: 38px; border: none;
-            border-radius: 10px; cursor: pointer;
+            width: 38px; height: 32px; border: none;
+            border-radius: 8px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
         }
-        .btn-icon svg { width: 17px; height: 17px; }
+        .btn-icon svg { width: 15px; height: 15px; }
         .btn-icon.btn-dl {
             background: #fff; color: #000;
         }
