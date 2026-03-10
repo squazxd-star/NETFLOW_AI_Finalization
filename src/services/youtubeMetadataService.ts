@@ -86,7 +86,90 @@ ${cachedProductInfo ? `- ข้อมูลจากการค้นหา: ${
 }
 
 /**
- * Generate YouTube Shorts title + description using Gemini AI + Google Search grounding
+ * Generate YouTube metadata using OpenAI
+ */
+async function generateWithOpenAI(
+    apiKey: string,
+    prompt: string,
+    productImage?: string | null
+): Promise<string> {
+    const messages: any[] = [];
+
+    if (productImage) {
+        messages.push({
+            role: "user",
+            content: [
+                { type: "text", text: prompt + "\n\n(ดูรูปสินค้าประกอบเพื่อวิเคราะห์ feature เด่นสำหรับ description)" },
+                { type: "image_url", image_url: { url: productImage, detail: "low" } }
+            ]
+        });
+    } else {
+        messages.push({ role: "user", content: prompt });
+    }
+
+    console.log("[YT Metadata] Generating with OpenAI...");
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: productImage ? "gpt-4o" : "gpt-4o-mini",
+            messages,
+            max_tokens: 500,
+            temperature: 0.7
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || `OpenAI HTTP ${response.status}`);
+    }
+
+    const json = await response.json();
+    return json.choices?.[0]?.message?.content || "";
+}
+
+/**
+ * Generate YouTube metadata using Gemini
+ */
+async function generateWithGemini(
+    apiKey: string,
+    prompt: string,
+    productImage?: string | null
+): Promise<string> {
+    const genAI = new GoogleGenerativeAI(apiKey);
+
+    // Try with Google Search grounding first (for trending hashtags + category research)
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            tools: [{ googleSearch: {} } as any],
+        });
+
+        const parts: any[] = [prompt];
+
+        if (productImage) {
+            const base64Data = productImage.includes(',') ? productImage.split(',')[1] : productImage;
+            const mimeType = productImage.includes('png') ? 'image/png' : 'image/jpeg';
+            parts.push({ inlineData: { data: base64Data, mimeType } });
+            parts[0] = prompt + "\n\n(ดูรูปสินค้าประกอบเพื่อวิเคราะห์ feature เด่นสำหรับ description)";
+        }
+
+        console.log("[YT Metadata] Generating with Gemini + Google Search grounding...");
+        const result = await model.generateContent(parts);
+        return result.response.text();
+    } catch (error: any) {
+        console.warn("[YT Metadata] Grounding failed, trying without:", error.message);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+    }
+}
+
+/**
+ * Generate YouTube Shorts title + description using AI (OpenAI or Gemini based on user setting)
  */
 export async function generateYouTubeMetadata(params: {
     productName: string;
@@ -100,10 +183,14 @@ export async function generateYouTubeMetadata(params: {
         throw new Error("กรุณาใส่ชื่อสินค้าก่อน");
     }
 
-    const apiKey = await getApiKey('gemini');
+    // Check user's AI provider preference
+    const provider = (localStorage.getItem("netflow_ai_provider") as 'openai' | 'gemini') || 'openai';
+    const apiKey = await getApiKey(provider);
     if (!apiKey) {
-        throw new Error("ไม่พบ Gemini API Key — กรุณาตั้งค่าใน Settings");
+        throw new Error(`ไม่พบ ${provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key — กรุณาตั้งค่าใน Settings`);
     }
+
+    console.log(`[YT Metadata] Using provider: ${provider.toUpperCase()}`);
 
     const category = detectCategory(productName);
     const prompt = buildYouTubeMetadataPrompt(
@@ -113,35 +200,11 @@ export async function generateYouTubeMetadata(params: {
         category
     );
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    // Try with Google Search grounding first (for trending hashtags + category research)
     let text = "";
-    try {
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash",
-            tools: [{ googleSearch: {} } as any],
-        });
-
-        const parts: any[] = [prompt];
-
-        // Include product image for visual analysis if available
-        if (productImage) {
-            const base64Data = productImage.includes(',') ? productImage.split(',')[1] : productImage;
-            const mimeType = productImage.includes('png') ? 'image/png' : 'image/jpeg';
-            parts.push({ inlineData: { data: base64Data, mimeType } });
-            parts[0] = prompt + "\n\n(ดูรูปสินค้าประกอบเพื่อวิเคราะห์ feature เด่นสำหรับ description)";
-        }
-
-        console.log("[YT Metadata] Generating with Gemini + Google Search grounding...");
-        const result = await model.generateContent(parts);
-        text = result.response.text();
-    } catch (error: any) {
-        console.warn("[YT Metadata] Grounding failed, trying without:", error.message);
-        // Fallback without grounding
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-        const result = await model.generateContent(prompt);
-        text = result.response.text();
+    if (provider === "openai") {
+        text = await generateWithOpenAI(apiKey, prompt, productImage);
+    } else {
+        text = await generateWithGemini(apiKey, prompt, productImage);
     }
 
     // Parse JSON response
