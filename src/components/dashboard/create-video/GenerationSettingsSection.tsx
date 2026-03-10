@@ -612,11 +612,32 @@ Do not explain. Only output the lines above.`;
                             <div
                                 className="flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl text-xs font-semibold relative overflow-hidden border border-border bg-muted/20 cursor-not-allowed select-none"
                             >
-                                {/* Red X cross overlay */}
+                                {/* Chain X cross overlay */}
                                 <div className="absolute inset-0 pointer-events-none z-10">
-                                    <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0">
-                                        <line x1="5" y1="5" x2="95" y2="95" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" opacity="0.55"/>
-                                        <line x1="95" y1="5" x2="5" y2="95" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" opacity="0.55"/>
+                                    <svg width="100%" height="100%" viewBox="0 0 120 100" preserveAspectRatio="none" className="absolute inset-0">
+                                        <defs>
+                                            <linearGradient id="chainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#71717a" stopOpacity="0.7"/>
+                                                <stop offset="50%" stopColor="#a1a1aa" stopOpacity="0.9"/>
+                                                <stop offset="100%" stopColor="#52525b" stopOpacity="0.7"/>
+                                            </linearGradient>
+                                        </defs>
+                                        {/* Diagonal 1: top-left → bottom-right */}
+                                        <g transform="rotate(40, 60, 50)">
+                                            {[0,1,2,3,4,5].map(i => (
+                                                <ellipse key={`a${i}`} cx={15 + i * 18} cy="50" rx="7" ry="4.5"
+                                                    fill="none" stroke="url(#chainGrad)" strokeWidth="2.2"
+                                                    transform={`rotate(${i % 2 === 0 ? 0 : 90}, ${15 + i * 18}, 50)`}/>
+                                            ))}
+                                        </g>
+                                        {/* Diagonal 2: top-right → bottom-left */}
+                                        <g transform="rotate(-40, 60, 50)">
+                                            {[0,1,2,3,4,5].map(i => (
+                                                <ellipse key={`b${i}`} cx={15 + i * 18} cy="50" rx="7" ry="4.5"
+                                                    fill="none" stroke="url(#chainGrad)" strokeWidth="2.2"
+                                                    transform={`rotate(${i % 2 === 0 ? 0 : 90}, ${15 + i * 18}, 50)`}/>
+                                            ))}
+                                        </g>
                                     </svg>
                                 </div>
                                 <span className="text-[7px] font-bold tracking-wider text-muted-foreground/50 uppercase z-20">
