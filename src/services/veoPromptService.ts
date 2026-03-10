@@ -103,30 +103,6 @@ const DURATION_CONFIGS: Record<number, { description: string; pacing: string }> 
     24: { description: "24-second extended clip", pacing: "Slower build-up, multiple scenes, complete narrative arc" }
 };
 
-// Voice tone configs (Thai)
-const VOICE_TONE_THAI: Record<string, { tone: string; style: string; example: string }> = {
-    "energetic": {
-        tone: "กระตือรือร้น ตื่นเต้น",
-        style: "พูดเร็ว เสียงดัง มีพลัง น้ำเสียงสนุกสนาน",
-        example: "ว้าว! มาดูกันเลย สิ่งนี้เจ๋งมากๆ!"
-    },
-    "calm": {
-        tone: "สงบ นุ่มนวล",
-        style: "พูดช้าๆ ชัดถ้อยชัดคำ น้ำเสียงผ่อนคลาย",
-        example: "วันนี้เราจะมาแนะนำสิ่งดีๆ ให้ทุกคนนะคะ"
-    },
-    "friendly": {
-        tone: "เป็นกันเอง อบอุ่น",
-        style: "พูดคุยเหมือนเพื่อน น้ำเสียงจริงใจ ไม่เป็นทางการ",
-        example: "เฮ้! มาเล่าให้ฟังหน่อย อันนี้ดีจริงๆ นะ"
-    },
-    "professional": {
-        tone: "มืออาชีพ น่าเชื่อถือ",
-        style: "พูดชัดเจน มั่นใจ น้ำเสียงหนักแน่น",
-        example: "สวัสดีครับ วันนี้ผมจะมารีวิวสินค้าที่น่าสนใจ"
-    }
-};
-
 // Sale style configs (Thai)
 const SALE_STYLE_THAI: Record<string, { approach: string; phrases: string[] }> = {
     "hard": {
@@ -147,19 +123,23 @@ const SALE_STYLE_THAI: Record<string, { approach: string; phrases: string[] }> =
     }
 };
 
-// Language/Accent configs
-const LANGUAGE_ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> = {
-    "th-central": { dialect: "ภาษากลาง", characteristic: "สำเนียงมาตรฐาน ชัดเจน" },
-    "th-north": { dialect: "ภาษาเหนือ", characteristic: "สำเนียงอ่อนหวาน ม่วนใจ๋" },
-    "th-south": { dialect: "ภาษาใต้", characteristic: "สำเนียงเข้มแข็ง พูดเร็ว" },
-    "th-isan": { dialect: "ภาษาอีสาน", characteristic: "สำเนียงเป็นกันเอง ม่วนซื่น" }
+// ═══════════════════════════════════════════════════════════════════════════
+// SHARED MAPS — Used by both buildImagePrompt and buildVideoPrompt
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Expression mapping (form value → descriptive English)
+const EXPRESSION_MAP: Record<string, string> = {
+    neutral: "natural relaxed neutral expression",
+    happy: "subtle natural smile, relaxed facial muscles (no exaggerated grin)",
+    excited: "bright confident expression, engaged eyes",
+    serious: "professional focused expression"
 };
 
-const ACCENT_THAI: Record<string, { dialect: string; characteristic: string }> = {
-    "central": { dialect: "ภาษากลาง", characteristic: "สำเนียงมาตรฐาน ชัดเจน" },
-    "north": { dialect: "ภาษาเหนือ", characteristic: "สำเนียงอ่อนหวาน ม่วนใจ๋" },
-    "south": { dialect: "ภาษาใต้", characteristic: "สำเนียงเข้มแข็ง พูดเร็ว" },
-    "isan": { dialect: "ภาษาอีสาน", characteristic: "สำเนียงเป็นกันเอง ม่วนซื่น" }
+// Clothing style → descriptive English
+const CLOTHING_MAP: Record<string, string> = {
+    casual: "casual everyday wear", formal: "elegant formal attire",
+    sporty: "athletic sporty outfit", fashion: "trendy fashion-forward outfit",
+    uniform: "clean professional uniform"
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -906,60 +886,6 @@ const SCENE_TRANSITION: Record<string, string> = {
     "before-after": "Dramatic wipe or match cut, consistent contrast grading, transformation reveal flow"
 };
 
-// Voiceover age mapping by tone (fallback when ageRange not specified)
-const VOICEOVER_AGE: Record<string, string> = {
-    "energetic": "20s",
-    "calm": "30s",
-    "friendly": "mid-20s",
-    "professional": "30s",
-    "cute": "early-20s"
-};
-
-// Detailed voice fingerprint per tone (pitch, tempo, resonance, breath)
-const VOICEOVER_FINGERPRINT: Record<string, {
-    personality: string;
-    pitch: string;
-    tempo: string;
-    resonance: string;
-    breath: string;
-}> = {
-    "energetic": {
-        personality: "energetic and enthusiastic tone",
-        pitch: "medium-high pitch (220–280 Hz)",
-        tempo: "fast-paced delivery, ~160 WPM, sharp clear consonants",
-        resonance: "bright chest resonance, forward placement",
-        breath: "short controlled breaths between phrases"
-    },
-    "calm": {
-        personality: "calm and soothing tone",
-        pitch: "medium-low pitch (150–190 Hz)",
-        tempo: "slow deliberate delivery, ~100 WPM, smooth legato flow",
-        resonance: "warm deep resonance, relaxed throat",
-        breath: "long steady breath support, gentle pauses"
-    },
-    "friendly": {
-        personality: "friendly and warm tone",
-        pitch: "medium pitch (180–230 Hz)",
-        tempo: "natural conversational delivery, ~130 WPM, light upward inflections",
-        resonance: "warm mid resonance, slight smile in voice",
-        breath: "relaxed natural breaths, conversational rhythm"
-    },
-    "professional": {
-        personality: "professional and confident tone",
-        pitch: "medium pitch (170–210 Hz), stable and controlled",
-        tempo: "clear precise delivery, ~120 WPM, strong consonants",
-        resonance: "authoritative chest resonance, neutral placement",
-        breath: "measured breath pacing, deliberate pauses"
-    },
-    "cute": {
-        personality: "cute and cheerful tone with playful energy",
-        pitch: "high pitch (240–300 Hz), light and bright",
-        tempo: "upbeat bouncy delivery, ~140 WPM, playful inflections",
-        resonance: "bright nasal-forward resonance, youthful sparkle",
-        breath: "quick light breaths, bubbly rhythm"
-    }
-};
-
 // ── Voice Persona Database (15 per gender) ──────────────────────────────────
 // Each persona has a character appearance descriptor so the AI matches
 // the voice persona to the uploaded character image/body type.
@@ -1059,12 +985,6 @@ function getPersona(gender: string, voiceTone: string, _ageRange?: string): Voic
     const friendlyPool = pool.filter(p => p.voiceTone === 'friendly');
     return friendlyPool.length > 0 ? rnd(friendlyPool) : pool[0];
 }
-
-// Legacy compat: simple name lookup by gender+tone (returns first match)
-const VOICE_PERSONA: Record<string, Record<string, string>> = {
-    male: Object.fromEntries(VOICE_PERSONA_DB.male.filter((p, i, arr) => arr.findIndex(x => x.voiceTone === p.voiceTone) === i).map(p => [p.voiceTone, p.name])),
-    female: Object.fromEntries(VOICE_PERSONA_DB.female.filter((p, i, arr) => arr.findIndex(x => x.voiceTone === p.voiceTone) === i).map(p => [p.voiceTone, p.name]))
-};
 
 /**
  * Build a FIXED speaking-character descriptor for video generation.
@@ -3817,8 +3737,8 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
     if (productName) {
         result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), productName);
     }
-    // Deduplicate repeated SENTENCES only (split on ". " not "," to preserve structure)
-    const sentences = result.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean);
+    // Deduplicate repeated SENTENCES only (split on sentence-ending punctuation, not "," to preserve structure)
+    const sentences = result.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(Boolean);
     const seen = new Set<string>();
     const deduped: string[] = [];
     for (const s of sentences) {
@@ -5325,22 +5245,8 @@ const buildImagePrompt = (
     const aspectRatio = config.aspectRatio || '9:16';
     const hasProductImage = !!config.productImage;
 
-    // ── Expression mapping (form value → descriptive English) ──
-    const expressionMap: Record<string, string> = {
-        neutral: "natural relaxed neutral expression", 
-        happy: "subtle natural smile, relaxed facial muscles (no exaggerated grin)",
-        excited: "bright confident expression, engaged eyes", 
-        serious: "professional focused expression"
-    };
-    const expressionText = expressionMap[config.expression || 'happy'] || 'subtle natural smile';
-
-    // ── Clothing style → descriptive English ──
-    const clothingMap: Record<string, string> = {
-        casual: "casual everyday wear", formal: "elegant formal attire",
-        sporty: "athletic sporty outfit", fashion: "trendy fashion-forward outfit",
-        uniform: "clean professional uniform"
-    };
-    const clothingDesc = (config.clothingStyles || ["casual"]).map(s => clothingMap[s] || s).join(", ");
+    const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
+    const clothingDesc = (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles → cinematic direction ──
     const cameraMap: Record<string, string> = {
@@ -5436,22 +5342,8 @@ const buildVideoPrompt = (
     const aspectRatio = config.aspectRatio || '9:16';
     const voiceTone = config.voiceTone || 'friendly';
     
-    // ── Expression mapping ──
-    const expressionMap: Record<string, string> = {
-        neutral: "natural relaxed neutral expression", 
-        happy: "subtle natural smile, relaxed facial muscles (no exaggerated grin)",
-        excited: "bright confident expression, engaged eyes", 
-        serious: "professional focused expression"
-    };
-    const expressionText = expressionMap[config.expression || 'happy'] || 'subtle natural smile';
-
-    // ── Clothing style ──
-    const clothingMap: Record<string, string> = {
-        casual: "casual everyday wear", formal: "elegant formal attire",
-        sporty: "athletic sporty outfit", fashion: "trendy fashion-forward outfit",
-        uniform: "clean professional uniform"
-    };
-    const clothingDesc = (config.clothingStyles || ["casual"]).map(s => clothingMap[s] || s).join(", ");
+    const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
+    const clothingDesc = (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles ──
     const cameraAngleMap: Record<string, string> = {
@@ -5470,8 +5362,8 @@ const buildVideoPrompt = (
 
     // ── Language → voiceover language ──
     const languageMap: Record<string, string> = {
-        "th-central": "Thai", "th-north": "English",
-        "th-south": "Lao", "th-isan": "Chinese Mandarin"
+        "th-central": "Thai", "th-north": "Thai",
+        "th-south": "Thai", "th-isan": "Thai"
     };
     const voiceLanguage = languageMap[config.language] || "Thai";
 
