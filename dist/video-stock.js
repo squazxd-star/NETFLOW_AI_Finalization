@@ -175,6 +175,10 @@ async function loadAndRender() {
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'card-body';
 
+        // Info section
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'card-info';
+
         const titleDiv = document.createElement('div');
         titleDiv.className = 'card-title';
         titleDiv.title = video.title || 'Netflow AI Video';
@@ -184,41 +188,51 @@ async function loadAndRender() {
         metaDiv.className = 'card-meta';
         metaDiv.innerHTML =
             '<span>' + formatDate(video.createdAt) + '</span>' +
+            '<span class="dot"></span>' +
             '<span>' + formatBytes(video.fileSize) + '</span>';
 
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+
+        // Actions section
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'card-actions';
 
         const btnDownload = document.createElement('button');
+        btnDownload.className = 'btn-download';
         btnDownload.title = '\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14';
-        btnDownload.innerHTML = '\u2b07 \u0e42\u0e2b\u0e25\u0e14';
+        btnDownload.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\u0e42\u0e2b\u0e25\u0e14';
         btnDownload.addEventListener('click', () => downloadVideo(video.id));
 
+        const iconGroup = document.createElement('div');
+        iconGroup.className = 'btn-icon-group';
+
         const btnYT = document.createElement('button');
-        btnYT.className = 'btn-yt';
+        btnYT.className = 'btn-icon btn-yt';
         btnYT.title = 'YouTube';
-        btnYT.innerHTML = '\u25b6 YT';
+        btnYT.textContent = 'YT';
         btnYT.addEventListener('click', () => uploadYouTube(video.id));
 
         const btnTT = document.createElement('button');
-        btnTT.className = 'btn-tt';
+        btnTT.className = 'btn-icon btn-tt';
         btnTT.title = 'TikTok';
-        btnTT.innerHTML = '\u266a TT';
+        btnTT.textContent = 'TT';
         btnTT.addEventListener('click', () => uploadTikTok(video.id));
 
         const btnDel = document.createElement('button');
-        btnDel.className = 'btn-del';
+        btnDel.className = 'btn-icon btn-del';
         btnDel.title = '\u0e25\u0e1a';
-        btnDel.innerHTML = '\u2715';
+        btnDel.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
         btnDel.addEventListener('click', () => confirmDeleteVideo(video.id));
 
-        actionsDiv.appendChild(btnDownload);
-        actionsDiv.appendChild(btnYT);
-        actionsDiv.appendChild(btnTT);
-        actionsDiv.appendChild(btnDel);
+        iconGroup.appendChild(btnYT);
+        iconGroup.appendChild(btnTT);
+        iconGroup.appendChild(btnDel);
 
-        bodyDiv.appendChild(titleDiv);
-        bodyDiv.appendChild(metaDiv);
+        actionsDiv.appendChild(btnDownload);
+        actionsDiv.appendChild(iconGroup);
+
+        bodyDiv.appendChild(infoDiv);
         bodyDiv.appendChild(actionsDiv);
 
         card.appendChild(thumbDiv);
