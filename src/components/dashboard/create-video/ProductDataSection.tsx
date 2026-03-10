@@ -1,8 +1,9 @@
-import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User } from "lucide-react";
+import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User, Shirt } from "lucide-react";
 import { useState, useEffect } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
+import { characterOutfitOptions } from "@/types/netflow";
 import {
     getSyncedProducts,
     triggerProductSync,
@@ -24,6 +25,8 @@ const ProductDataSection = ({
     onSyncedProductImageSelect
 }: ProductDataSectionProps) => {
     const gender = watch("gender");
+    const characterOutfit = watch("characterOutfit");
+    const [outfitDropdownOpen, setOutfitDropdownOpen] = useState(false);
     const { toast } = useToast();
 
     // TikTok product sync state
@@ -202,61 +205,62 @@ const ProductDataSection = ({
                         </div>
                     </div>
 
-                    {/* ─── Category 2: รูปภาพ ─── */}
+                    {/* ─── Category 2a: อัพโหลดรูปสินค้า ─── */}
                     <div className="space-y-3 p-3 rounded-xl bg-muted/15 border border-border/50">
                         <div className="flex items-center gap-2 mb-1">
-                            <Image className="w-3.5 h-3.5 text-neon-red" />
-                            <span className="text-[11px] font-semibold text-foreground/80">รูปภาพ</span>
+                            <ShoppingBag className="w-3.5 h-3.5 text-neon-red" />
+                            <span className="text-[11px] font-semibold text-foreground/80">อัพโหลดรูปสินค้า</span>
                             <div className="h-px bg-border/50 flex-1" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            {/* Product Image */}
-                            <div>
-                                <label className="text-[10px] text-muted-foreground mb-1 block text-center">รูปสินค้า</label>
-                                <button
-                                    onClick={() => onProductImageUpload()}
-                                    className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
-                                >
-                                    {productImage ? (
-                                        <>
-                                            <img src={productImage} alt="Product" className="w-full h-full object-contain p-1" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <RefreshCw className="w-5 h-5 text-white" />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Plus className="w-5 h-5 text-muted-foreground/60" />
-                                            <span className="text-[9px] text-muted-foreground/60 text-center px-2">เลือกรูปสินค้า</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                        <button
+                            onClick={() => onProductImageUpload()}
+                            className="relative w-full aspect-video rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                        >
+                            {productImage ? (
+                                <>
+                                    <img src={productImage} alt="Product" className="w-full h-full object-contain p-2" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <RefreshCw className="w-5 h-5 text-white" />
+                                        <span className="text-[10px] text-white font-medium">เปลี่ยนรูปสินค้า</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <Image className="w-6 h-6 text-muted-foreground/40" />
+                                    <span className="text-[10px] text-muted-foreground/60">คลิกเพื่ออัพโหลดรูปสินค้า</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
 
-                            {/* Character Image */}
-                            <div>
-                                <label className="text-[10px] text-muted-foreground mb-1 block text-center">รูปตัวละคร</label>
-                                <button
-                                    onClick={() => onCharacterImageUpload()}
-                                    className="relative w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
-                                >
-                                    {characterImage ? (
-                                        <>
-                                            <img src={characterImage} alt="Character" className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <RefreshCw className="w-5 h-5 text-white" />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Plus className="w-5 h-5 text-muted-foreground/60" />
-                                            <span className="text-[9px] text-muted-foreground/60 text-center px-2">เลือกรูปตัวละคร</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                    {/* ─── Category 2b: อัพโหลดรูปตัวละคร ─── */}
+                    <div className="space-y-3 p-3 rounded-xl bg-muted/15 border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <User className="w-3.5 h-3.5 text-neon-red" />
+                            <span className="text-[11px] font-semibold text-foreground/80">อัพโหลดรูปตัวละคร</span>
+                            <div className="h-px bg-border/50 flex-1" />
                         </div>
+
+                        <button
+                            onClick={() => onCharacterImageUpload()}
+                            className="relative w-full aspect-video rounded-xl border-2 border-dashed border-border bg-background/50 flex flex-col items-center justify-center gap-2 hover:border-neon-red/50 hover:bg-neon-red/5 transition-all duration-200 overflow-hidden group"
+                        >
+                            {characterImage ? (
+                                <>
+                                    <img src={characterImage} alt="Character" className="w-full h-full object-cover rounded-lg" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <RefreshCw className="w-5 h-5 text-white" />
+                                        <span className="text-[10px] text-white font-medium">เปลี่ยนรูปตัวละคร</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <User className="w-6 h-6 text-muted-foreground/40" />
+                                    <span className="text-[10px] text-muted-foreground/60">คลิกเพื่ออัพโหลดรูปตัวละคร</span>
+                                </>
+                            )}
+                        </button>
                     </div>
 
                     {/* ─── Category 3: ตัวละคร ─── */}
@@ -294,6 +298,59 @@ const ProductDataSection = ({
                                     <span className="text-sm">♀</span> หญิง
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Character Outfit Dropdown */}
+                        <div className="relative">
+                            <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
+                                <Shirt className="w-3 h-3 text-neon-red" />
+                                เสื้อผ้าตัวละคร
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setOutfitDropdownOpen(!outfitDropdownOpen)}
+                                className="w-full py-2 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-between gap-2 bg-background/50 text-foreground border border-border hover:border-neon-red/30"
+                            >
+                                <span>
+                                    {(() => {
+                                        const selected = characterOutfitOptions.find(o => o.value === characterOutfit);
+                                        return selected ? `${selected.emoji} ${selected.label}` : "เลือกชุด...";
+                                    })()}
+                                </span>
+                                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${outfitDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {outfitDropdownOpen && (
+                                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl bg-background border border-border shadow-xl">
+                                    {(() => {
+                                        const groups = [...new Set(characterOutfitOptions.map(o => o.group))];
+                                        return groups.map(group => (
+                                            <div key={group}>
+                                                <div className="px-3 py-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider bg-muted/30 sticky top-0">
+                                                    {group}
+                                                </div>
+                                                {characterOutfitOptions.filter(o => o.group === group).map(option => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setValue("characterOutfit", option.value);
+                                                            setOutfitDropdownOpen(false);
+                                                        }}
+                                                        className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors ${
+                                                            characterOutfit === option.value
+                                                                ? 'bg-neon-red/10 text-neon-red font-medium'
+                                                                : 'text-foreground hover:bg-muted/50'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm">{option.emoji}</span>
+                                                        <span>{option.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                            )}
                         </div>
                     </div>
 
