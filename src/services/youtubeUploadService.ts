@@ -100,6 +100,7 @@ export const uploadToYouTube = async (params: {
             scheduleEnabled: params.config.scheduleEnabled || false,
             scheduleDate: params.config.scheduleDate || '',
             scheduleTime: params.config.scheduleTime || '',
+            theme: localStorage.getItem('netflow_app_theme') || 'green',
         }, (response) => {
             if (chrome.runtime.lastError) {
                 resolve({ success: false, error: chrome.runtime.lastError.message });

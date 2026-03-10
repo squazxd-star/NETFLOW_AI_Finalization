@@ -180,25 +180,57 @@ let _hudSteps: { label: string; status: string }[] = [];
 let _hudStartTime = 0;
 let _hudTimerInterval: ReturnType<typeof setInterval> | null = null;
 
-const HUD_CSS = `
+// ── Theme palette (mirrors netflow-overlay.ts) ──
+interface HudTheme {
+    rgb: string;        // primary e.g. "0, 255, 65"
+    hex: string;        // primary hex e.g. "#00ff41"
+    accentRgb: string;
+    accentHex: string;
+    doneRgb: string;
+    doneHex: string;
+}
+
+const HUD_THEMES: Record<string, HudTheme> = {
+    green:  { rgb: "0, 255, 65",    hex: "#00ff41",  accentRgb: "0, 255, 180",   accentHex: "#00ffb4",  doneRgb: "34, 197, 94",   doneHex: "#22c55e" },
+    red:    { rgb: "220, 38, 38",   hex: "#dc2626",  accentRgb: "251, 146, 60",  accentHex: "#fb923c",  doneRgb: "34, 197, 94",   doneHex: "#22c55e" },
+    blue:   { rgb: "43, 125, 233",  hex: "#2b7de9",  accentRgb: "6, 182, 212",   accentHex: "#06b6d4",  doneRgb: "34, 197, 94",   doneHex: "#22c55e" },
+    yellow: { rgb: "234, 179, 8",   hex: "#eab308",  accentRgb: "245, 158, 11",  accentHex: "#f59e0b",  doneRgb: "34, 197, 94",   doneHex: "#22c55e" },
+    purple: { rgb: "139, 92, 246",  hex: "#8b5cf6",  accentRgb: "168, 85, 247",  accentHex: "#a855f7",  doneRgb: "34, 197, 94",   doneHex: "#22c55e" },
+};
+
+const buildHudCss = (t: HudTheme): string => {
+    const P = t.rgb;
+    const A = t.accentRgb;
+    const D = t.doneRgb;
+    const PH = t.hex;
+    const DH = t.doneHex;
+    // Background tint: very dark version of primary
+    const pm = PH.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    const pmax = pm ? Math.max(parseInt(pm[1],16), parseInt(pm[2],16), parseInt(pm[3],16), 1) : 255;
+    const nr = pm ? parseInt(pm[1],16) / pmax : 0;
+    const ng = pm ? parseInt(pm[2],16) / pmax : 1;
+    const nb = pm ? parseInt(pm[3],16) / pmax : 0.25;
+    const bgt = (i: number) => `${Math.round(nr*i)}, ${Math.round(ng*i)}, ${Math.round(nb*i)}`;
+
+    return `
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;700&display=swap');
 
 #netflow-youtube-hud {
     position: fixed; top: 16px; right: 16px; z-index: 999999;
     min-width: 300px; max-width: 340px;
     background:
-        radial-gradient(ellipse at 20% 10%, rgba(0,255,65,0.08) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 90%, rgba(0,255,180,0.06) 0%, transparent 50%),
-        linear-gradient(135deg, rgba(0,8,2,0.97) 0%, rgba(0,3,0,0.98) 100%);
-    border: 1px solid rgba(0,255,65,0.35);
+        radial-gradient(ellipse at 20% 10%, rgba(${P},0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 90%, rgba(${A},0.06) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(${bgt(8)},0.97) 0%, rgba(${bgt(2)},0.98) 100%);
+    border: 1px solid rgba(${P},0.35);
     border-radius: 14px;
     padding: 0;
     color: #e0ffe8;
     box-shadow:
-        0 0 20px rgba(0,255,65,0.15),
-        0 0 60px rgba(0,255,65,0.06),
+        0 0 20px rgba(${P},0.15),
+        0 0 60px rgba(${P},0.06),
         0 8px 32px rgba(0,0,0,0.7),
-        inset 0 1px 0 rgba(0,255,65,0.1);
+        inset 0 1px 0 rgba(${P},0.1);
     overflow: hidden;
     animation: nfyt-fade-in 0.5s ease-out;
     font-family: 'Inter', system-ui, sans-serif;
@@ -225,24 +257,24 @@ const HUD_CSS = `
 #netflow-youtube-hud .nfyt-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 14px 10px;
-    background: linear-gradient(90deg, rgba(0,255,65,0.08) 0%, transparent 70%);
-    border-bottom: 1px solid rgba(0,255,65,0.15);
+    background: linear-gradient(90deg, rgba(${P},0.08) 0%, transparent 70%);
+    border-bottom: 1px solid rgba(${P},0.15);
     position: relative;
 }
 #netflow-youtube-hud .nfyt-header::after {
     content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 1px;
-    background: linear-gradient(90deg, rgba(0,255,65,0.5), rgba(0,255,180,0.3), transparent);
+    background: linear-gradient(90deg, rgba(${P},0.5), rgba(${A},0.3), transparent);
 }
 #netflow-youtube-hud .nfyt-title {
     font-family: 'Orbitron', monospace;
     font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
-    color: #00ff41; text-transform: uppercase;
-    text-shadow: 0 0 8px rgba(0,255,65,0.5);
+    color: ${PH}; text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(${P},0.5);
     display: flex; align-items: center; gap: 7px;
 }
 #netflow-youtube-hud .nfyt-timer {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; color: rgba(0,255,65,0.6);
+    font-size: 10px; color: rgba(${P},0.6);
     letter-spacing: 0.5px;
 }
 
@@ -254,7 +286,7 @@ const HUD_CSS = `
 /* Scanline effect */
 #netflow-youtube-hud .nfyt-steps::before {
     content: ''; position: absolute; left: 0; width: 100%; height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(0,255,65,0.12), transparent);
+    background: linear-gradient(90deg, transparent, rgba(${P},0.12), transparent);
     animation: nfyt-scan 4s linear infinite;
     pointer-events: none; z-index: 1;
 }
@@ -269,14 +301,15 @@ const HUD_CSS = `
     border: 1.5px solid rgba(100,100,100,0.5);
     background: transparent;
     transition: all 0.3s ease;
+    display: flex; align-items: center; justify-content: center;
 }
 #netflow-youtube-hud .nfyt-step[data-status="done"] .nfyt-dot {
-    background: #22c55e; border-color: #22c55e;
-    box-shadow: 0 0 6px rgba(34,197,94,0.6);
+    background: ${DH}; border-color: ${DH};
+    box-shadow: 0 0 6px rgba(${D},0.6);
 }
 #netflow-youtube-hud .nfyt-step[data-status="active"] .nfyt-dot {
-    background: #00ff41; border-color: #00ff41;
-    box-shadow: 0 0 8px rgba(0,255,65,0.8);
+    background: ${PH}; border-color: ${PH};
+    box-shadow: 0 0 8px rgba(${P},0.8);
     animation: nfyt-pulse 1.2s ease-in-out infinite;
 }
 #netflow-youtube-hud .nfyt-step[data-status="error"] .nfyt-dot {
@@ -289,29 +322,33 @@ const HUD_CSS = `
     font-size: 11px; color: rgba(255,255,255,0.35);
     transition: color 0.3s ease;
 }
-#netflow-youtube-hud .nfyt-step[data-status="done"] .nfyt-label { color: rgba(34,197,94,0.85); }
-#netflow-youtube-hud .nfyt-step[data-status="active"] .nfyt-label { color: #00ff41; text-shadow: 0 0 6px rgba(0,255,65,0.4); }
+#netflow-youtube-hud .nfyt-step[data-status="done"] .nfyt-label { color: rgba(${D},0.85); }
+#netflow-youtube-hud .nfyt-step[data-status="active"] .nfyt-label { color: ${PH}; text-shadow: 0 0 6px rgba(${P},0.4); }
 #netflow-youtube-hud .nfyt-step[data-status="error"] .nfyt-label { color: #ef4444; }
 
 /* ── Footer ── */
 #netflow-youtube-hud .nfyt-footer {
     padding: 6px 14px 8px;
-    border-top: 1px solid rgba(0,255,65,0.1);
+    border-top: 1px solid rgba(${P},0.1);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; color: rgba(0,255,65,0.3);
+    font-size: 9px; color: rgba(${P},0.3);
     text-align: center; letter-spacing: 0.5px;
 }
 `;
+};
 
-const hudCreate = () => {
+const hudCreate = (themeKey?: string) => {
     if (_hudEl) return;
+
+    // Resolve theme from key or fallback to green
+    const theme = HUD_THEMES[themeKey || ''] || HUD_THEMES.green;
 
     // Inject CSS
     if (!_hudStyleEl) {
         _hudStyleEl = document.createElement('style');
-        _hudStyleEl.textContent = HUD_CSS;
         document.head.appendChild(_hudStyleEl);
     }
+    _hudStyleEl.textContent = buildHudCss(theme);
 
     _hudStartTime = Date.now();
 
@@ -408,6 +445,7 @@ interface YouTubeUploadConfig {
     scheduleEnabled?: boolean;
     scheduleDate?: string;   // e.g. "12 พ.ย. 2026"
     scheduleTime?: string;   // e.g. "12:12"
+    theme?: string;          // app theme key: green | red | blue | yellow | purple
 }
 
 async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success: boolean; error?: string }> {
@@ -422,7 +460,7 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
         { label: 'ข้ามไปหน้าเผยแพร่', status: 'pending' },
         { label: 'เลือกการเผยแพร่ + โพสต์', status: 'pending' },
     ];
-    hudCreate();
+    hudCreate(config.theme);
     hudUpdate(-1, '');
 
     try {
@@ -1100,6 +1138,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             scheduleEnabled: message.scheduleEnabled || false,
             scheduleDate: message.scheduleDate || '',
             scheduleTime: message.scheduleTime || '',
+            theme: message.theme || 'green',
         }).then(result => {
             log(`Upload result: ${result.success ? '✅' : '❌'} ${result.error || ''}`);
         });

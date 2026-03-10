@@ -5596,8 +5596,6 @@ const buildVideoPrompt = (
         `${contactPhysics} ${speakingDirective}`,
         // [4.5. PRODUCT PRESENTATION] — category-specific visual action for this scene
         `${getScenePresentationDirective(category, 1)}`,
-        // [4.6. SCRIPT-AWARE REALISM] — accessories, screen content, actions, transitions detected from script
-        `${buildScriptAwareDirective(category, sceneTexts[0] || '', 1, config.productName)}`,
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
@@ -5605,7 +5603,7 @@ const buildVideoPrompt = (
         // [7. STYLE/MOOD]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate.`,
         // [8. CONSTRAINTS] — condensed policy + technical (avoids bloated 3000-char directives that cause Veo truncation/rejection)
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No random props unrelated to product context. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} PRODUCT FIDELITY: Reproduce product with photographic accuracy — same silhouette, proportions, material, color. Single product only. No invented accessories, glasses, hats, or props not in reference. Clothing accuracy: match neckline, sleeve, color, pattern exactly as described. Same fictional character and outfit throughout. Product frontal, centered, zero distortion. Character speaks from first frame — voice '${persona.name}' carries identically through every scene. Product maintains consistent size relative to character. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), config.productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
@@ -5696,9 +5694,6 @@ export const buildSceneVideoPromptJSON = (
             ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
             : getScenePresentationDirective(meta.category, sceneNumber),
 
-        // [4.5. SCRIPT-AWARE REALISM] — accessories, screen content, actions, transitions from script context
-        buildScriptAwareDirective(meta.category, cleanScript, sceneNumber, productName),
-
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
 
@@ -5706,7 +5701,7 @@ export const buildSceneVideoPromptJSON = (
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}.`,
 
         // [7. CONSTRAINTS] — slim: no 2860-char restrictions block, frame reference handles the rest
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. No random props unrelated to product context. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment. ${meta.cameraMovement}. Photorealistic only.`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. No invented accessories. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same product, same environment. ${meta.cameraMovement}. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
     // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
