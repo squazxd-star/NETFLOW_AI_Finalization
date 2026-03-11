@@ -2157,6 +2157,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         steps.push("⚠️ Veo quality");
     }
 
+    // ── Step 0.9: Close any lingering dropdown/popover from settings/quality selection ──
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+    await sleep(300);
+    document.body.click();
+    await sleep(500);
+
     // ── Step 1: Upload reference images ──
     LOG("=== ขั้น 1: อัพโหลดรูปอ้างอิง ===");
 
@@ -2222,6 +2228,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("upload-char", "error");
         }
         await waitForUploadsComplete("character");
+        // Close any lingering upload dialog before next upload
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
     } else {
         skipStep("upload-char");
     }

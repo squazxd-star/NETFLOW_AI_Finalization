@@ -364,40 +364,65 @@ function buildYouTubeMetadataPrompt(
     cachedProductInfo: string,
     category: CatKey
 ): string {
-    return `คุณเป็น YouTube Shorts Content Expert ระดับมืออาชีพ — เชี่ยวชาญเรื่อง SEO, Hashtag Strategy, และ Viral Title
+    const catDisplay = CAT_DISPLAY[category] || category;
+    const hooks = TITLE_HOOKS[category] || TITLE_HOOKS.other;
+    const powers = POWER_WORDS[category] || POWER_WORDS.other;
+    const ctas = CTA_POOL[category] || CTA_POOL.other;
+    const hashtags = CAT_HASHTAGS[category] || CAT_HASHTAGS.other;
+    const angles = DESC_ANGLES[category] || DESC_ANGLES.other;
+
+    // Randomize selections for variety
+    const pickedHooks = pickN(hooks, 3);
+    const pickedPowers = pickN(powers, 3);
+    const pickedCTA = pickRandom(ctas);
+    const pickedHashtags = pickN(hashtags, 4);
+    const pickedAngle = pickRandom(angles);
+
+    // Randomize title style
+    const chosenStyle = pickRandom(ALL_TITLE_STYLES);
+    const styleInfo = TITLE_STYLE_TEMPLATES[chosenStyle];
+
+    return `คุณเป็น YouTube Shorts Content Expert ระดับมืออาชีพ — เชี่ยวชาญเรื่อง SEO, Hashtag Strategy, Viral Title, และ Copywriting ภาษาไทย
 
 ## ข้อมูลสินค้า
 - ชื่อสินค้า: "${productName}"
-- หมวดหมู่: ${category}
+- หมวดหมู่: ${catDisplay}
 ${productDescription ? `- รายละเอียด: ${productDescription}` : ""}
 ${cachedProductInfo ? `- ข้อมูลจากการค้นหา: ${cachedProductInfo.substring(0, 500)}` : ""}
 
-## งาน: สร้าง Title และ Description สำหรับ YouTube Shorts
+## งาน: สร้าง Title + Description สำหรับ YouTube Shorts ที่ทำให้คนอยากคลิก + อยากซื้อ
+
+---
 
 ### กฎสำหรับ Title (ชื่อ):
-1. ความยาวรวมไม่เกิน 55 ตัวอักษร (รวม #Shorts ที่ต่อท้าย) เพื่อไม่ให้ถูกตัดในหน้า Feed
-2. โครงสร้าง: [Hook ที่กระแทกใจ] + [ชื่อสินค้า/หัวข้อหลัก] + #Shorts
-3. **ต้องลงท้ายด้วย #Shorts เสมอ** (ตัว S ใหญ่, พหูพจน์ — ห้ามเขียน #Short)
+1. ความยาวรวมไม่เกิน 55 ตัวอักษร (รวม #Shorts) — ถ้าเกินจะถูกตัดในหน้า Feed
+2. โครงสร้าง: [Hook กระแทกใจ] + [ชื่อสินค้า/แบรนด์] + #Shorts
+3. **ต้องลงท้ายด้วย #Shorts เสมอ** (ตัว S ใหญ่ — ห้ามเขียน #Short)
 4. ต้องมีชื่อแบรนด์/สินค้าจริงอยู่ใน title
-5. ใช้ 1 ใน 3 สไตล์ต่อไปนี้:
-   - **Curiosity**: ตั้งคำถามให้อยากรู้คำตอบ เช่น "M5 แรงไปไหม!? 🔥 MacBook Pro 14 ตัวใหม่ #Shorts"
-   - **Benefit**: ชูจุดขายหลัก เช่น "แบตอึด 20 ชม.! 🔋 MacBook Pro M5 คุ้มสุดในปีนี้ #Shorts"
-   - **Hype**: ใช้คำสุดโต่ง เช่น "ที่สุดของปี! 😱 MacBook Pro M5 แรงจนน่ากลัว #Shorts"
-6. ใส่ Emoji 1 ตัวที่เข้ากับอารมณ์ (🔥😱🤯💥✨💡) เพื่อดึงสายตา
-7. ใช้ Emotional Trigger: "ที่สุดของปี", "อย่าเพิ่งซื้อ...", "ความลับที่...ไม่บอก", "คุ้มหรือแพง?"
+5. **บังคับใช้สไตล์ "${styleInfo.label}"**: ${styleInfo.pattern}
+   ตัวอย่าง: "${styleInfo.example}"
+6. ใส่ Emoji 1 ตัวที่เข้ากับอารมณ์ (🔥😱🤯💥✨💡🎯⚡🏆🤫) เพื่อดึงสายตา
+7. แรงบันดาลใจจาก Hook เหล่านี้ (ดัดแปลงตามสินค้า ห้ามก๊อปเป๊ะ):
+   ${pickedHooks.map(h => `• "${h}"`).join('\n   ')}
+8. สอดแทรก Power Word: ${pickedPowers.join(', ')}
+
+---
 
 ### กฎสำหรับ Description (คำอธิบาย):
-1. **3 บรรทัดแรก (Crucial SEO)**: สรุปความเจ๋งของสินค้าด้วย Keyword ที่คนค้นหา — YouTube ใช้ส่วนนี้จัดหมวดหมู่คลิป
-2. **CTA (Call to Action)**: เขียนประโยคชวนคุยเป็นกันเอง เช่น "ใครใช้รุ่นไหนอยู่ คอมเมนต์บอกหน่อย!", "กดซับรอรีวิวตัวต่อไป!"
-3. ใช้ emoji ประกอบพอประมาณให้ดูน่าสนใจ (✅🔥💡⭐)
-4. **Hashtag Strategy 3 ระดับ** (รวม 6-10 อัน):
-   - **System Hashtags** (บังคับ): #Shorts #YouTubeShorts
-   - **Category Hashtags**: เช่น #รีวิว #ไอที #Gadget #${category.replace(/\s/g, '')}
-   - **Product/Specific Hashtags**: เช่น #${productName.replace(/\s+/g, '')} + ชื่อแบรนด์ + รุ่น
+1. **บรรทัด 1-2 (SEO Hook)**: เขียนสรุปจุดเด่นสินค้าแบบ "${pickedAngle}" — ใช้คำที่คนจะค้นหา, ใส่ Keyword สำคัญ
+2. **บรรทัด 3 (Benefit Punch)**: บอกข้อดีเด่นสุด 1-2 ข้อ ใช้ Power Word: ${pickedPowers.join(', ')}
+3. **CTA**: "${pickedCTA}" — เป็นกันเอง ชวนคุย ชวนคอมเมนต์
+4. ใช้ emoji ประกอบพอเหมาะ (✅🔥💡⭐🎯💎)
+5. **Hashtag Strategy 3 ระดับ** (รวม 7-10 อัน):
+   - **บังคับ**: #Shorts #YouTubeShorts
+   - **หมวดหมู่**: ${pickedHashtags.join(' ')}
+   - **สินค้า**: #${productName.replace(/\s+/g, '')} + ชื่อแบรนด์/รุ่นเป็น hashtag
    - ผสม Hashtag ภาษาไทย + อังกฤษ
-5. ความยาวรวม description ไม่เกิน 400 ตัวอักษร
-6. เขียนเป็นภาษาไทย (ผสมอังกฤษเฉพาะชื่อแบรนด์/คำศัพท์)
-7. ห้ามใช้ภาษาบอท — ต้องเป็นกันเองเหมือนเพื่อนป้ายยาเพื่อน
+6. ความยาวรวม description ไม่เกิน 400 ตัวอักษร
+7. เขียนเป็นภาษาไทย (ผสมอังกฤษเฉพาะชื่อแบรนด์/คำศัพท์)
+8. **ห้ามใช้ภาษาบอท** — ต้องเป็นกันเองเหมือนเพื่อนป้ายยาเพื่อน ชวนน่าซื้อ
+
+---
 
 ## รูปแบบ Output (JSON เท่านั้น ห้ามมี markdown):
 {"title":"...#Shorts","description":"..."}
@@ -510,9 +535,9 @@ export async function generateYouTubeMetadata(params: {
         throw new Error(`ไม่พบ ${provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key — กรุณาตั้งค่าใน Settings`);
     }
 
-    console.log(`[YT Metadata] Using provider: ${provider.toUpperCase()}`);
-
     const category = detectCategory(productName);
+    const catDisplay = CAT_DISPLAY[category] || category;
+    console.log(`[YT Metadata] Using provider: ${provider.toUpperCase()} | Category: ${catDisplay} (${category})`);
     const prompt = buildYouTubeMetadataPrompt(
         productName,
         productDescription || "",
