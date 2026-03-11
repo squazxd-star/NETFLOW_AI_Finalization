@@ -384,6 +384,34 @@ async function briefActivateIfHidden(): Promise<boolean> {
     }
 }
 
+/**
+ * Ensure the tab is VISIBLE (not hidden) before performing coordinate-dependent actions
+ * like hover, positional click, or getBoundingClientRect matching.
+ * Calls FOCUS_TAB to bring Chrome window to foreground and waits for document.hidden=false.
+ * Returns true if tab is now visible.
+ */
+async function ensureTabVisible(): Promise<boolean> {
+    if (!document.hidden) return true;
+    LOG("🔄 Tab ซ่อนอยู่ — ดึงหน้าต่าง Chrome ขึ้นมาข้างหน้า...");
+    try {
+        await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+        const start = Date.now();
+        while (document.hidden && Date.now() - start < 5000) {
+            await sleep(200);
+        }
+        if (!document.hidden) {
+            LOG("✅ Tab กลับมาแสดงผลแล้ว");
+            await sleep(500);
+            return true;
+        }
+        LOG("⚠️ Tab ยังซ่อนอยู่หลัง 5 วินาที");
+        return false;
+    } catch (_) {
+        LOG("⚠️ ensureTabVisible ล้มเหลว");
+        return false;
+    }
+}
+
 /** Check if Google Flow is showing a generation failure message (Thai + English) */
 function isGenerationFailed(): string | null {
     const failurePatterns = [
@@ -2636,6 +2664,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             steps.push("✅ Image Found");
             updateStep("img-wait", "done", 100);
 
+            // ★ Ensure tab is visible before hover/click steps that need real coordinates
+            await ensureTabVisible();
+
             // Step 4b: Hover over the image to reveal the 3 overlay icons
             const imgRect = generatedImg.getBoundingClientRect();
             const imgCx = imgRect.left + imgRect.width / 2;
@@ -2936,6 +2967,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
                 if (pct < 1 || pct > 100) continue;
+                if (_hidden()) {
+                    // When tab is hidden, getBoundingClientRect returns 0s — trust text match alone
+                    return pct;
+                }
                 const rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.width > 150) continue;
                 if (rect.top < 0 || rect.top > window.innerHeight) continue;
@@ -3057,6 +3092,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 await sleep(3000);
             }
+
+            // ★ Ensure tab is visible before hover+click on video card
+            await ensureTabVisible();
 
             // Now find the VIDEO card to click — using <i>videocam</i> icon (screen-size independent)
             const videoCard = findFirstVideoCard();
