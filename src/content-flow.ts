@@ -3332,6 +3332,18 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         // ── Download: Full Video → 720p (Radix UI selectors) ──
         LOG("── เริ่มดาวน์โหลด Full Video ──");
         try { updateStep("download", "active"); } catch (_) {}
+        
+        // ★ FOCUS_TAB: Radix UI dropdown menus require real layout/focus to render properly
+        let needsDownloadUnfocus = false;
+        if (document.hidden) {
+            LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อคลิกเมนูดาวน์โหลด (Radix UI)");
+            try {
+                await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                needsDownloadUnfocus = true;
+                await sleep(1500); // wait for focus + layout to settle
+            } catch (_) {}
+        }
+        
         await sleep(2000);
         const downloadStartedAt2 = Date.now();
 
@@ -3348,7 +3360,11 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             }
             if (!dlBtn2) await sleep(1000);
         }
-        if (!dlBtn2) { WARN("ไม่พบปุ่มดาวน์โหลด"); return; }
+        if (!dlBtn2) {
+            WARN("ไม่พบปุ่มดาวน์โหลด");
+            if (needsDownloadUnfocus) try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+            return;
+        }
         await robustClick(dlBtn2);
         LOG("คลิกดาวน์โหลดแล้ว ✅");
         try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
@@ -3407,9 +3423,19 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                 }
             }
         }
-        if (!res720) { WARN("ไม่พบ 720p"); return; }
+        
+        if (!res720) {
+            WARN("ไม่พบ 720p");
+            if (needsDownloadUnfocus) try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+            return;
+        }
         await robustClick(res720);
         LOG("คลิก 720p ✅");
+
+        if (needsDownloadUnfocus) {
+            try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+            LOG("🔄 คืน tab เดิม — ดาวน์โหลดสั่งงานเสร็จแล้ว (รอไฟล์โหลดเบื้องหลัง)");
+        }
 
         // Step 4: Wait for toast "Downloading your extended video." → "Download complete!"
         LOG("⏳ รอระบบเตรียมไฟล์ Full Video (Rendering)...");
