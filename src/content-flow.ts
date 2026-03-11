@@ -2385,7 +2385,17 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         try {
             await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
             needsUnfocus = true;
-            await sleep(1500); // wait for focus to settle + DOM to render
+            // Wait for document.hidden to become false (window must be in foreground)
+            const focusStart = Date.now();
+            while (document.hidden && Date.now() - focusStart < 5000) {
+                await sleep(200);
+            }
+            if (document.hidden) {
+                LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
+            } else {
+                LOG("✅ Tab กลับมาแสดงผลแล้ว");
+                await sleep(500); // extra settle time for DOM
+            }
         } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
     }
 
@@ -2398,12 +2408,16 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             continue;
         }
         if (attempt > 1) {
-            // Force focus on retry
+            // Force focus on retry — bring window to foreground again
             if (document.hidden) {
                 try {
                     await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                     needsUnfocus = true;
-                    await sleep(1500);
+                    const retryStart = Date.now();
+                    while (document.hidden && Date.now() - retryStart < 5000) {
+                        await sleep(200);
+                    }
+                    if (!document.hidden) await sleep(500);
                 } catch (_) {}
             }
             promptInput.focus();
@@ -2784,7 +2798,17 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 try {
                     await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                     needsUnfocus = true;
-                    await sleep(1500); // wait for focus to settle + DOM to render
+                    // Wait for document.hidden to become false (window must be in foreground)
+                    const focusStart = Date.now();
+                    while (document.hidden && Date.now() - focusStart < 5000) {
+                        await sleep(200);
+                    }
+                    if (document.hidden) {
+                        LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
+                    } else {
+                        LOG("✅ Tab กลับมาแสดงผลแล้ว");
+                        await sleep(500);
+                    }
                 } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
             }
 
@@ -2799,12 +2823,16 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     continue;
                 }
                 if (attempt > 1) {
-                    // Force focus on retry
+                    // Force focus on retry — bring window to foreground again
                     if (document.hidden) {
                         try {
                             await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                             needsUnfocus = true;
-                            await sleep(1500);
+                            const retryStart = Date.now();
+                            while (document.hidden && Date.now() - retryStart < 5000) {
+                                await sleep(200);
+                            }
+                            if (!document.hidden) await sleep(500);
                         } catch (_) {}
                     }
                     videoPromptInput.focus();

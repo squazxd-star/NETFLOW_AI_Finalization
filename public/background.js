@@ -354,7 +354,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // keep channel open for async response
     }
 
-    // ── FOCUS_TAB: Activate this tab and KEEP it focused (for Slate.js paste) ──
+    // ── FOCUS_TAB: Activate this tab AND bring Chrome window to foreground (for Slate.js paste) ──
     // Stores previous active tab so UNFOCUS_TAB can restore it.
     if (message?.type === 'FOCUS_TAB') {
         const tabId = sender?.tab?.id;
@@ -364,8 +364,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const [prev] = await chrome.tabs.query({ active: true, currentWindow: true });
                 const state = getTabState(tabId);
                 if (state) state._prevFocusTabId = prev?.id;
+                // ★ Bring Chrome WINDOW to foreground (critical when user switched to another app)
+                const tab = await chrome.tabs.get(tabId);
+                if (tab.windowId) {
+                    await chrome.windows.update(tab.windowId, { focused: true });
+                }
                 await chrome.tabs.update(tabId, { active: true });
-                console.log(`[Netflow BG] FOCUS_TAB: ${tabId} (prev: ${prev?.id})`);
+                console.log(`[Netflow BG] FOCUS_TAB: tab ${tabId}, window ${tab.windowId} (prev: ${prev?.id})`);
                 sendResponse({ ok: true });
             } catch (e) {
                 console.warn('[Netflow BG] FOCUS_TAB error:', e);
@@ -399,6 +404,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 // Remember which tab was active before
                 const [prevActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 const prevTabId = prevActiveTab?.id;
+                // ★ Bring Chrome WINDOW to foreground first
+                const tab = await chrome.tabs.get(requestingTabId);
+                if (tab.windowId) {
+                    await chrome.windows.update(tab.windowId, { focused: true });
+                }
                 // Briefly activate the requesting tab
                 await chrome.tabs.update(requestingTabId, { active: true });
                 // Wait 800ms for DOM to render/update
