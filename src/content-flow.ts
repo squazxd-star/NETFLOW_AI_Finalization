@@ -2322,6 +2322,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("upload-prod", "error");
         }
         await waitForUploadsComplete("product");
+        // Close any lingering upload dialog after product upload (same as character)
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
     } else {
         skipStep("upload-prod");
     }
