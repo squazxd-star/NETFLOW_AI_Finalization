@@ -137,6 +137,7 @@ function getTabState(tabId) {
             cacheCleanupTimer: null,
             latestVideoFilePath: null,
             automationRunning: false,
+            productName: null,
         };
     }
     return _tabStates[tabId];
@@ -340,6 +341,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    // ── BRIEF_ACTIVATE_TAB: Content script asks to briefly activate its tab ──
+    // This forces Chrome to render the page, updating stale DOM in background tabs.
+    if (message?.type === 'BRIEF_ACTIVATE_TAB') {
+        const requestingTabId = sender?.tab?.id;
+        if (!requestingTabId) { sendResponse({ ok: false }); return true; }
+        (async () => {
+            try {
+                // Remember which tab was active before
+                const [prevActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                const prevTabId = prevActiveTab?.id;
+                // Briefly activate the requesting tab
+                await chrome.tabs.update(requestingTabId, { active: true });
+                // Wait 800ms for DOM to render/update
+                await new Promise(r => setTimeout(r, 800));
+                // Switch back to the previous tab (if different)
+                if (prevTabId && prevTabId !== requestingTabId) {
+                    await chrome.tabs.update(prevTabId, { active: true });
+                }
+                console.log(`[Netflow BG] Brief tab activate: ${requestingTabId} → render forced → back to ${prevTabId}`);
+                sendResponse({ ok: true });
+            } catch (e) {
+                console.warn('[Netflow BG] BRIEF_ACTIVATE_TAB error:', e);
+                sendResponse({ ok: false });
+            }
+        })();
+        return true;
+    }
+
     // ── GET_ENGINE_TABS: Side panel requests list of engine tabs + status ──
     if (message?.type === 'GET_ENGINE_TABS') {
         (async () => {
@@ -358,6 +387,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ tabs: [] });
             }
         })();
+        return true;
+    }
+
+    // ── GET_TAB_PRODUCT_NAME: Return the productName stored for a specific engine tab ──
+    if (message?.type === 'GET_TAB_PRODUCT_NAME') {
+        const reqTabId = message.tabId;
+        const ts = reqTabId ? _tabStates[reqTabId] : null;
+        sendResponse({ productName: ts?.productName || '' });
         return true;
     }
 
@@ -514,10 +551,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 console.log(`[Netflow] Routing ${message.action} to ${config.label} (tab ${targetTab.id})`);
                 const response = await sendToContentScript(targetTab.id, message, config.contentScript);
 
-                // Mark tab as busy for GENERATE_IMAGE
+                // Mark tab as busy for GENERATE_IMAGE + store productName per-tab
                 if (message?.action === "GENERATE_IMAGE" && response?.success) {
                     const ts = getTabState(targetTab.id);
                     ts.automationRunning = true;
+                    if (message.productName) {
+                        ts.productName = message.productName;
+                    }
                 }
 
                 // Include routed tabId in response so side panel knows which tab

@@ -627,17 +627,11 @@ const CreateVideoTab = () => {
                                 try {
                                     const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
                                         const formData = getValues();
-                                        // Save productName to storage so Video Stock can read it later
-                                        try {
-                                            const pName = formData.productName || '';
-                                            if (chrome.storage?.local) {
-                                                chrome.storage.local.set({ netflow_last_product_name: pName });
-                                            }
-                                        } catch (_) { /* silent */ }
                                         chrome.runtime.sendMessage(
                                             {
                                                 action: "GENERATE_IMAGE",
                                                 videoEngine: formData.videoEngine || "veo",
+                                                productName: formData.productName || '',
                                                 imagePrompt: generatedImagePrompt,
                                                 videoPrompt: generatedVideoPrompt || undefined,
                                                 videoScenePrompts: videoScenePrompts.length > 0 ? videoScenePrompts : undefined,

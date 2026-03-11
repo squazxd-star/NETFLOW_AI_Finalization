@@ -340,6 +340,29 @@ function checkStop(): boolean {
 /** Detect minimized/hidden window — getBoundingClientRect returns all zeros in this state */
 const _hidden = () => document.hidden;
 
+/**
+ * When tab is hidden and progress is stalled, briefly activate the tab
+ * to force Chrome to render/update Google Flow's DOM.
+ * Returns true if activation was requested.
+ */
+let _lastBriefActivate = 0;
+async function briefActivateIfHidden(): Promise<boolean> {
+    if (!document.hidden) return false;
+    // Rate-limit: max once every 15 seconds
+    const now = Date.now();
+    if (now - _lastBriefActivate < 15000) return false;
+    _lastBriefActivate = now;
+    try {
+        LOG("🔄 Tab ซ่อนอยู่ — ขอ background สลับ tab ชั่วคราวเพื่ออัพเดท DOM");
+        chrome.runtime.sendMessage({ type: 'BRIEF_ACTIVATE_TAB' });
+        // Wait for the activation + render cycle to complete
+        await sleep(1500);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 /** Check if Google Flow is showing a generation failure message (Thai + English) */
 function isGenerationFailed(): string | null {
     const failurePatterns = [
@@ -2494,6 +2517,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     }
                 }
 
+                // ★ Force DOM update if tab is hidden and progress is stalled
+                if (document.hidden && lastImgPct > 0 && Date.now() - lastImgPctTime > 10000) {
+                    await briefActivateIfHidden();
+                }
+
                 await sleep(3000);
             }
         }
@@ -2855,6 +2883,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         return null;
                     }
                 }
+
+                // ★ Force DOM update if tab is hidden and progress is stalled
+                if (document.hidden && lastPct > 0 && Date.now() - lastPctTime > 10000) {
+                    await briefActivateIfHidden();
+                }
+
                 await sleep(3000);
             }
 
@@ -3204,6 +3238,12 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                     }
                 }
                 if (checkStop()) { LOG("⛔ ผู้ใช้สั่งหยุด"); return; }
+
+                // ★ Force DOM update if tab is hidden and progress is stalled
+                if (document.hidden && lastPct > 0 && pctGoneAt === 0) {
+                    await briefActivateIfHidden();
+                }
+
                 await sleep(2000);
             }
             if (!sceneGenDone) { WARN(`ฉาก ${scene} หมดเวลา`); }
@@ -3664,6 +3704,12 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                 }
             }
         }
+
+        // ★ Force DOM update if tab is hidden and progress is stalled
+        if (document.hidden && lastPct > 0 && pctGoneAt === 0) {
+            await briefActivateIfHidden();
+        }
+
         await sleep(2000);
     }
     if (!sceneGenDone) { LOG(`⚠️ scene ${currentScene} หมดเวลา — ลองต่อไป`); }
@@ -3798,6 +3844,12 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
                         if (noPctCount2 >= 30) { LOG(`✅ ฉาก ${scene}: ไม่พบ % 60 วินาที — ถือว่าเสร็จ`); sceneGenDone2 = true; break; }
                     }
                 }
+
+                // ★ Force DOM update if tab is hidden and progress is stalled
+                if (document.hidden && lastPct2 > 0 && pctGoneAt2 === 0) {
+                    await briefActivateIfHidden();
+                }
+
                 await sleep(2000);
             }
             if (!sceneGenDone2) { LOG(`⚠️ ฉาก ${scene} หมดเวลา`); }

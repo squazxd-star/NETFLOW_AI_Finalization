@@ -211,12 +211,16 @@ export const useVideoGeneration = () => {
                     if (cachedDataUrl) {
                         try {
                             const blob = dataUrlToBlob(cachedDataUrl);
-                            // Read productName from storage (saved by CreateVideoTab before generation)
+                            // Read productName per-tab from background (isolated per engine tab)
                             const getProductName = (): Promise<string> => {
-                                if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve('');
+                                if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return Promise.resolve('');
                                 return new Promise((resolve) => {
-                                    chrome.storage.local.get(['netflow_last_product_name'], (r) => {
-                                        resolve((r?.netflow_last_product_name as string) || '');
+                                    chrome.runtime.sendMessage({ type: 'GET_TAB_PRODUCT_NAME', tabId: senderTabId }, (resp) => {
+                                        if (chrome.runtime.lastError || !resp?.productName) {
+                                            resolve('');
+                                        } else {
+                                            resolve(resp.productName);
+                                        }
                                     });
                                 });
                             };
