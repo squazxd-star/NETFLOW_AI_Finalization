@@ -1733,37 +1733,59 @@ interface GenerateImageRequest {
 async function configureFlowSettings(orientation: string, outputCount: number): Promise<boolean> {
     LOG("=== ขั้น 0: ตั้งค่า Flow ===");
 
-    // Find the settings button — it shows current mode like "วิดีโอ crop_16_9 x1" or "Nano Banana 2"
-    const allBtns = document.querySelectorAll<HTMLElement>("button");
+    // Find the settings button — it shows current mode like "วิดีโอ □ x1" or "Nano Banana 2"
+    // NOTE: Google Flow may use <div>, <span>, or other elements — not just <button>
+    const allClickable = document.querySelectorAll<HTMLElement>("button, div, span, [role='button']");
     let settingsBtn: HTMLElement | null = null;
 
-    // Strategy 1: button text contains known keywords
-    for (const btn of allBtns) {
-        const txt = btn.textContent || "";
+    // Strategy 1: any element with known keywords at the bottom prompt bar area
+    for (const el of allClickable) {
+        const txt = (el.textContent || "").trim();
+        if (txt.length > 80) continue; // skip large containers
         if (txt.includes("Nano Banana") || txt.includes("Imagen") || txt.includes("วิดีโอ") || txt.includes("รูปภาพ") || txt.includes("Image") || txt.includes("Video")) {
-            // Must be in the bottom prompt bar area
-            const rect = btn.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight * 0.7) {
-                settingsBtn = btn;
-                LOG(`พบปุ่มตั้งค่าจากข้อความ: "${txt.substring(0, 30).trim()}"`);
-                break;
+            const rect = el.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight * 0.7 && rect.width > 30 && rect.height > 10) {
+                // Prefer the most specific (smallest) matching element
+                if (!settingsBtn || (el.textContent || "").length < (settingsBtn.textContent || "").length) {
+                    settingsBtn = el;
+                }
+            }
+        }
+    }
+    if (settingsBtn) LOG(`พบปุ่มตั้งค่าจากข้อความ: "${(settingsBtn.textContent || "").substring(0, 40).trim()}"`);
+
+    // Strategy 2: element with crop/aspect-ratio icon in bottom area
+    if (!settingsBtn) {
+        const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons");
+        for (const icon of icons) {
+            const it = icon.textContent?.trim() || "";
+            if (it.includes("crop") || it === "aspect_ratio" || it === "photo_size_select_large") {
+                const parent = icon.closest("button, div[role='button'], [role='button']") as HTMLElement || icon.parentElement as HTMLElement;
+                if (parent) {
+                    const rect = parent.getBoundingClientRect();
+                    if (rect.bottom > window.innerHeight * 0.7 && rect.width > 0) {
+                        settingsBtn = parent;
+                        LOG(`พบปุ่มตั้งค่าจากไอคอน: ${it}`);
+                        break;
+                    }
+                }
             }
         }
     }
 
-    // Strategy 2: button with crop icon in bottom area
+    // Strategy 3: look for "x1"/"x2"/"x3"/"x4" text near the bottom (settings indicator)
     if (!settingsBtn) {
-        for (const icon of ["crop_16_9", "crop_portrait", "crop_landscape", "crop_3_2", "crop_5_4"]) {
-            const btns = findAllButtonsByIcon(icon);
-            for (const btn of btns) {
-                const rect = btn.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight * 0.7) {
-                    settingsBtn = btn;
-                    LOG(`พบปุ่มตั้งค่าจากไอคอน: ${icon}`);
+        for (const el of allClickable) {
+            const txt = (el.textContent || "").trim();
+            if (txt.length > 40) continue;
+            if (/x[1-4]/.test(txt) && (txt.includes("วิดีโอ") || txt.includes("รูปภาพ") || txt.includes("Video") || txt.includes("Image"))) {
+                const rect = el.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.7 && rect.width > 30) {
+                    settingsBtn = el;
+                    LOG(`พบปุ่มตั้งค่าจาก x-count + mode text: "${txt.substring(0, 40)}"`);
                     break;
                 }
             }
-            if (settingsBtn) break;
         }
     }
 
@@ -1816,14 +1838,18 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
 
     // Strategy 3: fuzzy text match — textContent ends with "Image" or contains Thai equivalents
     if (!imageTabBtn) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], [role='tab']")) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button, div, span, [role='menuitem'], [role='option'], [role='tab'], [role='button']")) {
             const txt = (btn.textContent || "").trim();
-            if (txt === "Image" || txt.endsWith("Image") || txt === "รูปภาพ" || txt === "ภาพ") {
-                // Exclude buttons that also contain "Video" text
+            if (txt.length > 30) continue;
+            if (txt === "Image" || txt.endsWith("Image") || txt === "รูปภาพ" || txt === "ภาพ" || txt.includes("รูปภาพ")) {
+                // Exclude elements that also contain "Video" text
                 if (!txt.includes("Video") && !txt.includes("วิดีโอ")) {
-                    imageTabBtn = btn;
-                    LOG(`พบแท็บ Image ผ่านข้อความ: "${txt}"`);
-                    break;
+                    const rect = btn.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        imageTabBtn = btn;
+                        LOG(`พบแท็บ Image ผ่านข้อความ: "${txt}"`);
+                        break;
+                    }
                 }
             }
         }
@@ -1854,9 +1880,11 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
 
     // Select orientation
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
-    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
+    const orientationEn = orientation === "horizontal" ? "landscape" : "portrait";
+    for (const btn of document.querySelectorAll<HTMLElement>("button, div, span, [role='tab'], [role='option'], [role='button']")) {
         const txt = (btn.textContent || "").trim();
-        if (txt === orientationText || txt.toLowerCase() === (orientation === "horizontal" ? "landscape" : "portrait")) {
+        if (txt.length > 30) continue;
+        if (txt === orientationText || txt.includes(orientationText) || txt.toLowerCase() === orientationEn || txt.toLowerCase().includes(orientationEn)) {
             const oRect = btn.getBoundingClientRect();
             const oOpts = { bubbles: true, cancelable: true, clientX: oRect.left + oRect.width / 2, clientY: oRect.top + oRect.height / 2, button: 0 };
             btn.dispatchEvent(new PointerEvent("pointerdown", { ...oOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
@@ -1873,9 +1901,10 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
 
     // Select count
     const countText = `x${outputCount}`;
-    for (const btn of document.querySelectorAll<HTMLElement>("button, [role='tab'], [role='option']")) {
+    for (const btn of document.querySelectorAll<HTMLElement>("button, div, span, [role='tab'], [role='option'], [role='button']")) {
         const txt = (btn.textContent || "").trim();
-        if (txt === countText) {
+        if (txt.length > 10) continue;
+        if (txt === countText || txt === `${outputCount}`) {
             const cRect = btn.getBoundingClientRect();
             const cOpts = { bubbles: true, cancelable: true, clientX: cRect.left + cRect.width / 2, clientY: cRect.top + cRect.height / 2, button: 0 };
             btn.dispatchEvent(new PointerEvent("pointerdown", { ...cOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
