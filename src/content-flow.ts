@@ -2383,13 +2383,53 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 2: ALWAYS paste prompt (even if uploads failed) ──
     LOG("=== ขั้น 2: วาง Image Prompt ===");
     updateStep("img-prompt", "active");
+
+    // ★ FOCUS_TAB: Keep tab active during paste+generate — Slate.js REQUIRES real document focus
+    let needsImgUnfocus = false;
+    if (document.hidden) {
+        LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อวาง prompt ภาพ + กด Generate");
+        try {
+            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+            needsImgUnfocus = true;
+            await sleep(1500);
+        } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
+    }
+
     await sleep(1000);
     const promptInput = findPromptTextInput();
     if (promptInput) {
         await setPromptText(promptInput, req.imagePrompt);
-        LOG(`วาง Prompt แล้ว (${req.imagePrompt.length} ตัวอักษร)`);
-        steps.push("✅ Prompt");
-        updateStep("img-prompt", "done");
+
+        // ★ Verify paste actually succeeded — check textContent
+        const pastedCheck = (promptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+        if (pastedCheck.length < 20) {
+            LOG("⚠️ Prompt ไม่ถูกวาง — ลองสลับ tab แล้ววางใหม่");
+            if (!needsImgUnfocus) {
+                try {
+                    await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                    needsImgUnfocus = true;
+                    await sleep(1500);
+                } catch (_) {}
+            }
+            promptInput.focus();
+            await sleep(500);
+            await setPromptText(promptInput, req.imagePrompt);
+            const retryCheck = (promptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+            if (retryCheck.length < 20) {
+                WARN(`❌ วาง Image Prompt ไม่สำเร็จแม้ลองซ้ำ (ได้ ${retryCheck.length} ตัวอักษร)`);
+                steps.push("❌ Prompt");
+                errors.push("image prompt paste failed after retry");
+                updateStep("img-prompt", "error");
+            } else {
+                LOG(`วาง Image Prompt สำเร็จหลังลองใหม่ (${retryCheck.length} ตัวอักษร)`);
+                steps.push("✅ Prompt");
+                updateStep("img-prompt", "done");
+            }
+        } else {
+            LOG(`วาง Prompt แล้ว (${pastedCheck.length} ตัวอักษร)`);
+            steps.push("✅ Prompt");
+            updateStep("img-prompt", "done");
+        }
     } else {
         WARN("ไม่พบช่องป้อนข้อความ Prompt");
         steps.push("❌ Prompt");
@@ -2441,6 +2481,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         steps.push("❌ Generate");
         errors.push("generate button not found");
         updateStep("img-generate", "error");
+    }
+
+    // ★ UNFOCUS_TAB: Restore previous tab — image generation runs fine in background
+    if (needsImgUnfocus) {
+        await sleep(2000);
+        try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+        LOG("🔄 คืน tab เดิม — ภาพกำลังสร้างเบื้องหลัง");
     }
 
     // ── Step 4: Wait for NEW image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
