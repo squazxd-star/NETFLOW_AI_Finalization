@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Play, Loader2, ExternalLink, Wand2, Rocket, Eye, Zap, ArrowRight, ChevronLeft, ChevronRight, MousePointerClick, Sparkles } from "lucide-react";
@@ -115,7 +115,10 @@ const CreateVideoTab = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [promptPage, setPromptPage] = useState(0); // 0 = image, 1 = video
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-    const [flowLogs, setFlowLogs] = useState<string[]>(["✅ ระบบพร้อมทำงาน..."]);
+    // ─── Multi-Tab Log Management ───────────────────────────────────────────
+    const [tabLogs, setTabLogs] = useState<Record<number, string[]>>({});
+    const [automationTabs, setAutomationTabs] = useState<{ tabId: number; title: string; running: boolean }[]>([]);
+    const [selectedConsoleTab, setSelectedConsoleTab] = useState<number | 'all'>('all');
     const [myWindowId, setMyWindowId] = useState<number | null>(null);
 
     // Detect this sidepanel's Chrome window ID (for multi-window log isolation)
@@ -125,8 +128,24 @@ const CreateVideoTab = () => {
         }
     }, []);
 
+    // Refresh engine tab list periodically
+    const refreshEngineTabs = useCallback(() => {
+        if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+        chrome.runtime.sendMessage({ type: 'GET_ENGINE_TABS', engine: 'veo' }, (res) => {
+            if (!chrome.runtime.lastError && res?.tabs) {
+                setAutomationTabs(res.tabs);
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        refreshEngineTabs();
+        const interval = setInterval(refreshEngineTabs, 5000);
+        return () => clearInterval(interval);
+    }, [refreshEngineTabs]);
+
     // Listen for FLOW_LOG + AUTOMATION_STOPPED messages from content-flow.ts
-    // Filter by sender's windowId so each sidepanel only shows its own window's logs
+    // Group logs by sender.tab.id for per-tab display
     useEffect(() => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
         const handler = (message: any, sender: any) => {
@@ -136,7 +155,25 @@ const CreateVideoTab = () => {
             }
             if (message?.action === "FLOW_LOG" && message.msg) {
                 const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                setFlowLogs(prev => [...prev.slice(-199), `[${ts}] ${message.msg}`]);
+                const tabId = sender?.tab?.id;
+                const logLine = `[${ts}] ${message.msg}`;
+                if (tabId) {
+                    setTabLogs(prev => {
+                        const existing = prev[tabId] || [];
+                        return { ...prev, [tabId]: [...existing.slice(-199), logLine] };
+                    });
+                    // Auto-register tab if not known
+                    setAutomationTabs(prev => {
+                        if (prev.some(t => t.tabId === tabId)) return prev;
+                        return [...prev, { tabId, title: `Tab ${tabId}`, running: true }];
+                    });
+                } else {
+                    // Fallback: put in tabId=0 bucket
+                    setTabLogs(prev => {
+                        const existing = prev[0] || [];
+                        return { ...prev, [0]: [...existing.slice(-199), logLine] };
+                    });
+                }
             }
             if (message?.action === "AUTOMATION_STOPPED") {
                 setIsUploading(false);
@@ -146,6 +183,20 @@ const CreateVideoTab = () => {
         chrome.runtime.onMessage.addListener(handler);
         return () => chrome.runtime.onMessage.removeListener(handler);
     }, [myWindowId]);
+
+    // Compute displayed logs based on selected tab
+    const flowLogs = useMemo(() => {
+        const allTabIds = Object.keys(tabLogs).map(Number);
+        if (allTabIds.length === 0) return ["✅ ระบบพร้อมทำงาน..."];
+        if (selectedConsoleTab === 'all') {
+            // Merge all tabs' logs — prefix with tab indicator if multiple tabs
+            if (allTabIds.length === 1) return tabLogs[allTabIds[0]] || [];
+            return allTabIds.flatMap(tid =>
+                (tabLogs[tid] || []).map(l => `[Tab ${tid}] ${l}`)
+            );
+        }
+        return tabLogs[selectedConsoleTab] || [];
+    }, [tabLogs, selectedConsoleTab]);
 
     // Fix #3: Auto-PING content script to check connection
     // Runs when prompt is generated or flowOpened changes
@@ -661,7 +712,12 @@ const CreateVideoTab = () => {
             <TikTokStatusCard status={tiktokPostStatus} />
 
             {/* Console Log */}
-            <ConsoleLogSection logs={flowLogs} />
+            <ConsoleLogSection
+                logs={flowLogs}
+                tabs={automationTabs}
+                selectedTab={selectedConsoleTab}
+                onTabSelect={setSelectedConsoleTab}
+            />
         </div>
     );
 };

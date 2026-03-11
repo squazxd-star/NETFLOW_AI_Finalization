@@ -50,8 +50,38 @@ const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
 const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
 const error = (...args: any[]) => console.error(LOG_PREFIX, ...args);
 
-// ─── Utility: Wait ───────────────────────────────────────────────────────────
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+// ─── Anti-Throttle: Web Worker Timer ─────────────────────────────────────────
+// Chrome throttles setTimeout in background/minimized tabs. Web Workers are NOT throttled.
+let _grokTimerWorker: Worker | null = null;
+const _grokPendingTimers = new Map<number, () => void>();
+let _grokTimerId = 0;
+
+function getGrokTimerWorker(): Worker | null {
+    if (_grokTimerWorker) return _grokTimerWorker;
+    try {
+        const blob = new Blob([
+            `self.onmessage=function(e){var d=e.data;setTimeout(function(){self.postMessage(d.id)},d.ms)};`
+        ], { type: 'application/javascript' });
+        _grokTimerWorker = new Worker(URL.createObjectURL(blob));
+        _grokTimerWorker.onmessage = (e: MessageEvent) => {
+            const cb = _grokPendingTimers.get(e.data);
+            if (cb) { _grokPendingTimers.delete(e.data); cb(); }
+        };
+        log('⚡ Web Worker timer created — background tab throttling defeated');
+        return _grokTimerWorker;
+    } catch (_) { return null; }
+}
+
+const sleep = (ms: number) => new Promise<void>(resolve => {
+    const worker = getGrokTimerWorker();
+    if (worker) {
+        const id = ++_grokTimerId;
+        _grokPendingTimers.set(id, resolve);
+        worker.postMessage({ id, ms });
+    } else {
+        setTimeout(resolve, ms);
+    }
+});
 
 const waitFor = async (
     predicate: () => HTMLElement | null,

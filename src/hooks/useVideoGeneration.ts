@@ -39,10 +39,10 @@ export const useVideoGeneration = () => {
     const { toast } = useToast();
 
     // Helper: fetch cached video data URL from background for preview playback
-    const fetchCachedVideoDataUrl = (): Promise<string | null> => {
+    const fetchCachedVideoDataUrl = (tabId?: number): Promise<string | null> => {
         if (!isExtension) return Promise.resolve(null);
         return new Promise((resolve) => {
-            chrome.runtime.sendMessage({ type: 'GET_CACHED_VIDEO' }, (resp) => {
+            chrome.runtime.sendMessage({ type: 'GET_CACHED_VIDEO', tabId: tabId || undefined }, (resp) => {
                 if (chrome.runtime.lastError || !resp?.success || !resp.data) {
                     console.log('[useVideoGeneration] No cached video data URL available');
                     resolve(null);
@@ -178,7 +178,7 @@ export const useVideoGeneration = () => {
     useEffect(() => {
         if (!isExtension) return;
 
-        const handleMessage = (message: any) => {
+        const handleMessage = (message: any, sender?: any) => {
             console.log("[Hook] Received message:", message.type, message);
 
             // Handle video generation complete — trigger auto-posts + fetch preview
@@ -193,9 +193,10 @@ export const useVideoGeneration = () => {
 
                 setIsLoading(false);
                 const source = message.source || 'rpa';
+                const senderTabId = sender?.tab?.id || message.tabId;
 
                 // Fetch cached video data URL for preview playback + save to Video Stock
-                fetchCachedVideoDataUrl().then((cachedDataUrl) => {
+                fetchCachedVideoDataUrl(senderTabId).then((cachedDataUrl) => {
                     const previewUrl = cachedDataUrl || message.videoUrl;
                     setResult({
                         success: true,

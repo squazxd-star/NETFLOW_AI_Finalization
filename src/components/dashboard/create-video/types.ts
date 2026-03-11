@@ -70,4 +70,7 @@ export interface ResultSectionProps {
 
 export interface ConsoleLogSectionProps {
     logs: string[];
+    tabs?: { tabId: number; title: string; running: boolean }[];
+    selectedTab?: number | 'all';
+    onTabSelect?: (tabId: number | 'all') => void;
 }

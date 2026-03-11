@@ -3,7 +3,7 @@ import { Terminal, Activity, Shield } from "lucide-react";
 import { ConsoleLogSectionProps } from "./types";
 import { useTheme } from "@/contexts/ThemeContext";
 
-const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
+const ConsoleLogSection = ({ logs, tabs, selectedTab, onTabSelect }: ConsoleLogSectionProps) => {
     const bottomRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const userScrolledUp = useRef(false);
@@ -84,6 +84,41 @@ const ConsoleLogSection = ({ logs }: ConsoleLogSectionProps) => {
                     <span className="text-neon-red/30 text-[9px] font-mono">{logs.length}</span>
                 </span>
             </div>
+
+            {/* Tab Switcher (multi-tab) */}
+            {tabs && tabs.length > 0 && onTabSelect && (
+                <div className="relative z-10 flex items-center gap-1 px-3 py-1.5 border-b border-neon-red/10 overflow-x-auto">
+                    <button
+                        onClick={() => onTabSelect('all')}
+                        className={`shrink-0 px-2 py-0.5 rounded text-[9px] font-mono transition-all ${
+                            selectedTab === 'all'
+                                ? 'bg-neon-red/20 text-neon-red border border-neon-red/40'
+                                : 'text-neon-red/40 hover:text-neon-red/70 border border-transparent hover:border-neon-red/20'
+                        }`}
+                    >
+                        All
+                    </button>
+                    {tabs.map(t => (
+                        <button
+                            key={t.tabId}
+                            onClick={() => onTabSelect(t.tabId)}
+                            className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono transition-all ${
+                                selectedTab === t.tabId
+                                    ? 'bg-neon-red/20 text-neon-red border border-neon-red/40'
+                                    : 'text-neon-red/40 hover:text-neon-red/70 border border-transparent hover:border-neon-red/20'
+                            }`}
+                        >
+                            {t.running && (
+                                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                    <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-40" />
+                                    <span className="relative rounded-full h-1.5 w-1.5 bg-green-400" />
+                                </span>
+                            )}
+                            Tab {t.tabId}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Logs Area */}
             <div ref={scrollContainerRef} onScroll={handleScroll} className={`relative z-10 px-3 py-2 space-y-[3px] overflow-y-auto font-mono text-[10px] leading-relaxed nf-console-scroll ${expanded ? "h-64" : "h-36"} transition-all duration-300`}>

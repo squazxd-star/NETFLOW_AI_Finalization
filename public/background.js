@@ -110,24 +110,54 @@ function sendToContentScript(tabId, message, scriptFile) {
     });
 }
 
-// ─── TikTok Auto-Post: Video blob cache ──────────────────────────────────────
+// ─── Per-Tab State Management (Multi-Tab Automation) ─────────────────────────
+// Each tab gets its own isolated state: video cache, download info, automation status
+const _tabStates = {};
+
+function getTabState(tabId) {
+    if (!tabId) return null;
+    if (!_tabStates[tabId]) {
+        _tabStates[tabId] = {
+            cachedVideoDataUrl: null,
+            cacheCleanupTimer: null,
+            latestVideoFilePath: null,
+            automationRunning: false,
+        };
+    }
+    return _tabStates[tabId];
+}
+
+// Clean up state when tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (_tabStates[tabId]) {
+        clearTimeout(_tabStates[tabId].cacheCleanupTimer);
+        delete _tabStates[tabId];
+        console.log(`[Netflow BG] Tab ${tabId} closed — state cleaned up`);
+    }
+});
+
+// Legacy compat — global fallback for messages without tabId
 let _cachedVideoDataUrl = null;
 let _cacheCleanupTimer = null;
-let _latestVideoFilePath = null;  // Full path to latest downloaded video (e.g. C:\Users\...\video.mp4)
+let _latestVideoFilePath = null;
 
 // ─── Ensure full video is cached for YouTube upload ─────────────────────────
 // Reads the FULL downloaded video file from disk (not just one scene from page)
-async function ensureFullVideoCached() {
+// tabId: optional — if provided, uses per-tab state; otherwise global fallback
+async function ensureFullVideoCached(tabId) {
+    const ts = tabId ? getTabState(tabId) : null;
+    const cachedUrl = ts ? ts.cachedVideoDataUrl : _cachedVideoDataUrl;
+
     // If we already have a cached video, check if it's reasonably sized (> 500KB = likely full video)
-    if (_cachedVideoDataUrl && _cachedVideoDataUrl.length > 500000) {
-        console.log('[Netflow BG] ensureFullVideoCached: already cached (' + (_cachedVideoDataUrl.length / 1024 / 1024).toFixed(1) + ' MB)');
+    if (cachedUrl && cachedUrl.length > 500000) {
+        console.log('[Netflow BG] ensureFullVideoCached: already cached (' + (cachedUrl.length / 1024 / 1024).toFixed(1) + ' MB) tab=' + (tabId || 'global'));
         return;
     }
 
-    console.log('[Netflow BG] ensureFullVideoCached: no valid cache — finding latest downloaded video...');
+    console.log('[Netflow BG] ensureFullVideoCached: no valid cache — finding latest downloaded video... tab=' + (tabId || 'global'));
 
     // Find latest downloaded video file
-    let videoFilePath = _latestVideoFilePath;
+    let videoFilePath = ts ? ts.latestVideoFilePath : _latestVideoFilePath;
     let downloadUrl = null;
 
     if (!videoFilePath) {
@@ -145,8 +175,9 @@ async function ensureFullVideoCached() {
         if (videoDownload) {
             videoFilePath = videoDownload.filename;
             downloadUrl = videoDownload.url || videoDownload.finalUrl || '';
+            if (ts) ts.latestVideoFilePath = videoFilePath;
             _latestVideoFilePath = videoFilePath;
-            console.log('[Netflow BG] Found latest download:', videoFilePath);
+            console.log('[Netflow BG] Found latest download:', videoFilePath, 'tab=' + (tabId || 'global'));
         }
     }
 
@@ -170,8 +201,9 @@ async function ensureFullVideoCached() {
                     reader.onloadend = () => resolve(reader.result);
                     reader.readAsDataURL(blob);
                 });
+                if (ts) ts.cachedVideoDataUrl = dataUrl;
                 _cachedVideoDataUrl = dataUrl;
-                console.log('[Netflow BG] ✅ Full video cached from file: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB');
+                console.log('[Netflow BG] ✅ Full video cached from file: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
                 return;
             }
         }
@@ -180,7 +212,7 @@ async function ensureFullVideoCached() {
     }
 
     // Strategy 2: Read via download URL (if HTTP)
-    if (!downloadUrl && _latestVideoFilePath) {
+    if (!downloadUrl && videoFilePath) {
         // Try to find the download entry for this file
         const downloads = await new Promise((resolve) => {
             chrome.downloads.search(
@@ -188,7 +220,7 @@ async function ensureFullVideoCached() {
                 (results) => resolve(results || [])
             );
         });
-        const match = downloads.find(d => d.filename === _latestVideoFilePath);
+        const match = downloads.find(d => d.filename === videoFilePath);
         if (match) downloadUrl = match.url || match.finalUrl || '';
     }
 
@@ -204,8 +236,9 @@ async function ensureFullVideoCached() {
                         reader.onloadend = () => resolve(reader.result);
                         reader.readAsDataURL(blob);
                     });
+                    if (ts) ts.cachedVideoDataUrl = dataUrl;
                     _cachedVideoDataUrl = dataUrl;
-                    console.log('[Netflow BG] ✅ Full video cached from download URL: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB');
+                    console.log('[Netflow BG] ✅ Full video cached from download URL: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
                     return;
                 }
             }
@@ -252,8 +285,9 @@ async function ensureFullVideoCached() {
         });
 
         if (results && results[0] && results[0].result && results[0].result.success) {
+            if (ts) ts.cachedVideoDataUrl = results[0].result.data;
             _cachedVideoDataUrl = results[0].result.data;
-            console.log('[Netflow BG] ✅ Full video cached via tab injection: ' + (results[0].result.size / 1024 / 1024).toFixed(1) + ' MB');
+            console.log('[Netflow BG] ✅ Full video cached via tab injection: ' + (results[0].result.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
 
             // Close the background tab if we opened it
             if (!existingTabs.length) {
@@ -277,37 +311,86 @@ async function ensureFullVideoCached() {
 // Relay messages from sidepanel / content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
+    // ── GET_TAB_ID: Content script asks for its own tab ID ──
+    if (message?.type === 'GET_TAB_ID') {
+        const tabId = sender?.tab?.id || null;
+        console.log('[Netflow BG] GET_TAB_ID:', tabId);
+        sendResponse({ tabId });
+        return true;
+    }
+
+    // ── GET_ENGINE_TABS: Side panel requests list of engine tabs + status ──
+    if (message?.type === 'GET_ENGINE_TABS') {
+        (async () => {
+            try {
+                const engine = message.engine || 'veo';
+                const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
+                const engineTabs = await chrome.tabs.query({ url: config.urlPatterns });
+                const tabInfos = engineTabs.map(t => ({
+                    tabId: t.id,
+                    title: t.title || ('Tab ' + t.id),
+                    url: t.url,
+                    running: !!(_tabStates[t.id]?.automationRunning),
+                }));
+                sendResponse({ tabs: tabInfos });
+            } catch (e) {
+                sendResponse({ tabs: [] });
+            }
+        })();
+        return true;
+    }
+
+    // ── AUTOMATION_FINISHED: Content script reports automation done ──
+    if (message?.type === 'AUTOMATION_FINISHED') {
+        const tabId = sender?.tab?.id;
+        if (tabId && _tabStates[tabId]) {
+            _tabStates[tabId].automationRunning = false;
+            console.log('[Netflow BG] Automation finished on tab', tabId);
+        }
+        sendResponse({ success: true });
+        return true;
+    }
+
     // ── CACHE_VIDEO_DATA: Content script sends already-fetched video as data URL ──
     // This is the PRIMARY caching method — content script has auth cookies for Google CDN
     if (message?.type === 'CACHE_VIDEO_DATA' && message.data) {
+        const tabId = sender?.tab?.id;
+        const ts = tabId ? getTabState(tabId) : null;
+        if (ts) ts.cachedVideoDataUrl = message.data;
         _cachedVideoDataUrl = message.data;
         const sizeMB = (message.data.length / 1024 / 1024).toFixed(1);
-        console.log('[Netflow BG] Video data cached from content script: ' + sizeMB + ' MB');
+        console.log('[Netflow BG] Video data cached from content script: ' + sizeMB + ' MB tab=' + (tabId || 'global'));
         sendResponse({ success: true, size: message.data.length });
         return true;
     }
 
     // ── PEEK_CACHED_VIDEO: Non-destructive check if video is cached ──
     if (message?.type === 'PEEK_CACHED_VIDEO') {
-        const hasCached = !!_cachedVideoDataUrl;
-        const size = _cachedVideoDataUrl ? _cachedVideoDataUrl.length : 0;
-        console.log('[Netflow BG] PEEK_CACHED_VIDEO: ' + (hasCached ? 'YES (' + (size / 1024 / 1024).toFixed(1) + ' MB)' : 'NO'));
+        const tabId = sender?.tab?.id || message.tabId;
+        const ts = tabId ? _tabStates[tabId] : null;
+        const cached = (ts && ts.cachedVideoDataUrl) || _cachedVideoDataUrl;
+        const hasCached = !!cached;
+        const size = cached ? cached.length : 0;
+        console.log('[Netflow BG] PEEK_CACHED_VIDEO: ' + (hasCached ? 'YES (' + (size / 1024 / 1024).toFixed(1) + ' MB)' : 'NO') + ' tab=' + (tabId || 'global'));
         sendResponse({ success: hasCached, cached: hasCached, size: size });
         return true;
     }
 
     // ── PRE_FETCH_VIDEO: Download video and cache as data URL ──
     if (message?.type === 'PRE_FETCH_VIDEO' && message.url) {
+        const tabId = sender?.tab?.id || message.tabId;
         (async () => {
             try {
-                console.log('[Netflow BG] PRE_FETCH_VIDEO:', message.url.substring(0, 80));
+                console.log('[Netflow BG] PRE_FETCH_VIDEO:', message.url.substring(0, 80), 'tab=' + (tabId || 'global'));
                 const resp = await fetch(message.url);
                 if (!resp.ok) { sendResponse({ success: false, error: 'HTTP ' + resp.status }); return; }
                 const blob = await resp.blob();
                 const reader = new FileReader();
                 reader.onloadend = () => {
+                    const ts = tabId ? getTabState(tabId) : null;
+                    if (ts) ts.cachedVideoDataUrl = reader.result;
                     _cachedVideoDataUrl = reader.result;
-                    console.log('[Netflow BG] Video cached: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB');
+                    console.log('[Netflow BG] Video cached: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
                     sendResponse({ success: true, size: blob.size });
                 };
                 reader.onerror = () => { sendResponse({ success: false, error: 'FileReader error' }); };
@@ -322,12 +405,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ── GET_CACHED_VIDEO: Return previously cached video data URL ──
     if (message?.type === 'GET_CACHED_VIDEO') {
-        if (_cachedVideoDataUrl) {
-            console.log('[Netflow BG] Serving cached video data URL (keeping for retries)');
-            sendResponse({ success: true, data: _cachedVideoDataUrl });
-            // Don't clear immediately — keep for retries. Auto-clear after 5 min.
+        const tabId = sender?.tab?.id || message.tabId;
+        const ts = tabId ? _tabStates[tabId] : null;
+        const cached = (ts && ts.cachedVideoDataUrl) || _cachedVideoDataUrl;
+        if (cached) {
+            console.log('[Netflow BG] Serving cached video data URL tab=' + (tabId || 'global'));
+            sendResponse({ success: true, data: cached });
+            // Auto-clear after 5 min per-tab
+            if (ts) {
+                clearTimeout(ts.cacheCleanupTimer);
+                ts.cacheCleanupTimer = setTimeout(() => { ts.cachedVideoDataUrl = null; console.log('[Netflow BG] Tab ' + tabId + ' video cache auto-cleared'); }, 300000);
+            }
             clearTimeout(_cacheCleanupTimer);
-            _cacheCleanupTimer = setTimeout(() => { _cachedVideoDataUrl = null; console.log('[Netflow BG] Video cache auto-cleared (5 min timeout)'); }, 300000);
+            _cacheCleanupTimer = setTimeout(() => { _cachedVideoDataUrl = null; console.log('[Netflow BG] Global video cache auto-cleared (5 min timeout)'); }, 300000);
         } else {
             sendResponse({ success: false, error: 'No cached video' });
         }
@@ -360,15 +450,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 // ── Engine-aware routing ──
                 const engine = message.videoEngine || "veo";
-                const { tab, config } = await findEngineTab(engine);
-                if (!tab?.id) {
+
+                // If targetTabId specified, route directly to that tab
+                let targetTab = null;
+                const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
+                if (message.targetTabId) {
+                    try {
+                        targetTab = await chrome.tabs.get(message.targetTabId);
+                    } catch (_) { /* tab may not exist */ }
+                }
+
+                // Smart routing: find available (non-busy) engine tab
+                if (!targetTab) {
+                    if (message?.action === "GENERATE_IMAGE") {
+                        // For GENERATE_IMAGE, prefer a non-busy tab
+                        const engineTabs = await chrome.tabs.query({ url: config.urlPatterns });
+                        // First try: non-busy tab
+                        for (const t of engineTabs) {
+                            if (!_tabStates[t.id]?.automationRunning) {
+                                targetTab = t;
+                                break;
+                            }
+                        }
+                        // Fallback: any engine tab (even busy)
+                        if (!targetTab && engineTabs.length > 0) {
+                            targetTab = engineTabs[0];
+                            console.log('[Netflow] All engine tabs busy, using first available');
+                        }
+                    }
+                    // For PING/STOP/etc, use legacy findEngineTab
+                    if (!targetTab) {
+                        const result = await findEngineTab(engine);
+                        targetTab = result.tab;
+                    }
+                }
+
+                if (!targetTab?.id) {
                     const engineLabel = config.label || engine;
                     sendResponse({ success: false, message: `ไม่พบแท็บ ${engineLabel} — กรุณาเปิด ${config.urlIncludes} ก่อน` });
                     return;
                 }
-                console.log(`[Netflow] Routing to ${config.label} (tab ${tab.id})`);
-                const response = await sendToContentScript(tab.id, message, config.contentScript);
-                sendResponse(response);
+                console.log(`[Netflow] Routing ${message.action} to ${config.label} (tab ${targetTab.id})`);
+                const response = await sendToContentScript(targetTab.id, message, config.contentScript);
+
+                // Mark tab as busy for GENERATE_IMAGE
+                if (message?.action === "GENERATE_IMAGE" && response?.success) {
+                    const ts = getTabState(targetTab.id);
+                    ts.automationRunning = true;
+                }
+
+                // Include routed tabId in response so side panel knows which tab
+                sendResponse({ ...response, _routedTabId: targetTab.id });
             } catch (err) {
                 sendResponse({ success: false, message: "Error: " + (err.message || "unknown") });
             }
@@ -383,7 +515,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 console.log('[Netflow BG] UPLOAD_YOUTUBE received');
 
                 // ── STEP 0: Ensure FULL video is cached (not just one scene) ──
-                await ensureFullVideoCached();
+                await ensureFullVideoCached(message.sourceTabId);
 
                 // Find existing YouTube Studio tab or create new one
                 const ytTabs = await chrome.tabs.query({ url: "https://studio.youtube.com/*" });
@@ -500,17 +632,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     return;
                 }
 
-                // Store the file path for YouTube upload
+                // Store the file path for YouTube upload (per-tab + global)
+                const senderTabId = sender?.tab?.id;
+                const senderTs = senderTabId ? getTabState(senderTabId) : null;
+                if (senderTs) senderTs.latestVideoFilePath = videoFile.filename;
                 _latestVideoFilePath = videoFile.filename;
                 const downloadUrl = videoFile.url || videoFile.finalUrl || '';
-                console.log('[Netflow BG] Stored latest video path:', _latestVideoFilePath);
+                console.log('[Netflow BG] Stored latest video path:', _latestVideoFilePath, 'tab=' + (senderTabId || 'global'));
 
                 // ── CRITICAL: Cache the FULL video BEFORE responding ──
                 // This ensures captureVideoUrlAndPreFetch() sees PEEK_CACHED_VIDEO=true
                 // and does NOT overwrite with the page video (which is only Scene 1)
                 console.log('[Netflow BG] Caching FULL video before responding...');
-                await ensureFullVideoCached();
-                console.log('[Netflow BG] Full video cache done. Cached:', !!_cachedVideoDataUrl, _cachedVideoDataUrl ? (_cachedVideoDataUrl.length / 1024 / 1024).toFixed(1) + ' MB' : '');
+                await ensureFullVideoCached(senderTabId);
+                const cachedCheck = senderTs ? senderTs.cachedVideoDataUrl : _cachedVideoDataUrl;
+                console.log('[Netflow BG] Full video cache done. Cached:', !!cachedCheck, cachedCheck ? (cachedCheck.length / 1024 / 1024).toFixed(1) + ' MB' : '');
 
                 // Open file in Chrome
                 const openFileInChrome = (filePath, label) => {

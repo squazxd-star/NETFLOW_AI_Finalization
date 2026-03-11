@@ -15,6 +15,27 @@
 
 import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes, addLog, setOverlayTheme } from "./netflow-overlay";
 
+// ─── Multi-Tab: Discover own tab ID from background ─────────────────────────
+let _myTabId: number | null = null;
+try {
+    chrome.runtime.sendMessage({ type: 'GET_TAB_ID' }, (res) => {
+        if (!chrome.runtime.lastError && res?.tabId) {
+            _myTabId = res.tabId;
+            console.log(`[Netflow AI] Tab ID: ${_myTabId}`);
+        }
+    });
+} catch (_) { /* not in extension context */ }
+
+/** Storage key helper — per-tab when tabId known, global fallback otherwise */
+function pendingActionKey(): string {
+    return _myTabId ? `netflow_pending_action_${_myTabId}` : "netflow_pending_action";
+}
+
+/** Notify background that automation is finished on this tab */
+function notifyAutomationFinished(): void {
+    try { chrome.runtime.sendMessage({ type: 'AUTOMATION_FINISHED' }); } catch (_) {}
+}
+
 const LOG = (msg: string) => {
     console.log(`[Netflow AI] ${msg}`);
     try { addLog(msg); } catch (_) { /* overlay not ready */ }
@@ -220,14 +241,50 @@ class NetflowAbortError extends Error {
     constructor() { super("AUTOMATION_STOPPED"); this.name = "NetflowAbortError"; }
 }
 
+// ─── Anti-Throttle: Web Worker Timer ─────────────────────────────────────────
+// Chrome throttles setTimeout in background/minimized tabs (1s min, or 1/min after 5 min).
+// Web Workers run in a separate thread and are NOT subject to this throttling.
+let _timerWorker: Worker | null = null;
+const _pendingTimers = new Map<number, () => void>();
+let _timerIdCounter = 0;
+
+function getTimerWorker(): Worker | null {
+    if (_timerWorker) return _timerWorker;
+    try {
+        const blob = new Blob([
+            `self.onmessage=function(e){var d=e.data;setTimeout(function(){self.postMessage(d.id)},d.ms)};`
+        ], { type: 'application/javascript' });
+        _timerWorker = new Worker(URL.createObjectURL(blob));
+        _timerWorker.onmessage = (e: MessageEvent) => {
+            const cb = _pendingTimers.get(e.data);
+            if (cb) { _pendingTimers.delete(e.data); cb(); }
+        };
+        console.log('[Netflow AI] ⚡ Web Worker timer created — background tab throttling defeated');
+        return _timerWorker;
+    } catch (_) {
+        console.warn('[Netflow AI] Web Worker timer unavailable — falling back to setTimeout');
+        return null;
+    }
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
     if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
-    const id = setTimeout(() => {
+
+    const done = () => {
         if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
         resolve();
-    }, ms);
-    // Store timeout id for potential cleanup
-    (sleep as any)._lastId = id;
+    };
+
+    const worker = getTimerWorker();
+    if (worker) {
+        const id = ++_timerIdCounter;
+        _pendingTimers.set(id, done);
+        worker.postMessage({ id, ms });
+    } else {
+        // Fallback: regular setTimeout (throttled in background tabs)
+        const id = setTimeout(done, ms);
+        (sleep as any)._lastId = id;
+    }
 });
 
 /** Check if automation should stop (user clicked stop button) */
@@ -2769,7 +2826,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             // ★ Save pending action BEFORE clicking (page will navigate, destroying this script)
             try {
-                chrome.storage.local.set({ netflow_pending_action: { timestamp: Date.now(), action: "mute_video", sceneCount: totalScenes, scenePrompts: scenePrompts, theme: req.theme } });
+                chrome.storage.local.set({ [pendingActionKey()]: { timestamp: Date.now(), action: "mute_video", sceneCount: totalScenes, scenePrompts: scenePrompts, theme: req.theme } });
                 LOG(`💾 บันทึก pending action: mute_video (${totalScenes} ฉาก, ${scenePrompts.length} prompts, theme: ${req.theme})`);
             } catch (e: any) {
                 LOG(`⚠️ ไม่สามารถบันทึก pending action: ${e.message}`);
@@ -2819,14 +2876,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 // Wait 3s then check — if pending action is still unclaimed, execute it directly.
                 await sleep(3000);
                 const pendingCheck = await new Promise<any>((resolve) => {
-                    chrome.storage.local.get("netflow_pending_action", (data) => {
+                    chrome.storage.local.get(pendingActionKey(), (data) => {
                         if (chrome.runtime.lastError) { resolve(null); return; }
-                        resolve(data?.netflow_pending_action || null);
+                        resolve(data?.[pendingActionKey()] || null);
                     });
                 });
                 if (pendingCheck && !pendingCheck._claimed) {
                     LOG("🔄 สคริปต์ยังทำงานอยู่หลังคลิกการ์ด (SPA navigation) — เรียก pending action โดยตรง");
-                    chrome.storage.local.remove("netflow_pending_action");
+                    chrome.storage.local.remove(pendingActionKey());
                     if (pendingCheck.action === "mute_video") {
                         await standaloneMuteAndDownload(pendingCheck.sceneCount || 1, pendingCheck.scenePrompts || [], pendingCheck.theme);
                     } else if (pendingCheck.action === "wait_scene_gen_and_download") {
@@ -3004,7 +3061,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             // Save pending action BEFORE clicking Generate — Google Flow may navigate to new page
             await new Promise<void>((resolve) => {
                 chrome.storage.local.set({
-                    netflow_pending_action: {
+                    [pendingActionKey()]: {
                         timestamp: Date.now(),
                         action: "wait_scene_gen_and_download",
                         theme: theme,
@@ -3071,7 +3128,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             try { updateStep(`scene${scene}-wait`, "done", 100); } catch (_) {}
 
             // Clear pending action — page didn't navigate, we completed tracking here
-            chrome.storage.local.remove("netflow_pending_action");
+            chrome.storage.local.remove(pendingActionKey());
             LOG("🗑️ ลบ pending action (tracking เสร็จแล้วบนหน้านี้)");
             await sleep(2000);
         }
@@ -3592,7 +3649,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             // Save pending action before clicking (in case page navigates again)
             await new Promise<void>((resolve) => {
                 chrome.storage.local.set({
-                    netflow_pending_action: {
+                    [pendingActionKey()]: {
                         timestamp: Date.now(),
                         action: "wait_scene_gen_and_download",
                         theme: theme,
@@ -3665,7 +3722,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             LOG(`✅ ฉาก ${scene} เสร็จแล้ว`);
 
             // Clear pending action — completed on this page
-            chrome.storage.local.remove("netflow_pending_action");
+            chrome.storage.local.remove(pendingActionKey());
             await sleep(2000);
         }
     }
@@ -3853,10 +3910,11 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
 async function checkAndRunPendingAction(): Promise<void> {
     try {
         // Step 1: Read the pending action
+        const paKey = pendingActionKey();
         const result = await new Promise<any>((resolve) => {
-            chrome.storage.local.get("netflow_pending_action", (data) => {
+            chrome.storage.local.get(paKey, (data) => {
                 if (chrome.runtime.lastError) { resolve(null); return; }
-                resolve(data?.netflow_pending_action || null);
+                resolve(data?.[paKey] || null);
             });
         });
 
@@ -3879,7 +3937,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         const age = Date.now() - result.timestamp;
         if (age > 300000) {
             LOG("⏰ พบ pending action แต่เก่าเกินไป — ข้าม");
-            chrome.storage.local.remove("netflow_pending_action");
+            chrome.storage.local.remove(paKey);
             return;
         }
 
@@ -3887,14 +3945,14 @@ async function checkAndRunPendingAction(): Promise<void> {
         const claimToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         result._claimed = claimToken;
         await new Promise<void>((resolve) => {
-            chrome.storage.local.set({ netflow_pending_action: result }, () => resolve());
+            chrome.storage.local.set({ [paKey]: result }, () => resolve());
         });
 
         // Step 3: Wait for any competing tab to also write, then verify our claim
         await sleep(300);
         const verified = await new Promise<boolean>((resolve) => {
-            chrome.storage.local.get("netflow_pending_action", (data) => {
-                const action = data?.netflow_pending_action;
+            chrome.storage.local.get(paKey, (data) => {
+                const action = data?.[paKey];
                 resolve((action as any)?._claimed === claimToken);
             });
         });
@@ -3904,7 +3962,7 @@ async function checkAndRunPendingAction(): Promise<void> {
         }
 
         // Step 4: We won the claim — clear and execute
-        chrome.storage.local.remove("netflow_pending_action");
+        chrome.storage.local.remove(paKey);
 
         LOG(`🔄 ตรวจพบ pending action: ${result.action} (อายุ ${Math.round(age / 1000)} วินาที)`);
 
@@ -3930,7 +3988,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ success: true, message: "⏳ เริ่มกระบวนการอัตโนมัติแล้ว — ดูผลที่หน้า Google Flow", step: "started" });
         // Fire-and-forget: run the long automation in the background
         handleGenerateImage(message as GenerateImageRequest)
-            .then(result => LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`))
+            .then(result => {
+                LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`);
+                notifyAutomationFinished();
+            })
             .catch(err => {
                 if (err instanceof NetflowAbortError || err?.name === "NetflowAbortError") {
                     LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
@@ -3939,6 +4000,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                 } else {
                     console.error("[Netflow AI] Generate error:", err);
                 }
+                notifyAutomationFinished();
             });
         return false;
     }
