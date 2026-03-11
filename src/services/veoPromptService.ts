@@ -5,8 +5,8 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getApiKey } from "./storageService";
-import { TemplateOption } from "@/types/netflow";
-import { ProductCategory, CATEGORY_ENVIRONMENTS } from "@/data/categoryEnvironments";
+import { TemplateOption } from "../types/netflow";
+import { ProductCategory, CATEGORY_ENVIRONMENTS } from "../data/categoryEnvironments";
 
 // Template descriptions for prompt building
 const TEMPLATE_CONFIGS: Record<TemplateOption, { thaiName: string; englishName: string; style: string; focus: string }> = {
@@ -1023,7 +1023,7 @@ const getSmartEnvironment = (
     
     // Otherwise pick random category environment
     const categoryEnvs = CATEGORY_ENVIRONMENTS[category] || CATEGORY_ENVIRONMENTS["other"];
-    const categoryEnv = pickRandom(categoryEnvs);
+    const categoryEnv = pickRandom(categoryEnvs) as string;
     const templateEnv = ENVIRONMENT_SETTING[template] || ENVIRONMENT_SETTING["product-review"];
     
     // For generic templates, use category environment primarily
@@ -5099,13 +5099,13 @@ const getStoryboardSceneCount = (clipDuration: number): number => {
 };
 
 const buildStoryboardSection = (config: PromptGenerationConfig, category: ProductCategory): string => {
-    const sceneCount = getStoryboardSceneCount(config.clipDuration);
+    const sceneCount = getStoryboardSceneCount(config.clipDuration ?? 16);
     const productName = config.productName;
     const rawHook = (config.hookText || "").trim()
-        ? config.hookText
+        ? config.hookText!
         : pickRandom(HOOK_VARIATIONS[config.template] || HOOK_VARIATIONS["product-review"]);
     const rawCta = (config.ctaText || "").trim()
-        ? config.ctaText
+        ? config.ctaText!
         : pickRandom(CTA_VARIATIONS[config.saleStyle] || CTA_VARIATIONS["storytelling"]);
 
     const hook = ensureMentionsProductName(rawHook, productName);
@@ -6100,8 +6100,8 @@ const generateThaiScript = (
     clipDuration: number,
     category: ProductCategory
 ): ScriptWithActions => {
-    const benefit = pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other);
-    const urgency = pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other);
+    const benefit = pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other || ["คุ้มค่า"]);
+    const urgency = pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other || ["รีบเลย!"]);
     
     // Generate exactly 1 short script per scene (~8 seconds each, slow comfortable pace)
     const sceneCount = Math.max(1, Math.floor(clipDuration / 8));
@@ -6566,7 +6566,7 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
 
     // Step 2: Get template config
     const templateConfig = TEMPLATE_CONFIGS[config.template] || TEMPLATE_CONFIGS["product-review"];
-    const durationConfig = DURATION_CONFIGS[config.clipDuration] || DURATION_CONFIGS[16];
+    const durationConfig = DURATION_CONFIGS[config.clipDuration ?? 16] || DURATION_CONFIGS[16];
 
     // Step 3: Build Image Prompt (for Google Labs ImageFX)
     const imagePrompt = buildImagePrompt(config, templateConfig, productAnalysis);
@@ -6771,7 +6771,7 @@ const buildVideoPrompt = (
     if (config.userScript && config.userScript.trim()) {
         sceneTexts = config.userScript.split(/\n{2,}/).filter(s => s.trim()).map(s => s.trim());
         // User-provided scripts: generate matching actions from CATEGORY_SCENE_PAIRS
-        const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
+        const sceneCount = Math.max(1, Math.floor((config.clipDuration ?? 16) / 8));
         const usedIndices: number[] = [];
         for (let i = 0; i < sceneTexts.length; i++) {
             const pair = pickScriptActionPair(category, config.productName, usedIndices);
@@ -6787,7 +6787,7 @@ const buildVideoPrompt = (
             config.saleStyle,
             config.hookText || "",
             config.ctaText || "",
-            config.clipDuration,
+            config.clipDuration ?? 16,
             category
         );
         
@@ -6839,7 +6839,7 @@ const buildVideoPrompt = (
     // ── TALK-ONLY SCENE 1 — character talks to camera WITHOUT product, product appears from Scene 2+ ──
     // For multi-scene (2+), Scene 1 is ALWAYS talk-only (index 0). Product is introduced from Scene 2 onward.
     // For 1-scene, always show product (talkOnlySceneIndex = -1 means none).
-    const sceneCount = Math.max(1, Math.floor(config.clipDuration / 8));
+    const sceneCount = Math.max(1, Math.floor((config.clipDuration ?? 16) / 8));
     const talkOnlySceneIndex = sceneCount >= 2 ? 0 : -1;
     const isScene1TalkOnly = talkOnlySceneIndex === 0;
     console.log(`🎬 Talk-only scene: ${talkOnlySceneIndex === -1 ? 'NONE (1 scene)' : 'Scene 1 (ALWAYS)'} | Product from: ${sceneCount >= 2 ? 'Scene 2+' : 'Scene 1'} | Total scenes: ${sceneCount}`);
@@ -7052,7 +7052,7 @@ export const buildSceneVideoPromptJSON = (
  */
 export const generateQuickPrompts = (config: PromptGenerationConfig): GeneratedPrompts => {
     const templateConfig = TEMPLATE_CONFIGS[config.template] || TEMPLATE_CONFIGS["product-review"];
-    const durationConfig = DURATION_CONFIGS[config.clipDuration] || DURATION_CONFIGS[16];
+    const durationConfig = DURATION_CONFIGS[config.clipDuration ?? 16] || DURATION_CONFIGS[16];
     const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, "");
 
     return {
