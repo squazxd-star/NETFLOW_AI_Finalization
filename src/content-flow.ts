@@ -400,8 +400,8 @@ async function ensureTabVisible(): Promise<boolean> {
             await sleep(200);
         }
         if (!document.hidden) {
-            LOG("✅ Tab กลับมาแสดงผลแล้ว");
-            await sleep(500);
+            LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
+            await sleep(3000);
             return true;
         }
         LOG("⚠️ Tab ยังซ่อนอยู่หลัง 5 วินาที");
@@ -2421,8 +2421,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             if (document.hidden) {
                 LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
             } else {
-                LOG("✅ Tab กลับมาแสดงผลแล้ว");
-                await sleep(500); // extra settle time for DOM
+                LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
+                await sleep(3000);
             }
         } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
     }
@@ -2445,7 +2445,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     while (document.hidden && Date.now() - retryStart < 5000) {
                         await sleep(200);
                     }
-                    if (!document.hidden) await sleep(500);
+                    if (!document.hidden) await sleep(2000);
                 } catch (_) {}
             }
             promptInput.focus();
@@ -2837,8 +2837,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     if (document.hidden) {
                         LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
                     } else {
-                        LOG("✅ Tab กลับมาแสดงผลแล้ว");
-                        await sleep(500);
+                        LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
+                        await sleep(3000);
                     }
                 } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
             }
@@ -2863,7 +2863,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                             while (document.hidden && Date.now() - retryStart < 5000) {
                                 await sleep(200);
                             }
-                            if (!document.hidden) await sleep(500);
+                            if (!document.hidden) await sleep(2000);
                         } catch (_) {}
                     }
                     videoPromptInput.focus();
@@ -3471,7 +3471,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             try {
                 await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                 needsDownloadUnfocus = true;
-                await sleep(1500); // wait for focus + layout to settle
+                await sleep(5000); // wait for focus + layout to settle (5 วิ ชัวร์)
             } catch (_) {}
         }
         
