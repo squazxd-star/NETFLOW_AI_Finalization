@@ -810,32 +810,69 @@ function findGenerateButton(): HTMLElement | null {
 
 /**
  * Find the prompt text input.
+ * Searches for Slate.js editor, contenteditable, textarea, and input elements.
+ * Skips elements inside the Netflow overlay.
  */
 function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLElement | null {
-    // Strategy 1: textarea at the bottom area
-    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
-    for (const ta of textareas) {
-        if (_hidden()) return ta; // When minimized, accept first textarea
-        const rect = ta.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.5) return ta;
+    const isOverlay = (el: HTMLElement) => !!el.closest("#netflow-engine-overlay");
+    const hidden = _hidden();
+
+    // Strategy 0: Slate.js specific — data-slate-editor is the definitive marker
+    const slateEditors = document.querySelectorAll<HTMLElement>('[data-slate-editor="true"]');
+    for (const el of slateEditors) {
+        if (isOverlay(el)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ Slate editor (hidden mode)"); return el; }
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ Slate editor (rect.bottom=${Math.round(rect.bottom)})`); return el; }
+    }
+
+    // Strategy 1: role="textbox" — ARIA role often used by rich text editors
+    const textboxes = document.querySelectorAll<HTMLElement>('[role="textbox"]');
+    for (const el of textboxes) {
+        if (isOverlay(el)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ role=textbox (hidden mode)"); return el; }
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ role=textbox (rect.bottom=${Math.round(rect.bottom)})`); return el; }
     }
 
     // Strategy 2: contenteditable in bottom area
     const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
     for (const el of editables) {
-        if (_hidden()) return el; // When minimized, accept first editable
+        if (isOverlay(el)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ contenteditable (hidden mode)"); return el; }
         const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.5) return el;
+        if (rect.bottom > window.innerHeight * 0.3 && rect.height > 0) {
+            LOG(`findPromptTextInput: ✅ contenteditable (rect.bottom=${Math.round(rect.bottom)})`);
+            return el;
+        }
     }
 
-    // Strategy 3: input with Thai placeholder
+    // Strategy 3: textarea at the bottom area
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
+    for (const ta of textareas) {
+        if (isOverlay(ta)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ textarea (hidden mode)"); return ta; }
+        const rect = ta.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.3) return ta;
+    }
+
+    // Strategy 4: input with Thai/English placeholder
     const inputs = document.querySelectorAll<HTMLInputElement>("input[type='text'], input:not([type])");
     for (const inp of inputs) {
+        if (isOverlay(inp)) continue;
         const ph = inp.placeholder || "";
-        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe")) return inp;
+        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe") || ph.includes("create")) return inp;
     }
 
-    if (textareas.length > 0) return textareas[textareas.length - 1];
+    // Strategy 5: Last resort — any contenteditable not in overlay, regardless of position
+    for (const el of editables) {
+        if (isOverlay(el)) continue;
+        LOG(`findPromptTextInput: ⚠️ last-resort contenteditable (tag=${el.tagName})`);
+        return el;
+    }
+
+    // Diagnostic logging
+    LOG(`findPromptTextInput: ❌ ไม่พบ (slate=${slateEditors.length}, textbox=${textboxes.length}, editable=${editables.length}, textarea=${textareas.length}, input=${inputs.length})`);
     return null;
 }
 
