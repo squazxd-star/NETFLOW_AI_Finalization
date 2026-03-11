@@ -304,21 +304,42 @@ function getTimerPort(): chrome.runtime.Port | null {
 const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
     if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
 
+    let resolved = false;
     const done = () => {
+        if (resolved) return;
+        resolved = true;
         if ((window as any).__NETFLOW_STOP__) return reject(new NetflowAbortError());
         resolve();
     };
 
-    // Strategy 1: Web Worker (best — separate thread)
+    // Strategy 1: Web Worker (best — separate thread, immune to tab throttling)
     const worker = getTimerWorker();
     if (worker) {
         const id = ++_timerIdCounter;
         _pendingTimers.set(id, done);
         worker.postMessage({ id, ms });
+        // Safety: if Worker created but CSP blocks execution, sendMessage fires as backup
+        try {
+            chrome.runtime.sendMessage({ type: 'TIMER_DELAY', ms: ms + 2000 }, () => {
+                if (!chrome.runtime.lastError) done();
+            });
+        } catch (_) { /* no backup available */ }
         return;
     }
 
-    // Strategy 2: Port relay via background service worker
+    // Strategy 2: sendMessage relay via background SW (wakes SW per call, NOT throttled)
+    try {
+        chrome.runtime.sendMessage({ type: 'TIMER_DELAY', ms }, () => {
+            if (chrome.runtime.lastError) {
+                setTimeout(done, ms); // SW unavailable — fall back
+            } else {
+                done();
+            }
+        });
+        return;
+    } catch (_) { /* fall through */ }
+
+    // Strategy 3: Port relay via background service worker
     const port = getTimerPort();
     if (port) {
         const id = ++_timerIdCounter;
@@ -327,7 +348,7 @@ const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
         return;
     }
 
-    // Strategy 3: regular setTimeout (throttled — last resort)
+    // Strategy 4: regular setTimeout (throttled in background tabs — last resort)
     const id = setTimeout(done, ms);
     (sleep as any)._lastId = id;
 });

@@ -6926,12 +6926,7 @@ const buildVideoPrompt = (
         `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), veoSafeProductName);
 
-    // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
-    const MAX_SCENE1_PROMPT_LENGTH = 5500;
-    if (prompt.length > MAX_SCENE1_PROMPT_LENGTH) {
-        console.warn(`⚠️ Scene 1 prompt too long (${prompt.length} chars), trimming to ${MAX_SCENE1_PROMPT_LENGTH}`);
-        prompt = prompt.substring(0, MAX_SCENE1_PROMPT_LENGTH).replace(/\s\S*$/, '');
-    }
+
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
     const meta: VideoPromptMeta = {
@@ -7049,12 +7044,6 @@ export const buildSceneVideoPromptJSON = (
         `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only.`
     ].filter(Boolean).join(' '), productName);
 
-    // Safety cap: prevent Veo prompt truncation that causes safety filter triggers
-    const MAX_SCENE_PROMPT_LENGTH = 4500;
-    if (prompt.length > MAX_SCENE_PROMPT_LENGTH) {
-        console.warn(`⚠️ Scene ${sceneNumber} prompt too long (${prompt.length} chars), trimming to ${MAX_SCENE_PROMPT_LENGTH}`);
-        return prompt.substring(0, MAX_SCENE_PROMPT_LENGTH).replace(/\s\S*$/, '');
-    }
     return prompt;
 };
 

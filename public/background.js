@@ -110,6 +110,11 @@ function sendToContentScript(tabId, message, scriptFile) {
     });
 }
 
+// ─── Anti-Throttle Timer via sendMessage (most reliable — wakes SW per call) ──
+// Content script sends { type: 'TIMER_DELAY', ms } → SW setTimeout → sendResponse
+// Not subject to tab throttling because response callbacks are event-driven.
+// Falls through to onMessage handler below.
+
 // ─── Anti-Throttle Timer Relay (fallback when Web Worker blocked by CSP) ─────
 // Content scripts connect via chrome.runtime.connect({ name: 'timer' })
 // and send { cmd: 'delay', id, ms }. We setTimeout here (NOT throttled in SW)
@@ -339,6 +344,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log('[Netflow BG] GET_TAB_ID:', tabId);
         sendResponse({ tabId });
         return true;
+    }
+
+    // ── TIMER_DELAY: Anti-throttle timer relay via sendMessage ──
+    // Content script sends { type: 'TIMER_DELAY', ms } → SW waits ms → sendResponse
+    // Response callbacks are NOT subject to Chrome's background tab throttling.
+    if (message?.type === 'TIMER_DELAY' && typeof message.ms === 'number') {
+        setTimeout(() => { sendResponse({ ok: true }); }, message.ms);
+        return true; // keep channel open for async response
     }
 
     // ── BRIEF_ACTIVATE_TAB: Content script asks to briefly activate its tab ──
