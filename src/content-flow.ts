@@ -3135,10 +3135,20 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // ★ Ensure tab is visible before hover+click on video card
             await ensureTabVisible();
 
-            // Now find the VIDEO card to click — using <i>videocam</i> icon (screen-size independent)
-            const videoCard = findFirstVideoCard();
+            // Now find the VIDEO card to click — retry up to 10 times (card may take time to render after % disappears)
+            let videoCard: HTMLElement | null = null;
+            for (let cardAttempt = 1; cardAttempt <= 10; cardAttempt++) {
+                videoCard = findFirstVideoCard();
+                if (videoCard) break;
+                LOG(`⏳ รอการ์ดวิดีโอ... (ครั้งที่ ${cardAttempt}/10)`);
+                if (cardAttempt % 3 === 0) {
+                    // Re-ensure tab is visible every 3 attempts
+                    await ensureTabVisible();
+                }
+                await sleep(3000);
+            }
             if (!videoCard) {
-                LOG("❌ ไม่พบการ์ดวิดีโอที่จะคลิก");
+                LOG("❌ ไม่พบการ์ดวิดีโอที่จะคลิกหลังลอง 10 ครั้ง (30 วิ)");
                 updateStep("vid-wait", "error");
                 return null;
             }
