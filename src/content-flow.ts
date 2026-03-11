@@ -2691,13 +2691,43 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             }
 
             // Find prompt input and paste video prompt
+            // ★ Activate tab first if hidden — Slate.js needs focus to process paste events
+            if (document.hidden) {
+                LOG("🔄 Tab ซ่อนอยู่ — สลับมาเพื่อวาง prompt");
+                await briefActivateIfHidden();
+                await sleep(1000);
+            }
             await sleep(1000);
             const videoPromptInput = findPromptTextInput();
             if (videoPromptInput) {
                 await setPromptText(videoPromptInput, req.videoPrompt);
-                LOG(`วาง Video Prompt แล้ว (${req.videoPrompt.length} ตัวอักษร)`);
-                steps.push("✅ Video Prompt");
-                updateStep("vid-prompt", "done");
+
+                // ★ Verify paste actually succeeded — check textContent
+                const pastedCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+                if (pastedCheck.length < 20) {
+                    LOG("⚠️ Prompt ไม่ถูกวาง — ลองสลับ tab แล้ววางใหม่");
+                    _lastBriefActivate = 0; // reset rate-limit so we can activate immediately
+                    await briefActivateIfHidden();
+                    await sleep(1500);
+                    videoPromptInput.focus();
+                    await sleep(500);
+                    await setPromptText(videoPromptInput, req.videoPrompt);
+                    const retryCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+                    if (retryCheck.length < 20) {
+                        WARN(`❌ วาง Video Prompt ไม่สำเร็จแม้ลองซ้ำ (ได้ ${retryCheck.length} ตัวอักษร)`);
+                        steps.push("❌ Video Prompt");
+                        errors.push("video prompt paste failed after retry");
+                        updateStep("vid-prompt", "error");
+                    } else {
+                        LOG(`วาง Video Prompt สำเร็จหลังลองใหม่ (${retryCheck.length} ตัวอักษร)`);
+                        steps.push("✅ Video Prompt");
+                        updateStep("vid-prompt", "done");
+                    }
+                } else {
+                    LOG(`วาง Video Prompt แล้ว (${pastedCheck.length} ตัวอักษร)`);
+                    steps.push("✅ Video Prompt");
+                    updateStep("vid-prompt", "done");
+                }
             } else {
                 WARN("ไม่พบช่อง Prompt สำหรับ Video Prompt");
                 steps.push("❌ Video Prompt");
@@ -2886,6 +2916,11 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 // ★ Force DOM update if tab is hidden and progress is stalled
                 if (document.hidden && lastPct > 0 && Date.now() - lastPctTime > 10000) {
+                    await briefActivateIfHidden();
+                }
+                // ★ Also activate tab if we've NEVER found any % for 30+ seconds
+                // (generation might not have started, or % element isn't rendering in background)
+                if (document.hidden && lastPct < 1 && Date.now() - start > 30000) {
                     await briefActivateIfHidden();
                 }
 
