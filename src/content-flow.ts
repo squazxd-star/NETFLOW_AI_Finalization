@@ -2314,6 +2314,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.productImage) {
         updateStep("upload-prod", "active");
+        // ★ Remove stale file inputs left over from the character upload
+        // so that Google Flow creates a FRESH file input (same clean state as the first upload)
+        document.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(inp => {
+            LOG(`🧹 ลบ file input เก่าออก (name=${inp.name || "N/A"})`);
+            inp.remove();
+        });
+        await sleep(500);
         try {
             const ok = await uploadImageToPromptBar(req.productImage, "product.png");
             steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
