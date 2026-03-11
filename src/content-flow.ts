@@ -2275,12 +2275,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (pct !== lastPct) {
                     lastPct = pct;
                     lastPctChangeTime = Date.now();
+                    LOG(`กำลังอัพโหลด: ${pct} — รอ...`);
                 } else if (Date.now() - lastPctChangeTime > staleTimeout) {
                     LOG(`✅ อัพโหลด ${label} — % ค้างที่ ${pct} นาน ${staleTimeout / 1000} วินาที ถือว่าเสร็จ`);
                     await sleep(1000);
                     return;
                 }
-                LOG(`กำลังอัพโหลด: ${pct} — รอ...`);
                 await sleep(1500);
             } else {
                 LOG(`✅ อัพโหลด ${label} เสร็จ — ไม่พบตัวบอก %`);
@@ -2377,17 +2377,57 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     LOG("=== ขั้น 2: วาง Image Prompt ===");
     updateStep("img-prompt", "active");
     await sleep(1000);
-    const promptInput = findPromptTextInput();
-    if (promptInput) {
+
+    // ★ FOCUS_TAB: Keep tab active during paste+generate — Slate.js REQUIRES real document focus
+    let needsUnfocus = false;
+    if (document.hidden) {
+        LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อวาง Image prompt + กด Generate");
+        try {
+            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+            needsUnfocus = true;
+            await sleep(1500); // wait for focus to settle + DOM to render
+        } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
+    }
+
+    let imgPromptOk = false;
+    for (let attempt = 1; attempt <= 3 && !imgPromptOk; attempt++) {
+        const promptInput = findPromptTextInput();
+        if (!promptInput) {
+            LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Image Prompt — รอแล้วลองใหม่`);
+            await sleep(2000);
+            continue;
+        }
+        if (attempt > 1) {
+            // Force focus on retry
+            if (document.hidden) {
+                try {
+                    await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                    needsUnfocus = true;
+                    await sleep(1500);
+                } catch (_) {}
+            }
+            promptInput.focus();
+            await sleep(500);
+        }
         await setPromptText(promptInput, req.imagePrompt);
-        LOG(`วาง Prompt แล้ว (${req.imagePrompt.length} ตัวอักษร)`);
-        steps.push("✅ Prompt");
-        updateStep("img-prompt", "done");
-    } else {
-        WARN("ไม่พบช่องป้อนข้อความ Prompt");
+        await sleep(500);
+        const pastedCheck = (promptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+        if (pastedCheck.length >= 20) {
+            LOG(`วาง Image Prompt สำเร็จ ครั้งที่ ${attempt} (${pastedCheck.length} ตัวอักษร)`);
+            steps.push("✅ Prompt");
+            updateStep("img-prompt", "done");
+            imgPromptOk = true;
+        } else {
+            LOG(`⚠️ ครั้งที่ ${attempt}: Image Prompt ไม่ถูกวาง (ได้ ${pastedCheck.length} ตัวอักษร)`);
+            await sleep(1500);
+        }
+    }
+    if (!imgPromptOk) {
+        WARN("❌ วาง Image Prompt ไม่สำเร็จหลังลอง 3 ครั้ง — หยุด ไม่กด Generate");
         steps.push("❌ Prompt");
-        errors.push("prompt input not found");
+        errors.push("image prompt paste failed after 3 attempts");
         updateStep("img-prompt", "error");
+        return { success: false, message: "❌ วาง Prompt ไม่สำเร็จ", step: "img-prompt" };
     }
     await sleep(800);
 
@@ -2436,6 +2476,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         updateStep("img-generate", "error");
     }
 
+    // ★ UNFOCUS_TAB: Restore previous tab — image generation runs fine in background
+    if (needsUnfocus) {
+        await sleep(2000); // wait for generation to start
+        try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+        LOG("🔄 คืน tab เดิม — รูปภาพกำลังสร้างเบื้องหลัง");
+    }
+
     // ── Step 4: Wait for NEW image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
     LOG("=== ขั้น 4: รอรูปที่สร้าง + ทำเป็นวิดีโอ ===");
     updateStep("img-wait", "active");
@@ -2455,6 +2502,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
                 if (pct < 1 || pct > 100) continue;
+                if (_hidden()) {
+                    // When tab is hidden, getBoundingClientRect returns 0s — trust text match alone
+                    return pct;
+                }
                 const rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.width > 150) continue;
                 if (rect.top < 0 || rect.top > window.innerHeight) continue;
@@ -2477,12 +2528,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const alt = (img.alt || "").toLowerCase();
                 if (!alt.includes("generated")) continue;
 
-                const rect = img.getBoundingClientRect();
-                if (rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85) {
+                const isLargeEnough = _hidden()
+                    ? (img.naturalWidth > 120 && img.naturalHeight > 120)
+                    : (() => { const rect = img.getBoundingClientRect(); return rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85; })();
+                if (isLargeEnough) {
                     const parent = img.closest("div") as HTMLElement;
                     if (parent) {
                         generatedImg = parent;
-                        LOG(`พบรูป AI จาก alt="${img.alt}": ${img.src.substring(0, 80)}...`);
+                        LOG(`พบรูป AI จาก alt="${img.alt}": ${img.src.substring(0, 80)}...${_hidden() ? ' (hidden-mode)' : ''}`);
                         break;
                     }
                 }
@@ -2501,12 +2554,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         continue;
                     }
 
-                    const rect = img.getBoundingClientRect();
-                    if (rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85) {
+                    const isLarge = _hidden()
+                        ? (img.naturalWidth > 120 && img.naturalHeight > 120)
+                        : (() => { const rect = img.getBoundingClientRect(); return rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85; })();
+                    if (isLarge) {
                         const parent = img.closest("div") as HTMLElement;
                         if (parent) {
                             generatedImg = parent;
-                            LOG(`พบรูปใหม่ (สำรอง): ${img.src.substring(0, 80)}...`);
+                            LOG(`พบรูปใหม่ (สำรอง): ${img.src.substring(0, 80)}...${_hidden() ? ' (hidden-mode)' : ''}`);
                             break;
                         }
                     }
@@ -2547,6 +2602,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
                 // ★ Force DOM update if tab is hidden and progress is stalled
                 if (document.hidden && lastImgPct > 0 && Date.now() - lastImgPctTime > 10000) {
+                    await briefActivateIfHidden();
+                }
+                // ★ Also activate tab if we've NEVER found any % for 30+ seconds
+                if (document.hidden && lastImgPct < 1 && Date.now() - imgWaitStart > 30000) {
                     await briefActivateIfHidden();
                 }
 

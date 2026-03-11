@@ -1432,10 +1432,14 @@ const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, look
 // Without this, AI guesses/imagines product details and gets them wrong.
 // ═══════════════════════════════════════════════════════════════════════════
 const CATEGORY_PRODUCT_ANATOMY: Partial<Record<ProductCategory, string>> = {
+    fragrance: "STUDY REFERENCE: exact perfume bottle silhouette and geometric shape (hexagonal/round/rectangular/faceted — preserve EXACT outline), decorative cap shape and proportions (diamond-cut/sculpted/dome/faceted — this is the bottle's MOST DISTINCTIVE feature, preserve every facet angle), cap-to-body size ratio, glass transparency and liquid color (exact pink/gold/amber hue), metallic collar/ring between cap and body, spray nozzle shape when cap removed, any embossed or engraved branding on glass, bottle base shape and thickness, light refraction pattern through glass. CRITICAL: The decorative cap shape is the #1 identity feature — if the cap morphs, the entire product identity is lost.",
     beauty: "STUDY REFERENCE: exact bottle silhouette (round/angular/curved), cap/closure distinctive shape (faceted/smooth/dome/sculpted — preserve every geometric facet and angle), liquid color visible through glass (exact hue and saturation), bottle transparency/frosted level, nozzle or spray mechanism shape, any decorative sculpted elements on bottle or cap, metallic ring or collar details, branding placement and embossing style",
     beverage: "STUDY REFERENCE: exact bottle/can silhouette and proportions, cap/tab design and color, liquid color and opacity level visible through container, packaging wrap layout and color bands, bottle neck shape, grip texture or ridges, carbonation bubble density if visible",
     food: "STUDY REFERENCE: exact packaging shape and dimensions, seal/opening mechanism, color bands and stripe patterns on packaging, window cutouts showing product inside, logo placement and size, any embossed or raised lettering, texture of packaging material (matte/glossy/foil)",
     fashion: "STUDY REFERENCE: exact garment silhouette and cut, collar/neckline shape, sleeve style and length, button/zipper hardware style and color, fabric weave pattern and drape direction, pocket placement and style, any distinctive stitching or seam details, tag/label placement",
+    laptop: "STUDY REFERENCE: exact laptop chassis shape, screen-to-bezel ratio, hinge design, keyboard layout and key cap shape, trackpad size and position, port locations and shapes, lid surface material and finish (aluminum/plastic/carbon), any logo or emblem on the lid (shape, position, size, color — MUST be preserved exactly), speaker grille pattern, screen display when open, chassis color and material transitions, ventilation slots",
+    phone: "STUDY REFERENCE: exact phone silhouette and edge radius, screen-to-bezel ratio, camera module layout (number of lenses, arrangement, flash position), side button placement, port location, back panel material and color, any logo or emblem on the back (shape, position, size — MUST be preserved exactly), antenna lines, SIM tray position",
+    tablet: "STUDY REFERENCE: exact tablet silhouette and proportions, screen-to-bezel ratio, camera placement (front and rear), button positions, port location, back panel material and color, any logo or emblem on the back (shape, position, size — MUST be preserved exactly), speaker positions, pencil attachment area if present",
     gadget: "STUDY REFERENCE: exact device form factor and edge radius, button placement and protrusion style, port locations and shapes, screen-to-bezel ratio, camera module layout, material transitions (metal/glass/plastic boundaries), antenna lines, LED indicator positions, logo engraving depth and placement",
     supplement: "STUDY REFERENCE: exact bottle/container shape and proportions, cap style (childproof/flip/screw), packaging layout and color scheme, capsule/tablet color and shape if visible, dosage markings, seal band, bottle material (opaque/translucent), any certification badges on packaging",
     pet: "STUDY REFERENCE: exact packaging shape, resealable mechanism, color palette and patterns, mascot/animal illustration style, portion window if present, texture of bag material, zipper or tear notch placement",
@@ -1451,6 +1455,7 @@ const CATEGORY_PRODUCT_ANATOMY: Partial<Record<ProductCategory, string>> = {
     book: "STUDY REFERENCE: exact cover layout, spine width, front cover illustration/photo, author name placement, publisher logo, any embossing or foil details, page edge color (gilt/plain), bookmark ribbon color",
     toy: "STUDY REFERENCE: exact figurine/toy proportions, articulation points, color placement on each body section, facial expression and eye style, accessory shapes, packaging window size, brand logo placement",
     stationery: "STUDY REFERENCE: exact pen/pencil barrel shape and taper, clip design, nib/tip style, cap attachment mechanism, grip section texture, barrel print pattern, brand marking placement and size",
+    dental: "STUDY REFERENCE: exact toothpaste tube shape (cylindrical/flat/standing), cap design (flip-top/screw), tube material (plastic/metal), exact color gradient bands on packaging, logo placement and size on tube front, text layout on packaging, nozzle opening shape, squeeze zone ridges, tube bottom seal style, any decorative stripe or accent lines on tube body",
     cleaning: "STUDY REFERENCE: exact bottle shape and grip indentations, trigger spray or cap type, packaging color blocks and layout, liquid color and opacity visible through bottle, nozzle angle, safety cap style, volume markings",
     outdoor: "STUDY REFERENCE: exact equipment shape, strap adjustment system, buckle and hardware style, fabric panel colors and pattern, zipper pulls, brand patch placement, reflective elements, D-ring or attachment points",
     health: "STUDY REFERENCE: exact device shape and display area, button layout, sensor placement, measurement scale markings, power indicator, material transitions, carrying case shape, brand marking placement",
@@ -1463,6 +1468,54 @@ const CATEGORY_PRODUCT_ANATOMY: Partial<Record<ProductCategory, string>> = {
 const buildProductAnatomyDirective = (category: ProductCategory, productName: string): string => {
     const anatomy = CATEGORY_PRODUCT_ANATOMY[category] || CATEGORY_PRODUCT_ANATOMY["other"] || "STUDY REFERENCE: exact product shape, dimensions, material, color, logo placement, distinctive design elements";
     return `PRODUCT ANATOMY CHECKLIST for "${productName}": ${anatomy}. Preserve EVERY distinctive design element exactly as shown in the reference image — do NOT simplify, do NOT reimagine, do NOT substitute with generic shapes. If the reference shows a unique cap shape, that EXACT cap shape must appear. If it shows a specific liquid color, that EXACT color must render.`;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BRAND VISUAL SIGNATURE — explicit logo/emblem directives for major brands
+// Uses visual descriptions (not brand names) to avoid policy/safety filters
+// while ensuring AI renders the distinctive brand mark from the reference image.
+// ═══════════════════════════════════════════════════════════════════════════
+const getBrandVisualSignature = (originalProductName: string, category: ProductCategory, productAnalysis?: string): string => {
+    const combinedText = `${originalProductName} ${productAnalysis || ''}`.toLowerCase();
+
+    // ── Apple products — distinctive bitten-fruit silhouette emblem ──
+    if (/\b(apple|macbook|ipad|iphone|imac|airpods|homepod|apple\s*watch)\b/i.test(originalProductName)) {
+        // Detect chassis color from product name + AI analysis for logo contrast rule
+        const isDark = /\b(space.?gr[ae]y|midnight|black|dark|สีดำ|เทาดำ|graphite)\b/i.test(combinedText);
+        const isSilver = /\b(silver|starlight|white|สีขาว|สีเงิน|natural)\b/i.test(combinedText);
+
+        if (category === 'laptop') {
+            const logoColor = isDark
+                ? 'Against the dark chassis, the emblem appears as a subtle lighter metallic tone.'
+                : isSilver
+                    ? 'Against the silver chassis, the emblem appears as a subtle darker tone.'
+                    : 'The emblem subtly contrasts with the lid surface — match reference exactly.';
+            return `BRAND VISUAL SIGNATURE (CRITICAL): The laptop lid MUST display a single small centered fruit-shaped silhouette emblem (bitten on the right side, with a small leaf at top) — this is the product's #1 ICONIC visual identity feature. ${logoColor} The emblem must be clean, sharp-edged, precisely centered on the lid. When the lid is visible (open or closed), this emblem MUST be clearly rendered — NEVER omit, NEVER replace with a blank surface, NEVER invent a different logo.`;
+        }
+        if (category === 'phone') {
+            return `BRAND VISUAL SIGNATURE (CRITICAL): The phone's back panel MUST display a single small centered fruit-shaped silhouette emblem (bitten on the right side, small leaf at top) — this is the product's #1 ICONIC visual identity. When the back is visible, the emblem MUST be clearly rendered. NEVER omit.`;
+        }
+        if (category === 'tablet') {
+            return `BRAND VISUAL SIGNATURE (CRITICAL): The tablet's back panel MUST display a single small centered fruit-shaped silhouette emblem (bitten on the right side, small leaf at top) — this is the product's #1 ICONIC visual identity. When the back is visible, the emblem MUST be clearly rendered. NEVER omit.`;
+        }
+        if (category === 'audio') {
+            return `BRAND VISUAL SIGNATURE: Preserve the exact distinctive stem/capsule shape and any emblem from the reference. The earbuds must match the reference silhouette precisely.`;
+        }
+        if (category === 'wearable') {
+            return `BRAND VISUAL SIGNATURE: Preserve the exact crown/button shape and case silhouette from the reference. The watch must match the reference design precisely.`;
+        }
+        return `BRAND VISUAL SIGNATURE: The product MUST display a small centered fruit-shaped silhouette emblem (bitten on the right side, small leaf at top) exactly as shown in reference. NEVER omit this distinctive mark.`;
+    }
+
+    // ── Samsung — wordmark on bezel/chin or back ──
+    if (/\b(samsung|galaxy)\b/i.test(originalProductName)) {
+        if (category === 'phone' || category === 'tablet') {
+            return `BRAND VISUAL SIGNATURE: Preserve the horizontal wordmark text on the device bezel or back panel exactly as shown in reference image.`;
+        }
+    }
+
+    // ── Generic: rely on reference image for logo fidelity ──
+    return '';
 };
 
 // Product Match Directive — ensures product matches input reference exactly
@@ -1553,7 +1606,7 @@ const CATEGORY_IMAGE_INTERACTION: Partial<Record<ProductCategory, string>> = {
     beauty: "CHARACTER ACTION: Character applies product to skin — dabbing cream on cheek or pressing perfume nozzle. Show product texture on skin. Satisfied glowing expression.",
     skincare: "CHARACTER ACTION: Character applies cream/serum to face with fingertips in upward motion, showing product texture. Skin looks radiant and hydrated. Satisfied expression.",
     makeup: "CHARACTER ACTION: Character applies product — holding lipstick to lips, brush to cheek, or mascara wand to lashes. Show precise application technique. Confident glamorous expression.",
-    fragrance: "CHARACTER ACTION: Character sprays perfume on wrist (cap already removed), then brings wrist near nose to smell. Blissful expression from the scent. Elegant pose.",
+    fragrance: "CHARACTER ACTION: Character holds perfume bottle showing label at chest level. Uses fingers to gently lift decorative cap off (visible hand motion — cap held in other hand, NOT vanished). Sprays on wrist — mist visible. Brings wrist near nose, closes eyes, blissful expression. Bottle shape and silhouette remain IDENTICAL throughout. STABLE camera angle, no orbit.",
     sunscreen: "CHARACTER ACTION: Character applies sunscreen dots on face then spreads evenly, outdoor sunny setting visible. Protected, confident expression.",
     haircare: "CHARACTER ACTION: Character runs fingers through shiny healthy hair after using product. Hair looks silky and luminous. Satisfied expression.",
     fashion: "CHARACTER ACTION: Character shows off outfit — adjusting collar, smoothing fabric, or striking a confident pose. Show fabric texture and fit. Stylish confident expression.",
@@ -1622,11 +1675,11 @@ const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     skincare: "REALISTIC USAGE: Remove cap or pump lid BEFORE dispensing. Squeeze tube from bottom or press pump 1-2 times. Apply small amount to fingertips first, then spread on skin in gentle upward motions. Show clean face before application.",
     makeup: "REALISTIC USAGE: Remove cap from lipstick/mascara first, twist up product if needed. Open compact/palette before using brush. Dip brush or applicator, tap off excess, then apply to face. Show precise application technique.",
     haircare: "REALISTIC USAGE: Open shampoo/conditioner cap or flip lid BEFORE squeezing. Pour into palm first, then work into hair. For spray — remove cap and press nozzle aimed at hair. Show wet or damp hair for shampoo, dry hair for styling products.",
-    fragrance: "REALISTIC USAGE: Remove decorative cap from perfume bottle BEFORE spraying. Hold bottle 15-20cm from skin. Press nozzle with index finger for single spray. Target pulse points (wrist, neck). Never spray with cap still on.",
+    fragrance: "REALISTIC USAGE: Character uses fingers to GENTLY LIFT the decorative cap off the perfume bottle in a smooth visible hand motion — cap removal must be shown as a NATURAL HAND ACTION (fingers gripping cap, lifting upward), NEVER an instant disappearance. After removing, hold cap in other hand or place it visibly on surface nearby — cap must NOT vanish from frame. Hold bottle 15-20cm from skin. Press nozzle with index finger for single spray. Target pulse points (wrist, neck). The bottle SHAPE and SILHOUETTE must remain IDENTICAL before and after cap removal — only the cap is separated, the body never changes.",
     sunscreen: "REALISTIC USAGE: Flip cap open or remove lid BEFORE squeezing. Squeeze onto fingertips or palm first. Apply in dots on face/body, then spread evenly. Show outdoor/sunny setting for context. Apply BEFORE sun exposure.",
     nail: "REALISTIC USAGE: Unscrew nail polish cap by twisting. Wipe excess on bottle rim. Apply in thin strokes from base to tip of nail. Show steady hand technique. For nail tools — remove from packaging first. Let layers dry between coats.",
     soap: "REALISTIC USAGE: For bar soap — unwrap packaging first, wet hands and bar, lather between palms. For liquid soap — press pump to dispense onto wet hands. For body wash — squeeze onto loofah or palm. Show water and foam/lather.",
-    dental: "REALISTIC USAGE: Remove cap from toothpaste, squeeze onto bristles of toothbrush. For mouthwash — unscrew cap, pour measured amount into cap or cup. For floss — pull out strand, wrap around fingers. Show proper brushing/flossing technique.",
+    dental: "REALISTIC USAGE: Remove cap from toothpaste tube FIRST, then squeeze paste onto the BRISTLE SIDE (top surface where bristles face UP) of the toothbrush — NEVER squeeze onto the back/bottom of the brush. The toothpaste TUBE is the PRODUCT and must always be the most prominent item. The toothbrush is just a PROP — always smaller and secondary. For mouthwash — unscrew cap, pour measured amount into cap or cup. For floss — pull out strand, wrap around fingers. Show proper brushing/flossing technique.",
     barbershop: "REALISTIC USAGE: For clippers — attach guard first, turn on with switch. For razor — remove cap, apply shaving cream first then shave in direction of growth. For styling products — open jar/tube, scoop with fingers, work through hair.",
 
     // ── Health & Wellness (10) ──
@@ -2638,18 +2691,18 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
         ]
     },
     fragrance: {
-        knowledge: "Perfume bottles MUST show cap removal before spraying. Key showcase: bottle design, cap shape, spray nozzle, mist in air, wrist/neck application, enjoying the scent. Never spray with cap on.",
+        knowledge: "Perfume bottle shape and decorative cap are the #1 identity features — they must NEVER morph or change shape. Cap removal must be a VISIBLE HAND ACTION (fingers gripping and lifting), never instant disappearance. Keep camera STABLE — avoid orbit/rotation that causes shape morphing. Key showcase: bottle held at stable angle showing label, natural cap removal with hands, spray mist, wrist/neck application, enjoying scent.",
         sceneActions: [
-            "Presenter holds perfume bottle showing design — ornate cap, glass shape, liquid color visible.",
-            "Presenter removes decorative cap — reveals spray nozzle. Satisfying cap-off moment.",
-            "Presenter sprays on wrist — visible mist in air catching light. One or two sprays.",
-            "Presenter brings wrist to nose — closes eyes, smiles, enjoys the scent. Genuine reaction.",
-            "Close-up of bottle — liquid level, glass transparency, light refraction through fragrance.",
-            "Presenter sprays on neck/pulse point — proper fragrance application technique.",
-            "Presenter shows cap detail — ornate design, magnetic closure, premium feel.",
-            "Presenter places bottle on vanity/display — beauty of bottle as decorative object.",
-            "Presenter puts cap back on, holds bottle proudly — complete ritual.",
-            "Closing — presenter with confident satisfied expression, bottle prominent in frame."
+            "Presenter holds perfume bottle at chest level with STABLE camera angle — label and decorative cap clearly visible, bottle shape consistent.",
+            "Presenter uses fingers to GENTLY LIFT decorative cap off bottle (visible hand motion, cap held in other hand or placed nearby) — cap does NOT vanish.",
+            "Presenter sprays on wrist from STABLE angle — visible mist in air catching light. One spray. Bottle shape unchanged.",
+            "Presenter brings wrist to nose — closes eyes, smiles, enjoys the scent. Bottle remains visible in other hand, same shape.",
+            "STABLE close-up of bottle in presenter's hands — label, glass transparency, liquid color visible. No camera orbit or rotation.",
+            "Presenter sprays on neck pulse point from STABLE medium shot — bottle shape consistent throughout.",
+            "Presenter holds bottle showing decorative cap detail — cap shape IDENTICAL to reference. STABLE angle.",
+            "Presenter places bottle on vanity/display at STABLE angle — bottle shape consistent, decorative cap visible.",
+            "Presenter picks up cap and places it back on bottle with visible hand motion — complete ritual. STABLE shot.",
+            "Closing — presenter holds bottle prominently showing label and cap, confident smile. STABLE medium shot, bottle shape identical to scene start."
         ]
     },
     skincare: {
@@ -5207,6 +5260,7 @@ const CATEGORY_POWER_WORDS: Partial<Record<ProductCategory, string[]>> = {
     book: ["อ่านสนุกมาก", "เนื้อหาดี", "วางไม่ลง", "เปลี่ยนมุมมอง", "ได้ความรู้เพียบ", "เขียนดีมาก", "อ่านจบในวันเดียว"],
     toy: ["เล่นสนุกมาก", "สีสันสดใส", "พัฒนาสมอง", "ปลอดภัย", "เด็กชอบมาก", "เล่นได้นาน", "วัสดุดี"],
     stationery: ["เขียนลื่นมาก", "ดีไซน์สวย", "จับถนัดมือ", "สีสดสวย", "คุณภาพดี", "ใช้แล้วติดใจ", "เขียนสบาย"],
+    dental: ["ฟันขาวขึ้น", "สะอาดหมดจด", "ลมหายใจสดชื่น", "ฟอกขาวจริง", "สูตรฟลูออไรด์", "เหงือกแข็งแรง", "ยิ้มมั่นใจ"],
     cleaning: ["สะอาดหมดจด", "ขจัดคราบง่าย", "กลิ่นหอมสะอาด", "ใช้ง่าย", "ทรงพลัง", "ฆ่าเชื้อ 99%", "คราบหลุดทันที"],
     outdoor: ["ทนทุกสภาพอากาศ", "พกพาสะดวก", "น้ำหนักเบา", "คุณภาพสูง", "ใช้งานง่าย", "เหมาะกับทุกทริป", "กันน้ำได้"],
     health: ["แม่นยำมาก", "ใช้ง่าย", "ผลลัพธ์น่าเชื่อถือ", "ดูแลสุขภาพได้", "วัดผลเร็ว", "มาตรฐานแพทย์", "พกพาสะดวก"],
@@ -5259,6 +5313,7 @@ const CATEGORY_BENEFITS: Partial<Record<ProductCategory, string[]>> = {
     book: ["อ่านสนุก วางไม่ลงเลย", "เนื้อหาดี ได้ความรู้เพียบ", "เปลี่ยนมุมมอง เปิดโลกใหม่", "เขียนดีมาก อ่านง่าย"],
     toy: ["เด็กเล่นสนุก พัฒนาสมอง", "วัสดุปลอดภัย พ่อแม่วางใจ", "เล่นได้นาน ไม่เบื่อง่าย", "สีสันสดใส ดึงดูดสายตา"],
     stationery: ["เขียนลื่น จับถนัดมือ", "ดีไซน์สวย ใช้แล้วอยากเขียน", "สีสด คมชัด ทุกเส้น", "คุณภาพดี ใช้ได้ยาวนาน"],
+    dental: ["แปรงแล้วฟันขาวขึ้นจริง", "ลมหายใจสดชื่นตลอดวัน", "เหงือกแข็งแรง ฟันไม่ผุ", "ยิ้มสวยมั่นใจทุกวัน"],
     cleaning: ["สะอาดหมดจด ใช้ง่ายมาก", "ขจัดคราบฝังแน่นได้ทันที", "กลิ่นหอม สะอาดยาวนาน", "ประหยัด ใช้นิดเดียวก็เกลี้ยง"],
     outdoor: ["พกพาง่าย น้ำหนักเบา", "ทนทุกสภาพอากาศ ใช้ได้นาน", "เหมาะกับทุกทริป ทุกกิจกรรม", "กันน้ำกันฝุ่น ใช้ได้ทุกที่"],
     health: ["วัดผลแม่นยำ เชื่อถือได้", "ใช้ง่าย อ่านค่าเข้าใจทันที", "ดูแลสุขภาพที่บ้านได้เลย", "มาตรฐานทางการแพทย์"],
@@ -5280,7 +5335,7 @@ const CATEGORY_URGENCY: Partial<Record<ProductCategory, string[]>> = {
     home: ["สั่งเลย เปลี่ยนบ้านวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "รีบเลย ก่อนหมด!"],
     kitchen: ["สั่งเลย อัปเกรดครัววันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "รีบเลย ก่อนหมด!"],
     fitness: ["สั่งเลย เริ่มเทรนวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "ไม่รอ ฟิตเลย!"],
-    auto: ["สั่งเลย อัปเกรดรถวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "ของมีจำนวนจำกัด!"],
+    auto: ["สั่งเลย อัปเกรดรถวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "ของมีจำนวนจำกัด!"],
     jewelry: ["สั่งเลย ก่อนแบบนี้หมด!", "โปรนี้หมดแล้วหมดเลย!", "กดสั่งวันนี้!", "ของมีจำกัด!"],
     watch: ["สั่งเลย ก่อนรุ่นนี้หมด!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "ของมีจำนวนจำกัด!"],
     bag: ["สั่งเลย ก่อนสีนี้หมด!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "รีบเลย ก่อนหมด!"],
@@ -5288,6 +5343,7 @@ const CATEGORY_URGENCY: Partial<Record<ProductCategory, string[]>> = {
     book: ["สั่งเลย อ่านวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "อย่าพลาดเล่มนี้!"],
     toy: ["สั่งเลย ให้เด็กๆ ได้เล่น!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "ของมีจำนวนจำกัด!"],
     stationery: ["สั่งเลย ก่อนหมด!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "รีบเลย ก่อนหมด!"],
+    dental: ["สั่งเลย ฟันขาวรอไม่ได้!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "อย่ารอ สุขภาพช่องปากสำคัญ!"],
     cleaning: ["สั่งเลย บ้านสะอาดวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "ของมีจำนวนจำกัด!"],
     outdoor: ["สั่งเลย พร้อมลุยเลย!", "โปรนี้มีจำกัด!", "กดสั่งวันนี้!", "ของมีจำนวนจำกัด!"],
     health: ["สั่งเลย ดูแลสุขภาพวันนี้!", "โปรนี้มีจำกัด!", "กดสั่งเลย!", "สุขภาพสำคัญ อย่ารอ!"],
@@ -5309,6 +5365,7 @@ const CATEGORY_REVIEW_PHRASE: Partial<Record<ProductCategory, string[]>> = {
     fitness: ["เทรนมาเห็นผลจริง", "กล้ามชัดขึ้นเลย", "จับถนัดมือ เทรนได้เต็มที่"],
     jewelry: ["ใส่แล้วสวยมาก ประกายจับตา", "งานละเอียด คุณภาพเยี่ยม", "ใส่ออกงานได้ทุกโอกาส"],
     watch: ["สวมแล้วดูดีมาก มีระดับ", "เครื่องเดินแม่น ไม่ผิดเวลา", "ใส่แล้วมีออร่าเลย"],
+    dental: ["แปรงปุ๊บ สดชื่นปั๊บ", "ฟันขาวขึ้นตั้งแต่วันแรก", "ลมหายใจหอมสดชื่นมาก"],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5647,16 +5704,16 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `${name} ปกปิดดีมาก คอนซีลเก่ง`, action: "CAMERA: Before/after close-up on dark circles/blemishes. Applies concealer — spots disappear visibly. Flawless coverage revealed. Full-coverage concealing PROOF." },
     ],
     fragrance: [
-        { script: (name) => `กลิ่น ${name} หอมหรูมาก`, action: "CAMERA: Elegant slow-motion medium shot. Presenter FIRST holds perfume bottle showing label to camera, THEN rotates bottle showing silhouette catching light, THEN sprays on wrist — mist visible in air, THEN brings wrist to nose closing eyes in bliss. Bottle angle changes throughout. Visible spray mist + pleasure reaction PROOF." },
-        { script: (name) => `${name} ติดทนนาน กลิ่นหอมตลอดวัน`, action: "CAMERA: Time-jump medium shot. Presenter FIRST sprays perfume showing bottle angle, THEN sets bottle down showing label, THEN brings wrist to nose — still pleased, THEN picks up bottle again rotating to show design. Nods approvingly. Lasting scent PROOF." },
-        { script: (name) => `ขวด ${name} สวยหรู ดูมีระดับ`, action: "CAMERA: Macro orbit around perfume bottle. Presenter FIRST shows bottle front with label, THEN slowly rotates showing glass facets catching light, THEN tilts to show premium cap detail, THEN holds at angle showing silhouette against background. Continuous 360° rotation — never pauses at one angle. Luxury bottle design PROOF." },
-        { script: (name) => `${name} กลิ่นไม่ฉุน หอมละมุน`, action: "CAMERA: Close-up reaction shot. Sprays on wrist — first sniff shows soft pleasant surprise. Not overpowering, subtle elegance. Gentle sophisticated scent PROOF." },
-        { script: (name) => `ฉีด ${name} นิดเดียว หอมทั้งวัน`, action: "CAMERA: Close-up then medium. Presenter FIRST shows bottle close-up with label detail, THEN tilts to spray position, THEN one elegant spray — mist visible, THEN rotates bottle back to show front. Confident expression. Concentrated potency PROOF." },
-        { script: (name) => `${name} กลิ่นเปลี่ยนตามเวลา ลึกซึ้งมาก`, action: "CAMERA: Atmospheric medium shot. Presenter smells at different times — expression evolves, discovering new notes. Complex scent journey. Layered fragrance evolution PROOF." },
-        { script: (name) => `ใส่ ${name} แล้ว ทุกคนหันมอง`, action: "CAMERA: Lifestyle tracking shot. Presenter walks confidently after spraying — people turning heads, impressed reactions implied. Attention-grabbing scent PROOF." },
-        { script: (name) => `${name} หอมสะอาด สดชื่นมาก`, action: "CAMERA: Bright clean-lit medium shot. Sprays and inhales — refreshed, clean expression. Fresh and clean scent profile. Fresh clean fragrance PROOF." },
-        { script: (name) => `กลิ่น ${name} เข้ากับทุกโอกาส`, action: "CAMERA: Multiple outfit/setting cuts. Presenter wearing fragrance in different contexts — work, date, casual. Versatile for all occasions PROOF." },
-        { script: (name) => `${name} แพ็คเกจสวย ให้เป็นของขวัญได้`, action: "CAMERA: Overhead unboxing shot. Opens elegant gift packaging — reveals perfume bottle nestled in premium box. Perfect gift presentation PROOF." },
+        { script: (name) => `กลิ่น ${name} หอมหรูมาก`, action: "CAMERA: STABLE medium shot, NO camera orbit or rotation. Presenter holds perfume bottle at chest level with BOTH hands, label facing camera — bottle shape and decorative cap clearly visible. Presenter smiles confidently, gently tilts bottle slightly left-right to catch light on glass. Bottle silhouette NEVER changes. Luxury scent PROOF." },
+        { script: (name) => `${name} ติดทนนาน กลิ่นหอมตลอดวัน`, action: "CAMERA: STABLE medium shot, NO camera movement. Presenter holds bottle in one hand showing label, brings wrist (already sprayed) to nose with other hand — closes eyes, inhales, blissful smile. Bottle remains STATIONARY in frame throughout, same angle, same shape. Lasting scent PROOF." },
+        { script: (name) => `ขวด ${name} สวยหรู ดูมีระดับ`, action: "CAMERA: STABLE close-up on bottle held in presenter's hands, NO orbit, NO 360 rotation. Bottle faces camera showing label and decorative cap. Presenter's fingers gently frame the bottle. Light catches glass facets naturally. Bottle silhouette and cap shape remain FIXED — never changes angle. Luxury bottle PROOF." },
+        { script: (name) => `${name} กลิ่นไม่ฉุน หอมละมุน`, action: "CAMERA: STABLE medium close-up. Presenter holds bottle in one hand at shoulder level showing label. With other hand, brings wrist near nose — soft pleasant expression, gentle smile. Bottle shape unchanged throughout. Gentle scent PROOF." },
+        { script: (name) => `ฉีด ${name} นิดเดียว หอมทั้งวัน`, action: "CAMERA: STABLE medium shot. Presenter holds bottle showing label to camera. Uses fingers to gently lift decorative cap off (visible hand motion, cap held in other hand). Points nozzle at wrist, one spray — mist visible in air. Bottle body shape IDENTICAL before and after cap removal. Concentrated potency PROOF." },
+        { script: (name) => `${name} กลิ่นเปลี่ยนตามเวลา ลึกซึ้งมาก`, action: "CAMERA: STABLE atmospheric medium shot, NO camera movement. Presenter holds bottle at chest, smells wrist — expression evolves from curious to pleased to deeply satisfied. Bottle remains in frame, same position, same shape. Layered scent PROOF." },
+        { script: (name) => `ใส่ ${name} แล้ว มั่นใจมาก`, action: "CAMERA: STABLE medium shot. Presenter holds bottle showing label, sprays on neck pulse point — confident expression. Sets bottle down on surface in front (still visible, label facing camera). Smiles at camera. Bottle shape consistent. Confidence PROOF." },
+        { script: (name) => `${name} หอมสะอาด สดชื่นมาก`, action: "CAMERA: STABLE bright medium shot, NO tracking. Presenter holds bottle showing label in one hand, sprays wrist with other. Inhales — refreshed, clean expression. Bottle remains in hand at same angle throughout. Fresh clean scent PROOF." },
+        { script: (name) => `กลิ่น ${name} เข้ากับทุกโอกาส`, action: "CAMERA: STABLE medium shot, same angle throughout. Presenter holds bottle showing label, nods confidently. Gestures with free hand showing versatility. Bottle stays in same position, same shape, same angle. Versatile scent PROOF." },
+        { script: (name) => `${name} แพ็คเกจสวย ให้เป็นของขวัญได้`, action: "CAMERA: STABLE overhead-angle shot looking down. Perfume bottle placed on elegant surface — full bottle with decorative cap visible from above. Presenter's hands gently frame the bottle. Bottle shape consistent from this single angle. Gift-worthy packaging PROOF." },
     ],
     sunscreen: [
         { script: (name) => `ทา ${name} แล้ว ปกป้องผิว ไม่วอก`, action: "CAMERA: Close-up application. Squeezes onto palm — lightweight texture, spreads evenly on face. Blends completely, no white cast. Invisible natural finish PROOF." },
@@ -5681,6 +5738,22 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `จัดทรงด้วย ${name} อยู่ทรงนาน`, action: "CAMERA: Styling medium shot. Applies styling product — shapes hair into desired style. Shows lasting hold through movement. Styling hold PROOF." },
         { script: (name) => `${name} ทาแล้วไม่เหนียว ผมลื่นมาก`, action: "CAMERA: Close-up running fingers through. Applies product — hair stays light, not weighed down. Fingers glide through smoothly. Lightweight non-sticky PROOF." },
         { script: (name) => `ผมเงา ${name} สวยมาก เหมือนทำร้าน`, action: "CAMERA: Cinematic slow-motion hair flip. Light catches glossy hair strands — mirror-like shine. Salon-quality result at home. Professional shine PROOF." },
+    ],
+    // ═══════════════════════════════════════════════════════════════
+    // ── Dental ── (VISUAL PROOF: must show PRODUCT TUBE as HERO + REALISTIC USAGE)
+    // CRITICAL: Toothpaste TUBE is the product. Toothbrush is a PROP — always smaller/secondary.
+    // ═══════════════════════════════════════════════════════════════
+    dental: [
+        { script: (name) => `${name} ฟอกขาวได้จริง เห็นผลเลย`, action: "CAMERA: Close-up on toothpaste tube held prominently in hand showing label to camera. Presenter FIRST shows tube front with branding clearly visible, THEN flips cap open with thumb, THEN squeezes a ribbon of paste onto the BRISTLE SIDE (top surface) of a toothbrush held in other hand. Toothpaste tube is LARGER and MORE PROMINENT than the toothbrush. Only ONE tube visible. Whitening claim PROOF." },
+        { script: (name) => `เนื้อ ${name} เนียนนุ่ม รสชาติสดชื่น`, action: "CAMERA: Macro close-up on paste emerging from tube nozzle — smooth creamy texture visible. Presenter squeezes onto BRISTLE SIDE of toothbrush. THEN brings toothbrush near mouth showing brushing motion. Toothpaste tube remains in frame, prominently visible on counter. Texture + freshness PROOF." },
+        { script: (name) => `แปรงด้วย ${name} ทุกเช้า ฟันขาวขึ้น`, action: "CAMERA: Morning bathroom medium shot. Presenter holds toothpaste tube showing label, opens cap, squeezes paste onto BRISTLE SIDE of brush. Demonstrates gentle circular brushing motion near mouth. THEN shows bright confident smile. Toothpaste tube visible throughout — it is the HERO product, toothbrush is just a prop. Daily routine PROOF." },
+        { script: (name) => `${name} สูตรฟลูออไรด์ ปกป้องฟัน`, action: "CAMERA: Close-up of toothpaste tube label showing ingredients/features. Presenter FIRST holds tube showing front branding, THEN rotates tube to show back label with ingredient info, THEN flips cap and squeezes onto BRISTLE SIDE of brush. Tube is always the dominant, largest item in frame. Protection formula PROOF." },
+        { script: (name) => `หลอด ${name} ดีไซน์สวย ใช้ง่าย`, action: "CAMERA: Macro orbit around toothpaste tube. Presenter FIRST shows tube front catching light — logo and branding crisp, THEN rotates slowly showing side profile and cap design, THEN flips cap open demonstrating easy squeeze mechanism, THEN closes cap. Continuous rotation of the tube — never static. Only ONE tube, no duplicates. Premium packaging PROOF." },
+        { script: (name) => `ใช้ ${name} มา ฟันไม่เสียวมาก`, action: "CAMERA: Medium shot, presenter holds tube prominently. Opens cap, squeezes onto BRISTLE SIDE of toothbrush. Demonstrates gentle brushing near teeth. THEN smiles showing comfortable, no-sensitivity expression. THEN holds tube back to camera for final hero shot. Sensitivity relief PROOF." },
+        { script: (name) => `${name} ลมหายใจสดชื่นตลอดวัน`, action: "CAMERA: Close-up then medium. Presenter squeezes paste from tube onto BRISTLE SIDE of brush, brushes near mouth. THEN exhales into cupped hand — fresh breath reaction, satisfied smile. THEN picks up toothpaste tube and holds to camera showing label. Tube is the HERO, always most prominent item. Fresh breath PROOF." },
+        { script: (name) => `${name} ช่วยลดคราบ ฟันสะอาดหมดจด`, action: "CAMERA: Close-up of toothpaste tube being squeezed onto BRISTLE SIDE of brush — paste ribbon clearly visible on top of bristles. Presenter brushes in gentle motions. THEN rinses and shows bright clean smile to camera. THEN holds tube showing label — product is the hero of the final shot. Stain removal PROOF." },
+        { script: (name) => `${name} เหงือกแข็งแรง ฟันแข็งแรง`, action: "CAMERA: Medium bathroom shot. Presenter holds tube showing branding, squeezes onto BRISTLE SIDE of brush. Brushes gently along gumline — careful technique shown. THEN smiles wide showing healthy gums and teeth. Tube stays visible on counter throughout. Gum health PROOF." },
+        { script: (name) => `${name} คุ้มค่ามาก ใช้ได้นาน`, action: "CAMERA: Medium shot. Presenter shows toothpaste tube — squeezes small amount onto BRISTLE SIDE of brush demonstrating economical use. THEN holds tube showing remaining product amount — still plenty left. THEN holds tube to camera as final hero shot with satisfied expression. Value + longevity PROOF." },
     ],
     // ═══════════════════════════════════════════════════════════════
     // ── Fashion & Accessories ── (VISUAL PROOF: must show WEARING + FIT/STYLE)
@@ -6140,6 +6213,7 @@ const generateThaiScript = (
         book: ["วันนี้มาอ่าน", "มาดูเล่มนี้", "ลองอ่านดู"],
         toy: ["วันนี้มาเล่น", "มาลองของเล่นนี้", "เด็กๆ มาลอง"],
         stationery: ["วันนี้ลองเขียนด้วย", "มาลองปากกานี้", "ลองใช้ดู"],
+        dental: ["วันนี้มาแปรงฟันด้วย", "มาลองยาสีฟันตัวนี้", "ลองใช้ดูแลช่องปากด้วย"],
         cleaning: ["วันนี้ลองใช้", "มาทำความสะอาดด้วย", "ลองตัวนี้"],
         outdoor: ["วันนี้ลองพกไปใช้", "มาลองเอาไปเที่ยว", "ลองใช้กลางแจ้ง"],
         health: ["วันนี้ลองวัดค่า", "มาเช็คสุขภาพด้วย", "ลองใช้ตรวจดู"],
@@ -6280,6 +6354,7 @@ export interface VideoPromptMeta {
     category: ProductCategory;     // Product category for per-scene presentation guide lookup
     talkOnlySceneIndex: number;    // 0-indexed scene that is "talk-only" (character speaks to camera, NO product shown)
     sceneActions: string[];        // PAIRED visual action per scene — matches script content (zero conflict)
+    brandVisualSignature: string;  // Brand-specific logo/emblem directive (e.g. Apple fruit emblem on lid)
 }
 
 /**
@@ -6878,9 +6953,13 @@ const buildVideoPrompt = (
         `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture in every scene.`
     ].filter(Boolean).join(' ');
 
+    // ── Brand Visual Signature — explicit logo/emblem directive for brands like Apple ──
+    const brandVisualSignature = getBrandVisualSignature(config.productName, category, productAnalysis);
+    if (brandVisualSignature) console.log(`🏷️ Brand visual signature: ${brandVisualSignature.substring(0, 80)}...`);
+
     // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
-    const productAnchor = `The ${veoSafeProductName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ${productUsageRealism}`;
+    const productAnchor = `The ${veoSafeProductName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ANTI-DUPLICATION: Only ONE copy of the product exists — NEVER show two or more copies of the same product simultaneously. LABEL LOCK: Do NOT generate, invent, or hallucinate any text, logos, or labels on the product — preserve EXACT branding from the reference image only. Any text on packaging must match the reference precisely — if unclear, show the label area slightly out of focus rather than inventing wrong text. PROPS vs PRODUCT: Any accessories (toothbrush, brush, applicator, spoon, glass, etc.) are secondary PROPS — the product itself must ALWAYS be the most prominent, largest, and most visible item in frame. Props must never obscure, replace, or visually dominate the product. PRODUCT EVERY FRAME: The product MUST be clearly visible and recognizable in EVERY single frame of this scene — never disappear, never be hidden behind hands or props, never exit the frame. TRANSITION STABILITY: During ANY camera movement, zoom, pan, cut, or transition — the product MUST maintain its EXACT same shape, silhouette, proportions, cap/closure design, and label text. Product shape is LOCKED and IMMUTABLE regardless of camera angle changes. If the product has a distinctive cap/closure (e.g. decorative perfume cap, flip-top, screw cap), it must remain the EXACT same shape and size ratio throughout — caps do NOT spontaneously disappear, morph, shrink, or change design. CAMERA STABILITY: Prefer STABLE fixed-angle shots over orbit/rotation/tracking movements. When camera MUST move, product silhouette stays pixel-locked to reference. ${productUsageRealism}`;
 
     // ── REALISM DIRECTIVE — ensures all actions look natural and believable ──
     const realismDirective = `REALISM: All character actions must look natural, authentic, and believable — real human movement, real physical interaction. No exaggerated or theatrical gestures. Photorealistic rendering only. Every motion grounded in reality.`;
@@ -6910,6 +6989,8 @@ const buildVideoPrompt = (
         `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${veoSafeProductName} กัน!`}"`,
         // ★ [3. PRODUCT IDENTITY or TALK-ONLY] — depends on random assignment
         scene1ProductBlock,
+        // [3.5. BRAND VISUAL SIGNATURE — explicit logo/emblem directive]
+        (!isScene1TalkOnly && brandVisualSignature) ? brandVisualSignature : '',
         // [4. ACTION] — character interaction or talk-only
         scene1ActionBlock,
         // [4.5. PRODUCT PRESENTATION or TALK-ONLY BODY LANGUAGE]
@@ -6952,7 +7033,8 @@ const buildVideoPrompt = (
         productUsageRealism,
         category,
         talkOnlySceneIndex,
-        sceneActions: pairedSceneActions
+        sceneActions: pairedSceneActions,
+        brandVisualSignature
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -7023,6 +7105,8 @@ export const buildSceneVideoPromptJSON = (
 
         // [2. PRODUCT or TALK-ONLY] — depends on talkOnlySceneIndex
         productBlock,
+        // [2.5. BRAND VISUAL SIGNATURE — explicit logo/emblem for brands like Apple]
+        (!isTalkOnly && meta.brandVisualSignature) ? meta.brandVisualSignature : '',
 
         // [3. VOICE + SCRIPT] — voiceoverDescriptor already contains voice lock
         meta.voiceoverDescriptor,
