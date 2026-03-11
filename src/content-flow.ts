@@ -2314,13 +2314,34 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.productImage) {
         updateStep("upload-prod", "active");
-        // ★ Remove stale file inputs left over from the character upload
-        // so that Google Flow creates a FRESH file input (same clean state as the first upload)
+
+        // ★ FULL UI RESET before 2nd upload — match the exact clean state of 1st upload
+        LOG("🧹 รีเซ็ต UI ก่อนอัพโหลดสินค้า...");
+        // 1) Close all menus/dialogs
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(300);
+        document.body.click();
+        await sleep(300);
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
+        // 2) Remove ALL stale file inputs AND hidden text inputs (neutralized leftovers)
         document.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(inp => {
-            LOG(`🧹 ลบ file input เก่าออก (name=${inp.name || "N/A"})`);
+            LOG(`🧹 ลบ file input เก่า`);
             inp.remove();
         });
-        await sleep(500);
+        document.querySelectorAll<HTMLInputElement>('input[type="text"]').forEach(inp => {
+            // Only remove hidden/invisible ones (neutralized file inputs from previous upload)
+            if (inp.offsetParent === null && !inp.closest('[role="textbox"]') && !inp.closest('[contenteditable]')) {
+                const rect = inp.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) {
+                    LOG(`🧹 ลบ hidden text input เก่า`);
+                    inp.remove();
+                }
+            }
+        });
+        await sleep(1000);
+        LOG("🧹 รีเซ็ตเสร็จ — เริ่มอัพโหลดสินค้า");
+
         try {
             const ok = await uploadImageToPromptBar(req.productImage, "product.png");
             steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
