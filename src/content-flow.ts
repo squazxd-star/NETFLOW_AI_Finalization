@@ -2731,15 +2731,16 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
             // Find prompt input and paste video prompt
             await sleep(1000);
-            const videoPromptInput = findPromptTextInput();
-            if (videoPromptInput) {
-                await setPromptText(videoPromptInput, req.videoPrompt);
-
-                // ★ Verify paste actually succeeded — check textContent
-                const pastedCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
-                if (pastedCheck.length < 20) {
-                    LOG(`⚠️ Prompt ไม่ถูกวาง (ได้ ${pastedCheck.length} ตัวอักษร) — ลองวางใหม่`);
-                    // If tab still hidden somehow, force focus again
+            let vidPromptOk = false;
+            for (let attempt = 1; attempt <= 3 && !vidPromptOk; attempt++) {
+                const videoPromptInput = findPromptTextInput();
+                if (!videoPromptInput) {
+                    LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Prompt — รอแล้วลองใหม่`);
+                    await sleep(2000);
+                    continue;
+                }
+                if (attempt > 1) {
+                    // Force focus on retry
                     if (document.hidden) {
                         try {
                             await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
@@ -2749,28 +2750,26 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     }
                     videoPromptInput.focus();
                     await sleep(500);
-                    await setPromptText(videoPromptInput, req.videoPrompt);
-                    const retryCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
-                    if (retryCheck.length < 20) {
-                        WARN(`❌ วาง Video Prompt ไม่สำเร็จแม้ลองซ้ำ (ได้ ${retryCheck.length} ตัวอักษร)`);
-                        steps.push("❌ Video Prompt");
-                        errors.push("video prompt paste failed after retry");
-                        updateStep("vid-prompt", "error");
-                    } else {
-                        LOG(`วาง Video Prompt สำเร็จหลังลองใหม่ (${retryCheck.length} ตัวอักษร)`);
-                        steps.push("✅ Video Prompt");
-                        updateStep("vid-prompt", "done");
-                    }
-                } else {
-                    LOG(`วาง Video Prompt แล้ว (${pastedCheck.length} ตัวอักษร)`);
+                }
+                await setPromptText(videoPromptInput, req.videoPrompt);
+                await sleep(500);
+                const pastedCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+                if (pastedCheck.length >= 20) {
+                    LOG(`วาง Video Prompt สำเร็จ ครั้งที่ ${attempt} (${pastedCheck.length} ตัวอักษร)`);
                     steps.push("✅ Video Prompt");
                     updateStep("vid-prompt", "done");
+                    vidPromptOk = true;
+                } else {
+                    LOG(`⚠️ ครั้งที่ ${attempt}: Prompt ไม่ถูกวาง (ได้ ${pastedCheck.length} ตัวอักษร)`);
+                    await sleep(1500);
                 }
-            } else {
-                WARN("ไม่พบช่อง Prompt สำหรับ Video Prompt");
+            }
+            if (!vidPromptOk) {
+                WARN("❌ วาง Video Prompt ไม่สำเร็จหลังลอง 3 ครั้ง — หยุด ไม่กด Generate");
                 steps.push("❌ Video Prompt");
-                errors.push("video prompt input not found");
+                errors.push("video prompt paste failed after 3 attempts");
                 updateStep("vid-prompt", "error");
+                throw new Error("Video prompt paste failed");
             }
             await sleep(1000);
 
