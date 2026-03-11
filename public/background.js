@@ -354,6 +354,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // keep channel open for async response
     }
 
+    // ── FOCUS_TAB: Activate this tab and KEEP it focused (for Slate.js paste) ──
+    // Stores previous active tab so UNFOCUS_TAB can restore it.
+    if (message?.type === 'FOCUS_TAB') {
+        const tabId = sender?.tab?.id;
+        if (!tabId) { sendResponse({ ok: false }); return true; }
+        (async () => {
+            try {
+                const [prev] = await chrome.tabs.query({ active: true, currentWindow: true });
+                const state = getTabState(tabId);
+                if (state) state._prevFocusTabId = prev?.id;
+                await chrome.tabs.update(tabId, { active: true });
+                console.log(`[Netflow BG] FOCUS_TAB: ${tabId} (prev: ${prev?.id})`);
+                sendResponse({ ok: true });
+            } catch (e) {
+                console.warn('[Netflow BG] FOCUS_TAB error:', e);
+                sendResponse({ ok: false });
+            }
+        })();
+        return true;
+    }
+
+    // ── UNFOCUS_TAB: Restore previous tab after FOCUS_TAB ──
+    if (message?.type === 'UNFOCUS_TAB') {
+        const tabId = sender?.tab?.id;
+        const state = tabId ? getTabState(tabId) : null;
+        const prev = state?._prevFocusTabId;
+        if (state) delete state._prevFocusTabId;
+        if (prev && prev !== tabId) {
+            chrome.tabs.update(prev, { active: true }).catch(() => {});
+            console.log(`[Netflow BG] UNFOCUS_TAB: restored tab ${prev}`);
+        }
+        sendResponse({ ok: true });
+        return true;
+    }
+
     // ── BRIEF_ACTIVATE_TAB: Content script asks to briefly activate its tab ──
     // This forces Chrome to render the page, updating stale DOM in background tabs.
     if (message?.type === 'BRIEF_ACTIVATE_TAB') {

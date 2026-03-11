@@ -2711,13 +2711,18 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 LOG("ไม่พบตัวบอกโหมดวิดีโอ — ดำเนินการต่อ (อาจอยู่ในโหมดวิดีโอหลัง Animate)");
             }
 
-            // Find prompt input and paste video prompt
-            // ★ Activate tab first if hidden — Slate.js needs focus to process paste events
+            // ★ FOCUS_TAB: Keep tab active during paste+generate — Slate.js REQUIRES real document focus
+            let needsUnfocus = false;
             if (document.hidden) {
-                LOG("🔄 Tab ซ่อนอยู่ — สลับมาเพื่อวาง prompt");
-                await briefActivateIfHidden();
-                await sleep(1000);
+                LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อวาง prompt + กด Generate");
+                try {
+                    await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                    needsUnfocus = true;
+                    await sleep(1500); // wait for focus to settle + DOM to render
+                } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
             }
+
+            // Find prompt input and paste video prompt
             await sleep(1000);
             const videoPromptInput = findPromptTextInput();
             if (videoPromptInput) {
@@ -2726,10 +2731,15 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 // ★ Verify paste actually succeeded — check textContent
                 const pastedCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
                 if (pastedCheck.length < 20) {
-                    LOG("⚠️ Prompt ไม่ถูกวาง — ลองสลับ tab แล้ววางใหม่");
-                    _lastBriefActivate = 0; // reset rate-limit so we can activate immediately
-                    await briefActivateIfHidden();
-                    await sleep(1500);
+                    LOG(`⚠️ Prompt ไม่ถูกวาง (ได้ ${pastedCheck.length} ตัวอักษร) — ลองวางใหม่`);
+                    // If tab still hidden somehow, force focus again
+                    if (document.hidden) {
+                        try {
+                            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                            needsUnfocus = true;
+                            await sleep(1500);
+                        } catch (_) {}
+                    }
                     videoPromptInput.focus();
                     await sleep(500);
                     await setPromptText(videoPromptInput, req.videoPrompt);
@@ -2790,6 +2800,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 steps.push("❌ Video Generate");
                 errors.push("video generate button not found");
                 updateStep("vid-generate", "error");
+            }
+
+            // ★ UNFOCUS_TAB: Restore previous tab — video generation runs fine in background
+            if (needsUnfocus) {
+                await sleep(2000); // wait for generation to start
+                try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+                LOG("🔄 คืน tab เดิม — วิดีโอกำลังสร้างเบื้องหลัง");
             }
         } catch (e: any) {
             WARN(`ขั้น 5 ผิดพลาด: ${e.message}`);
