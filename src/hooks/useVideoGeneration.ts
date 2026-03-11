@@ -36,6 +36,7 @@ export const useVideoGeneration = () => {
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<VideoGenerationResponse | null>(null);
     const [tiktokPostStatus, setTiktokPostStatus] = useState<TikTokPostProgress>(INITIAL_TIKTOK_STATUS);
+    const [lastCompletedProductName, setLastCompletedProductName] = useState<string | null>(null);
     const { toast } = useToast();
 
     // Helper: fetch cached video data URL from background for preview playback
@@ -194,6 +195,16 @@ export const useVideoGeneration = () => {
                 setIsLoading(false);
                 const source = message.source || 'rpa';
                 const senderTabId = sender?.tab?.id || message.tabId;
+
+                // Fetch per-tab productName and set it as the active product for YouTube metadata
+                if (isExtension && senderTabId) {
+                    chrome.runtime.sendMessage({ type: 'GET_TAB_PRODUCT_NAME', tabId: senderTabId }, (resp) => {
+                        if (!chrome.runtime.lastError && resp?.productName) {
+                            setLastCompletedProductName(resp.productName);
+                            console.log('[useVideoGeneration] Set lastCompletedProductName:', resp.productName, 'from tab', senderTabId);
+                        }
+                    });
+                }
 
                 // Fetch cached video data URL for preview playback + save to Video Stock
                 fetchCachedVideoDataUrl(senderTabId).then((cachedDataUrl) => {
@@ -432,5 +443,6 @@ export const useVideoGeneration = () => {
         result,
         downloadVideo,
         tiktokPostStatus,
+        lastCompletedProductName,
     };
 };

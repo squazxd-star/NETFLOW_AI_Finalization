@@ -43,6 +43,7 @@ export interface ProductionPreviewSectionProps extends SectionProps {
     isTikTokReady?: boolean;
     onTikTokNotReady?: () => void;
     productImage?: string | null;
+    activeProductName?: string | null;
 }
 
 export interface GenerationSettingsSectionProps extends SectionProps {

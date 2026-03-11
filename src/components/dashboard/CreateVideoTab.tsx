@@ -27,7 +27,7 @@ const CreateVideoTab = () => {
         defaultValues: createVideoDefaultValues,
     });
 
-    const { generate, isLoading, result, downloadVideo, tiktokPostStatus } = useVideoGeneration();
+    const { generate, isLoading, result, downloadVideo, tiktokPostStatus, lastCompletedProductName } = useVideoGeneration();
     const hasVideo = !!result?.data?.videoUrl;
     const hasImage = !!result?.data?.imageUrl;
 
@@ -310,6 +310,7 @@ const CreateVideoTab = () => {
                     // Navigate user to sync products
                 }}
                 productImage={productImage}
+                activeProductName={lastCompletedProductName}
             />
 
             {/* 5. Generation Settings - การตั้งค่าการสร้าง */}

@@ -23,6 +23,7 @@ const ProductionPreviewSection = ({
     isTikTokReady,
     onTikTokNotReady,
     productImage,
+    activeProductName,
 }: ProductionPreviewSectionProps) => {
     const autoPostYoutube = watch("autoPostYoutube");
     const autoPostTikTok = watch("autoPostTikTok");
@@ -53,16 +54,18 @@ const ProductionPreviewSection = ({
         }
     }, [autoPostYoutube, youtubeTitle, youtubeDescription, youtubeMadeForKids, youtubeVisibility, youtubeScheduleEnabled, youtubeScheduleDate, youtubeScheduleTime]);
 
+    // Resolve productName: prefer per-tab activeProductName (from last completed automation) over form value
+    const resolvedProductName = (activeProductName?.trim() || (watch("productName") as string) || "").trim();
+
     const handleGenerateTitle = async () => {
-        const productName = watch("productName") as string;
-        if (!productName?.trim()) {
+        if (!resolvedProductName) {
             toast({ title: "⚠️ ใส่ชื่อสินค้าก่อน", description: "กรุณากรอกชื่อสินค้าในส่วน 'ข้อมูลสินค้า' ก่อนใช้ AI", variant: "destructive" });
             return;
         }
         setIsGeneratingTitle(true);
         try {
             const result = await generateYouTubeMetadata({
-                productName,
+                productName: resolvedProductName,
                 productDescription: watch("productDescription") as string,
                 productImage,
                 cachedProductInfo: watch("cachedProductInfo") as string,
@@ -77,15 +80,14 @@ const ProductionPreviewSection = ({
     };
 
     const handleGenerateDesc = async () => {
-        const productName = watch("productName") as string;
-        if (!productName?.trim()) {
+        if (!resolvedProductName) {
             toast({ title: "⚠️ ใส่ชื่อสินค้าก่อน", description: "กรุณากรอกชื่อสินค้าในส่วน 'ข้อมูลสินค้า' ก่อนใช้ AI", variant: "destructive" });
             return;
         }
         setIsGeneratingDesc(true);
         try {
             const result = await generateYouTubeMetadata({
-                productName,
+                productName: resolvedProductName,
                 productDescription: watch("productDescription") as string,
                 productImage,
                 cachedProductInfo: watch("cachedProductInfo") as string,
@@ -100,8 +102,7 @@ const ProductionPreviewSection = ({
     };
 
     const handleGenerateBoth = async () => {
-        const productName = watch("productName") as string;
-        if (!productName?.trim()) {
+        if (!resolvedProductName) {
             toast({ title: "⚠️ ใส่ชื่อสินค้าก่อน", description: "กรุณากรอกชื่อสินค้าในส่วน 'ข้อมูลสินค้า' ก่อนใช้ AI", variant: "destructive" });
             return;
         }
@@ -109,7 +110,7 @@ const ProductionPreviewSection = ({
         setIsGeneratingDesc(true);
         try {
             const result = await generateYouTubeMetadata({
-                productName,
+                productName: resolvedProductName,
                 productDescription: watch("productDescription") as string,
                 productImage,
                 cachedProductInfo: watch("cachedProductInfo") as string,

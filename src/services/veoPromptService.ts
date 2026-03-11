@@ -4008,7 +4008,7 @@ const getScenePresentationDirective = (
     const idx = Math.min(sceneNumber - 1, guide.sceneActions.length - 1);
     const sceneAction = guide.sceneActions[idx] || guide.sceneActions[guide.sceneActions.length - 1];
 
-    return `PRODUCT PRESENTATION KNOWLEDGE: ${guide.knowledge} VISUAL ACTION FOR THIS SCENE: ${sceneAction}`;
+    return `PRODUCT PRESENTATION KNOWLEDGE: ${guide.knowledge} VISUAL ACTION FOR THIS SCENE: ${sceneAction} Character must shift grip, angle, and interaction with the product multiple times — never hold in one static pose.`;
 };
 
 /** Build slim contact physics directive (for video prompts — shorter to avoid policy filter) */
@@ -5509,11 +5509,11 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `แบต ${name} อึดมาก ใช้ได้ทั้งวัน`, action: "CAMERA: Medium tracking shot. Presenter FIRST shows tablet screen with battery at high charge, THEN uses tablet on desk, THEN picks up and carries while showing ANIMATED content still playing, THEN tilts to show screen from different angle. Screen always bright. Continuous repositioning across locations." },
     ],
     gaming: [
-        { script: (name) => `เล่นเกมด้วย ${name} มันส์มาก`, action: "CAMERA: High-energy Dutch-angle whip pan. Presenter gaming intensely — rapid button presses, excited focused expression. Any visible screen/monitor MUST show ANIMATED 3D game with colorful action/characters moving in real-time. RGB lighting pulsing." },
+        { script: (name) => `เล่นเกมด้วย ${name} มันส์มาก`, action: "CAMERA: High-energy Dutch-angle whip pan. Presenter FIRST shows gaming gear to camera, THEN starts gaming intensely — rapid button presses, THEN leans back showing excited expression, THEN leans forward gripping gear tightly. Screen MUST show ANIMATED 3D game. RGB lighting pulsing. Shifts between gear close-up and full reaction." },
         { script: (name) => `${name} ตอบสนองเร็วมาก ไม่แลค`, action: "CAMERA: Snap zoom onto hands then screen. Rapid input — clicks show instant on-screen response. Screen MUST show ANIMATED game graphics responding in real-time. Zero delay competitive moment." },
-        { script: (name) => `ดีไซน์ ${name} สวย RGB จัดเต็ม`, action: "CAMERA: Smooth sweeping orbit around gear. Shows gaming gear from multiple angles — RGB lighting cycling through vivid colors actively animating. Premium gaming aesthetic with cinematic lighting." },
+        { script: (name) => `ดีไซน์ ${name} สวย RGB จัดเต็ม`, action: "CAMERA: Smooth sweeping orbit around gear. Presenter FIRST holds gear showing front design, THEN rotates to show side profile with RGB cycling, THEN tilts showing top/bottom detail, THEN brings close to camera for finish quality. Continuous 360° rotation — never pauses at one angle. Premium gaming aesthetic." },
         { script: (name) => `${name} เสียงชัดมาก ได้ยินทุกรายละเอียด`, action: "CAMERA: Close-up macro on headset/speaker, then pull-back to gaming setup. Presenter wearing headset, reacts to in-game audio — flinches at explosion sound, grins at victory. Immersive audio demo." },
-        { script: (name) => `${name} จับถนัดมือ เล่นนานไม่เมื่อย`, action: "CAMERA: Macro tracking along controller/mouse contours. Presenter grips controller/mouse — ergonomic hand fit, comfortable extended session. Then pulls back to show relaxed gaming posture. Comfort demo." },
+        { script: (name) => `${name} จับถนัดมือ เล่นนานไม่เมื่อย`, action: "CAMERA: Macro tracking along controller/mouse contours. Presenter FIRST shows gear from front angle, THEN grips showing ergonomic hand fit, THEN rotates to show side buttons/scroll, THEN pulls back showing relaxed gaming posture. Shifts between close-up grip and wide comfort view. Comfort demo." },
         { script: (name) => `เซ็ตอัป ${name} สวยมาก ครบเซ็ต`, action: "CAMERA: Wide establishing shot then sweeping crane-down into setup. Full gaming battlestation — monitor with ANIMATED game, RGB keyboard/mouse, headset. Presenter sits down and starts playing. Setup showcase." },
         { script: (name) => `${name} คอนโทรลแม่น ยิงทีไรโดน`, action: "CAMERA: Over-shoulder tracking shot of hands. Precise mouse/controller movements — quick aiming, snapping to targets. Screen shows ANIMATED FPS/competitive game with crosshair hitting targets. Precision gameplay." },
         { script: (name) => `ไฟ ${name} สวยมาก เปลี่ยนสีได้`, action: "CAMERA: Slow-motion sweep in dim room. RGB lighting illuminating presenter's face — colors cycling, breathing effects, reactive patterns. Keyboard/mouse/headset all glowing. Atmospheric gaming ambiance." },
@@ -5722,8 +5722,8 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `ใส่ ${name} แล้ว ดูหรูหราเลย`, action: "CAMERA: Cinematic medium portrait. Presenter wearing jewelry — elegant pose, luxury aesthetic. Jewelry elevating entire look. Luxury elevation PROOF." },
     ],
     watch: [
-        { script: (name) => `สวม ${name} แล้ว ดูมีระดับมาก`, action: "CAMERA: Close-up wrist shot with orbit. Adjusts watch — face catches light, dial details visible. Pulls sleeve up. Sophisticated wrist check. Premium dial + outfit elevation PROOF." },
-        { script: (name) => `เครื่อง ${name} เดินแม่น ดูดีทุกมุม`, action: "CAMERA: Extreme macro on watch face. Second hand ticking, dial markings crisp. Rotates wrist showing case from angles. Precision movement + craftsmanship PROOF." },
+        { script: (name) => `สวม ${name} แล้ว ดูมีระดับมาก`, action: "CAMERA: Close-up wrist shot with orbit. Presenter FIRST shows watch face straight-on catching light, THEN rotates wrist to show side profile/crown, THEN tilts wrist for dial detail close-up, THEN pulls sleeve showing watch with outfit. Continuous wrist angle changes. Premium dial + outfit elevation PROOF." },
+        { script: (name) => `เครื่อง ${name} เดินแม่น ดูดีทุกมุม`, action: "CAMERA: Extreme macro on watch face. FIRST shows dial straight-on — second hand ticking, markings crisp, THEN tilts wrist to show case thickness from side, THEN rotates showing caseback detail, THEN returns to face angle. Continuous wrist rotation showing every angle. Precision movement + craftsmanship PROOF." },
         { script: (name) => `สาย ${name} ใส่สบาย เปลี่ยนได้`, action: "CAMERA: Close-up strap detail. Shows strap material — comfortable on wrist, easy adjustment. Quick-release mechanism demo. Strap comfort + swappability PROOF." },
         { script: (name) => `${name} กันน้ำ ใส่อาบน้ำได้`, action: "CAMERA: Dynamic shot near water. Watch exposed to water — still functioning perfectly. Presenter checks time confidently. Water resistance PROOF." },
         { script: (name) => `หน้าปัด ${name} สวยมาก อ่านง่าย`, action: "CAMERA: Macro close-up on dial. Clear indices, hands, complications — easy to read at glance. Beautiful dial design. Legibility + dial beauty PROOF." },
@@ -5734,10 +5734,10 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `ใส่ ${name} ไปไหนก็ได้ เข้ากับทุกชุด`, action: "CAMERA: Multiple outfit context shots. Same watch with formal, casual, sporty outfits — works with all. Universal versatility PROOF." },
     ],
     bag: [
-        { script: (name) => `สะพาย ${name} แล้ว ดูดีมาก`, action: "CAMERA: Tracking shot following walk. Puts bag on shoulder — adjusts strap, walks naturally. Shape holds, material quality visible. Flattering carry + premium material PROOF." },
-        { script: (name) => `${name} ใส่ของได้เยอะ ช่องเยอะ`, action: "CAMERA: Overhead shot into bag interior. Opens bag — organized compartments. Puts phone, wallet, keys into pockets. Organized interior + capacity PROOF." },
+        { script: (name) => `สะพาย ${name} แล้ว ดูดีมาก`, action: "CAMERA: Tracking shot following walk. Presenter FIRST holds bag showing front design to camera, THEN puts on shoulder adjusting strap, THEN walks showing side profile, THEN turns to show back. Shape holds, material quality visible at every angle. Multi-angle carry showcase PROOF." },
+        { script: (name) => `${name} ใส่ของได้เยอะ ช่องเยอะ`, action: "CAMERA: Overhead shot into bag interior. Presenter FIRST shows bag exterior closed, THEN unzips revealing organized compartments, THEN puts phone/wallet/keys in, THEN lifts bag showing fullness without bulge, THEN closes and shows exterior again. Open-to-close dynamic sequence. Organized interior + capacity PROOF." },
         { script: (name) => `ซิป ${name} ลื่นมาก เปิดปิดง่าย`, action: "CAMERA: Macro close-up on hardware. Zips smoothly — premium metal hardware catching light. Buckle, clasp, logo detail. Hardware quality PROOF." },
-        { script: (name) => `หนัง ${name} คุณภาพดี สวยมาก`, action: "CAMERA: Macro tracking on material surface. Premium leather/fabric — texture, grain, stitching visible. Presenter touches material admiringly. Material quality PROOF." },
+        { script: (name) => `หนัง ${name} คุณภาพดี สวยมาก`, action: "CAMERA: Macro tracking on material surface. Presenter FIRST shows bag front material close-up, THEN runs finger along stitching, THEN flips to show back material texture, THEN tilts to show grain/finish catching light. Continuous surface exploration. Material quality PROOF." },
         { script: (name) => `${name} สะพายไม่เมื่อย เบาดี`, action: "CAMERA: Lifestyle tracking shot. Walks with bag all day — comfortable strap, no shoulder pain. Lightweight daily use. All-day comfort PROOF." },
         { script: (name) => `${name} กันน้ำด้วย ไม่กลัวฝน`, action: "CAMERA: Outdoor rainy shot. Bag in rain — water beads off surface. Contents safe and dry. Water resistance PROOF." },
         { script: (name) => `ดีไซน์ ${name} สวยหรู เข้ากับทุกลุค`, action: "CAMERA: Multi-outfit medium shots. Bag with different outfits — work, casual, evening. All look great. Versatile design PROOF." },
@@ -5748,7 +5748,7 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     shoe: [
         { script: (name) => `ใส่ ${name} แล้ว สบายมาก เดินลื่น`, action: "CAMERA: Low-angle tracking of feet walking. Walks naturally — cushioned stride, comfortable gait. Soft landing visible. Comfortable natural walking PROOF." },
         { script: (name) => `พื้น ${name} นุ่มมาก เดินทั้งวันไม่เจ็บ`, action: "CAMERA: Macro on sole compression. Presses thumb on sole — cushion compresses, bounces back. Walks comfortably after. Sole cushion + bounce-back PROOF." },
-        { script: (name) => `ดีไซน์ ${name} สวย แมตช์ง่าย`, action: "CAMERA: Multi-angle orbit around shoe. Shows profile, front, back — design details visible. Pairs with outfit. Design detail + outfit coordination PROOF." },
+        { script: (name) => `ดีไซน์ ${name} สวย แมตช์ง่าย`, action: "CAMERA: Multi-angle orbit around shoe. Presenter FIRST holds shoe showing side profile, THEN rotates to show front toe design, THEN tilts to show sole tread, THEN flips to show back heel detail, THEN sets down showing full silhouette. Continuous 360° rotation — never pauses at one angle. Design detail + outfit coordination PROOF." },
         { script: (name) => `สวม ${name} ง่าย ไม่ต้องนั่งใส่นาน`, action: "CAMERA: Medium shot of putting on. Slides foot in easily — quick entry, no struggle. Ready to go instantly. Easy on/off PROOF." },
         { script: (name) => `${name} กระชับเท้า ไม่หลวม ไม่บีบ`, action: "CAMERA: Close-up on foot fit. Shows snug but comfortable fit — no slipping, no tightness. Natural foot shape accommodation. Perfect fit PROOF." },
         { script: (name) => `วิ่งด้วย ${name} ลื่นมาก`, action: "CAMERA: Dynamic tracking during run. Running in shoes — visible cushion response, stable stride. Athletic performance visible. Running performance PROOF." },
@@ -5758,7 +5758,7 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `${name} ใส่ทั้งวัน เท้าไม่เหม็น`, action: "CAMERA: Close-up of breathable construction. Shows ventilation points — breathable mesh/holes. Fresh even after long wear. Breathable fresh PROOF." },
     ],
     sunglasses: [
-        { script: (name) => `ใส่ ${name} แล้ว ดูเท่มาก`, action: "CAMERA: Medium cinematic shot. Puts on sunglasses — instant style transformation. Different angles showing frame design. Before→after style upgrade PROOF." },
+        { script: (name) => `ใส่ ${name} แล้ว ดูเท่มาก`, action: "CAMERA: Medium cinematic shot. Presenter FIRST holds sunglasses showing frame design to camera, THEN rotates showing side temple detail, THEN puts on — instant style transformation, THEN tilts head showing different angles. Continuous angle changes before and after wearing. Before→after style upgrade PROOF." },
         { script: (name) => `เลนส์ ${name} ชัดมาก กันแดดดี`, action: "CAMERA: POV through lens then medium. Shows clear vision through lens — UV protection. Comfortable in bright sun. Lens clarity + protection PROOF." },
         { script: (name) => `ทรง ${name} เข้ากับหน้า พอดีเลย`, action: "CAMERA: Close-up face shot from angles. Frame shape flatters face — shows from front, side, 3/4 angle. Perfect frame-to-face match PROOF." },
         { script: (name) => `${name} เบามาก ใส่ทั้งวันไม่เจ็บจมูก`, action: "CAMERA: Close-up of nose bridge. Lightweight frame — no pressure marks. Comfortable extended wear. All-day comfort PROOF." },
@@ -5955,7 +5955,7 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     book: [
         { script: (name) => `อ่าน ${name} แล้ว สนุกมาก วางไม่ลง`, action: "CAMERA: Gentle dolly-in on reader. Completely absorbed — turning pages, smiles at content. Can't put down. Deep engagement PROOF." },
         { script: (name) => `${name} เนื้อหาดีมาก ได้ความรู้เพียบ`, action: "CAMERA: Close-up of pages then face. Reads and nods — highlights passage, looks up inspired. Learning 'aha' moment PROOF." },
-        { script: (name) => `ปก ${name} สวยมาก อยากหยิบอ่าน`, action: "CAMERA: Macro on cover design. Beautiful cover art — presenter admires, opens to read. Visual appeal drawing reader in PROOF." },
+        { script: (name) => `ปก ${name} สวยมาก อยากหยิบอ่าน`, action: "CAMERA: Macro on cover design. Presenter FIRST shows book cover front to camera, THEN tilts to show spine thickness, THEN flips to show back cover, THEN opens to interior showing pages. Beautiful cover art at every angle. Visual appeal drawing reader in PROOF." },
         { script: (name) => `${name} อ่านง่าย เข้าใจง่าย`, action: "CAMERA: Medium comfortable reading shot. Relaxed posture — reads fluently, nods understanding. Accessible writing style PROOF." },
         { script: (name) => `กระดาษ ${name} คุณภาพดี จับแล้วดี`, action: "CAMERA: Macro on paper quality. Thick quality pages — smooth texture, clear printing. Presenter feels pages. Print quality PROOF." },
         { script: (name) => `${name} เล่มนี้ เปลี่ยนมุมมองเลย`, action: "CAMERA: Medium reflective shot. Reads passage — pauses, looks thoughtful. Mind-expanding reaction. Perspective-changing PROOF." },
@@ -6005,7 +6005,7 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     // ═══════════════════════════════════════════════════════════════
     wearable: [
         { script: (name) => `ใส่ ${name} แล้ว เช็คสุขภาพง่ายมาก`, action: "CAMERA: Close-up wrist shot. Taps screen — health stats (heart rate, steps) visible on ANIMATED display. Natural wrist glance. Real-time health data PROOF." },
-        { script: (name) => `${name} ดีไซน์สวย ใส่ได้ทุกวัน`, action: "CAMERA: Medium orbit around wrist. Premium materials, comfortable strap — pairs with casual and formal. Screen shows ANIMATED watch face. Design quality + versatility PROOF." },
+        { script: (name) => `${name} ดีไซน์สวย ใส่ได้ทุกวัน`, action: "CAMERA: Medium orbit around wrist. Presenter FIRST shows wearable face straight-on with ANIMATED display, THEN rotates wrist to show side profile, THEN tilts showing strap material, THEN brings close to camera for screen detail. Continuous wrist angle changes. Design quality + versatility PROOF." },
         { script: (name) => `${name} แจ้งเตือนครบ ไม่พลาดอะไร`, action: "CAMERA: Close-up of notification on screen. Message/call notification appears on ANIMATED display — presenter glances, taps to respond. Smart notification PROOF." },
         { script: (name) => `ออกกำลังกายด้วย ${name} แทร็คได้หมด`, action: "CAMERA: Dynamic exercise tracking. Working out — wearable tracking metrics on ANIMATED screen (distance, calories, heart rate). Fitness tracking PROOF." },
         { script: (name) => `${name} กันน้ำ อาบน้ำก็ใส่ได้`, action: "CAMERA: Water-contact close-up. Water splashes on wearable — still functions. Screen ANIMATED and responsive. Water resistance PROOF." },
@@ -6016,16 +6016,16 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `${name} จอสว่าง มองชัดแม้กลางแจ้ง`, action: "CAMERA: Outdoor bright-sun shot. Screen clearly visible in sunlight — ANIMATED content readable. Outdoor screen visibility PROOF." },
     ],
     camera: [
-        { script: (name) => `ถ่ายด้วย ${name} คมชัดมาก`, action: "CAMERA: Over-shoulder then LCD close-up. Takes photo — viewfinder shows sharp preview. Shows captured image on LCD. Sharp detailed capture PROOF." },
+        { script: (name) => `ถ่ายด้วย ${name} คมชัดมาก`, action: "CAMERA: Over-shoulder then LCD close-up. Presenter FIRST holds camera showing body design, THEN raises to eye for shooting, THEN takes photo showing viewfinder, THEN flips LCD showing captured image, THEN rotates camera showing side profile. Multi-angle shooting demo. Sharp detailed capture PROOF." },
         { script: (name) => `${name} ถ่ายวีดีโอ สวยมากเลย`, action: "CAMERA: Tracking alongside filming. Records video — smooth pan. Flips LCD showing ANIMATED recording in progress. Cinematic video quality PROOF." },
         { script: (name) => `โฟกัส ${name} แม่นมาก ไวมาก`, action: "CAMERA: Close-up of AF in action. Points at subject — instant focus lock, sharp result on LCD. Fast accurate autofocus PROOF." },
         { script: (name) => `สี ${name} ถ่ายมาสวยมาก สมจริง`, action: "CAMERA: Comparison shot — real scene vs LCD. Accurate color reproduction on screen — vivid, true-to-life. Color science PROOF." },
         { script: (name) => `${name} ถ่ายกลางคืนก็สวย`, action: "CAMERA: Low-light shooting close-up. Night photo — LCD shows bright clear result despite darkness. Low-light capability PROOF." },
-        { script: (name) => `ถือ ${name} จับถนัดมือ ถ่ายมั่นคง`, action: "CAMERA: Medium ergonomic shot. Holds camera naturally — comfortable grip, stable shooting posture. Ergonomic handling PROOF." },
+        { script: (name) => `ถือ ${name} จับถนัดมือ ถ่ายมั่นคง`, action: "CAMERA: Medium ergonomic shot. Presenter FIRST shows camera from front angle, THEN grips naturally showing ergonomic hold, THEN rotates to show side buttons/dial, THEN raises to eye showing shooting posture. Shifts between grip close-up and full shooting stance. Ergonomic handling PROOF." },
         { script: (name) => `เลนส์ ${name} คมมาก ละเอียดสุด`, action: "CAMERA: Macro on lens then sample shot. Glass quality — sharp detailed capture showing resolution. Lens sharpness PROOF." },
         { script: (name) => `${name} กันสั่นดีมาก ภาพไม่เบลอ`, action: "CAMERA: Handheld motion test. Moving while shooting — LCD shows stable non-blurry result. Image stabilization PROOF." },
         { script: (name) => `${name} เชื่อมต่อมือถือได้ ส่งรูปทันที`, action: "CAMERA: Close-up of wireless transfer. Camera to phone — photo appears on phone screen instantly. Wireless connectivity PROOF." },
-        { script: (name) => `ดีไซน์ ${name} สวย พกไปถ่ายรูปเท่มาก`, action: "CAMERA: Lifestyle medium shot. Stylish camera design — presenter carries/uses outdoors. Premium photographic aesthetic PROOF." },
+        { script: (name) => `ดีไซน์ ${name} สวย พกไปถ่ายรูปเท่มาก`, action: "CAMERA: Lifestyle medium shot. Presenter FIRST holds camera showing front body design to camera, THEN rotates showing side profile, THEN slings around neck showing strap, THEN raises to shoot outdoors. Continuous repositioning. Premium photographic aesthetic PROOF." },
     ],
     // ═══════════════════════════════════════════════════════════════
     // ── Generic fallbacks ── (must still show DEMONSTRATING + REACTION)
@@ -6033,7 +6033,7 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     gadget: [
         { script: (name) => `ใช้ ${name} แล้ว สะดวกมาก`, action: "CAMERA: Before→after medium shot. Problem being solved — before: struggle, after: effortless. Visible problem→solution PROOF." },
         { script: (name) => `ฟีเจอร์ ${name} ครบจบเลย`, action: "CAMERA: Close-up feature demo sequence. Multiple features — each shown working. Button press → visible response. Feature functionality PROOF." },
-        { script: (name) => `${name} ดีไซน์สวย พรีเมียมมาก`, action: "CAMERA: Macro orbit around product. Premium build — material quality, precision fit, finish catching light. Craftsmanship detail PROOF." },
+        { script: (name) => `${name} ดีไซน์สวย พรีเมียมมาก`, action: "CAMERA: Macro orbit around product. Presenter FIRST holds product showing front face, THEN rotates to show side profile catching light, THEN tilts showing top/bottom detail, THEN brings close to camera for finish quality. Continuous 360° rotation — never pauses at one angle. Craftsmanship detail PROOF." },
         { script: (name) => `${name} ใช้ง่าย ไม่ต้องอ่านคู่มือ`, action: "CAMERA: Intuitive-use medium shot. Picks up and uses immediately — no manual needed. Intuitive simplicity PROOF." },
         { script: (name) => `ชาร์จ ${name} ทีเดียว ใช้ได้นาน`, action: "CAMERA: Close-up of charging then usage. Full charge → extended use through day. LED indicator, battery lasting. Long battery PROOF." },
         { script: (name) => `${name} เชื่อมต่อง่าย ใช้ได้ทันที`, action: "CAMERA: Close-up of pairing/connecting. Plug in or pair — instant connection, working immediately. Seamless connectivity PROOF." },
@@ -6049,10 +6049,10 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `${name} ใช้ง่าย สะดวกมาก`, action: "CAMERA: Step-by-step medium. Simple intuitive use — no learning curve. Effortless operation. Ease of use PROOF." },
         { script: (name) => `แพ็คเกจ ${name} สวย ของครบ`, action: "CAMERA: Overhead unboxing. Opens package — premium presentation, complete contents. Unboxing satisfaction PROOF." },
         { script: (name) => `${name} ทนทาน ใช้ได้นานมาก`, action: "CAMERA: Close-up of build. Solid durable construction — quality materials visible. Built to last PROOF." },
-        { script: (name) => `ดีไซน์ ${name} สวยมาก`, action: "CAMERA: Smooth orbit around product. Attractive design — catches light, clean lines. Premium aesthetic PROOF." },
+        { script: (name) => `ดีไซน์ ${name} สวยมาก`, action: "CAMERA: Smooth orbit around product. Presenter FIRST shows product front, THEN rotates showing side catching light, THEN tilts to show back detail, THEN brings close for surface quality close-up. Continuous rotation — never static at one angle. Premium aesthetic PROOF." },
         { script: (name) => `${name} ตอบโจทย์ทุกอย่างเลย`, action: "CAMERA: Multi-use demo medium. Several use cases — all successful. Versatile all-rounder PROOF." },
         { script: (name) => `${name} ให้เป็นของขวัญก็ดี`, action: "CAMERA: Gift presentation medium. Premium packaging — perfect for gifting. Recipient delighted. Gift-worthy PROOF." },
-        { script: (name) => `${name} แนะนำเลย ดีจริงๆ`, action: "CAMERA: Confident medium closing shot. Presenter holds product proudly — genuine recommendation, thumbs up. Authentic endorsement PROOF." },
+        { script: (name) => `${name} แนะนำเลย ดีจริงๆ`, action: "CAMERA: Confident medium closing shot. Presenter FIRST holds product showing front, THEN rotates showing design, THEN brings close to camera, THEN holds proudly with thumbs up. Continuous repositioning. Authentic endorsement PROOF." },
     ],
 };
 
