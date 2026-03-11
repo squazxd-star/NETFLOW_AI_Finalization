@@ -3578,10 +3578,15 @@ function refreshStatBar(_stepId: string, status: StepStatus, progress?: number):
         if (statusEl) statusEl.textContent = "ERROR";
     }
 
-    // PROGRESS
-    if (progress !== undefined && progress > 0) {
-        const progEl = document.getElementById("nf-stat-progress");
-        if (progEl) progEl.textContent = `${Math.min(100, progress)}%`;
+    // PROGRESS — reset to "—" when a new step starts active with no progress,
+    // so stale 100% from a previous step doesn't persist
+    const progEl = document.getElementById("nf-stat-progress");
+    if (progEl) {
+        if (progress !== undefined && progress > 0) {
+            progEl.textContent = `${Math.min(100, progress)}%`;
+        } else if (status === "active") {
+            progEl.textContent = "—";
+        }
     }
 }
 

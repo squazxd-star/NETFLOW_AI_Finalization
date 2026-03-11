@@ -19,8 +19,8 @@ const ConsoleLogSection = ({ logs, tabs, selectedTab, onTabSelect }: ConsoleLogS
     };
 
     useEffect(() => {
-        if (!userScrolledUp.current) {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (!userScrolledUp.current && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
         }
     }, [logs]);
 
