@@ -1029,22 +1029,64 @@ function neutralizeFileInputs(): { input: HTMLInputElement; origType: string }[]
 }
 
 /**
- * Block ALL file dialog opens by overriding HTMLInputElement.prototype.click.
- * Returns a restore function. CRITICAL for Mac where MutationObserver timing
- * cannot reliably beat Google Flow's synchronous create→click sequence.
+ * ★ Captured file input from blockFileDialogs — used by restoreAndInject as fallback
+ */
+let _capturedFileInput: HTMLInputElement | null = null;
+
+/**
+ * Block ALL file dialog opens by overriding:
+ * 1) HTMLInputElement.prototype.click
+ * 2) HTMLInputElement.prototype.showPicker  (modern browsers)
+ * 3) window.showOpenFilePicker              (File System Access API)
+ * Captures the file input reference so restoreAndInject can find it.
+ * Returns a restore function.
  */
 function blockFileDialogs(): () => void {
+    _capturedFileInput = null;
+
+    // ── 1) Override .click() ──
     const origClick = HTMLInputElement.prototype.click;
     HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
         if (this.type === "file") {
-            LOG(`🚫 บล็อกการเปิด file dialog (${platformTag})`);
-            return; // suppress native file chooser
+            LOG(`🚫 บล็อก .click() บน file input (${platformTag})`);
+            _capturedFileInput = this;
+            return;
         }
         return origClick.call(this);
     };
-    LOG(`🔒 ติดตั้งตัวบล็อก file dialog แล้ว (${platformTag})`);
+
+    // ── 2) Override .showPicker() ──
+    const origShowPicker = HTMLInputElement.prototype.showPicker;
+    let showPickerPatched = false;
+    if (typeof origShowPicker === "function") {
+        HTMLInputElement.prototype.showPicker = function(this: HTMLInputElement) {
+            if (this.type === "file") {
+                LOG(`🚫 บล็อก .showPicker() บน file input (${platformTag})`);
+                _capturedFileInput = this;
+                return;
+            }
+            return origShowPicker.call(this);
+        };
+        showPickerPatched = true;
+    }
+
+    // ── 3) Override window.showOpenFilePicker() ──
+    const origSofp = (window as any).showOpenFilePicker;
+    let sofpPatched = false;
+    if (typeof origSofp === "function") {
+        (window as any).showOpenFilePicker = async function(..._args: any[]) {
+            LOG(`🚫 บล็อก showOpenFilePicker (${platformTag})`);
+            // Throw AbortError (same as user cancelling the dialog)
+            throw new DOMException("Blocked by Netflow", "AbortError");
+        };
+        sofpPatched = true;
+    }
+
+    LOG(`🔒 บล็อก file dialog: click ✅ | showPicker ${showPickerPatched ? "✅" : "❌"} | showOpenFilePicker ${sofpPatched ? "✅" : "❌"} (${platformTag})`);
     return () => {
         HTMLInputElement.prototype.click = origClick;
+        if (showPickerPatched) HTMLInputElement.prototype.showPicker = origShowPicker;
+        if (sofpPatched) (window as any).showOpenFilePicker = origSofp;
         LOG(`🔓 ถอดตัวบล็อก file dialog แล้ว`);
     };
 }
@@ -1058,6 +1100,12 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     const allInputs = document.querySelectorAll<HTMLInputElement>('input[type="text"][style*="display: none"], input[type="text"][hidden], input[type="text"]');
     const candidates = [...neutralized.map(n => n.input)];
 
+    // ★ Also add captured input from blockFileDialogs (may be detached from DOM)
+    if (_capturedFileInput && !candidates.includes(_capturedFileInput)) {
+        candidates.push(_capturedFileInput);
+        LOG(`เพิ่ม captured file input จากตัวบล็อก`);
+    }
+
     // Also add any recently created hidden text inputs (likely our neutralized ones)
     for (const inp of allInputs) {
         if (!candidates.includes(inp) && inp.offsetParent === null) {
@@ -1070,26 +1118,35 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     }
     LOG(`คืนค่า input ${candidates.length} ตัวเป็น type=file`);
 
-    // Find the best file input to inject into
+    // Find the best file input to inject into — check both DOM and captured
     const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    if (fileInputs.length === 0) {
+    const allFileInputs = [...fileInputs];
+    // Add captured input if it's not already in DOM results
+    if (_capturedFileInput && _capturedFileInput.type === "file" && !allFileInputs.includes(_capturedFileInput)) {
+        allFileInputs.push(_capturedFileInput);
+        LOG(`captured file input ไม่อยู่ใน DOM — เพิ่มเป็น candidate`);
+    }
+    if (allFileInputs.length === 0) {
         LOG(`⚠️ ไม่พบ file input หลังคืนค่า (${platformTag})`);
         return false;
     }
 
-    // ★ Prefer NEW file inputs (not pre-existing) — fixes second upload targeting stale input
+    // ★ Prefer captured input first (most likely the correct target from blockFileDialogs)
     let target: HTMLInputElement;
-    if (preExistingInputs && preExistingInputs.size > 0) {
-        const newInputs = Array.from(fileInputs).filter(inp => !preExistingInputs.has(inp));
+    if (_capturedFileInput && _capturedFileInput.type === "file") {
+        target = _capturedFileInput;
+        LOG(`ใช้ captured file input จากตัวบล็อก ✅`);
+    } else if (preExistingInputs && preExistingInputs.size > 0) {
+        const newInputs = allFileInputs.filter(inp => !preExistingInputs.has(inp));
         if (newInputs.length > 0) {
             target = newInputs[newInputs.length - 1];
-            LOG(`เล็งเป้า file input ใหม่ (${newInputs.length} ใหม่, ${fileInputs.length} ทั้งหมด)`);
+            LOG(`เล็งเป้า file input ใหม่ (${newInputs.length} ใหม่, ${allFileInputs.length} ทั้งหมด)`);
         } else {
-            target = fileInputs[fileInputs.length - 1];
-            LOG(`ไม่พบ file input ใหม่ — ใช้ตัวสุดท้ายจาก ${fileInputs.length} ตัว`);
+            target = allFileInputs[allFileInputs.length - 1];
+            LOG(`ไม่พบ file input ใหม่ — ใช้ตัวสุดท้ายจาก ${allFileInputs.length} ตัว`);
         }
     } else {
-        target = fileInputs[fileInputs.length - 1];
+        target = allFileInputs[allFileInputs.length - 1];
     }
 
     // ★ Inject file via DataTransfer — cross-platform
@@ -1734,10 +1791,68 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
 
         // ── STEP 3: Inject file via base64 into file input ──
         LOG("── ขั้น 3: ฉีดไฟล์ base64 เข้า file input ──");
-        const ok = restoreAndInject(neutralized, file, preExistingInputs);
+        let ok = restoreAndInject(neutralized, file, preExistingInputs);
         if (!ok) {
-            WARN(`ฉีดไฟล์ ${fileName} ล้มเหลว`);
-            return false;
+            // ★ FALLBACK: Drag-and-drop the file onto the open dialog or prompt bar
+            LOG(`⚠️ file input injection ล้มเหลว — ลอง drag-and-drop แทน`);
+            
+            // Find the best drop target: open dialog upload area > prompt bar
+            let dropTarget: HTMLElement | null = null;
+            
+            // Try 1: Dialog content area (Radix dialog portal)
+            const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"], [data-state="open"][aria-haspopup="dialog"]');
+            for (const d of dialogs) {
+                if (d.getBoundingClientRect().width > 0) {
+                    dropTarget = d;
+                    break;
+                }
+            }
+            // Try 2: Any overlay/portal container
+            if (!dropTarget) {
+                const portals = document.querySelectorAll<HTMLElement>('[data-radix-portal], [class*="overlay"], [class*="modal"]');
+                for (const p of portals) {
+                    if (p.getBoundingClientRect().width > 0 && !p.closest("#netflow-engine-overlay")) {
+                        dropTarget = p;
+                        break;
+                    }
+                }
+            }
+            // Try 3: Prompt bar area (bottom of page)
+            if (!dropTarget) {
+                const promptArea = document.querySelector<HTMLElement>('[contenteditable="true"], [role="textbox"]');
+                if (promptArea) dropTarget = promptArea;
+            }
+            
+            if (dropTarget) {
+                LOG(`🎯 Drop target: <${dropTarget.tagName}> ${(dropTarget.className || "").substring(0, 40)}`);
+                const dropDt = new DataTransfer();
+                dropDt.items.add(file);
+                const rect = dropTarget.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const evtInit = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, dataTransfer: dropDt };
+                
+                dropTarget.dispatchEvent(new DragEvent('dragenter', evtInit));
+                await sleep(100);
+                dropTarget.dispatchEvent(new DragEvent('dragover', { ...evtInit, cancelable: true }));
+                await sleep(100);
+                dropTarget.dispatchEvent(new DragEvent('drop', evtInit));
+                LOG(`✅ ส่ง drop event บน target แล้ว`);
+                await sleep(2000);
+                
+                // Check if drop worked (thumbnail appeared or upload %)
+                const afterDropCount = countPromptBarThumbnails();
+                if (afterDropCount > baselineCount) {
+                    LOG(`✅ Drop สำเร็จ — รูปย่อเพิ่มจาก ${baselineCount} → ${afterDropCount}`);
+                    ok = true;
+                } else {
+                    LOG(`⚠️ Drop อาจไม่สำเร็จ — ยังคง ${afterDropCount} รูป — ดำเนินการต่อ`);
+                    ok = true; // still continue, upload % tracking will verify
+                }
+            } else {
+                WARN(`ฉีดไฟล์ ${fileName} ล้มเหลว — ไม่พบ file input และ drop target`);
+                return false;
+            }
         }
         LOG(`ฉีดไฟล์ ${fileName} เสร็จ ✅`);
 
