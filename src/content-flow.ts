@@ -1658,9 +1658,10 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                 const icons = el.querySelectorAll("i, .material-icons, .material-symbols-outlined, [class*='icon']");
                 for (const icon of icons) {
                     const it = icon.textContent?.trim() || "";
-                    if (it === "upload" || it === "upload_file" || it === "add_photo_alternate" || it === "image" || it === "photo_library") {
+                    // Strictly match local upload icons. Avoid 'photo_library' or 'image' which open the asset manager.
+                    if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
                         const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
-                        if (!allIconTexts.includes("drive_folder_upload")) {
+                        if (!allIconTexts.includes("drive_folder_upload") && !allIconTexts.includes("photo_library")) {
                             el.click();
                             clickedUpload = true;
                             LOG(`คลิกปุ่มอัปโหลด (ไอคอน: ${it}) ✅`);
@@ -1677,6 +1678,9 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                     const directText = el.childNodes.length <= 8 ? (el.textContent || "").trim() : "";
                     if (directText.length > 0 && directText.length < 60) {
                         const lower = directText.toLowerCase();
+                        // Skip library options
+                        if (lower.includes("ไลบรารี") || lower.includes("library") || lower.includes("drive") || lower.includes("ไดรฟ์")) continue;
+                        
                         if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
                             || lower.includes("upload image") || lower.includes("upload photo")
                             || lower.includes("upload a file") || lower.includes("upload file")
@@ -1693,7 +1697,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                     }
                 }
             }
-            // ★ Broader fallback: any menu item that's NOT "สร้าง"/"Create"/"Google Drive"
+            // ★ Broader fallback: any menu item that's NOT "สร้าง"/"Create"/"Google Drive"/"Library"
             if (!clickedUpload) {
                 for (const el of menuElements) {
                     if (el === addBtn) continue;
@@ -1702,7 +1706,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
                         // Skip known non-upload items
                         if (txt.includes("drive") || txt.includes("ไดรฟ์") || txt.includes("google") 
                             || txt.includes("สร้าง") || txt.includes("create") || txt.includes("cancel")
-                            || txt.includes("ยกเลิก")) continue;
+                            || txt.includes("ยกเลิก") || txt.includes("ไลบรารี") || txt.includes("library")) continue;
                         // If it contains upload-related keywords in any language
                         if (txt.includes("upload") || txt.includes("อัป") || txt.includes("อัพ") || txt.includes("file") || txt.includes("ไฟล์") || txt.includes("รูปภาพ") || txt.includes("image") || txt.includes("photo")) {
                             const rect = el.getBoundingClientRect();
