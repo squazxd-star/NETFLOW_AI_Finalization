@@ -189,11 +189,17 @@ const CreateVideoTab = () => {
         const allTabIds = Object.keys(tabLogs).map(Number);
         if (allTabIds.length === 0) return ["✅ ระบบพร้อมทำงาน..."];
         if (selectedConsoleTab === 'all') {
-            // Merge all tabs' logs — prefix with tab indicator if multiple tabs
             if (allTabIds.length === 1) return tabLogs[allTabIds[0]] || [];
-            return allTabIds.flatMap(tid =>
+            // Merge all tabs' logs with tab prefix, then sort chronologically by [HH:MM:SS]
+            const merged = allTabIds.flatMap(tid =>
                 (tabLogs[tid] || []).map(l => `[Tab ${tid}] ${l}`)
             );
+            merged.sort((a, b) => {
+                const ta = a.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
+                const tb = b.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
+                return ta.localeCompare(tb);
+            });
+            return merged;
         }
         return tabLogs[selectedConsoleTab] || [];
     }, [tabLogs, selectedConsoleTab]);
@@ -218,12 +224,18 @@ const CreateVideoTab = () => {
         return () => clearInterval(interval);
     }, [generatedImagePrompt, flowOpened]);
 
-    // Append local workflow status to logs
+    // Append local workflow status to logs (use tabId=0 bucket for local messages)
     useEffect(() => {
-        if (isLoading) setFlowLogs(prev => [...prev, "⏳ กำลังสร้าง Prompt ด้วย AI..."]);
+        if (isLoading) {
+            const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ⏳ กำลังสร้าง Prompt ด้วย AI...`] }));
+        }
     }, [isLoading]);
     useEffect(() => {
-        if (result) setFlowLogs(prev => [...prev, "✅ สร้างสำเร็จ!"]);
+        if (result) {
+            const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ✅ สร้างสำเร็จ!`] }));
+        }
     }, [result]);
 
     const pickImage = (setter: (v: string) => void) => {

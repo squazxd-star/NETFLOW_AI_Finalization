@@ -15,16 +15,25 @@
 
 import { showOverlay, hideOverlay, updateStep, skipStep, completeOverlay, configureScenes, addLog, setOverlayTheme } from "./netflow-overlay";
 
-// ─── Multi-Tab: Discover own tab ID from background ─────────────────────────
+// ─── Multi-Tab: Discover own tab ID from background ─────────────────────
 let _myTabId: number | null = null;
+let _tabIdResolve: ((id: number | null) => void) | null = null;
+const _tabIdReady: Promise<number | null> = new Promise((resolve) => {
+    _tabIdResolve = resolve;
+    // Safety timeout — don't block forever if background doesn't respond
+    setTimeout(() => resolve(null), 2000);
+});
 try {
     chrome.runtime.sendMessage({ type: 'GET_TAB_ID' }, (res) => {
         if (!chrome.runtime.lastError && res?.tabId) {
             _myTabId = res.tabId;
             console.log(`[Netflow AI] Tab ID: ${_myTabId}`);
         }
+        if (_tabIdResolve) { _tabIdResolve(_myTabId); _tabIdResolve = null; }
     });
-} catch (_) { /* not in extension context */ }
+} catch (_) {
+    if (_tabIdResolve) { _tabIdResolve(null); _tabIdResolve = null; }
+}
 
 /** Storage key helper — per-tab when tabId known, global fallback otherwise */
 function pendingActionKey(): string {
@@ -241,10 +250,14 @@ class NetflowAbortError extends Error {
     constructor() { super("AUTOMATION_STOPPED"); this.name = "NetflowAbortError"; }
 }
 
-// ─── Anti-Throttle: Web Worker Timer ─────────────────────────────────────────
+// ─── Anti-Throttle: Web Worker Timer + Port Relay Fallback ──────────────────
 // Chrome throttles setTimeout in background/minimized tabs (1s min, or 1/min after 5 min).
-// Web Workers run in a separate thread and are NOT subject to this throttling.
+// Strategy 1: Web Worker (separate thread, NOT throttled)
+// Strategy 2: chrome.runtime.connect port relay (background SW setTimeout, NOT throttled)
+// Strategy 3: regular setTimeout (last resort, throttled)
 let _timerWorker: Worker | null = null;
+let _timerPort: chrome.runtime.Port | null = null;
+let _timerPortFailed = false;
 const _pendingTimers = new Map<number, () => void>();
 let _timerIdCounter = 0;
 
@@ -262,7 +275,28 @@ function getTimerWorker(): Worker | null {
         console.log('[Netflow AI] ⚡ Web Worker timer created — background tab throttling defeated');
         return _timerWorker;
     } catch (_) {
-        console.warn('[Netflow AI] Web Worker timer unavailable — falling back to setTimeout');
+        console.warn('[Netflow AI] Web Worker timer unavailable (CSP?) — trying port relay');
+        return null;
+    }
+}
+
+function getTimerPort(): chrome.runtime.Port | null {
+    if (_timerPort) return _timerPort;
+    if (_timerPortFailed) return null;
+    try {
+        _timerPort = chrome.runtime.connect({ name: 'timer' });
+        _timerPort.onMessage.addListener((msg: any) => {
+            const cb = _pendingTimers.get(msg.id);
+            if (cb) { _pendingTimers.delete(msg.id); cb(); }
+        });
+        _timerPort.onDisconnect.addListener(() => {
+            _timerPort = null; // will reconnect on next sleep
+        });
+        console.log('[Netflow AI] ⚡ Port relay timer connected — background tab throttling defeated');
+        return _timerPort;
+    } catch (_) {
+        _timerPortFailed = true;
+        console.warn('[Netflow AI] Port relay unavailable — falling back to setTimeout');
         return null;
     }
 }
@@ -275,16 +309,27 @@ const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
         resolve();
     };
 
+    // Strategy 1: Web Worker (best — separate thread)
     const worker = getTimerWorker();
     if (worker) {
         const id = ++_timerIdCounter;
         _pendingTimers.set(id, done);
         worker.postMessage({ id, ms });
-    } else {
-        // Fallback: regular setTimeout (throttled in background tabs)
-        const id = setTimeout(done, ms);
-        (sleep as any)._lastId = id;
+        return;
     }
+
+    // Strategy 2: Port relay via background service worker
+    const port = getTimerPort();
+    if (port) {
+        const id = ++_timerIdCounter;
+        _pendingTimers.set(id, done);
+        port.postMessage({ cmd: 'delay', id, ms });
+        return;
+    }
+
+    // Strategy 3: regular setTimeout (throttled — last resort)
+    const id = setTimeout(done, ms);
+    (sleep as any)._lastId = id;
 });
 
 /** Check if automation should stop (user clicked stop button) */
@@ -3909,14 +3954,32 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
 
 async function checkAndRunPendingAction(): Promise<void> {
     try {
-        // Step 1: Read the pending action
+        // Wait for tabId to be resolved before checking pending actions
+        await _tabIdReady;
+
+        // Step 1: Read the pending action — try per-tab key first, then global fallback
         const paKey = pendingActionKey();
-        const result = await new Promise<any>((resolve) => {
+        let result = await new Promise<any>((resolve) => {
             chrome.storage.local.get(paKey, (data) => {
                 if (chrome.runtime.lastError) { resolve(null); return; }
                 resolve(data?.[paKey] || null);
             });
         });
+
+        // Fallback: if per-tab key found nothing and we have a tabId, also try global key
+        if (!result && _myTabId) {
+            const globalKey = "netflow_pending_action";
+            result = await new Promise<any>((resolve) => {
+                chrome.storage.local.get(globalKey, (data) => {
+                    if (chrome.runtime.lastError) { resolve(null); return; }
+                    resolve(data?.[globalKey] || null);
+                });
+            });
+            if (result) {
+                LOG("🔄 Pending action found under global key (legacy fallback)");
+                chrome.storage.local.remove(globalKey);
+            }
+        }
 
         if (!result || !result.timestamp) return;
 

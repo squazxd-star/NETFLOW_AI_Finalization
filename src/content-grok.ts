@@ -50,9 +50,12 @@ const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
 const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
 const error = (...args: any[]) => console.error(LOG_PREFIX, ...args);
 
-// ─── Anti-Throttle: Web Worker Timer ─────────────────────────────────────────
+// ─── Anti-Throttle: Web Worker Timer + Port Relay Fallback ──────────────────
 // Chrome throttles setTimeout in background/minimized tabs. Web Workers are NOT throttled.
+// Fallback: chrome.runtime.connect port relay (background SW setTimeout NOT throttled)
 let _grokTimerWorker: Worker | null = null;
+let _grokTimerPort: chrome.runtime.Port | null = null;
+let _grokPortFailed = false;
 const _grokPendingTimers = new Map<number, () => void>();
 let _grokTimerId = 0;
 
@@ -72,15 +75,37 @@ function getGrokTimerWorker(): Worker | null {
     } catch (_) { return null; }
 }
 
+function getGrokTimerPort(): chrome.runtime.Port | null {
+    if (_grokTimerPort) return _grokTimerPort;
+    if (_grokPortFailed) return null;
+    try {
+        _grokTimerPort = chrome.runtime.connect({ name: 'timer' });
+        _grokTimerPort.onMessage.addListener((msg: any) => {
+            const cb = _grokPendingTimers.get(msg.id);
+            if (cb) { _grokPendingTimers.delete(msg.id); cb(); }
+        });
+        _grokTimerPort.onDisconnect.addListener(() => { _grokTimerPort = null; });
+        log('⚡ Port relay timer connected — background tab throttling defeated');
+        return _grokTimerPort;
+    } catch (_) { _grokPortFailed = true; return null; }
+}
+
 const sleep = (ms: number) => new Promise<void>(resolve => {
     const worker = getGrokTimerWorker();
     if (worker) {
         const id = ++_grokTimerId;
         _grokPendingTimers.set(id, resolve);
         worker.postMessage({ id, ms });
-    } else {
-        setTimeout(resolve, ms);
+        return;
     }
+    const port = getGrokTimerPort();
+    if (port) {
+        const id = ++_grokTimerId;
+        _grokPendingTimers.set(id, resolve);
+        port.postMessage({ cmd: 'delay', id, ms });
+        return;
+    }
+    setTimeout(resolve, ms);
 });
 
 const waitFor = async (

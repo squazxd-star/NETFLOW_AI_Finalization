@@ -110,6 +110,21 @@ function sendToContentScript(tabId, message, scriptFile) {
     });
 }
 
+// ─── Anti-Throttle Timer Relay (fallback when Web Worker blocked by CSP) ─────
+// Content scripts connect via chrome.runtime.connect({ name: 'timer' })
+// and send { cmd: 'delay', id, ms }. We setTimeout here (NOT throttled in SW)
+// and post back { id } when done. Keeps service worker alive via open port.
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'timer') return;
+    port.onMessage.addListener((msg) => {
+        if (msg.cmd === 'delay' && typeof msg.id === 'number' && typeof msg.ms === 'number') {
+            setTimeout(() => {
+                try { port.postMessage({ id: msg.id }); } catch (_) { /* port closed */ }
+            }, msg.ms);
+        }
+    });
+});
+
 // ─── Per-Tab State Management (Multi-Tab Automation) ─────────────────────────
 // Each tab gets its own isolated state: video cache, download info, automation status
 const _tabStates = {};
@@ -127,13 +142,19 @@ function getTabState(tabId) {
     return _tabStates[tabId];
 }
 
-// Clean up state when tab is closed
+// Clean up state + orphaned storage keys when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (_tabStates[tabId]) {
         clearTimeout(_tabStates[tabId].cacheCleanupTimer);
         delete _tabStates[tabId];
-        console.log(`[Netflow BG] Tab ${tabId} closed — state cleaned up`);
     }
+    // Remove per-tab pending action key from storage
+    const paKey = `netflow_pending_action_${tabId}`;
+    chrome.storage.local.remove(paKey, () => {
+        if (!chrome.runtime.lastError) {
+            console.log(`[Netflow BG] Tab ${tabId} closed — state + storage cleaned up`);
+        }
+    });
 });
 
 // Legacy compat — global fallback for messages without tabId

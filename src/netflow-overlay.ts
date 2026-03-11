@@ -2741,14 +2741,7 @@ function buildOverlay(): HTMLDivElement {
     };
     root.appendChild(stopBtn);
 
-    // Close button (toggles overlay visibility, doesn't destroy)
-    const closeBtn = document.createElement("button");
-    closeBtn.className = "nf-close-btn";
-    closeBtn.textContent = "✕ ซ่อน";
-    // ★ Inline critical styles as CSP fallback — ensures button is always visible & clickable
-    closeBtn.style.cssText = 'position:absolute !important;top:14px !important;right:14px !important;z-index:2147483646 !important;cursor:pointer !important;pointer-events:auto !important;background:rgba(0,0,0,0.6) !important;border:1px solid rgba(255,255,255,0.3) !important;border-radius:8px !important;color:#fff !important;font-size:19px !important;padding:6px 14px !important;font-family:inherit !important;';
-    closeBtn.onclick = () => toggleOverlayVisibility();
-    root.appendChild(closeBtn);
+    // Close button removed — floating toggle button (#nf-toggle-btn) handles hide/show
 
     // Layout wrapper
     const layout = document.createElement("div");
@@ -3367,12 +3360,18 @@ function toggleOverlayVisibility(): void {
         // Hide overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-visible");
         overlayRoot.classList.add("nf-hidden");
+        // ★ Override inline !important styles so CSS class can take effect
+        overlayRoot.style.opacity = '0';
+        overlayRoot.style.pointerEvents = 'none';
         if (toggleBtn) toggleBtn.innerHTML = NF_ICON_BOLT;
         overlayHidden = true;
     } else {
         // Show overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-hidden");
         overlayRoot.classList.add("nf-visible");
+        // ★ Restore inline styles
+        overlayRoot.style.opacity = '1';
+        overlayRoot.style.pointerEvents = 'auto';
         if (toggleBtn) toggleBtn.innerHTML = NF_ICON_CLOSE;
         overlayHidden = false;
     }
