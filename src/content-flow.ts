@@ -2428,26 +2428,27 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     }
 
     let imgPromptOk = false;
-    for (let attempt = 1; attempt <= 3 && !imgPromptOk; attempt++) {
+    for (let attempt = 1; attempt <= 5 && !imgPromptOk; attempt++) {
+        // ★ Re-focus Chrome on every retry — previous attempt may have lost focus
+        if (attempt > 1 && document.hidden) {
+            LOG(`🔄 Retry ${attempt}: Tab ซ่อน — ดึง Chrome ขึ้นมาอีกครั้ง`);
+            try {
+                await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                needsUnfocus = true;
+                const retryStart = Date.now();
+                while (document.hidden && Date.now() - retryStart < 5000) {
+                    await sleep(200);
+                }
+                if (!document.hidden) await sleep(2000);
+            } catch (_) {}
+        }
         const promptInput = findPromptTextInput();
         if (!promptInput) {
             LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Image Prompt — รอแล้วลองใหม่`);
-            await sleep(2000);
+            await sleep(3000);
             continue;
         }
         if (attempt > 1) {
-            // Force focus on retry — bring window to foreground again
-            if (document.hidden) {
-                try {
-                    await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-                    needsUnfocus = true;
-                    const retryStart = Date.now();
-                    while (document.hidden && Date.now() - retryStart < 5000) {
-                        await sleep(200);
-                    }
-                    if (!document.hidden) await sleep(2000);
-                } catch (_) {}
-            }
             promptInput.focus();
             await sleep(500);
         }
@@ -2465,9 +2466,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         }
     }
     if (!imgPromptOk) {
-        WARN("❌ วาง Image Prompt ไม่สำเร็จหลังลอง 3 ครั้ง — หยุด ไม่กด Generate");
+        WARN("❌ วาง Image Prompt ไม่สำเร็จหลังลอง 5 ครั้ง — หยุด ไม่กด Generate");
         steps.push("❌ Prompt");
-        errors.push("image prompt paste failed after 3 attempts");
+        errors.push("image prompt paste failed after 5 attempts");
         updateStep("img-prompt", "error");
         return { success: false, message: "❌ วาง Prompt ไม่สำเร็จ", step: "img-prompt" };
     }
@@ -2846,26 +2847,27 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             // Find prompt input and paste video prompt
             await sleep(1000);
             let vidPromptOk = false;
-            for (let attempt = 1; attempt <= 3 && !vidPromptOk; attempt++) {
+            for (let attempt = 1; attempt <= 5 && !vidPromptOk; attempt++) {
+                // ★ Re-focus Chrome on every retry — previous attempt may have lost focus
+                if (attempt > 1 && document.hidden) {
+                    LOG(`🔄 Retry ${attempt}: Tab ซ่อน — ดึง Chrome ขึ้นมาอีกครั้ง`);
+                    try {
+                        await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                        needsUnfocus = true;
+                        const retryStart = Date.now();
+                        while (document.hidden && Date.now() - retryStart < 5000) {
+                            await sleep(200);
+                        }
+                        if (!document.hidden) await sleep(2000);
+                    } catch (_) {}
+                }
                 const videoPromptInput = findPromptTextInput();
                 if (!videoPromptInput) {
                     LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Prompt — รอแล้วลองใหม่`);
-                    await sleep(2000);
+                    await sleep(3000);
                     continue;
                 }
                 if (attempt > 1) {
-                    // Force focus on retry — bring window to foreground again
-                    if (document.hidden) {
-                        try {
-                            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-                            needsUnfocus = true;
-                            const retryStart = Date.now();
-                            while (document.hidden && Date.now() - retryStart < 5000) {
-                                await sleep(200);
-                            }
-                            if (!document.hidden) await sleep(2000);
-                        } catch (_) {}
-                    }
                     videoPromptInput.focus();
                     await sleep(500);
                 }
@@ -2883,9 +2885,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 }
             }
             if (!vidPromptOk) {
-                WARN("❌ วาง Video Prompt ไม่สำเร็จหลังลอง 3 ครั้ง — หยุด ไม่กด Generate");
+                WARN("❌ วาง Video Prompt ไม่สำเร็จหลังลอง 5 ครั้ง — หยุด ไม่กด Generate");
                 steps.push("❌ Video Prompt");
-                errors.push("video prompt paste failed after 3 attempts");
+                errors.push("video prompt paste failed after 5 attempts");
                 updateStep("vid-prompt", "error");
                 throw new Error("Video prompt paste failed");
             }
