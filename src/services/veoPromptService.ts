@@ -1528,7 +1528,7 @@ const ANTI_TEXT_DIRECTIVE = "CRITICAL NO TEXT DIRECTIVE: Absolutely NO subtitles
 const ANTI_ADDITION_DIRECTIVE = "ZERO INVENTION POLICY: Do NOT add ANY accessory, prop, or element that is NOT explicitly shown in the reference images. Specifically: NO glasses/sunglasses unless in reference. NO hats/headbands unless in reference. NO scarves/neckwear unless in reference. NO earphones/AirPods unless the product IS earphones. NO extra jewelry unless in reference. NO tattoos unless in reference. NO background logos or brand signs. NO secondary products or props not in the brief. If the reference shows a plain-faced person, the output MUST show a plain-faced person. Every visible element must be traceable to either the character reference or the product reference.";
 
 // Voice Discipline Directive — prevents filler sounds/gasps between dialogue lines during scene transitions
-const VOICE_DISCIPLINE_DIRECTIVE = "VOICE DISCIPLINE: Character speaks ONLY the provided dialogue text — NO filler sounds, NO random gasps, NO surprised exclamations (NO 'ยะ!', 'ฮ๊า!', 'อ้าว!', 'ว้าว!', 'โอ้!'), NO giggling, NO humming between lines. When revealing or presenting the product, character uses a CONFIDENT smooth presenter tone (like a polished 'ท๊าดา!' reveal) — NOT a shocked/gasping reaction. Between spoken lines, character maintains composed silence with natural breathing only. The character is a PROFESSIONAL PRESENTER, not a surprised audience member.";
+const VOICE_DISCIPLINE_DIRECTIVE = "STRICT VOICE DISCIPLINE: Character speaks EXACTLY and ONLY the provided dialogue text — NO filler sounds, NO random gasps, NO surprised exclamations (NO 'ยะ!', 'ฮ๊า!', 'อ้าว!', 'ว้าว!', 'โอ้!'), NO giggling, NO humming between lines. When revealing or presenting the product, character uses a CONFIDENT smooth presenter tone (like a polished 'ท๊าดา!' reveal) — NOT a shocked/gasping reaction. Between spoken lines, the character's mouth MUST be fully closed with composed silence. Do NOT let the character mouth words that are not in the script.";
 
 // Clothing Fidelity Directive — ensures AI reproduces outfit accurately from reference or description
 const CLOTHING_FIDELITY_DIRECTIVE = "CLOTHING ACCURACY: Reproduce the character's outfit with 90%+ fidelity to the reference or description. Match: neckline shape, sleeve length, fabric color (exact hue/saturation), pattern/print, layering order, fit (loose/slim/oversized). Do NOT substitute a described casual t-shirt with a formal blouse. Do NOT change colors or add patterns not in the reference. If reference shows a white round-neck t-shirt, output MUST show a white round-neck t-shirt — not a V-neck, not cream, not striped.";
@@ -1697,10 +1697,10 @@ const buildContactPhysicsDirective = (category: ProductCategory): string => {
 // Per-category REALISTIC USAGE STEPS — prevents illogical actions (e.g. spraying perfume with cap still on)
 const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     // ── Food & Beverage (10) ──
-    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Tear open bag, peel lid, or remove wrapper first. Show realistic preparation steps: wash, cut, cook in order. Plated food should be served with appropriate utensils. For instant noodles: tear open SMALL packet, character VISIBLY places bowl on counter (bowl must NOT appear from nowhere), pour noodles in, add hot water, wait, stir, then eat with chopsticks/fork. CRITICAL SIZE: single-serve food packets are SMALL (fits in one hand) — do NOT enlarge to multi-pack or family-size bag. Every bowl, plate, and utensil MUST be introduced by visible character hand action — NEVER materialize out of nowhere.",
+    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Tear open bag, peel lid, or remove wrapper first. Show realistic preparation steps: wash, cut, cook in order. Plated food should be served with appropriate utensils. For instant noodles: tear open SMALL packet, character VISIBLY places bowl on counter (bowl must NOT appear from nowhere), pour noodles in, add hot water, wait, stir, then eat with chopsticks/fork. CRITICAL SIZE: single-serve food packets are SMALL (fits in one hand) — do NOT enlarge to multi-pack or family-size bag. Every bowl, plate, and utensil MUST be introduced by visible character hand action — NEVER materialize out of nowhere. SINGLE UTENSIL RULE: Use exactly ONE fork or ONE spoon per hand — absolutely NO fused double-utensils, NO two forks morphed together.",
     beverage: "REALISTIC USAGE: If bottle/can has a cap or tab, it MUST be opened BEFORE drinking or pouring. Twist cap off or pull tab first. Pour into glass at natural angle. Never drink through a sealed container.",
     snack: "REALISTIC USAGE: Tear open snack bag or peel back wrapper BEFORE eating. Show reaching into bag and picking up piece. Bite-size items held between fingers naturally. Never eat through sealed packaging.",
-    bakery: "REALISTIC USAGE: Open bakery box or remove from bag BEFORE displaying or eating. If wrapped, unwrap first. Break bread naturally with hands or slice with knife. Show fresh texture and interior crumb.",
+    bakery: "REALISTIC USAGE: Open bakery box or remove from bag BEFORE displaying or eating. If wrapped, unwrap first. Break bread naturally with hands or slice with knife. Show fresh texture and interior crumb. SINGLE UTENSIL RULE: If using a fork or spoon, use exactly ONE per hand — NO fused double-utensils, NO two forks morphed together.",
     coffee: "REALISTIC USAGE: For beans — grind first, then brew. For instant — tear sachet, pour into cup, add hot water, stir. For bottled — twist cap off first. Show steam rising from hot coffee. Never pour without opening container.",
     tea: "REALISTIC USAGE: Tear open tea sachet, place tea bag in cup, pour hot water over tea bag, steep and wait. For loose leaf — measure leaves into infuser, pour hot water. Show color developing in water. Remove tea bag before drinking.",
     alcohol: "REALISTIC USAGE: Remove cork with corkscrew or twist off bottle cap BEFORE pouring. Pour at controlled angle into appropriate glass. Show liquid at realistic level. For cocktails — mix ingredients in correct order. Must appear age-appropriate setting.",
@@ -5047,16 +5047,18 @@ const detectProductCategory = (productName: string, productAnalysis: string, tem
         "สวน", "กระถาง", "เมล็ดพันธุ์", "ปุ๋ย", "อุปกรณ์สวน", "บัวรดน้ำ", "กรรไกรตัดกิ่ง", "ดิน"
     ])) return "garden";
 
-    // ── Snack / Bakery / Organic / Frozen-food / Condiment (before food) ──
+    // ── Bakery / Snack / Organic / Frozen-food / Condiment (before food) ──
+    // IMPORTANT: bakery MUST be checked BEFORE snack because "ขนม" in snack
+    // uses substring matching and would catch "ขนมชั้น"/"ขนมหวาน"/"ขนมไทย" first.
+    if (includesAny(t, [
+        "bakery", "bread", "cake", "pastry", "croissant", "donut", "muffin", "pie", "tart", "dessert", "sweet", "kanom",
+        "เบเกอรี่", "ขนมปัง", "เค้ก", "ครัวซองต์", "โดนัท", "มัฟฟิน", "พาย", "ขนมหวาน", "ขนมชั้น", "ขนมไทย"
+    ])) return "bakery";
+
     if (includesAny(t, [
         "snack", "chips", "cookie", "candy", "popcorn", "cracker", "granola bar", "dried fruit",
         "ขนม", "มันฝรั่ง", "คุกกี้", "ลูกอม", "ป๊อปคอร์น", "แครกเกอร์", "ผลไม้อบแห้ง"
     ])) return "snack";
-
-    if (includesAny(t, [
-        "bakery", "bread", "cake", "pastry", "croissant", "donut", "muffin", "pie", "tart",
-        "เบเกอรี่", "ขนมปัง", "เค้ก", "ครัวซองต์", "โดนัท", "มัฟฟิน", "พาย"
-    ])) return "bakery";
 
     if (includesAny(t, [
         "organic", "organic food", "non-gmo", "pesticide-free", "farm-to-table",
@@ -6989,7 +6991,7 @@ const buildVideoPrompt = (
         `Outfit: ${clothingDesc}${aiClothing ? ` (${aiClothing})` : ''} — same outfit in EVERY scene, absolutely no wardrobe changes.`,
         `Expression baseline: ${expressionText}.`,
         `${dynamics}. ${movementDesc}.`,
-        `FACE & SKIN TONE LOCK: Preserve EXACT facial bone structure, face width, jawline shape, eye shape, nose shape, natural skin texture, and EXACT skin tone/complexion from the reference. Do NOT lighten or wash out the skin. Zero face changes between scenes.`,
+        `STRICT FACE & HEAD LOCK: Preserve EXACT facial bone structure, face width, jawline shape, eye shape, nose shape, natural skin texture, EXACT skin tone/complexion, and EXACT hair styling/bangs from the reference image. The character's face MUST remain IDENTICAL to frame 1 across the entire video. Do NOT let the face morph, stretch, or change identity between shots.`,
         `BODY LOCK: Same body type, same build, same posture style, same height proportion across all scenes.`,
         `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture in every scene.`
     ].filter(Boolean).join(' ');

@@ -114,31 +114,6 @@ When camera MUST move, product silhouette stays pixel-locked to reference.
 
 ---
 
-## Test Case 4 — LG UltraGear™ G6 34" 240Hz (จอมอนิเตอร์เกมมิ่ง)
-
-**สินค้า:** จอมอนิเตอร์เกมมิ่ง LG UltraGear™ G6 34" 240Hz (category: `gadget`)  
-**ตัวละคร:** ผู้หญิง  
-**สถานะ:** รอผลลัพธ์วิดีโอ
-
-### สคริป 5 ฉาก:
-1. จอเล็กไป? อยากได้จอโค้งสะใจ? มาดู แอลจี อัลตร้าเกียร์ จอเทพ!
-2. จอโค้ง 34 นิ้ว อัลตร้าไวด์ มุมมองกว้างสะใจ เล่นเกมส์ก็มันส์ ทำงานก็ดี
-3. 240Hz รีเฟรชเรท 1ms ตอบสนองไว เล่นเกมยิงไม่ต้องกลัวภาพเบลอ
-4. สีตรง สวยจริง! ดิสเพลย์ เอช ดี อาร์ 400 ทำคอนเทนต์ก็เริด ดูหนังก็ฟิน
-5. สายเกมเมอร์ต้องจัด! แอลจี อัลตร้าเกียร์ จอโค้งสะใจ กดเลยที่ตะกร้า!
-
-### จุดสังเกต:
-- **ACTION-SCRIPT SYNC สำคัญมาก** — Action ต้องสอดคล้องกับ script:
-  - ฉากพูดเรื่อง**เล่นเกม** → ต้องแสดง**การเล่นเกม**
-  - ฉากพูดเรื่อง**ดูหนัง** → ต้องแสดง**การนั่งดูหนัง**
-  - ให้ดูเป็นธรรมชาติเหมาะกับสินค้าประเภท**จอมอนิเตอร์**
-- สินค้าประเภท `gadget` ที่เป็นจอใหญ่ → ต้องระวังไม่ให้จอ morph/เปลี่ยนทรงระหว่าง scene
-
-### แก้ไขที่ทำ:
-> รอผลลัพธ์วิดีโอเพื่อวิเคราะห์จุดบกพร่องเพิ่มเติม
-
----
-
 ## Failed Case No.5 — มาม่า ต้มยำกุ้งน้ำข้น (Instant Noodle)
 
 **สินค้า:** มาม่า ต้มยำกุ้งน้ำข้น (category: `food`)  
@@ -172,6 +147,57 @@ When camera MUST move, product silhouette stays pixel-locked to reference.
 | 7 | `PRODUCT_PRESENTATION_GUIDE` food | **แก้ knowledge + sceneActions** — เพิ่ม SIZE RULE + PROP RULE, ทุก sceneAction เน้น realistic size + visible prop intro |
 | 8 | `PRODUCT_USAGE_REALISM` food | **แก้ให้ครอบคลุม instant noodle** — เพิ่มขั้นตอน: tear open SMALL packet → VISIBLY place bowl → pour → add water → stir → eat |
 | 9 | `detectProductCategory` | **เพิ่ม keywords** — "instant noodle", "cup noodle", "มาม่า", "บะหมี่กึ่งสำเร็จรูป", "ยำยำ", "ไวไว" → map ไป `food` |
+
+---
+
+## Test Case 6 — ขนมชั้น (Thai Dessert)
+
+**สินค้า:** ขนมชั้น (category: `bakery` / `food`)  
+**ตัวละคร:** ผู้หญิงวัยรุ่นผมบ๊อบสั้น  
+
+### ปัญหาที่พบจากวิดีโอ:
+1. **ฉากหลังไม่ตรงบริบท:** กลายเป็นฉากตลาดสดขายของคาว (มีกุ้ง/ปลา) แทนที่จะเป็นร้านขนม
+2. **หน้าตัวละครเปลี่ยนไปในฉากหลังๆ:** หน้าตาบิดเบี้ยวและเปลี่ยนโครงหน้า ไม่เหมือนกับวินาทีแรกที่ปรากฏตัว (Face morphing)
+3. **อุปกรณ์ผิดธรรมชาติ (ช้อนส้อม):** ตัวละครถือส้อม 2 อันที่หลอมรวมกัน (Fused double-utensils) 
+4. **พูดนอกสคริปต์/ขยับปากช่วงเชื่อมฉาก:** มีจังหวะรอยต่อที่ปากขยับพูดแต่ไม่มีเสียง/หรือมีเสียง filler
+
+### Root Cause Analysis:
+1. **Background Mismatch** — คำว่า "ขนมชั้น" ตกไปอยู่ในหมวดรวม `food` ซึ่ง environment map สุ่มได้ตลาดสด (market)
+2. **Face Morphing** — `characterAnchor` มี Face Lock แล้วแต่ยังไม่แข็งแกร่งพอในประโยคคำสั่ง
+3. **Utensil Glitch** — AI ชอบเสก prop ออกมาเบิ้ลในมือเดียวกันเมื่อระบุคำว่า "utensils/fork"
+4. **Voice Discipline** — ตัวละครขยับปากรอยต่อซีนเพราะไม่ถูกสั่งให้ "หุบปากปิดสนิท"
+
+### แก้ไขที่ทำ:
+| # | ตำแหน่งใน code | สิ่งที่แก้ |
+|---|---|---|
+| 1 | `detectProductCategory` | เพิ่ม keyword `"ขนมหวาน", "dessert", "sweet", "kanom", "ขนมชั้น", "ขนมไทย"` ลงในกลุ่ม `bakery` เพื่อให้ตก Environment ที่เป็น คาเฟ่, ร้านเบเกอรี่ แทนตลาดสด |
+| 2 | `characterAnchor` | ปรับแก้เป็น **`STRICT FACE & HEAD LOCK`** บังคับด้วยประโยค: *"The character's face MUST remain IDENTICAL to frame 1 across the entire video. Do NOT let the face morph, stretch, or change identity between shots."* |
+| 3 | `PRODUCT_USAGE_REALISM` | เพิ่ม **`SINGLE UTENSIL RULE`** ในกลุ่ม food/bakery: *"Use exactly ONE fork or ONE spoon per hand — absolutely NO fused double-utensils, NO two forks morphed together."* |
+| 4 | `VOICE_DISCIPLINE_DIRECTIVE` | ยกระดับความเข้มงวด: *"Between spoken lines, the character's mouth MUST be fully closed with composed silence. Do NOT let the character mouth words that are not in the script."* |
+
+---
+
+## Failed Case No.4 — LG UltraGear G6 34" 240Hz (จอมอนิเตอร์เกมมิ่ง)
+
+**สินค้า:** จอมอนิเตอร์เกมมิ่ง LG UltraGear G6 34" 240Hz (category: `gadget`)  
+**ตัวละคร:** ผู้หญิง  
+**ปัญหาหลัก:** Screen logos/artifacts บนหน้าจอเกม + เสียง "ยะ ฮ๊า" ตอนเชื่อมฉาก
+
+### ปัญหาที่พบจากวิดีโอ:
+1. **Screen logos/artifacts บนหน้าจอเกม** — จอภาพมี logo ลอยไปมาและ UI แปลกๆ ไม่ใช่ game footage แบบเนียนๆ
+2. **เสียง "ยะ ฮ๊า" ตอนเชื่อมฉาก** — ตัวละครขยับปากพูดนอกสคริปต์/ส่งเสียง filler แทนที่จะพูดแบบ ท๊าดา
+
+### Root Cause Analysis:
+1. **Screen Artifacts** — จอ monitor ถูก detect เป็น category `"gadget"` แต่ `SCREEN_CONTENT_CATEGORIES` ไม่มี `"gadget"` ทำให้ directive สำหรับควบคุมเนื้อหาบนจอ (screen content) **ไม่เคยถูกเรียกใช้**
+2. **Voice Fillers** — ขาด directive เพื่อควบคุมระเบียบการขยับปากและเสียงพูดช่วงรอยต่อฉาก
+
+### แก้ไขที่ทำ:
+| # | ตำแหน่งใน code | สิ่งที่แก้ |
+|---|---|---|
+| 1 | `SCREEN_CONTENT_CATEGORIES` | เพิ่ม `"gadget"` เข้าไปในกลุ่มที่มีจอภาพแสดงผล |
+| 2 | `SCREEN_CLEAN_SUFFIX` (ใหม่) | สร้าง suffix ต่อท้าย screen directive: *"NO floating logos, NO brand watermarks, NO game HUD elements, NO UI chrome"* |
+| 3 | `getScreenContentDirective` | ขยาย gaming keywords: `240hz`, `144hz`, `freesync`, `g-sync`, `ไม่กระตุก`, `ไม่ฉีก`, `ภาพเบลอ` |
+| 4 | `VOICE_DISCIPLINE_DIRECTIVE` (ใหม่) | เพิ่มกฎเหล็ก: *"NO filler sounds, NO 'ยะ!', 'ฮ๊า!'... When revealing product, use CONFIDENT smooth presenter tone (like 'ท๊าดา!' reveal) — NOT shocked/gasping"* |
 
 ---
 
