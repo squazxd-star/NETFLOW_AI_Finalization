@@ -735,14 +735,29 @@ function findPromptBarAddButton(): HTMLElement | null {
     }
 
     // Pick the one closest to the bottom of the viewport
+    // ★ MUST be in bottom 40% of viewport — top buttons are reference area "+" (not prompt bar)
+    const minY = _hidden() ? 0 : window.innerHeight * 0.6;
     let bestBtn: HTMLElement | null = null;
     let bestY = 0;
     for (const btn of addButtons) {
         const rect = btn.getBoundingClientRect();
-        if (rect.y > bestY) {
+        if (rect.y >= minY && rect.y > bestY) {
             bestY = rect.y;
             bestBtn = btn;
         }
+    }
+
+    // Fallback: if no button in bottom 40%, try bottom 70%
+    if (!bestBtn && !_hidden()) {
+        const relaxedMinY = window.innerHeight * 0.3;
+        for (const btn of addButtons) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.y >= relaxedMinY && rect.y > bestY) {
+                bestY = rect.y;
+                bestBtn = btn;
+            }
+        }
+        if (bestBtn) LOG(`⚠️ ปุ่ม "+" ไม่อยู่ใน bottom 40% — ใช้ fallback ที่ y=${bestY.toFixed(0)}`);
     }
 
     if (bestBtn) {
@@ -1283,12 +1298,12 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
         const dropDt = new DataTransfer();
         dropDt.items.add(file);
         const dropEvent = new DragEvent('drop', {
-            bubbles: !isMac, // Mac: don't bubble (prevents Slate from catching it)
+            bubbles: true,
             cancelable: true,
             dataTransfer: dropDt,
         });
         target.dispatchEvent(dropEvent);
-        LOG(`ส่ง drop event บน file input (bubbles=${!isMac})`);
+        LOG(`ส่ง drop event บน file input (bubbles=true)`);
     } catch (_) {
         // drop event dispatch is optional — ignore errors
     }
@@ -1481,6 +1496,11 @@ async function pasteImageViaRealClipboard(dataUrl: string, file: File, baselineC
     // ═══ Method A: navigator.clipboard.write() + execCommand('paste') ═══
     let pasteDispatched = false;
     try {
+        // ★ Must focus window/document first — Clipboard API requires document focus
+        window.focus();
+        if (editor) editor.focus();
+        await sleep(200);
+
         const arrayBuffer = await file.arrayBuffer();
         const blob = new Blob([arrayBuffer], { type: file.type || 'image/png' });
         const clipItem = new ClipboardItem({ [blob.type]: blob });
