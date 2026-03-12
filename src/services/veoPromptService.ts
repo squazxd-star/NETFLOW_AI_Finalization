@@ -1527,6 +1527,9 @@ const ANTI_TEXT_DIRECTIVE = "CRITICAL NO TEXT DIRECTIVE: Absolutely NO subtitles
 // Anti-Addition Directive — prevents AI from inventing accessories/elements not in the reference
 const ANTI_ADDITION_DIRECTIVE = "ZERO INVENTION POLICY: Do NOT add ANY accessory, prop, or element that is NOT explicitly shown in the reference images. Specifically: NO glasses/sunglasses unless in reference. NO hats/headbands unless in reference. NO scarves/neckwear unless in reference. NO earphones/AirPods unless the product IS earphones. NO extra jewelry unless in reference. NO tattoos unless in reference. NO background logos or brand signs. NO secondary products or props not in the brief. If the reference shows a plain-faced person, the output MUST show a plain-faced person. Every visible element must be traceable to either the character reference or the product reference.";
 
+// Voice Discipline Directive — prevents filler sounds/gasps between dialogue lines during scene transitions
+const VOICE_DISCIPLINE_DIRECTIVE = "VOICE DISCIPLINE: Character speaks ONLY the provided dialogue text — NO filler sounds, NO random gasps, NO surprised exclamations (NO 'ยะ!', 'ฮ๊า!', 'อ้าว!', 'ว้าว!', 'โอ้!'), NO giggling, NO humming between lines. When revealing or presenting the product, character uses a CONFIDENT smooth presenter tone (like a polished 'ท๊าดา!' reveal) — NOT a shocked/gasping reaction. Between spoken lines, character maintains composed silence with natural breathing only. The character is a PROFESSIONAL PRESENTER, not a surprised audience member.";
+
 // Clothing Fidelity Directive — ensures AI reproduces outfit accurately from reference or description
 const CLOTHING_FIDELITY_DIRECTIVE = "CLOTHING ACCURACY: Reproduce the character's outfit with 90%+ fidelity to the reference or description. Match: neckline shape, sleeve length, fabric color (exact hue/saturation), pattern/print, layering order, fit (loose/slim/oversized). Do NOT substitute a described casual t-shirt with a formal blouse. Do NOT change colors or add patterns not in the reference. If reference shows a white round-neck t-shirt, output MUST show a white round-neck t-shirt — not a V-neck, not cream, not striped.";
 
@@ -1651,6 +1654,41 @@ const ANTI_FLOATING_HANDS = "HAND REALISM: Arms and hands MUST connect naturally
 // Dynamic Interaction Directive — prevents static single-angle product holding
 const DYNAMIC_INTERACTION_DIRECTIVE = "DYNAMIC PRODUCT INTERACTION (CRITICAL): Character MUST NOT hold the product in one static pose or single angle throughout the scene. Character must CONTINUOUSLY shift interaction: rotate product to show different angles, tilt to reveal side profile then back to front, switch grip between one hand and two hands, lift product higher then bring it closer to camera, point at specific features, flip or turn the product naturally. At least 2-3 distinct pose/angle transitions within each scene. Smooth natural transitions between each interaction — never freeze in one position. STATIC SINGLE-ANGLE HOLDING IS STRICTLY FORBIDDEN.";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT SIZE REALISM — prevents AI from distorting product dimensions
+// E.g. single instant noodle packet appearing as huge multi-pack bag
+// ═══════════════════════════════════════════════════════════════════════════
+const PRODUCT_SIZE_REALISM: Partial<Record<ProductCategory, string>> = {
+    food: "PRODUCT SIZE (CRITICAL): This is a SINGLE-SERVE food packet — it is SMALL, fits comfortably in ONE hand. The package must appear at REALISTIC real-world scale relative to the character's hands and body. Do NOT enlarge, inflate, or upscale the package into a multi-pack, family-size, or bulk bag. The product in hand should look exactly as a consumer would hold it in a convenience store — SMALL and lightweight. If the reference shows a single packet, render a single small packet — NEVER a giant bag.",
+    snack: "PRODUCT SIZE (CRITICAL): This is a SINGLE snack packet — SMALL enough to hold in one hand. Render at REALISTIC real-world scale relative to character's body. Do NOT enlarge into family-size or party-size bag. A single snack bag is typically 50-100g — small and light.",
+    beverage: "PRODUCT SIZE (CRITICAL): Render the bottle/can at REALISTIC real-world proportions. A standard drink bottle is about the length of a hand. Do NOT enlarge into oversized or novelty proportions.",
+    bakery: "PRODUCT SIZE (CRITICAL): Bakery items are typically palm-sized to hand-sized. Render at REALISTIC scale — a single pastry or bread piece, not an oversized novelty version.",
+    coffee: "PRODUCT SIZE (CRITICAL): Coffee sachet/bag is small (palm-sized for sachet, hand-length for bag). Render at REALISTIC scale relative to hands.",
+    supplement: "PRODUCT SIZE (CRITICAL): Supplement bottles are typically 10-15cm tall. Render at REALISTIC scale relative to hand — the bottle should fit comfortably in one hand.",
+    beauty: "PRODUCT SIZE (CRITICAL): Beauty products are typically small (5-15cm). Render at REALISTIC scale — the product fits in one hand easily.",
+    fragrance: "PRODUCT SIZE (CRITICAL): Perfume bottles are typically 8-12cm tall, small and delicate. Render at REALISTIC scale — fits in palm.",
+    skincare: "PRODUCT SIZE (CRITICAL): Skincare bottles/tubes are typically 10-20cm. Render at REALISTIC scale relative to face and hands.",
+    condiment: "PRODUCT SIZE (CRITICAL): Condiment bottles are standard kitchen size. Render at REALISTIC proportions — NOT oversized.",
+    dental: "PRODUCT SIZE (CRITICAL): Toothpaste tubes are typically 15-20cm long. Render at REALISTIC scale relative to hand.",
+};
+
+const getProductSizeDirective = (category: ProductCategory): string => {
+    return PRODUCT_SIZE_REALISM[category] || "PRODUCT SIZE REALISM: Render the product at its REAL-WORLD size relative to the character's hands and body. Do NOT enlarge, distort, or change the product's real-world proportions. A small product must look small. A large product must look large. Match the reference image scale.";
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROP INTRODUCTION DIRECTIVE — prevents objects appearing without action
+// E.g. a bowl materializing out of nowhere without character picking it up
+// ═══════════════════════════════════════════════════════════════════════════
+const PROP_INTRODUCTION_DIRECTIVE = "PROP CONTINUITY (CRITICAL): Every new object, prop, or utensil that appears in frame MUST be introduced by a VISIBLE character action — picking up, placing down, reaching for, or bringing into frame with hands. Objects MUST NOT magically appear, materialize, teleport, or pop into existence. If a bowl appears, show the character placing it or picking it up. If utensils appear, show the character grabbing them. NO prop may exist in frame without the character having visibly interacted with it first. Scene-to-scene prop continuity must be maintained — objects present at the end of one scene must still be present at the start of the next.";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT ANTI-MORPH DIRECTIVE — ultra-strong brand identity preservation
+// Prevents product from changing brand/logo/design between scenes
+// E.g. Mama noodle turning into "Antala TOM YUM KUNG" in later scenes
+// ═══════════════════════════════════════════════════════════════════════════
+const PRODUCT_ANTI_MORPH_DIRECTIVE = "BRAND IDENTITY FREEZE (HIGHEST PRIORITY): The product's brand name, logo design, packaging layout, color scheme, and typography MUST remain ABSOLUTELY IDENTICAL across ALL scenes — zero deviation. The product brand MUST NOT morph, transform, evolve, or change into a different brand at any point. If Scene 1 shows brand X, Scene 2/3/4 MUST show the EXACT SAME brand X with IDENTICAL logo, IDENTICAL text layout, IDENTICAL color bands, IDENTICAL packaging design. BRAND MORPHING IS THE #1 FORBIDDEN ERROR. If the AI is uncertain about brand details in later scenes, show the product with the label slightly angled or partially visible rather than inventing wrong branding. NEVER replace the original brand with any other brand name or logo design.";
+
 /** Build category-specific contact + physics directive (full — for image prompts) */
 const buildContactPhysicsDirective = (category: ProductCategory): string => {
     return `${PRODUCT_GRIP_CONTACT[category] || PRODUCT_GRIP_CONTACT["other"]} ${PRODUCT_PHYSICS_SHADOW[category] || PRODUCT_PHYSICS_SHADOW["other"]} ${ANTI_FLOATING_HANDS}`;
@@ -1659,7 +1697,7 @@ const buildContactPhysicsDirective = (category: ProductCategory): string => {
 // Per-category REALISTIC USAGE STEPS — prevents illogical actions (e.g. spraying perfume with cap still on)
 const PRODUCT_USAGE_REALISM: Partial<Record<ProductCategory, string>> = {
     // ── Food & Beverage (10) ──
-    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Tear open bag, peel lid, or remove wrapper first. Show realistic preparation steps: wash, cut, cook in order. Plated food should be served with appropriate utensils.",
+    food: "REALISTIC USAGE: If food is packaged/wrapped, open or unwrap BEFORE eating or serving. Tear open bag, peel lid, or remove wrapper first. Show realistic preparation steps: wash, cut, cook in order. Plated food should be served with appropriate utensils. For instant noodles: tear open SMALL packet, character VISIBLY places bowl on counter (bowl must NOT appear from nowhere), pour noodles in, add hot water, wait, stir, then eat with chopsticks/fork. CRITICAL SIZE: single-serve food packets are SMALL (fits in one hand) — do NOT enlarge to multi-pack or family-size bag. Every bowl, plate, and utensil MUST be introduced by visible character hand action — NEVER materialize out of nowhere.",
     beverage: "REALISTIC USAGE: If bottle/can has a cap or tab, it MUST be opened BEFORE drinking or pouring. Twist cap off or pull tab first. Pour into glass at natural angle. Never drink through a sealed container.",
     snack: "REALISTIC USAGE: Tear open snack bag or peel back wrapper BEFORE eating. Show reaching into bag and picking up piece. Bite-size items held between fingers naturally. Never eat through sealed packaging.",
     bakery: "REALISTIC USAGE: Open bakery box or remove from bag BEFORE displaying or eating. If wrapped, unwrap first. Break bread naturally with hands or slice with knife. Show fresh texture and interior crumb.",
@@ -2738,18 +2776,18 @@ const PRODUCT_PRESENTATION_GUIDE: Partial<Record<ProductCategory, {
 
     // ── Food & Beverage ──
     food: {
-        knowledge: "Food must show UNPACKING → PREPARATION → TASTING ritual. Show food texture, steam, freshness, first bite reaction. Don't just hold sealed packaging — open it, prepare, and taste.",
+        knowledge: "Food must show UNPACKING → PREPARATION → TASTING ritual. CRITICAL SIZE RULE: Single-serve food packets (instant noodles, snacks, etc.) are SMALL — they fit in ONE hand at convenience-store scale. Do NOT enlarge into multi-pack or family-size. PROP RULE: Every bowl, utensil, or plate must be introduced by the character's visible hand action (placing, picking up) — objects MUST NOT appear out of nowhere. Show food texture, steam, freshness, first bite reaction.",
         sceneActions: [
-            "Presenter shows food packaging — brand, design, appetizing food photo on package.",
-            "Presenter opens packaging — tears bag, peels lid, unwraps. Fresh food revealed.",
-            "Presenter prepares food — plates it, adds garnish, heats up. Appetizing presentation.",
-            "Close-up of food — texture, color, steam rising, moisture glistening. Macro food shot.",
-            "Presenter takes first bite/taste — genuine reaction, chewing, eyes widen with delight.",
-            "Presenter describes flavor — gestures, nods, points at food. Enthusiastic review.",
-            "Presenter shows another angle of food — cross-section, layers, ingredients visible.",
-            "Presenter takes another enthusiastic bite — can't stop eating, reaches for more.",
-            "Presenter shows generous portion size — still plenty of food remaining, great quality visible.",
-            "Closing — presenter with food, satisfied smile, thumbs up. Delicious recommendation."
+            "Presenter holds SMALL single-serve food packet in one hand (realistic palm-sized scale, NOT enlarged) — shows brand label, design clearly to camera.",
+            "Presenter tears open SMALL packet with both hands — food contents revealed inside.",
+            "Presenter VISIBLY reaches for and places bowl on counter with hand, then pours food from packet into bowl. Preparation visible step by step.",
+            "Close-up of prepared food in bowl — texture, color, steam rising, noodles/food glistening. Macro food shot. SMALL packet visible beside bowl (IDENTICAL brand).",
+            "Presenter picks up utensils (chopsticks/fork) with VISIBLE hand motion, takes first bite — genuine reaction, chewing, eyes widen with delight.",
+            "Presenter describes flavor — gestures, nods, points at food in bowl. Enthusiastic review. SMALL packet brand visible.",
+            "Presenter shows food from another angle — stirs with utensils, shows rich broth/sauce/ingredients. Steam rising.",
+            "Presenter takes another enthusiastic bite — can't stop eating, reaches for more with utensils.",
+            "Presenter holds SMALL packet next to prepared bowl — shows how much food came from this small packet. Impressed at value.",
+            "Closing — presenter with prepared food in bowl, SMALL packet prominently visible beside it (IDENTICAL brand/design as opening). Satisfied smile, thumbs up."
         ]
     },
     beverage: {
@@ -5103,8 +5141,8 @@ const detectProductCategory = (productName: string, productAnalysis: string, tem
 
     // ── Broad parent categories (checked after specific sub-categories) ──
     if (includesAny(t, [
-        "food", "noodle", "ramen", "rice", "chocolate", "instant",
-        "อาหาร", "ของกิน", "บะหมี่", "ก๋วยเตี๋ยว", "ข้าว"
+        "food", "noodle", "ramen", "rice", "chocolate", "instant", "instant noodle", "cup noodle",
+        "อาหาร", "ของกิน", "บะหมี่", "ก๋วยเตี๋ยว", "ข้าว", "มาม่า", "บะหมี่กึ่งสำเร็จรูป", "ยำยำ", "ไวไว"
     ])) return "food";
 
     if (includesAny(t, [
@@ -5373,8 +5411,11 @@ const CATEGORY_REVIEW_PHRASE: Partial<Record<ProductCategory, string[]>> = {
 // Ensures the product's screen shows CONTEXT-APPROPRIATE content matching dialogue
 // ═══════════════════════════════════════════════════════════════════════════
 const SCREEN_CONTENT_CATEGORIES: Set<ProductCategory> = new Set([
-    "laptop", "phone", "tablet", "gaming", "wearable", "smart-home"
+    "laptop", "phone", "tablet", "gaming", "wearable", "smart-home", "gadget"
 ]);
+
+// Shared suffix for ALL screen content directives — prevents logos/watermarks/artifacts on displayed content
+const SCREEN_CLEAN_SUFFIX = `SCREEN CLEANLINESS: The displayed content on the product screen must be CLEAN and SEAMLESS — NO floating logos, NO brand watermarks, NO semi-transparent overlays, NO game HUD elements (health bars, minimaps, crosshairs, ammo counters), NO UI chrome or debug info visible on the screen. Show ONLY pure immersive content as if the viewer is looking through a window into the game/video/app world. The screen content must blend naturally with the product display.`;
 
 /**
  * Returns a screen content directive for products with displays.
@@ -5387,18 +5428,18 @@ const getScreenContentDirective = (category: ProductCategory, sceneScript: strin
     const scriptLower = sceneScript.toLowerCase();
     
     // Gaming keywords → game visuals on screen
-    if (/เกม|game|gaming|เล่นเกม|แรง.*สะใจ|ลื่น.*มาก|fps|แรงค์|rank/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show a vivid, HIGHLY ANIMATED 3D video game environment running in real-time — colorful game world with characters, explosions, racing, or fast-paced action clearly visible and actively moving on the screen. The game graphics must be bright, detailed, and unmistakably a video game in motion. Do NOT show a static image or paused screen.`;
+    if (/เกม|game|gaming|เล่นเกม|แรง.*สะใจ|ลื่น.*มาก|fps|แรงค์|rank|240hz|144hz|refresh|รีเฟรช|freesync|g-sync|ไม่กระตุก|ไม่ฉีก|ภาพ.*เบลอ/i.test(scriptLower)) {
+        return `SCREEN CONTENT: The product display MUST show a vivid, HIGHLY ANIMATED 3D video game environment running in real-time — colorful open-world or action game with characters, vehicles, or fast-paced movement clearly visible and actively moving on the screen. The game graphics must be bright, detailed, and unmistakably a video game in motion — smooth fluid animation demonstrating high refresh rate. Do NOT show a static image or paused screen. ${SCREEN_CLEAN_SUFFIX}`;
     }
     
     // Video editing keywords → editing app UI on screen
     if (/ตัดต่อ|edit|premiere|after effect|วีดีโอ.*ลื่น|render|timeline/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show an ACTIVE, ANIMATED professional video editing application interface (resembling Adobe Premiere Pro or After Effects) — with visible timeline playback moving, video preview panel showing moving video, and editing tool panels. The editing workspace must be clearly in use and animating. Do NOT show a static screenshot.`;
+        return `SCREEN CONTENT: The product display MUST show an ACTIVE, ANIMATED professional video editing application interface (resembling Adobe Premiere Pro or After Effects) — with visible timeline playback moving, video preview panel showing moving video, and editing tool panels. The editing workspace must be clearly in use and animating. Do NOT show a static screenshot. ${SCREEN_CLEAN_SUFFIX}`;
     }
 
     // Code / Work keywords
     if (/ทำงาน|work|code|โปรแกรม|office|เอกสาร|พิมพ์|typing/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show an ACTIVE computer operating system (like Windows or macOS). Show active typing, moving mouse cursor, scrolling through documents, or coding with animated syntax highlighting. It must look like a real, functioning computer interface in use, NOT a static wallpaper.`;
+        return `SCREEN CONTENT: The product display MUST show an ACTIVE computer operating system (like Windows or macOS). Show active typing, moving mouse cursor, scrolling through documents, or coding with animated syntax highlighting. It must look like a real, functioning computer interface in use, NOT a static wallpaper. ${SCREEN_CLEAN_SUFFIX}`;
     }
     
     // Photo/camera keywords → photo gallery on screen
@@ -5408,12 +5449,12 @@ const getScreenContentDirective = (category: ProductCategory, sceneScript: strin
     
     // Video watching keywords → video playback on screen
     if (/ดูหนัง|ดูวีดีโอ|movie|video|netflix|youtube|ดู.*ฟิน/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show vivid colorful video content or a movie scene actively playing with bright rich visuals in motion on the screen. MUST be animated.`;
+        return `SCREEN CONTENT: The product display MUST show vivid colorful video content or a movie scene actively playing with bright rich visuals in motion on the screen. MUST be animated. ${SCREEN_CLEAN_SUFFIX}`;
     }
     
     // Screen quality keywords → vibrant display content
     if (/จอ.*สี|สี.*สด|คมชัด|display|screen|oled|amoled|จอ.*สวย/i.test(scriptLower)) {
-        return `SCREEN CONTENT: The product display MUST show vibrant, ANIMATED colorful content (like an animated 3D live wallpaper, moving fluids, or playing video) with rich saturated colors that demonstrate the screen quality. MUST be actively moving.`;
+        return `SCREEN CONTENT: The product display MUST show vibrant, ANIMATED colorful content (like an animated 3D live wallpaper, moving fluids, or playing video) with rich saturated colors that demonstrate the screen quality. MUST be actively moving. ${SCREEN_CLEAN_SUFFIX}`;
     }
     
     // Speed keywords → apps/UI responding
@@ -5422,7 +5463,7 @@ const getScreenContentDirective = (category: ProductCategory, sceneScript: strin
     }
     
     // Default for screen products — always show SOMETHING on screen
-    return `SCREEN CONTENT: The product display MUST show highly active, ANIMATED content in motion — such as moving OS UI elements (Windows/macOS), video playback, scrolling, or game action. It must look like a real, functioning device screen. NEVER show a blank screen, and NEVER show a static image, static product ad, or motionless wallpaper on the screen.`;
+    return `SCREEN CONTENT: The product display MUST show highly active, ANIMATED content in motion — such as moving OS UI elements (Windows/macOS), video playback, scrolling, or game action. It must look like a real, functioning device screen. NEVER show a blank screen, and NEVER show a static image, static product ad, or motionless wallpaper on the screen. ${SCREEN_CLEAN_SUFFIX}`;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5593,16 +5634,16 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
     // ── Food & Drink ── (VISUAL PROOF: must show EATING/DRINKING + REACTION)
     // ═══════════════════════════════════════════════════════════════
     food: [
-        { script: (name) => `ลองชิม ${name} แล้ว อร่อยมากจริง`, action: "CAMERA: Medium push-in to close-up on face. Presenter takes a bite — genuine delighted surprised reaction, eyes widening. Steam/freshness visible. Authentic taste reaction PROOF." },
-        { script: (name) => `เนื้อสัมผัส ${name} ดีมาก ฟินเลย`, action: "CAMERA: Macro close-up tracking. Presenter breaks/cuts food open — reveals juicy interior (melted cheese, layers, creamy filling). Cross-section HERO shot. Texture quality PROOF." },
-        { script: (name) => `${name} รสชาติเข้มข้น ลงตัวมาก`, action: "CAMERA: Close-up dolly-in on presenter. Takes another bite, closes eyes savoring — genuine pleasure. Nods approvingly to camera. Involuntary enjoyment reaction PROOF." },
-        { script: (name) => `วัตถุดิบ ${name} คุณภาพ อร่อยจริง`, action: "CAMERA: Overhead bird's-eye then sweeping down. Shows premium ingredients — fresh vegetables, quality meat, rich sauce. Appetizing detail close-up, then satisfying bite. Ingredient quality PROOF." },
-        { script: (name) => `${name} หน้าตาน่ากิน สวยมาก`, action: "CAMERA: Slow cinematic orbit around dish, shallow DOF. Beautiful food plating — colors, garnish, arrangement visible. Steam rising. Presenter reaches for first bite. Visual appetite appeal PROOF." },
-        { script: (name) => `กลิ่น ${name} หอมมาก เตะจมูก`, action: "CAMERA: Close-up push-in from food to presenter's face. Presenter leans in, inhales deeply — closes eyes, blissful aroma reaction. Then eagerly takes bite. Aroma-to-taste journey PROOF." },
-        { script: (name) => `ปริมาณ ${name} เยอะมาก คุ้มค่า`, action: "CAMERA: Wide establishing shot then push-in. Large generous portion visible — presenter reacts impressed at quantity. Picks up showing hefty weight/size. Value-for-money PROOF." },
-        { script: (name) => `${name} กินแล้วอิ่มมาก จัดเต็ม`, action: "CAMERA: Medium tracking shot. Presenter actively eating — enjoying multiple bites, satisfied expression growing. Leans back with full happy expression. Satisfying fullness PROOF." },
-        { script: (name) => `${name} ทำมาสดใหม่ คุณภาพเยี่ยม`, action: "CAMERA: Macro detail shot of fresh preparation. Fresh ingredients being assembled/cooked — sizzling, steaming, vibrant colors. Presenter receives and takes first bite. Freshness quality PROOF." },
-        { script: (name) => `${name} อร่อยมาก สั่งซ้ำแน่นอน`, action: "CAMERA: Dynamic two-shot sequence. Presenter finishes bite — immediately reaches for more, can't stop eating. Thumbs up to camera with mouth full, genuine can't-stop-eating reaction PROOF." },
+        { script: (name) => `ลองชิม ${name} แล้ว อร่อยมากจริง`, action: "CAMERA: Medium push-in to close-up on face. Presenter holds SMALL single-serve packet (realistic palm-sized scale — NOT enlarged). Takes a bite of prepared food — genuine delighted surprised reaction, eyes widening. Steam/freshness visible. PRODUCT SIZE: packet fits in ONE hand comfortably. Authentic taste reaction PROOF." },
+        { script: (name) => `เนื้อสัมผัส ${name} ดีมาก ฟินเลย`, action: "CAMERA: Macro close-up tracking. Presenter shows SMALL packet front label to camera, then tears open — reveals food inside. Prepares with VISIBLE hand actions (character reaches for and places bowl on counter BEFORE pouring). Cross-section HERO shot. Texture quality PROOF." },
+        { script: (name) => `${name} รสชาติเข้มข้น ลงตัวมาก`, action: "CAMERA: Close-up dolly-in on presenter. Presenter uses utensils (picks up chopsticks/fork with VISIBLE hand motion) to eat prepared food. Closes eyes savoring — genuine pleasure. Nods approvingly to camera. Involuntary enjoyment reaction PROOF." },
+        { script: (name) => `วัตถุดิบ ${name} คุณภาพ อร่อยจริง`, action: "CAMERA: Overhead bird's-eye then sweeping down. Presenter VISIBLY tears open SMALL packet, pours contents into bowl (character places bowl with hand first). Shows premium ingredients — fresh noodles/food, rich sauce. Appetizing detail close-up, then satisfying bite. Ingredient quality PROOF." },
+        { script: (name) => `${name} หน้าตาน่ากิน สวยมาก`, action: "CAMERA: Slow cinematic medium shot, shallow DOF. Presenter holds SMALL single-serve packet showing front label (packet fits in one hand — realistic convenience-store size). Beautiful food visible in bowl that character placed earlier. Steam rising. Presenter reaches for first bite. Visual appetite appeal PROOF." },
+        { script: (name) => `กลิ่น ${name} หอมมาก เตะจมูก`, action: "CAMERA: Close-up push-in from food to presenter's face. Presenter leans over prepared food in bowl, inhales deeply — closes eyes, blissful aroma reaction. Bowl and utensils were introduced by character's hands in prior action. Then eagerly takes bite. Aroma-to-taste journey PROOF." },
+        { script: (name) => `ปริมาณ ${name} เยอะมาก คุ้มค่า`, action: "CAMERA: Medium shot. Presenter holds SMALL single-serve packet in one hand (realistic size — NOT enlarged to multi-pack). Shows prepared food in bowl — generous portion from this small packet. Impressed at quantity from small packet. Value-for-money PROOF." },
+        { script: (name) => `${name} กินแล้วอิ่มมาก จัดเต็ม`, action: "CAMERA: Medium tracking shot. Presenter actively eating with utensils (chopsticks/fork picked up with visible hand action). Enjoying multiple bites, satisfied expression growing. SMALL packet visible nearby on counter. Satisfying fullness PROOF." },
+        { script: (name) => `${name} ทำง่ายมาก สะดวกสุดๆ`, action: "CAMERA: Step-by-step medium shot. Presenter FIRST picks up SMALL packet (one-hand hold, realistic size), THEN tears open, THEN character reaches for and places bowl on counter, THEN pours contents in. Quick easy preparation. Convenience PROOF." },
+        { script: (name) => `${name} อร่อยมาก สั่งซ้ำแน่นอน`, action: "CAMERA: Dynamic medium shot. Presenter with prepared food in bowl and SMALL packet visible beside it (IDENTICAL brand/design throughout). Finishes bite — immediately reaches for more. Thumbs up to camera. PRODUCT BRAND on packet MUST be IDENTICAL to opening scene. Can't-stop-eating reaction PROOF." },
     ],
     snack: [
         { script: (name) => `กินแล้วหยุดไม่ได้ ${name} อร่อยมาก`, action: "CAMERA: Medium to close-up push-in. Presenter opens package, takes piece and eats — crunchy implied, satisfied. Reaches for another immediately. Can't-stop-eating PROOF." },
@@ -6997,14 +7038,17 @@ const buildVideoPrompt = (
         scene1PresentationBlock,
         // [4.6. SCREEN CONTENT DIRECTIVE — what must appear ON the product's display]
         getScreenContentDirective(category, sceneTexts[0] || ''),
+        // [4.7. SIZE + PROP + ANTI-MORPH] — product size realism, prop introduction, brand identity freeze
+        !isScene1TalkOnly ? getProductSizeDirective(category) : '',
+        PROP_INTRODUCTION_DIRECTIVE,
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
         // [7. STYLE/MOOD + REALISM]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
-        // [8. CONSTRAINTS] — policy + anti-addition (PRODUCT LOCK + FACE LOCK already in productAnchor + characterAnchor, not repeated here)
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${VIDEO_POLICY_DIRECTIVE}`
+        // [8. CONSTRAINTS] — policy + anti-addition + brand freeze + voice discipline
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), veoSafeProductName);
 
 
@@ -7117,6 +7161,9 @@ export const buildSceneVideoPromptJSON = (
         presentationBlock,
         // [4.6. SCREEN CONTENT DIRECTIVE — what must appear ON the product's display]
         getScreenContentDirective(meta.category, cleanScript),
+        // [4.7. SIZE + PROP] — product size realism + prop introduction rule
+        !isTalkOnly ? getProductSizeDirective(meta.category) : '',
+        PROP_INTRODUCTION_DIRECTIVE,
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
@@ -7124,8 +7171,8 @@ export const buildSceneVideoPromptJSON = (
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
 
-        // [7. CONSTRAINTS + LOCKS] (FACE LOCK already in characterAnchor, not repeated)
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only.`
+        // [7. CONSTRAINTS + LOCKS + ANTI-MORPH + VOICE DISCIPLINE] (FACE LOCK already in characterAnchor, not repeated)
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
     ].filter(Boolean).join(' '), productName);
 
     return prompt;

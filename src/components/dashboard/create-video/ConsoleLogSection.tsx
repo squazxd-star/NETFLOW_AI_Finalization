@@ -87,13 +87,13 @@ const ConsoleLogSection = ({ logs, tabs, selectedTab, onTabSelect }: ConsoleLogS
 
             {/* Tab Switcher (multi-tab) */}
             {tabs && tabs.length > 0 && onTabSelect && (
-                <div className="relative z-10 flex items-center gap-1 px-3 py-1.5 border-b border-neon-red/10 overflow-x-auto">
+                <div className="relative z-10 flex items-center gap-1.5 px-3.5 py-2 border-b border-neon-red/15 overflow-x-auto bg-black/20">
                     <button
                         onClick={() => onTabSelect('all')}
-                        className={`shrink-0 px-2 py-0.5 rounded text-[9px] font-mono transition-all ${
+                        className={`shrink-0 px-3 py-1 rounded-md text-[12px] font-semibold font-mono transition-all ${
                             selectedTab === 'all'
-                                ? 'bg-neon-red/20 text-neon-red border border-neon-red/40'
-                                : 'text-neon-red/40 hover:text-neon-red/70 border border-transparent hover:border-neon-red/20'
+                                ? 'bg-neon-red/25 text-neon-red border border-neon-red/50 shadow-[0_0_8px_rgba(var(--primary-rgb),0.3)]'
+                                : 'text-neon-red/50 hover:text-neon-red/80 border border-neon-red/15 hover:border-neon-red/30 hover:bg-neon-red/10'
                         }`}
                     >
                         All
@@ -102,19 +102,20 @@ const ConsoleLogSection = ({ logs, tabs, selectedTab, onTabSelect }: ConsoleLogS
                         <button
                             key={t.tabId}
                             onClick={() => onTabSelect(t.tabId)}
-                            className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono transition-all ${
+                            className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-semibold font-mono transition-all max-w-[220px] ${
                                 selectedTab === t.tabId
-                                    ? 'bg-neon-red/20 text-neon-red border border-neon-red/40'
-                                    : 'text-neon-red/40 hover:text-neon-red/70 border border-transparent hover:border-neon-red/20'
+                                    ? 'bg-neon-red/25 text-neon-red border border-neon-red/50 shadow-[0_0_8px_rgba(var(--primary-rgb),0.3)]'
+                                    : 'text-neon-red/50 hover:text-neon-red/80 border border-neon-red/15 hover:border-neon-red/30 hover:bg-neon-red/10'
                             }`}
+                            title={t.title}
                         >
                             {t.running && (
-                                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                <span className="relative flex h-2 w-2 shrink-0">
                                     <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-40" />
-                                    <span className="relative rounded-full h-1.5 w-1.5 bg-green-400" />
+                                    <span className="relative rounded-full h-2 w-2 bg-green-400" />
                                 </span>
                             )}
-                            Tab {t.tabId}
+                            <span className="truncate">{t.title}</span>
                         </button>
                     ))}
                 </div>
