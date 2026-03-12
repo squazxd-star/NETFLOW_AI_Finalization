@@ -8,6 +8,7 @@ export default defineConfig({
         },
     },
     build: {
+        target: "chrome88",
         outDir: "dist",
         emptyOutDir: false,
         copyPublicDir: false,

@@ -129,7 +129,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     outputType: "video",
     orientation: "vertical",
     outputCount: 1,
-    veoQuality: "quality" as const,
+    veoQuality: "fast" as const,
     sceneCount: 2,
     grokAspectRatio: "9:16" as const,
     grokResolution: "480p" as const,
