@@ -312,6 +312,12 @@ const sleep = (ms: number) => new Promise<void>((resolve, reject) => {
         resolve();
     };
 
+    // ★ GUARANTEED FALLBACK: Always set setTimeout as absolute insurance.
+    // On foreground tabs (NOT throttled), this fires at exactly ms.
+    // On background tabs (throttled), Worker/sendMessage fire first; this is just safety.
+    // Prevents infinite hang if Worker is silently dead (older macOS Chrome CSP issue).
+    setTimeout(done, ms);
+
     // Strategy 1: Web Worker (best — separate thread, immune to tab throttling)
     const worker = getTimerWorker();
     if (worker) {

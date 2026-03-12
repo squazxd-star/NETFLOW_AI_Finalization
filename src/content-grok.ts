@@ -91,21 +91,27 @@ function getGrokTimerPort(): chrome.runtime.Port | null {
 }
 
 const sleep = (ms: number) => new Promise<void>(resolve => {
+    let resolved = false;
+    const done = () => { if (resolved) return; resolved = true; resolve(); };
+
+    // ★ GUARANTEED FALLBACK: Always set setTimeout as absolute insurance.
+    // Prevents infinite hang if Worker is silently dead (older macOS Chrome CSP issue).
+    setTimeout(done, ms);
+
     const worker = getGrokTimerWorker();
     if (worker) {
         const id = ++_grokTimerId;
-        _grokPendingTimers.set(id, resolve);
+        _grokPendingTimers.set(id, done);
         worker.postMessage({ id, ms });
         return;
     }
     const port = getGrokTimerPort();
     if (port) {
         const id = ++_grokTimerId;
-        _grokPendingTimers.set(id, resolve);
+        _grokPendingTimers.set(id, done);
         port.postMessage({ cmd: 'delay', id, ms });
         return;
     }
-    setTimeout(resolve, ms);
 });
 
 const waitFor = async (
