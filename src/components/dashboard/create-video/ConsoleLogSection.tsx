@@ -74,14 +74,28 @@ const ConsoleLogSection = ({ logs, tabs, selectedTab, onTabSelect }: ConsoleLogS
                 </span>
 
                 <span className="ml-auto flex items-center gap-2">
-                    <span className="text-neon-red/30 text-[9px] font-mono tracking-wider hidden group-hover:inline">EN-PROC_v2.0</span>
+                    <span 
+                        className="text-[10px] font-mono tracking-wider hidden group-hover:inline transition-opacity"
+                        style={{ color: `rgba(${themeConfig.hexRgb}, 0.6)` }}
+                    >
+                        EN-PROC_v2.0
+                    </span>
                     <button
                         onClick={() => setExpanded(!expanded)}
-                        className="text-[9px] text-neon-red/40 hover:text-neon-red transition-colors font-mono"
+                        className="text-[10px] font-mono transition-all hover:brightness-150"
+                        style={{ 
+                            color: `rgba(${themeConfig.hexRgb}, 0.8)`,
+                            textShadow: `0 0 5px rgba(${themeConfig.hexRgb}, 0.4)`
+                        }}
                     >
                         {expanded ? "▾ Collapse" : "▸ Expand"}
                     </button>
-                    <span className="text-neon-red/30 text-[9px] font-mono">{logs.length}</span>
+                    <span 
+                        className="text-[10px] font-mono"
+                        style={{ color: `rgba(${themeConfig.hexRgb}, 0.6)` }}
+                    >
+                        {logs.length}
+                    </span>
                 </span>
             </div>
 
