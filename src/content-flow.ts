@@ -735,14 +735,29 @@ function findPromptBarAddButton(): HTMLElement | null {
     }
 
     // Pick the one closest to the bottom of the viewport
+    // ★ MUST be in bottom 40% of viewport — top buttons are reference area "+" (not prompt bar)
+    const minY = _hidden() ? 0 : window.innerHeight * 0.6;
     let bestBtn: HTMLElement | null = null;
     let bestY = 0;
     for (const btn of addButtons) {
         const rect = btn.getBoundingClientRect();
-        if (rect.y > bestY) {
+        if (rect.y >= minY && rect.y > bestY) {
             bestY = rect.y;
             bestBtn = btn;
         }
+    }
+
+    // Fallback: if no button in bottom 40%, try bottom 70%
+    if (!bestBtn && !_hidden()) {
+        const relaxedMinY = window.innerHeight * 0.3;
+        for (const btn of addButtons) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.y >= relaxedMinY && rect.y > bestY) {
+                bestY = rect.y;
+                bestBtn = btn;
+            }
+        }
+        if (bestBtn) LOG(`⚠️ ปุ่ม "+" ไม่อยู่ใน bottom 40% — ใช้ fallback ที่ y=${bestY.toFixed(0)}`);
     }
 
     if (bestBtn) {
@@ -2542,23 +2557,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.characterImage) {
         updateStep("upload-char", "active");
-
-        // ★ UI RESET before character upload — same as product upload
-        // Cleans up leftover menus/dialogs from settings/Veo quality steps
-        LOG("🧹 รีเซ็ต UI ก่อนอัพโหลดตัวละคร...");
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(300);
-        document.body.click();
-        await sleep(300);
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(500);
-        document.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(inp => {
-            LOG(`🧹 ลบ file input เก่า`);
-            inp.remove();
-        });
-        await sleep(1000);
-        LOG("🧹 รีเซ็ตเสร็จ — เริ่มอัพโหลดตัวละคร");
-
         try {
             const ok = await uploadImageToPromptBar(req.characterImage, "character.png");
             steps.push(ok ? "✅ ตัวละคร" : "⚠️ ตัวละคร");
