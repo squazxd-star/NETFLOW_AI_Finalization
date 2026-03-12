@@ -162,13 +162,33 @@ const ProductDataSection = ({
                     <button
                         type="button"
                         onClick={() => setShowTikTokDetails(!showTikTokDetails)}
-                        className="w-full flex items-center justify-between py-2 px-3 rounded-xl text-[11px] font-medium bg-muted/15 border border-border/50 hover:border-neon-red/30 transition-colors"
+                        className={`group relative w-full flex items-center justify-between py-3 px-4 rounded-xl text-xs font-semibold overflow-hidden transition-all duration-300 ${
+                            showTikTokDetails
+                                ? 'bg-gradient-to-r from-[#00f2ea]/20 via-[#ff0050]/20 to-[#00f2ea]/20 border-2 border-[#00f2ea]/50 shadow-lg shadow-[#00f2ea]/20'
+                                : 'bg-gradient-to-r from-[#00f2ea]/5 via-[#ff0050]/5 to-[#00f2ea]/5 border border-border/50 hover:border-[#00f2ea]/30 hover:shadow-md hover:shadow-[#00f2ea]/10'
+                        }`}
                     >
-                        <div className="flex items-center gap-2">
-                            <Link className="w-3.5 h-3.5 text-neon-red" />
-                            <span className="text-foreground/80">ข้อมูล TikTok & สินค้า</span>
+                        {/* Animated gradient background on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#00f2ea]/0 via-[#ff0050]/10 to-[#00f2ea]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse" />
+                        
+                        <div className="relative flex items-center gap-2.5">
+                            {/* TikTok Icon */}
+                            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" 
+                                      fill="url(#tiktok-gradient)" />
+                                <defs>
+                                    <linearGradient id="tiktok-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#00f2ea" />
+                                        <stop offset="50%" stopColor="#ff0050" />
+                                        <stop offset="100%" stopColor="#00f2ea" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <span className="bg-gradient-to-r from-[#00f2ea] via-[#ff0050] to-[#00f2ea] bg-clip-text text-transparent font-bold">
+                                ข้อมูล TikTok & สินค้า
+                            </span>
                         </div>
-                        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showTikTokDetails ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`relative w-4 h-4 text-[#00f2ea] transition-transform duration-300 ${showTikTokDetails ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showTikTokDetails && (
