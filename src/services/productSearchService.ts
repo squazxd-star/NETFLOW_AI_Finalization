@@ -77,7 +77,7 @@ const CATEGORY_SEARCH_GUIDE: Record<string, { focus: string; reviewStart: string
 // Brand/Tech name pronunciation guide for Thai TTS accuracy
 // Maps English spelling → Thai phonetic approximation
 // ═══════════════════════════════════════════════════════════
-const BRAND_PRONUNCIATION_MAP: Record<string, string> = {
+const BRAND_PRONUNCIATION_MAP: Record<string , string> = {
     "iPhone": "ไอโฟน", "MacBook": "แม็คบุ๊ค", "AirPods": "แอร์พอดส์", "iPad": "ไอแพด",
     "Apple": "แอปเปิ้ล", "Samsung": "ซัมซุง", "Galaxy": "กาแล็คซี่", "Huawei": "หัวเว่ย",
     "Xiaomi": "เสียวหมี่", "OPPO": "ออปโป้", "Vivo": "วีโว่", "Realme": "เรียลมี",

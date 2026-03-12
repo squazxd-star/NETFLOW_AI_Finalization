@@ -384,6 +384,34 @@ async function briefActivateIfHidden(): Promise<boolean> {
     }
 }
 
+/**
+ * Ensure the tab is VISIBLE (not hidden) before performing coordinate-dependent actions
+ * like hover, positional click, or getBoundingClientRect matching.
+ * Calls FOCUS_TAB to bring Chrome window to foreground and waits for document.hidden=false.
+ * Returns true if tab is now visible.
+ */
+async function ensureTabVisible(): Promise<boolean> {
+    if (!document.hidden) return true;
+    LOG("🔄 Tab ซ่อนอยู่ — ดึงหน้าต่าง Chrome ขึ้นมาข้างหน้า...");
+    try {
+        await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+        const start = Date.now();
+        while (document.hidden && Date.now() - start < 5000) {
+            await sleep(200);
+        }
+        if (!document.hidden) {
+            LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
+            await sleep(3000);
+            return true;
+        }
+        LOG("⚠️ Tab ยังซ่อนอยู่หลัง 5 วินาที");
+        return false;
+    } catch (_) {
+        LOG("⚠️ ensureTabVisible ล้มเหลว");
+        return false;
+    }
+}
+
 /** Check if Google Flow is showing a generation failure message (Thai + English) */
 function isGenerationFailed(): string | null {
     const failurePatterns = [
@@ -782,32 +810,69 @@ function findGenerateButton(): HTMLElement | null {
 
 /**
  * Find the prompt text input.
+ * Searches for Slate.js editor, contenteditable, textarea, and input elements.
+ * Skips elements inside the Netflow overlay.
  */
 function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLElement | null {
-    // Strategy 1: textarea at the bottom area
-    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
-    for (const ta of textareas) {
-        if (_hidden()) return ta; // When minimized, accept first textarea
-        const rect = ta.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.5) return ta;
+    const isOverlay = (el: HTMLElement) => !!el.closest("#netflow-engine-overlay");
+    const hidden = _hidden();
+
+    // Strategy 0: Slate.js specific — data-slate-editor is the definitive marker
+    const slateEditors = document.querySelectorAll<HTMLElement>('[data-slate-editor="true"]');
+    for (const el of slateEditors) {
+        if (isOverlay(el)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ Slate editor (hidden mode)"); return el; }
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ Slate editor (rect.bottom=${Math.round(rect.bottom)})`); return el; }
+    }
+
+    // Strategy 1: role="textbox" — ARIA role often used by rich text editors
+    const textboxes = document.querySelectorAll<HTMLElement>('[role="textbox"]');
+    for (const el of textboxes) {
+        if (isOverlay(el)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ role=textbox (hidden mode)"); return el; }
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ role=textbox (rect.bottom=${Math.round(rect.bottom)})`); return el; }
     }
 
     // Strategy 2: contenteditable in bottom area
     const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
     for (const el of editables) {
-        if (_hidden()) return el; // When minimized, accept first editable
+        if (isOverlay(el)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ contenteditable (hidden mode)"); return el; }
         const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.5) return el;
+        if (rect.bottom > window.innerHeight * 0.3 && rect.height > 0) {
+            LOG(`findPromptTextInput: ✅ contenteditable (rect.bottom=${Math.round(rect.bottom)})`);
+            return el;
+        }
     }
 
-    // Strategy 3: input with Thai placeholder
+    // Strategy 3: textarea at the bottom area
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
+    for (const ta of textareas) {
+        if (isOverlay(ta)) continue;
+        if (hidden) { LOG("findPromptTextInput: ✅ textarea (hidden mode)"); return ta; }
+        const rect = ta.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.3) return ta;
+    }
+
+    // Strategy 4: input with Thai/English placeholder
     const inputs = document.querySelectorAll<HTMLInputElement>("input[type='text'], input:not([type])");
     for (const inp of inputs) {
+        if (isOverlay(inp)) continue;
         const ph = inp.placeholder || "";
-        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe")) return inp;
+        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe") || ph.includes("create")) return inp;
     }
 
-    if (textareas.length > 0) return textareas[textareas.length - 1];
+    // Strategy 5: Last resort — any contenteditable not in overlay, regardless of position
+    for (const el of editables) {
+        if (isOverlay(el)) continue;
+        LOG(`findPromptTextInput: ⚠️ last-resort contenteditable (tag=${el.tagName})`);
+        return el;
+    }
+
+    // Diagnostic logging
+    LOG(`findPromptTextInput: ❌ ไม่พบ (slate=${slateEditors.length}, textbox=${textboxes.length}, editable=${editables.length}, textarea=${textareas.length}, input=${inputs.length})`);
     return null;
 }
 
@@ -2390,12 +2455,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (pct !== lastPct) {
                     lastPct = pct;
                     lastPctChangeTime = Date.now();
+                    LOG(`กำลังอัพโหลด: ${pct} — รอ...`);
                 } else if (Date.now() - lastPctChangeTime > staleTimeout) {
                     LOG(`✅ อัพโหลด ${label} — % ค้างที่ ${pct} นาน ${staleTimeout / 1000} วินาที ถือว่าเสร็จ`);
                     await sleep(1000);
                     return;
                 }
-                LOG(`กำลังอัพโหลด: ${pct} — รอ...`);
                 await sleep(1500);
             } else {
                 LOG(`✅ อัพโหลด ${label} เสร็จ — ไม่พบตัวบอก %`);
@@ -2532,45 +2597,63 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     }
 
     await sleep(1000);
-    const promptInput = findPromptTextInput();
-    if (promptInput) {
-        await setPromptText(promptInput, req.imagePrompt);
 
-        // ★ Verify paste actually succeeded — check textContent
-        const pastedCheck = (promptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
-        if (pastedCheck.length < 20) {
-            LOG("⚠️ Prompt ไม่ถูกวาง — ลองสลับ tab แล้ววางใหม่");
-            if (!needsImgUnfocus) {
-                try {
-                    await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-                    needsImgUnfocus = true;
-                    await sleep(1500);
-                } catch (_) {}
+    // ★ FOCUS_TAB: Keep tab active during paste+generate — Slate.js REQUIRES real document focus
+    let needsUnfocus = false;
+    if (document.hidden) {
+        LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อวาง Image prompt + กด Generate");
+        try {
+            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+            needsUnfocus = true;
+            // Wait for document.hidden to become false (window must be in foreground)
+            const focusStart = Date.now();
+            while (document.hidden && Date.now() - focusStart < 5000) {
+                await sleep(200);
             }
+            if (document.hidden) {
+                LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
+            } else {
+                LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
+                await sleep(3000);
+            }
+        } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
+    }
+
+    let imgPromptOk = false;
+    for (let attempt = 1; attempt <= 5 && !imgPromptOk; attempt++) {
+        // ★ Re-focus Chrome on every retry — previous attempt may have lost focus
+        if (attempt > 1 && document.hidden) {
+            LOG(`🔄 Retry ${attempt}: Tab ซ่อน — ดึง Chrome ขึ้นมาอีกครั้ง`);
+            try {
+                await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                needsUnfocus = true;
+                const retryStart = Date.now();
+                while (document.hidden && Date.now() - retryStart < 5000) {
+                    await sleep(200);
+                }
+                if (!document.hidden) await sleep(2000);
+            } catch (_) {}
+        }
+        const promptInput = findPromptTextInput();
+        if (!promptInput) {
+            LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Image Prompt — รอแล้วลองใหม่`);
+            await sleep(3000);
+            continue;
+        }
+        if (attempt > 1) {
             promptInput.focus();
             await sleep(500);
-            await setPromptText(promptInput, req.imagePrompt);
-            const retryCheck = (promptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
-            if (retryCheck.length < 20) {
-                WARN(`❌ วาง Image Prompt ไม่สำเร็จแม้ลองซ้ำ (ได้ ${retryCheck.length} ตัวอักษร)`);
-                steps.push("❌ Prompt");
-                errors.push("image prompt paste failed after retry");
-                updateStep("img-prompt", "error");
-            } else {
-                LOG(`วาง Image Prompt สำเร็จหลังลองใหม่ (${retryCheck.length} ตัวอักษร)`);
-                steps.push("✅ Prompt");
-                updateStep("img-prompt", "done");
-            }
-        } else {
-            LOG(`วาง Prompt แล้ว (${pastedCheck.length} ตัวอักษร)`);
-            steps.push("✅ Prompt");
-            updateStep("img-prompt", "done");
         }
+        await setPromptText(promptInput, req.imagePrompt);
+        LOG(`วาง Prompt แล้ว (${req.imagePrompt.length} ตัวอักษร)`);
+        steps.push("✅ Prompt");
+        updateStep("img-prompt", "done");
     } else {
         WARN("ไม่พบช่องป้อนข้อความ Prompt");
         steps.push("❌ Prompt");
-        errors.push("prompt input not found");
+        errors.push("image prompt paste failed after 5 attempts");
         updateStep("img-prompt", "error");
+        return { success: false, message: "❌ วาง Prompt ไม่สำเร็จ", step: "img-prompt" };
     }
     await sleep(800);
 
@@ -2619,13 +2702,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         updateStep("img-generate", "error");
     }
 
-    // ★ UNFOCUS_TAB: Restore previous tab — image generation runs fine in background
-    if (needsImgUnfocus) {
-        await sleep(2000);
-        try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
-        LOG("🔄 คืน tab เดิม — ภาพกำลังสร้างเบื้องหลัง");
-    }
-
     // ── Step 4: Wait for NEW image → hover → 3-dots → "ทำให้เป็นภาพเคลื่อนไหว" ──
     LOG("=== ขั้น 4: รอรูปที่สร้าง + ทำเป็นวิดีโอ ===");
     updateStep("img-wait", "active");
@@ -2645,6 +2721,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
                 if (pct < 1 || pct > 100) continue;
+                if (_hidden()) {
+                    // When tab is hidden, getBoundingClientRect returns 0s — trust text match alone
+                    return pct;
+                }
                 const rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.width > 150) continue;
                 if (rect.top < 0 || rect.top > window.innerHeight) continue;
@@ -2667,12 +2747,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 const alt = (img.alt || "").toLowerCase();
                 if (!alt.includes("generated")) continue;
 
-                const rect = img.getBoundingClientRect();
-                if (rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85) {
+                const isLargeEnough = _hidden()
+                    ? (img.naturalWidth > 120 && img.naturalHeight > 120)
+                    : (() => { const rect = img.getBoundingClientRect(); return rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85; })();
+                if (isLargeEnough) {
                     const parent = img.closest("div") as HTMLElement;
                     if (parent) {
                         generatedImg = parent;
-                        LOG(`พบรูป AI จาก alt="${img.alt}": ${img.src.substring(0, 80)}...`);
+                        LOG(`พบรูป AI จาก alt="${img.alt}": ${img.src.substring(0, 80)}...${_hidden() ? ' (hidden-mode)' : ''}`);
                         break;
                     }
                 }
@@ -2691,12 +2773,14 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         continue;
                     }
 
-                    const rect = img.getBoundingClientRect();
-                    if (rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85) {
+                    const isLarge = _hidden()
+                        ? (img.naturalWidth > 120 && img.naturalHeight > 120)
+                        : (() => { const rect = img.getBoundingClientRect(); return rect.width > 120 && rect.height > 120 && rect.top > 0 && rect.top < window.innerHeight * 0.85; })();
+                    if (isLarge) {
                         const parent = img.closest("div") as HTMLElement;
                         if (parent) {
                             generatedImg = parent;
-                            LOG(`พบรูปใหม่ (สำรอง): ${img.src.substring(0, 80)}...`);
+                            LOG(`พบรูปใหม่ (สำรอง): ${img.src.substring(0, 80)}...${_hidden() ? ' (hidden-mode)' : ''}`);
                             break;
                         }
                     }
@@ -2739,6 +2823,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (document.hidden && lastImgPct > 0 && Date.now() - lastImgPctTime > 10000) {
                     await briefActivateIfHidden();
                 }
+                // ★ Also activate tab if we've NEVER found any % for 30+ seconds
+                if (document.hidden && lastImgPct < 1 && Date.now() - imgWaitStart > 30000) {
+                    await briefActivateIfHidden();
+                }
 
                 await sleep(3000);
             }
@@ -2752,6 +2840,9 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             LOG(`พบรูปที่สร้างแล้ว`);
             steps.push("✅ Image Found");
             updateStep("img-wait", "done", 100);
+
+            // ★ Ensure tab is visible before hover/click steps that need real coordinates
+            await ensureTabVisible();
 
             // Step 4b: Hover over the image to reveal the 3 overlay icons
             const imgRect = generatedImg.getBoundingClientRect();
@@ -2915,52 +3006,66 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 try {
                     await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                     needsUnfocus = true;
-                    await sleep(1500); // wait for focus to settle + DOM to render
+                    // Wait for document.hidden to become false (window must be in foreground)
+                    const focusStart = Date.now();
+                    while (document.hidden && Date.now() - focusStart < 5000) {
+                        await sleep(200);
+                    }
+                    if (document.hidden) {
+                        LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
+                    } else {
+                        LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
+                        await sleep(3000);
+                    }
                 } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
             }
 
             // Find prompt input and paste video prompt
             await sleep(1000);
-            const videoPromptInput = findPromptTextInput();
-            if (videoPromptInput) {
-                await setPromptText(videoPromptInput, req.videoPrompt);
-
-                // ★ Verify paste actually succeeded — check textContent
-                const pastedCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
-                if (pastedCheck.length < 20) {
-                    LOG(`⚠️ Prompt ไม่ถูกวาง (ได้ ${pastedCheck.length} ตัวอักษร) — ลองวางใหม่`);
-                    // If tab still hidden somehow, force focus again
-                    if (document.hidden) {
-                        try {
-                            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-                            needsUnfocus = true;
-                            await sleep(1500);
-                        } catch (_) {}
-                    }
+            let vidPromptOk = false;
+            for (let attempt = 1; attempt <= 5 && !vidPromptOk; attempt++) {
+                // ★ Re-focus Chrome on every retry — previous attempt may have lost focus
+                if (attempt > 1 && document.hidden) {
+                    LOG(`🔄 Retry ${attempt}: Tab ซ่อน — ดึง Chrome ขึ้นมาอีกครั้ง`);
+                    try {
+                        await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+                        needsUnfocus = true;
+                        const retryStart = Date.now();
+                        while (document.hidden && Date.now() - retryStart < 5000) {
+                            await sleep(200);
+                        }
+                        if (!document.hidden) await sleep(2000);
+                    } catch (_) {}
+                }
+                const videoPromptInput = findPromptTextInput();
+                if (!videoPromptInput) {
+                    LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Prompt — รอแล้วลองใหม่`);
+                    await sleep(3000);
+                    continue;
+                }
+                if (attempt > 1) {
                     videoPromptInput.focus();
                     await sleep(500);
-                    await setPromptText(videoPromptInput, req.videoPrompt);
-                    const retryCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
-                    if (retryCheck.length < 20) {
-                        WARN(`❌ วาง Video Prompt ไม่สำเร็จแม้ลองซ้ำ (ได้ ${retryCheck.length} ตัวอักษร)`);
-                        steps.push("❌ Video Prompt");
-                        errors.push("video prompt paste failed after retry");
-                        updateStep("vid-prompt", "error");
-                    } else {
-                        LOG(`วาง Video Prompt สำเร็จหลังลองใหม่ (${retryCheck.length} ตัวอักษร)`);
-                        steps.push("✅ Video Prompt");
-                        updateStep("vid-prompt", "done");
-                    }
-                } else {
-                    LOG(`วาง Video Prompt แล้ว (${pastedCheck.length} ตัวอักษร)`);
+                }
+                await setPromptText(videoPromptInput, req.videoPrompt);
+                await sleep(500);
+                const pastedCheck = (videoPromptInput.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+                if (pastedCheck.length >= 20) {
+                    LOG(`วาง Video Prompt สำเร็จ ครั้งที่ ${attempt} (${pastedCheck.length} ตัวอักษร)`);
                     steps.push("✅ Video Prompt");
                     updateStep("vid-prompt", "done");
+                    vidPromptOk = true;
+                } else {
+                    LOG(`⚠️ ครั้งที่ ${attempt}: Prompt ไม่ถูกวาง (ได้ ${pastedCheck.length} ตัวอักษร)`);
+                    await sleep(1500);
                 }
-            } else {
-                WARN("ไม่พบช่อง Prompt สำหรับ Video Prompt");
+            }
+            if (!vidPromptOk) {
+                WARN("❌ วาง Video Prompt ไม่สำเร็จหลังลอง 5 ครั้ง — หยุด ไม่กด Generate");
                 steps.push("❌ Video Prompt");
-                errors.push("video prompt input not found");
+                errors.push("video prompt paste failed after 5 attempts");
                 updateStep("vid-prompt", "error");
+                throw new Error("Video prompt paste failed");
             }
             await sleep(1000);
 
@@ -3040,6 +3145,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (!m) continue;
                 const pct = parseInt(m[1], 10);
                 if (pct < 1 || pct > 100) continue;
+                if (_hidden()) {
+                    // When tab is hidden, getBoundingClientRect returns 0s — trust text match alone
+                    return pct;
+                }
                 const rect = el.getBoundingClientRect();
                 if (rect.width === 0 || rect.width > 150) continue;
                 if (rect.top < 0 || rect.top > window.innerHeight) continue;
@@ -3162,10 +3271,23 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 await sleep(3000);
             }
 
-            // Now find the VIDEO card to click — using <i>videocam</i> icon (screen-size independent)
-            const videoCard = findFirstVideoCard();
+            // ★ Ensure tab is visible before hover+click on video card
+            await ensureTabVisible();
+
+            // Now find the VIDEO card to click — retry up to 10 times (card may take time to render after % disappears)
+            let videoCard: HTMLElement | null = null;
+            for (let cardAttempt = 1; cardAttempt <= 10; cardAttempt++) {
+                videoCard = findFirstVideoCard();
+                if (videoCard) break;
+                LOG(`⏳ รอการ์ดวิดีโอ... (ครั้งที่ ${cardAttempt}/10)`);
+                if (cardAttempt % 3 === 0) {
+                    // Re-ensure tab is visible every 3 attempts
+                    await ensureTabVisible();
+                }
+                await sleep(3000);
+            }
             if (!videoCard) {
-                LOG("❌ ไม่พบการ์ดวิดีโอที่จะคลิก");
+                LOG("❌ ไม่พบการ์ดวิดีโอที่จะคลิกหลังลอง 10 ครั้ง (30 วิ)");
                 updateStep("vid-wait", "error");
                 return null;
             }
@@ -3537,7 +3659,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             try {
                 await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                 needsDownloadUnfocus = true;
-                await sleep(1500); // wait for focus + layout to settle
+                await sleep(5000); // wait for focus + layout to settle (5 วิ ชัวร์)
             } catch (_) {}
         }
         

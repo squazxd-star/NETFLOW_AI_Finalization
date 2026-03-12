@@ -162,10 +162,11 @@ const CreateVideoTab = () => {
                         const existing = prev[tabId] || [];
                         return { ...prev, [tabId]: [...existing.slice(-199), logLine] };
                     });
-                    // Auto-register tab if not known
+                    // Auto-register tab if not known (use real Chrome tab title)
+                    const tabTitle = sender?.tab?.title || `Tab ${tabId}`;
                     setAutomationTabs(prev => {
                         if (prev.some(t => t.tabId === tabId)) return prev;
-                        return [...prev, { tabId, title: `Tab ${tabId}`, running: true }];
+                        return [...prev, { tabId, title: tabTitle, running: true }];
                     });
                 } else {
                     // Fallback: put in tabId=0 bucket
