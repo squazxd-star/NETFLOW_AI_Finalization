@@ -24,3 +24,7 @@ node_modules
 *.sln
 *.sw?
 .env
+
+# Extension build artifacts
+extension-build/
+*.zip
