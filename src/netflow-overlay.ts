@@ -3427,6 +3427,25 @@ export function showOverlay(sceneCount: number = 1): void {
     updateThemeComponents();
 
     if (overlayRoot && overlayRoot.isConnected) {
+        // ★ Re-apply inline critical styles (SPA navigation may have modified them)
+        overlayRoot.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;pointer-events:auto !important;opacity:1 !important;background:#0a0a0f !important;overflow:hidden !important;font-family:Inter,system-ui,-apple-system,sans-serif !important;';
+        // ★ Re-inject CSS if it was removed by SPA navigation
+        if (!styleEl || !styleEl.isConnected) {
+            styleEl = null;
+            injectStyles();
+        }
+        // Remove inline background fallback once CSS confirmed loaded
+        setTimeout(() => {
+            if (!overlayRoot) return;
+            try {
+                if (styleEl?.sheet && styleEl.sheet.cssRules.length > 0) {
+                    overlayRoot.style.removeProperty('background');
+                    overlayRoot.style.removeProperty('font-family');
+                    overlayRoot.style.removeProperty('overflow');
+                }
+            } catch (_) {}
+        }, 200);
+
         // ★ Reset all step states for a fresh run even when reusing existing overlay
         for (const mod of modules) {
             for (const step of mod.steps) {
@@ -3440,6 +3459,25 @@ export function showOverlay(sceneCount: number = 1): void {
         for (const mod of modules) rebuildModuleDom(mod);
         refreshModules();
         refreshTerminal();
+
+        // ★ Ensure stop button still exists (SPA navigation may have removed it)
+        if (!overlayRoot.querySelector('.nf-stop-btn')) {
+            const stopBtn = document.createElement("button");
+            stopBtn.className = "nf-stop-btn";
+            stopBtn.innerHTML = '<span class="nf-stop-icon"></span> หยุด';
+            stopBtn.style.cssText = 'position:absolute !important;top:14px !important;right:110px !important;z-index:2147483646 !important;cursor:pointer !important;pointer-events:auto !important;background:rgba(255,60,60,0.08) !important;border:1px solid rgba(255,60,60,0.25) !important;border-radius:8px !important;color:rgba(255,100,100,0.8) !important;font-size:13px !important;padding:6px 14px !important;font-family:inherit !important;display:flex !important;align-items:center !important;gap:6px !important;';
+            stopBtn.onclick = () => {
+                (window as any).__NETFLOW_STOP__ = true;
+                try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
+                try {
+                    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+                        chrome.runtime.sendMessage({ action: "AUTOMATION_STOPPED" });
+                    }
+                } catch (_) {}
+            };
+            overlayRoot.appendChild(stopBtn);
+        }
+
         // If overlay exists and still in DOM, just show it if hidden
         if (overlayHidden) {
             toggleOverlayVisibility();
@@ -3491,7 +3529,8 @@ export function showOverlay(sceneCount: number = 1): void {
     logBuffer.length = 0;
     overlayRoot = buildOverlay();
     // ★ Inline critical styles as CSP fallback (macOS Google Labs may block <style> tags)
-    overlayRoot.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;pointer-events:auto !important;opacity:1 !important;';
+    // MUST include background — without it, overlay is invisible if <style> is blocked by CSP
+    overlayRoot.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;pointer-events:auto !important;opacity:1 !important;background:#0a0a0f !important;overflow:hidden !important;font-family:Inter,system-ui,-apple-system,sans-serif !important;';
     document.body.appendChild(overlayRoot);
     overlayRoot.classList.add("nf-visible");
     overlayHidden = false;
@@ -3500,6 +3539,20 @@ export function showOverlay(sceneCount: number = 1): void {
     startVisualizer();
     // Apply theme background image after DOM is ready
     requestAnimationFrame(() => applyCoreBg());
+    // ★ If CSS <style> loaded OK, remove inline background so CSS gradients take over
+    // If CSP blocked the <style>, inline background stays as visible fallback
+    setTimeout(() => {
+        if (!overlayRoot) return;
+        try {
+            if (styleEl?.sheet && styleEl.sheet.cssRules.length > 0) {
+                overlayRoot.style.removeProperty('background');
+                overlayRoot.style.removeProperty('font-family');
+                overlayRoot.style.removeProperty('overflow');
+            }
+        } catch (_) {
+            // CSP blocked access to cssRules — keep inline fallback styles
+        }
+    }, 200);
 }
 
 /** Hide and remove the overlay completely (called on automation finish) */

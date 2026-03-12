@@ -1141,17 +1141,43 @@ function blockFileDialogs(): () => void {
     if (typeof origSofp === "function") {
         (window as any).showOpenFilePicker = async function(..._args: any[]) {
             LOG(`🚫 บล็อก showOpenFilePicker (${platformTag})`);
-            // Throw AbortError (same as user cancelling the dialog)
             throw new DOMException("Blocked by Netflow", "AbortError");
         };
         sofpPatched = true;
     }
 
-    LOG(`🔒 บล็อก file dialog: click ✅ | showPicker ${showPickerPatched ? "✅" : "❌"} | showOpenFilePicker ${sofpPatched ? "✅" : "❌"} (${platformTag})`);
+    // ── 4) Mac-only: intercept <label> clicks that trigger file inputs ──
+    let labelHandler: ((e: MouseEvent) => void) | null = null;
+    if (isMac) {
+        labelHandler = (e: MouseEvent) => {
+            const label = (e.target as HTMLElement)?.closest?.('label');
+            if (!label) return;
+            const forId = label.getAttribute('for');
+            if (forId) {
+                const linked = document.getElementById(forId) as HTMLInputElement | null;
+                if (linked && linked.tagName === 'INPUT' && linked.type === 'file') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    LOG(`🚫 บล็อก <label for="${forId}"> คลิก file input (Mac)`);
+                    return;
+                }
+            }
+            const wrappedInput = label.querySelector('input[type="file"]');
+            if (wrappedInput) {
+                e.preventDefault();
+                e.stopPropagation();
+                LOG(`🚫 บล็อก <label> ที่ครอบ file input (Mac)`);
+            }
+        };
+        document.addEventListener('click', labelHandler, true);
+    }
+
+    LOG(`🔒 บล็อก file dialog: click ✅ | showPicker ${showPickerPatched ? "✅" : "❌"} | showOpenFilePicker ${sofpPatched ? "✅" : "❌"} | label-intercept ${labelHandler ? "✅" : "—"} (${platformTag})`);
     return () => {
         HTMLInputElement.prototype.click = origClick;
         if (showPickerPatched) HTMLInputElement.prototype.showPicker = origShowPicker;
         if (sofpPatched) (window as any).showOpenFilePicker = origSofp;
+        if (labelHandler) document.removeEventListener('click', labelHandler, true);
         LOG(`🔓 ถอดตัวบล็อก file dialog แล้ว`);
     };
 }
@@ -1251,17 +1277,18 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     target.dispatchEvent(new Event('change', { bubbles: true }));
     target.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // ★ Also dispatch a synthetic 'drop' event (some Mac React builds listen for drag-drop)
+    // ★ Also dispatch a synthetic 'drop' event (some React builds listen for drag-drop)
+    // On Mac: use non-bubbling drop to prevent Slate editor from catching it
     try {
         const dropDt = new DataTransfer();
         dropDt.items.add(file);
         const dropEvent = new DragEvent('drop', {
-            bubbles: true,
+            bubbles: !isMac, // Mac: don't bubble (prevents Slate from catching it)
             cancelable: true,
             dataTransfer: dropDt,
         });
         target.dispatchEvent(dropEvent);
-        LOG(`ส่ง drop event บน file input ด้วย`);
+        LOG(`ส่ง drop event บน file input (bubbles=${!isMac})`);
     } catch (_) {
         // drop event dispatch is optional — ignore errors
     }
@@ -1927,7 +1954,49 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             return true;
         }
 
-        // Even if thumbnail not detected yet, the upload might be processing (shows %)
+        // ★ Mac-only fallback: file input injection may have failed silently.
+        // Try clipboard paste and drag-drop as alternative methods.
+        if (isMac) {
+            LOG("🍎 Mac: file input ไม่สำเร็จ — ลอง clipboard paste แทน");
+
+            // Fallback A: Real clipboard paste (TRUSTED paste via navigator.clipboard.write)
+            try {
+                const clipOk = await pasteImageViaRealClipboard(dataUrl, file, baselineCount);
+                if (clipOk && countPromptBarThumbnails() > baselineCount) {
+                    LOG("✅ Mac clipboard paste สำเร็จ!");
+                    return true;
+                }
+            } catch (e: any) {
+                LOG(`⚠️ Mac clipboard paste ล้มเหลว: ${e.message}`);
+            }
+
+            // Fallback B: Drag-and-drop onto prompt bar
+            try {
+                const dropOk = await dropFileOnPromptBar(file);
+                if (dropOk && countPromptBarThumbnails() > baselineCount) {
+                    LOG("✅ Mac drag-and-drop สำเร็จ!");
+                    return true;
+                }
+            } catch (e: any) {
+                LOG(`⚠️ Mac drag-and-drop ล้มเหลว: ${e.message}`);
+            }
+
+            // Fallback C: Synthetic clipboard paste events
+            try {
+                const syntheticOk = await pasteImageIntoPromptBar(file);
+                if (syntheticOk && countPromptBarThumbnails() > baselineCount) {
+                    LOG("✅ Mac synthetic paste สำเร็จ!");
+                    return true;
+                }
+            } catch (e: any) {
+                LOG(`⚠️ Mac synthetic paste ล้มเหลว: ${e.message}`);
+            }
+
+            LOG("⚠️ Mac: ลองครบทุกวิธีแล้ว — รูปย่ออาจกำลังประมวลผลอยู่");
+            return true; // optimistic — upload may still be processing
+        }
+
+        // Windows: optimistic return (upload might be processing with %)
         LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%)");
         return true;
     } finally {
