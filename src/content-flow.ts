@@ -735,29 +735,14 @@ function findPromptBarAddButton(): HTMLElement | null {
     }
 
     // Pick the one closest to the bottom of the viewport
-    // ★ MUST be in bottom 40% of viewport — top buttons are reference area "+" (not prompt bar)
-    const minY = _hidden() ? 0 : window.innerHeight * 0.6;
     let bestBtn: HTMLElement | null = null;
     let bestY = 0;
     for (const btn of addButtons) {
         const rect = btn.getBoundingClientRect();
-        if (rect.y >= minY && rect.y > bestY) {
+        if (rect.y > bestY) {
             bestY = rect.y;
             bestBtn = btn;
         }
-    }
-
-    // Fallback: if no button in bottom 40%, try bottom 70% (prompt bar may have shifted up)
-    if (!bestBtn && !_hidden()) {
-        const relaxedMinY = window.innerHeight * 0.3;
-        for (const btn of addButtons) {
-            const rect = btn.getBoundingClientRect();
-            if (rect.y >= relaxedMinY && rect.y > bestY) {
-                bestY = rect.y;
-                bestBtn = btn;
-            }
-        }
-        if (bestBtn) LOG(`⚠️ ปุ่ม "+" ไม่อยู่ใน bottom 40% — ใช้ fallback ที่ y=${bestY.toFixed(0)}`);
     }
 
     if (bestBtn) {
@@ -871,24 +856,15 @@ function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLEle
         if (rect.bottom > window.innerHeight * 0.3) return ta;
     }
 
-    // Strategy 4: Google Flow specific — div with placeholder text or aria-label
-    const placeholderDivs = document.querySelectorAll<HTMLElement>('[data-placeholder], [aria-label*="prompt" i], [aria-label*="create" i], [aria-label*="สร้าง"]');
-    for (const el of placeholderDivs) {
-        if (isOverlay(el)) continue;
-        if (hidden) { LOG("findPromptTextInput: ✅ placeholder div (hidden mode)"); return el; }
-        const rect = el.getBoundingClientRect();
-        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ placeholder div (rect.bottom=${Math.round(rect.bottom)})`); return el; }
-    }
-
-    // Strategy 5: input with Thai/English placeholder
+    // Strategy 4: input with Thai/English placeholder
     const inputs = document.querySelectorAll<HTMLInputElement>("input[type='text'], input:not([type])");
     for (const inp of inputs) {
         if (isOverlay(inp)) continue;
         const ph = inp.placeholder || "";
-        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe") || ph.includes("create") || ph.includes("What do you want")) return inp;
+        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe") || ph.includes("create")) return inp;
     }
 
-    // Strategy 6: Last resort — any contenteditable not in overlay, regardless of position
+    // Strategy 5: Last resort — any contenteditable not in overlay, regardless of position
     for (const el of editables) {
         if (isOverlay(el)) continue;
         LOG(`findPromptTextInput: ⚠️ last-resort contenteditable (tag=${el.tagName})`);
@@ -1307,12 +1283,12 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
         const dropDt = new DataTransfer();
         dropDt.items.add(file);
         const dropEvent = new DragEvent('drop', {
-            bubbles: true,
+            bubbles: !isMac, // Mac: don't bubble (prevents Slate from catching it)
             cancelable: true,
             dataTransfer: dropDt,
         });
         target.dispatchEvent(dropEvent);
-        LOG(`ส่ง drop event บน file input (bubbles=true)`);
+        LOG(`ส่ง drop event บน file input (bubbles=${!isMac})`);
     } catch (_) {
         // drop event dispatch is optional — ignore errors
     }
@@ -1497,15 +1473,6 @@ async function pasteImageViaRealClipboard(dataUrl: string, file: File, baselineC
             if (rect.bottom > window.innerHeight * 0.4) { editor = el; break; }
         }
     }
-    // Google Flow specific: div with placeholder or aria-label
-    if (!editor) {
-        const placeholders = document.querySelectorAll<HTMLElement>('[data-placeholder], [aria-label*="prompt" i], [aria-label*="create" i]');
-        for (const el of placeholders) {
-            if (el.closest("#netflow-engine-overlay")) continue;
-            const rect = el.getBoundingClientRect();
-            if (rect.height > 0) { editor = el; break; }
-        }
-    }
     if (!editor) {
         LOG("ไม่พบ editor สำหรับ paste");
         return false;
@@ -1514,11 +1481,6 @@ async function pasteImageViaRealClipboard(dataUrl: string, file: File, baselineC
     // ═══ Method A: navigator.clipboard.write() + execCommand('paste') ═══
     let pasteDispatched = false;
     try {
-        // ★ Must focus window/document first — Clipboard API requires document focus
-        window.focus();
-        if (editor) editor.focus();
-        await sleep(200);
-
         const arrayBuffer = await file.arrayBuffer();
         const blob = new Blob([arrayBuffer], { type: file.type || 'image/png' });
         const clipItem = new ClipboardItem({ [blob.type]: blob });
