@@ -130,6 +130,74 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 });
 
+// ─── Focus Lock (Mutex) for Multi-Tab — prevents two tabs from fighting over focus ──
+// Only one tab can hold "real focus" at a time (needed for Slate.js paste, Radix UI menus).
+// Other tabs wait until the lock is released. Auto-expires after 30s to prevent deadlocks.
+let _focusLockHolder = null;   // tabId that currently holds focus lock
+let _focusLockTimestamp = 0;   // when the lock was acquired
+const _FOCUS_LOCK_TIMEOUT = 30000; // auto-release after 30s
+const _focusLockQueue = [];    // [ { tabId, resolve } ] — waiting tabs
+
+function isFocusLocked(requestingTabId) {
+    if (!_focusLockHolder) return false;
+    // Auto-expire stale locks
+    if (Date.now() - _focusLockTimestamp > _FOCUS_LOCK_TIMEOUT) {
+        console.log(`[Netflow BG] Focus lock auto-expired (held by tab ${_focusLockHolder} for >${_FOCUS_LOCK_TIMEOUT/1000}s)`);
+        releaseFocusLock(_focusLockHolder);
+        return false;
+    }
+    // If requesting tab already holds the lock, it's not blocked
+    if (_focusLockHolder === requestingTabId) return false;
+    return true;
+}
+
+function acquireFocusLock(tabId) {
+    _focusLockHolder = tabId;
+    _focusLockTimestamp = Date.now();
+    console.log(`[Netflow BG] 🔒 Focus lock acquired by tab ${tabId}`);
+}
+
+function releaseFocusLock(tabId) {
+    if (_focusLockHolder === tabId || !tabId) {
+        const prev = _focusLockHolder;
+        _focusLockHolder = null;
+        _focusLockTimestamp = 0;
+        console.log(`[Netflow BG] 🔓 Focus lock released by tab ${prev || '(none)'}`);
+        // Wake up next tab in queue
+        if (_focusLockQueue.length > 0) {
+            const next = _focusLockQueue.shift();
+            console.log(`[Netflow BG] 🔄 Granting focus lock to queued tab ${next.tabId}`);
+            acquireFocusLock(next.tabId);
+            next.resolve(true);
+        }
+    }
+}
+
+// Wait for focus lock to become available (max waitMs). Returns true if acquired.
+function waitForFocusLock(tabId, waitMs) {
+    return new Promise((resolve) => {
+        if (!isFocusLocked(tabId)) {
+            acquireFocusLock(tabId);
+            resolve(true);
+            return;
+        }
+        console.log(`[Netflow BG] ⏳ Tab ${tabId} waiting for focus lock (held by ${_focusLockHolder})`);
+        const entry = { tabId, resolve };
+        _focusLockQueue.push(entry);
+        // Timeout — give up waiting
+        setTimeout(() => {
+            const idx = _focusLockQueue.indexOf(entry);
+            if (idx >= 0) {
+                _focusLockQueue.splice(idx, 1);
+                console.log(`[Netflow BG] ⏰ Tab ${tabId} gave up waiting for focus lock`);
+                // Force acquire anyway (better than failing)
+                acquireFocusLock(tabId);
+                resolve(true);
+            }
+        }, waitMs || 15000);
+    });
+}
+
 // ─── Per-Tab State Management (Multi-Tab Automation) ─────────────────────────
 // Each tab gets its own isolated state: video cache, download info, automation status
 const _tabStates = {};
@@ -150,6 +218,18 @@ function getTabState(tabId) {
 
 // Clean up state + orphaned storage keys when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
+    // ★ Release focus lock if this tab held it (prevents deadlock from closed tab)
+    if (_focusLockHolder === tabId) {
+        console.log(`[Netflow BG] Tab ${tabId} closed while holding focus lock — releasing`);
+        releaseFocusLock(tabId);
+    }
+    // ★ Remove this tab from focus lock queue
+    for (let i = _focusLockQueue.length - 1; i >= 0; i--) {
+        if (_focusLockQueue[i].tabId === tabId) {
+            _focusLockQueue.splice(i, 1);
+            console.log(`[Netflow BG] Removed closed tab ${tabId} from focus lock queue`);
+        }
+    }
     if (_tabStates[tabId]) {
         clearTimeout(_tabStates[tabId].cacheCleanupTimer);
         delete _tabStates[tabId];
@@ -355,12 +435,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // ── FOCUS_TAB: Activate this tab AND bring Chrome window to foreground (for Slate.js paste) ──
-    // Stores previous active tab so UNFOCUS_TAB can restore it.
+    // Uses focus lock mutex — if another tab holds the lock, wait up to 15s.
     if (message?.type === 'FOCUS_TAB') {
         const tabId = sender?.tab?.id;
         if (!tabId) { sendResponse({ ok: false }); return true; }
         (async () => {
             try {
+                // ★ Wait for focus lock (mutex) — prevents two tabs from fighting
+                await waitForFocusLock(tabId, 15000);
                 const [prev] = await chrome.tabs.query({ active: true, currentWindow: true });
                 const state = getTabState(tabId);
                 if (state) state._prevFocusTabId = prev?.id;
@@ -370,7 +452,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     await chrome.windows.update(tab.windowId, { focused: true });
                 }
                 await chrome.tabs.update(tabId, { active: true });
-                console.log(`[Netflow BG] FOCUS_TAB: tab ${tabId}, window ${tab.windowId} (prev: ${prev?.id})`);
+                console.log(`[Netflow BG] FOCUS_TAB: tab ${tabId}, window ${tab.windowId} (prev: ${prev?.id}) [lock held]`);
                 sendResponse({ ok: true });
             } catch (e) {
                 console.warn('[Netflow BG] FOCUS_TAB error:', e);
@@ -380,15 +462,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // ── UNFOCUS_TAB: Restore previous tab after FOCUS_TAB ──
+    // ── UNFOCUS_TAB: Restore previous tab after FOCUS_TAB + release focus lock ──
     if (message?.type === 'UNFOCUS_TAB') {
         const tabId = sender?.tab?.id;
         const state = tabId ? getTabState(tabId) : null;
         const prev = state?._prevFocusTabId;
         if (state) delete state._prevFocusTabId;
+        // ★ Release focus lock — next queued tab can now acquire
+        releaseFocusLock(tabId);
         if (prev && prev !== tabId) {
             chrome.tabs.update(prev, { active: true }).catch(() => {});
-            console.log(`[Netflow BG] UNFOCUS_TAB: restored tab ${prev}`);
+            console.log(`[Netflow BG] UNFOCUS_TAB: restored tab ${prev}, lock released`);
+        } else {
+            console.log(`[Netflow BG] UNFOCUS_TAB: lock released (no prev tab to restore)`);
         }
         sendResponse({ ok: true });
         return true;
@@ -396,9 +482,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ── BRIEF_ACTIVATE_TAB: Content script asks to briefly activate its tab ──
     // This forces Chrome to render the page, updating stale DOM in background tabs.
+    // ★ SKIPPED if another tab holds the focus lock (to prevent focus war)
     if (message?.type === 'BRIEF_ACTIVATE_TAB') {
         const requestingTabId = sender?.tab?.id;
         if (!requestingTabId) { sendResponse({ ok: false }); return true; }
+        // ★ Check focus lock — if another tab is doing paste/download, skip activation
+        if (isFocusLocked(requestingTabId)) {
+            console.log(`[Netflow BG] BRIEF_ACTIVATE_TAB skipped — focus lock held by tab ${_focusLockHolder} (requester: ${requestingTabId})`);
+            sendResponse({ ok: false, reason: 'focus_locked' });
+            return true;
+        }
         (async () => {
             try {
                 // Remember which tab was active before
@@ -462,6 +555,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (tabId && _tabStates[tabId]) {
             _tabStates[tabId].automationRunning = false;
             console.log('[Netflow BG] Automation finished on tab', tabId);
+        }
+        // ★ Safety: release focus lock if this tab still holds it
+        if (tabId && _focusLockHolder === tabId) {
+            releaseFocusLock(tabId);
         }
         sendResponse({ success: true });
         return true;
@@ -607,20 +704,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     return;
                 }
                 console.log(`[Netflow] Routing ${message.action} to ${config.label} (tab ${targetTab.id})`);
-                const response = await sendToContentScript(targetTab.id, message, config.contentScript);
 
-                // Mark tab as busy for GENERATE_IMAGE + store productName per-tab
-                if (message?.action === "GENERATE_IMAGE" && response?.success) {
+                // ★ CRITICAL: Mark tab as busy BEFORE sending message (prevents race condition
+                // where two rapid GENERATE_IMAGE messages both see the same tab as non-busy)
+                if (message?.action === "GENERATE_IMAGE") {
                     const ts = getTabState(targetTab.id);
                     ts.automationRunning = true;
                     if (message.productName) {
                         ts.productName = message.productName;
                     }
+                    console.log(`[Netflow] Pre-marked tab ${targetTab.id} as busy`);
+                }
+
+                const response = await sendToContentScript(targetTab.id, message, config.contentScript);
+
+                // If GENERATE_IMAGE send failed, unmark the tab
+                if (message?.action === "GENERATE_IMAGE" && !response?.success) {
+                    const ts = getTabState(targetTab.id);
+                    ts.automationRunning = false;
+                    console.log(`[Netflow] Send failed — unmarked tab ${targetTab.id}`);
                 }
 
                 // Include routed tabId in response so side panel knows which tab
                 sendResponse({ ...response, _routedTabId: targetTab.id });
             } catch (err) {
+                // ★ Unmark tab if pre-marked as busy but send threw an error
+                if (message?.action === "GENERATE_IMAGE" && targetTab?.id) {
+                    const ts = _tabStates[targetTab.id];
+                    if (ts) ts.automationRunning = false;
+                }
                 sendResponse({ success: false, message: "Error: " + (err.message || "unknown") });
             }
         })();

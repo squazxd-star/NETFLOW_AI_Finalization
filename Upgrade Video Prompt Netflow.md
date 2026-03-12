@@ -196,3 +196,38 @@ When camera MUST move, product silhouette stays pixel-locked to reference.
 | **`PRODUCT_SIZE_REALISM`** | Case 5 | สินค้าใหญ่ผิดสัดส่วน — บังคับขนาดตามจริงแต่ละ category (food: "fits in ONE hand") |
 | **`PROP_INTRODUCTION_DIRECTIVE`** | Case 5 | Props โผล่จากที่ว่าง — ทุก prop ต้องถูกนำเข้าโดย visible character action |
 | **`PRODUCT_ANTI_MORPH_DIRECTIVE`** | Case 5 | แบรนด์เพี้ยนข้ามซีน — "BRAND IDENTITY FREEZE" ล็อคแบรนด์ทุกซีน |
+
+---
+
+## Failed Case No.6 — Thai Dessert / ขนมชั้น (Layered Sweet)
+
+**สินค้า:** ขนมชั้น (category: ถูก detect เป็น `food` แทน `bakery`)  
+**ตัวละคร:** ผู้หญิงผมบ็อบสั้น  
+**ปัญหาหลัก:** Background ผิด + หน้า morph ข้ามซีน + ส้อมเพี้ยน + พูดนอกสคริป
+
+### ปัญหาที่พบจากวิดีโอ:
+
+| # | ปัญหา | รายละเอียด |
+|---|--------|--------|
+| 1 | **Background ผิด** | ได้ตลาดอาหาร (food market) แทน ร้านขนม/คาเฟ่ (cafe/bakery) |
+| 2 | **หน้า morph** | ใบหน้าตัวละครเปลี่ยนไประหว่าง scene — ไม่เหมือนตัวเดิม |
+| 3 | **ส้อมเพี้ยน** | ส้อม 2 อันหลอมรวมกัน / มีดกับส้อมเป็นชิ้นเดียว |
+| 4 | **พูดนอกสคริป** | ตัวละครอ้าปากพูดอะไรนอกบทในช่วงที่ไม่มีเสียงพูด |
+
+### Root Cause Analysis:
+
+1. **Background ผิด** — keywords "ขนมชั้น", "ขนมไทย", "ขนมหวาน" ไม่ได้อยู่ใน bakery detection → ถูก detect เป็น `food` → ได้ background ตลาดอาหารแทนร้านขนม
+2. **หน้า morph** — Face Lock directive ไม่แข็งแรงพอ ขาด "MUST remain IDENTICAL to frame 1" + "Do NOT let the face morph"
+3. **ส้อมเพี้ยน** — ไม่มี SINGLE UTENSIL RULE → AI สร้าง utensils แบบมั่ว
+4. **พูดนอกสคริป** — Voice Discipline ขาด "mouth MUST be fully closed" ระหว่างบท
+
+### แก้ไขที่ทำ:
+
+| # | ตำแหน่งใน code | สิ่งที่แก้ |
+|---|---|---|
+| 1 | `detectProductCategory` | **เพิ่ม keywords** — "ขนมหวาน", "ขนมไทย", "ขนมชั้น", "dessert", "sweet", "kanom" → map ไป `bakery` |
+| 2 | `PRODUCT_USAGE_REALISM` bakery | **เพิ่ม SINGLE UTENSIL RULE** — "Use exactly ONE fork or ONE spoon per hand — absolutely NO fused double-utensils, NO two forks morphed together, NO knife-and-fork hybrid" |
+| 3 | `characterAnchor` Face Lock | **เสริม** — เปลี่ยนจาก "FACE & SKIN TONE LOCK" เป็น "STRICT FACE & HEAD LOCK" + เพิ่ม "The character's face MUST remain IDENTICAL to frame 1 across the entire video. Do NOT let the face morph, stretch, or change identity between shots." |
+| 4 | `VOICE_DISCIPLINE_DIRECTIVE` | **เสริม** — เพิ่ม "the character's mouth MUST be fully closed with composed silence — do NOT let the character mouth words that are not in the script" |
+
+### สถานะ: ✅ แก้ไขแล้ว (commit TBD)
