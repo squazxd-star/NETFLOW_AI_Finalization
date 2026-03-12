@@ -560,6 +560,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    // ── VIDEO_GENERATION_COMPLETE: Store for panel reconnect + relay ──
+    // Content-flow sends this when video is ready. Side panel receives it directly IF open.
+    // If panel was closed/hidden, we store it in storage so panel can pick it up on next open.
+    if (message?.type === 'VIDEO_GENERATION_COMPLETE') {
+        console.log('[Netflow BG] VIDEO_GENERATION_COMPLETE received — storing for panel recovery');
+        try {
+            chrome.storage.local.set({
+                netflow_pending_video_complete: {
+                    videoUrl: message.videoUrl,
+                    source: message.source || 'veo',
+                    tabId: sender?.tab?.id || null,
+                    timestamp: Date.now()
+                }
+            });
+        } catch (_) {}
+        // Relay to any open extension pages (side panel / popup) with small delay
+        setTimeout(() => {
+            try {
+                chrome.runtime.sendMessage({
+                    type: 'VIDEO_GENERATION_COMPLETE',
+                    videoUrl: message.videoUrl,
+                    source: message.source || 'veo',
+                    tabId: sender?.tab?.id || null,
+                    _fromBackground: true
+                });
+            } catch (_) {}
+        }, 200);
+        sendResponse({ ok: true });
+        return true;
+    }
+
     if (message?.action === "GENERATE_IMAGE" || message?.action === "UPLOAD_IMAGES" ||
         message?.action === "PING" || message?.action === "STOP_AUTOMATION" || message?.action === "CLICK_FIRST_IMAGE") {
         (async () => {

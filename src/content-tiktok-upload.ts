@@ -42,9 +42,19 @@ const waitForElement = async (
 };
 
 const clickElement = (el: Element) => {
-  (el as HTMLElement).focus();
-  (el as HTMLElement).click();
-  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  const htm = el as HTMLElement;
+  htm.focus();
+  // Full pointer→mouse→click sequence required for TikTok Studio's React components
+  const r = htm.getBoundingClientRect();
+  const cx = _hidden() ? 10 : r.left + r.width / 2;
+  const cy = _hidden() ? 10 : r.top + r.height / 2;
+  const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+  htm.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+  htm.dispatchEvent(new MouseEvent('mousedown', opts));
+  htm.dispatchEvent(new PointerEvent('pointerup', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+  htm.dispatchEvent(new MouseEvent('mouseup', opts));
+  htm.dispatchEvent(new MouseEvent('click', opts));
+  htm.click();
 };
 
 const findByText = (
@@ -581,9 +591,12 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   // ── 3. Wait for product selection dialog to fully load ──
   const productListReady = await waitForElement(
     () => {
-      // Look for search input inside the product dialog
-      const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="search"], input[placeholder*="ค้นหา"], input[placeholder*="Search"], input[placeholder*="search"]'));
-      // Filter to visible ones inside a modal/dialog context
+      // Scope search to modal/dialog container ONLY — avoids grabbing the wrong input
+      const modalScope: Element = document.querySelector(
+        '[role="dialog"], [role="modal"], [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"], [class*="drawer"], [class*="Drawer"]'
+      ) || document.body;
+      const inputs = Array.from(modalScope.querySelectorAll('input[type="text"], input[type="search"], input[placeholder*="ค้นหา"], input[placeholder*="Search"], input[placeholder*="search"]'));
+      // Filter to visible ones inside the modal
       for (const inp of inputs) {
         if (_hidden()) return inp;
         const rect = (inp as HTMLElement).getBoundingClientRect();
@@ -736,9 +749,14 @@ const setScheduleTime = async (scheduleTime?: string): Promise<boolean> => {
           return el;
         }
       }
-      // Strategy 2: Find Radio_root elements
+      // Strategy 2: Find input[type="radio"] near "ตั้งเวลา" text
       const radios = Array.from(document.querySelectorAll('[class*="Radio_root"], input[type="radio"]'));
-      if (radios.length >= 2) return radios[1]; // Second radio = schedule
+      // Prefer radio that is near "ตั้งเวลา" / "Schedule" label
+      for (const r of radios) {
+        const nearby = r.parentElement?.textContent || r.closest('label')?.textContent || '';
+        if (nearby.includes('ตั้งเวลา') || nearby.toLowerCase().includes('schedule')) return r;
+      }
+      if (radios.length >= 2) return radios[1]; // Index fallback: second radio = schedule
       return null;
     },
     8000

@@ -2648,7 +2648,10 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
         LOG(`วาง Prompt แล้ว (${req.imagePrompt.length} ตัวอักษร)`);
         steps.push("✅ Prompt");
         updateStep("img-prompt", "done");
-    } else {
+        imgPromptOk = true;
+        break;
+    }
+    if (!imgPromptOk) {
         WARN("ไม่พบช่องป้อนข้อความ Prompt");
         steps.push("❌ Prompt");
         errors.push("image prompt paste failed after 5 attempts");

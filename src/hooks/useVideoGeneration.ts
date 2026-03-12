@@ -175,6 +175,36 @@ export const useVideoGeneration = () => {
         }
     };
 
+    // Panel-recovery: check chrome.storage.local for a pending VIDEO_GENERATION_COMPLETE
+    // that was stored by background.js when the panel was closed during automation
+    useEffect(() => {
+        if (!isExtension) return;
+        const PENDING_KEY = 'netflow_pending_video_complete';
+        const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes — ignore stale events
+        try {
+            chrome.storage.local.get([PENDING_KEY], (result) => {
+                if (chrome.runtime.lastError) return;
+                const pending = result[PENDING_KEY] as { videoUrl?: string; source?: string; tabId?: number; timestamp?: number } | undefined;
+                if (!pending?.videoUrl) return;
+                const age = Date.now() - (pending.timestamp || 0);
+                if (age > MAX_AGE_MS) {
+                    chrome.storage.local.remove(PENDING_KEY);
+                    return;
+                }
+                // Check global dedup — avoid reprocessing the same event
+                if (Date.now() - globalLastCompleteTimestamp < 30000) return;
+                console.log('[useVideoGeneration] 🔄 Panel-recovery: found pending VIDEO_GENERATION_COMPLETE in storage (age:', Math.round(age / 1000), 's)');
+                // Clear so it isn't processed again on next open
+                chrome.storage.local.remove(PENDING_KEY);
+                // Process as if the message just arrived
+                globalLastCompleteTimestamp = Date.now();
+                if (pending.videoUrl) handleTikTokAutoPost(pending.videoUrl);
+                if (pending.videoUrl) handleYouTubeAutoPost(pending.videoUrl);
+            });
+        } catch (_) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Listen for TikTok messages from background script
     useEffect(() => {
         if (!isExtension) return;
@@ -185,12 +215,15 @@ export const useVideoGeneration = () => {
             // Handle video generation complete — trigger auto-posts + fetch preview
             if (message.type === "VIDEO_GENERATION_COMPLETE") {
                 // Dedup: ignore if we already handled this within 30 seconds globally
+                // _fromBackground flag means background is relaying — check dedup strictly
                 const now = Date.now();
                 if (now - globalLastCompleteTimestamp < 30000) {
                     console.log('[useVideoGeneration] ⚠️ Duplicate VIDEO_GENERATION_COMPLETE ignored (within 30s) by other tab');
                     return;
                 }
                 globalLastCompleteTimestamp = now;
+                // Clear the stored pending event since we're handling it now
+                try { chrome.storage.local.remove('netflow_pending_video_complete'); } catch (_) {}
 
                 setIsLoading(false);
                 const source = message.source || 'rpa';

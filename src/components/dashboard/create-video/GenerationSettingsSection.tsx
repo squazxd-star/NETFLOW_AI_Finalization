@@ -8,6 +8,28 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { languageOptions, templateOptions, saleStyleOptions } from "@/types/netflow";
 import { getApiKey } from "@/services/storageService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useToast } from "@/hooks/use-toast";
+
+// ── Gemini 429 retry wrapper ── silently retries rate-limit errors up to 3x
+async function callGeminiWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (err: any) {
+            lastErr = err;
+            const is429 = err?.message?.includes('429') || err?.message?.includes('Resource exhausted') || err?.status === 429;
+            if (is429 && attempt < maxRetries - 1) {
+                const waitMs = Math.pow(2, attempt + 1) * 1500; // 3s → 6s → 12s
+                console.warn(`[Gemini] Rate limited (429) — waiting ${waitMs}ms before retry ${attempt + 2}/${maxRetries}`);
+                await new Promise(r => setTimeout(r, waitMs));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastErr;
+}
 
 /* ── Inline SVG brand logos ── */
 const VeoLogo = ({ className = "w-5 h-5", active = false }: { className?: string; active?: boolean }) => {
@@ -75,6 +97,7 @@ const GenerationSettingsSection = ({
     productImage
 }: GenerationSettingsSectionProps) => {
     const { config: themeConfig } = useTheme();
+    const { toast } = useToast();
     const sceneCount = (watch("sceneCount") || 2) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
     const sceneScriptsRaw = watch("sceneScriptsRaw") || "";
     const language = watch("language") || "th-central";
@@ -114,12 +137,12 @@ const GenerationSettingsSection = ({
         const apiKey = await getApiKey(provider);
 
         if (!apiKey) {
-            alert(`กรุณาใส่ ${provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key ในหน้าตั้งค่าก่อน`);
+            toast({ title: `ไม่พบ ${provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key`, description: 'กรุณาใส่ API Key ในหน้าตั้งค่าก่อน', variant: 'destructive' });
             return;
         }
 
         if (!productName && !productImage) {
-            alert("กรุณากรอกชื่อสินค้าหรืออัปโหลดรูปสินค้าก่อน");
+            toast({ title: 'ยังไม่มีข้อมูลสินค้า', description: 'กรุณากรอกชื่อสินค้าหรืออัปโหลดรูปสินค้าก่อน', variant: 'destructive' });
             return;
         }
 
@@ -345,13 +368,13 @@ ${Array.from({ length: sceneCount }, (_, i) => `ฉาก ${i + 1}:\nSCRIPT: [�
                 if (productImage) {
                     const base64Data = productImage.includes(',') ? productImage.split(',')[1] : productImage;
                     const mimeType = productImage.includes('png') ? 'image/png' : 'image/jpeg';
-                    const result = await model.generateContent([
+                    const result = await callGeminiWithRetry(() => model.generateContent([
                         `${systemPrompt}\n\n${userPrompt}\n\nดูรูปสินค้านี้แล้วเขียนสคริปต์ให้เข้ากับลักษณะสินค้าจริงๆ ใช้ข้อมูลจริงเท่านั้น`,
                         { inlineData: { data: base64Data, mimeType } }
-                    ]);
+                    ]));
                     content = result.response.text();
                 } else {
-                    const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+                    const result = await callGeminiWithRetry(() => model.generateContent(`${systemPrompt}\n\n${userPrompt}`));
                     content = result.response.text();
                 }
             } else {
@@ -414,7 +437,7 @@ Rules:
                     if (provider === 'gemini') {
                         const genAI = new GoogleGenerativeAI(apiKey);
                         const retryModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-                        const retryResult = await retryModel.generateContent(`${retrySystemPrompt}\n\n${retryUserPrompt}`);
+                        const retryResult = await callGeminiWithRetry(() => retryModel.generateContent(`${retrySystemPrompt}\n\n${retryUserPrompt}`));
                         content = retryResult.response.text();
                     } else {
                         const retryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -512,7 +535,7 @@ Do not explain. Only output the lines above.`;
                     if (provider === 'gemini') {
                         const genAI = new GoogleGenerativeAI(apiKey);
                         const valModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-                        const valResult = await valModel.generateContent(validationPrompt);
+                        const valResult = await callGeminiWithRetry(() => valModel.generateContent(validationPrompt));
                         validationContent = valResult.response.text();
                     } else {
                         const valResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -563,7 +586,14 @@ Do not explain. Only output the lines above.`;
 
         } catch (error: any) {
             console.error("AI Generation Error:", error);
-            alert("เกิดข้อผิดพลาด: " + error.message);
+            const is429 = error?.message?.includes('429') || error?.message?.includes('Resource exhausted');
+            toast({
+                title: is429 ? '⏳ Gemini API คิวเต็ม' : '❌ เกิดข้อผิดพลาด',
+                description: is429
+                    ? 'Gemini rate limit — ลองกด "วิเคราะห์" ใหม่อีกครั้งในอีก 30 วินาที'
+                    : error.message,
+                variant: 'destructive',
+            });
         } finally {
             setIsGenerating(false);
         }
