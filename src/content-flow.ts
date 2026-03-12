@@ -735,29 +735,14 @@ function findPromptBarAddButton(): HTMLElement | null {
     }
 
     // Pick the one closest to the bottom of the viewport
-    // ★ MUST be in bottom 40% of viewport — top buttons are reference area "+" (not prompt bar)
-    const minY = _hidden() ? 0 : window.innerHeight * 0.6;
     let bestBtn: HTMLElement | null = null;
     let bestY = 0;
     for (const btn of addButtons) {
         const rect = btn.getBoundingClientRect();
-        if (rect.y >= minY && rect.y > bestY) {
+        if (rect.y > bestY) {
             bestY = rect.y;
             bestBtn = btn;
         }
-    }
-
-    // Fallback: if no button in bottom 40%, try bottom 70%
-    if (!bestBtn && !_hidden()) {
-        const relaxedMinY = window.innerHeight * 0.3;
-        for (const btn of addButtons) {
-            const rect = btn.getBoundingClientRect();
-            if (rect.y >= relaxedMinY && rect.y > bestY) {
-                bestY = rect.y;
-                bestBtn = btn;
-            }
-        }
-        if (bestBtn) LOG(`⚠️ ปุ่ม "+" ไม่อยู่ใน bottom 40% — ใช้ fallback ที่ y=${bestY.toFixed(0)}`);
     }
 
     if (bestBtn) {
@@ -829,65 +814,30 @@ function findGenerateButton(): HTMLElement | null {
  * Skips elements inside the Netflow overlay.
  */
 function findPromptTextInput(): HTMLTextAreaElement | HTMLInputElement | HTMLElement | null {
-    const isOverlay = (el: HTMLElement) => !!el.closest("#netflow-engine-overlay");
-    const hidden = _hidden();
-
-    // Strategy 0: Slate.js specific — data-slate-editor is the definitive marker
-    const slateEditors = document.querySelectorAll<HTMLElement>('[data-slate-editor="true"]');
-    for (const el of slateEditors) {
-        if (isOverlay(el)) continue;
-        if (hidden) { LOG("findPromptTextInput: ✅ Slate editor (hidden mode)"); return el; }
-        const rect = el.getBoundingClientRect();
-        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ Slate editor (rect.bottom=${Math.round(rect.bottom)})`); return el; }
-    }
-
-    // Strategy 1: role="textbox" — ARIA role often used by rich text editors
-    const textboxes = document.querySelectorAll<HTMLElement>('[role="textbox"]');
-    for (const el of textboxes) {
-        if (isOverlay(el)) continue;
-        if (hidden) { LOG("findPromptTextInput: ✅ role=textbox (hidden mode)"); return el; }
-        const rect = el.getBoundingClientRect();
-        if (rect.height > 0) { LOG(`findPromptTextInput: ✅ role=textbox (rect.bottom=${Math.round(rect.bottom)})`); return el; }
+    // Strategy 1: textarea at the bottom area
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
+    for (const ta of textareas) {
+        if (_hidden()) return ta; // When minimized, accept first textarea
+        const rect = ta.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.5) return ta;
     }
 
     // Strategy 2: contenteditable in bottom area
     const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
     for (const el of editables) {
-        if (isOverlay(el)) continue;
-        if (hidden) { LOG("findPromptTextInput: ✅ contenteditable (hidden mode)"); return el; }
+        if (_hidden()) return el; // When minimized, accept first editable
         const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.3 && rect.height > 0) {
-            LOG(`findPromptTextInput: ✅ contenteditable (rect.bottom=${Math.round(rect.bottom)})`);
-            return el;
-        }
+        if (rect.bottom > window.innerHeight * 0.5) return el;
     }
 
-    // Strategy 3: textarea at the bottom area
-    const textareas = document.querySelectorAll<HTMLTextAreaElement>("textarea");
-    for (const ta of textareas) {
-        if (isOverlay(ta)) continue;
-        if (hidden) { LOG("findPromptTextInput: ✅ textarea (hidden mode)"); return ta; }
-        const rect = ta.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.3) return ta;
-    }
-
-    // Strategy 4: input with Thai/English placeholder
+    // Strategy 3: input with Thai placeholder
     const inputs = document.querySelectorAll<HTMLInputElement>("input[type='text'], input:not([type])");
     for (const inp of inputs) {
-        if (isOverlay(inp)) continue;
         const ph = inp.placeholder || "";
-        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe") || ph.includes("create")) return inp;
+        if (ph.includes("สร้าง") || ph.includes("prompt") || ph.includes("describe")) return inp;
     }
 
-    // Strategy 5: Last resort — any contenteditable not in overlay, regardless of position
-    for (const el of editables) {
-        if (isOverlay(el)) continue;
-        LOG(`findPromptTextInput: ⚠️ last-resort contenteditable (tag=${el.tagName})`);
-        return el;
-    }
-
-    // Diagnostic logging
-    LOG(`findPromptTextInput: ❌ ไม่พบ (slate=${slateEditors.length}, textbox=${textboxes.length}, editable=${editables.length}, textarea=${textareas.length}, input=${inputs.length})`);
+    if (textareas.length > 0) return textareas[textareas.length - 1];
     return null;
 }
 
@@ -1109,90 +1059,22 @@ function neutralizeFileInputs(): { input: HTMLInputElement; origType: string }[]
 }
 
 /**
- * ★ Captured file input from blockFileDialogs — used by restoreAndInject as fallback
- */
-let _capturedFileInput: HTMLInputElement | null = null;
-
-/**
- * Block ALL file dialog opens by overriding:
- * 1) HTMLInputElement.prototype.click
- * 2) HTMLInputElement.prototype.showPicker  (modern browsers)
- * 3) window.showOpenFilePicker              (File System Access API)
- * Captures the file input reference so restoreAndInject can find it.
- * Returns a restore function.
+ * Block ALL file dialog opens by overriding HTMLInputElement.prototype.click.
+ * Returns a restore function. CRITICAL for Mac where MutationObserver timing
+ * cannot reliably beat Google Flow's synchronous create→click sequence.
  */
 function blockFileDialogs(): () => void {
-    _capturedFileInput = null;
-
-    // ── 1) Override .click() ──
     const origClick = HTMLInputElement.prototype.click;
     HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
         if (this.type === "file") {
-            LOG(`🚫 บล็อก .click() บน file input (${platformTag})`);
-            _capturedFileInput = this;
-            return;
+            LOG(`🚫 บล็อกการเปิด file dialog (${platformTag})`);
+            return; // suppress native file chooser
         }
         return origClick.call(this);
     };
-
-    // ── 2) Override .showPicker() ──
-    const origShowPicker = HTMLInputElement.prototype.showPicker;
-    let showPickerPatched = false;
-    if (typeof origShowPicker === "function") {
-        HTMLInputElement.prototype.showPicker = function(this: HTMLInputElement) {
-            if (this.type === "file") {
-                LOG(`🚫 บล็อก .showPicker() บน file input (${platformTag})`);
-                _capturedFileInput = this;
-                return;
-            }
-            return origShowPicker.call(this);
-        };
-        showPickerPatched = true;
-    }
-
-    // ── 3) Override window.showOpenFilePicker() ──
-    const origSofp = (window as any).showOpenFilePicker;
-    let sofpPatched = false;
-    if (typeof origSofp === "function") {
-        (window as any).showOpenFilePicker = async function(..._args: any[]) {
-            LOG(`🚫 บล็อก showOpenFilePicker (${platformTag})`);
-            throw new DOMException("Blocked by Netflow", "AbortError");
-        };
-        sofpPatched = true;
-    }
-
-    // ── 4) Mac-only: intercept <label> clicks that trigger file inputs ──
-    let labelHandler: ((e: MouseEvent) => void) | null = null;
-    if (isMac) {
-        labelHandler = (e: MouseEvent) => {
-            const label = (e.target as HTMLElement)?.closest?.('label');
-            if (!label) return;
-            const forId = label.getAttribute('for');
-            if (forId) {
-                const linked = document.getElementById(forId) as HTMLInputElement | null;
-                if (linked && linked.tagName === 'INPUT' && linked.type === 'file') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    LOG(`🚫 บล็อก <label for="${forId}"> คลิก file input (Mac)`);
-                    return;
-                }
-            }
-            const wrappedInput = label.querySelector('input[type="file"]');
-            if (wrappedInput) {
-                e.preventDefault();
-                e.stopPropagation();
-                LOG(`🚫 บล็อก <label> ที่ครอบ file input (Mac)`);
-            }
-        };
-        document.addEventListener('click', labelHandler, true);
-    }
-
-    LOG(`🔒 บล็อก file dialog: click ✅ | showPicker ${showPickerPatched ? "✅" : "❌"} | showOpenFilePicker ${sofpPatched ? "✅" : "❌"} | label-intercept ${labelHandler ? "✅" : "—"} (${platformTag})`);
+    LOG(`🔒 ติดตั้งตัวบล็อก file dialog แล้ว (${platformTag})`);
     return () => {
         HTMLInputElement.prototype.click = origClick;
-        if (showPickerPatched) HTMLInputElement.prototype.showPicker = origShowPicker;
-        if (sofpPatched) (window as any).showOpenFilePicker = origSofp;
-        if (labelHandler) document.removeEventListener('click', labelHandler, true);
         LOG(`🔓 ถอดตัวบล็อก file dialog แล้ว`);
     };
 }
@@ -1206,12 +1088,6 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     const allInputs = document.querySelectorAll<HTMLInputElement>('input[type="text"][style*="display: none"], input[type="text"][hidden], input[type="text"]');
     const candidates = [...neutralized.map(n => n.input)];
 
-    // ★ Also add captured input from blockFileDialogs (may be detached from DOM)
-    if (_capturedFileInput && !candidates.includes(_capturedFileInput)) {
-        candidates.push(_capturedFileInput);
-        LOG(`เพิ่ม captured file input จากตัวบล็อก`);
-    }
-
     // Also add any recently created hidden text inputs (likely our neutralized ones)
     for (const inp of allInputs) {
         if (!candidates.includes(inp) && inp.offsetParent === null) {
@@ -1224,35 +1100,26 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     }
     LOG(`คืนค่า input ${candidates.length} ตัวเป็น type=file`);
 
-    // Find the best file input to inject into — check both DOM and captured
+    // Find the best file input to inject into
     const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    const allFileInputs = [...fileInputs];
-    // Add captured input if it's not already in DOM results
-    if (_capturedFileInput && _capturedFileInput.type === "file" && !allFileInputs.includes(_capturedFileInput)) {
-        allFileInputs.push(_capturedFileInput);
-        LOG(`captured file input ไม่อยู่ใน DOM — เพิ่มเป็น candidate`);
-    }
-    if (allFileInputs.length === 0) {
+    if (fileInputs.length === 0) {
         LOG(`⚠️ ไม่พบ file input หลังคืนค่า (${platformTag})`);
         return false;
     }
 
-    // ★ Prefer captured input first (most likely the correct target from blockFileDialogs)
+    // ★ Prefer NEW file inputs (not pre-existing) — fixes second upload targeting stale input
     let target: HTMLInputElement;
-    if (_capturedFileInput && _capturedFileInput.type === "file") {
-        target = _capturedFileInput;
-        LOG(`ใช้ captured file input จากตัวบล็อก ✅`);
-    } else if (preExistingInputs && preExistingInputs.size > 0) {
-        const newInputs = allFileInputs.filter(inp => !preExistingInputs.has(inp));
+    if (preExistingInputs && preExistingInputs.size > 0) {
+        const newInputs = Array.from(fileInputs).filter(inp => !preExistingInputs.has(inp));
         if (newInputs.length > 0) {
             target = newInputs[newInputs.length - 1];
-            LOG(`เล็งเป้า file input ใหม่ (${newInputs.length} ใหม่, ${allFileInputs.length} ทั้งหมด)`);
+            LOG(`เล็งเป้า file input ใหม่ (${newInputs.length} ใหม่, ${fileInputs.length} ทั้งหมด)`);
         } else {
-            target = allFileInputs[allFileInputs.length - 1];
-            LOG(`ไม่พบ file input ใหม่ — ใช้ตัวสุดท้ายจาก ${allFileInputs.length} ตัว`);
+            target = fileInputs[fileInputs.length - 1];
+            LOG(`ไม่พบ file input ใหม่ — ใช้ตัวสุดท้ายจาก ${fileInputs.length} ตัว`);
         }
     } else {
-        target = allFileInputs[allFileInputs.length - 1];
+        target = fileInputs[fileInputs.length - 1];
     }
 
     // ★ Inject file via DataTransfer — cross-platform
@@ -1280,8 +1147,6 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     }
 
     // ★ React _valueTracker reset — CRITICAL for React to detect the change
-    // React tracks input values internally. If the cached value matches current,
-    // React skips the onChange handler. We must reset the tracker first.
     const tracker = (target as any)._valueTracker;
     if (tracker) {
         tracker.setValue('');
@@ -1291,22 +1156,6 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
     // ★ Dispatch 'change' event — React's delegated listener at root should pick this up
     target.dispatchEvent(new Event('change', { bubbles: true }));
     target.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // ★ Also dispatch a synthetic 'drop' event (some React builds listen for drag-drop)
-    // On Mac: use non-bubbling drop to prevent Slate editor from catching it
-    try {
-        const dropDt = new DataTransfer();
-        dropDt.items.add(file);
-        const dropEvent = new DragEvent('drop', {
-            bubbles: !isMac, // Mac: don't bubble (prevents Slate from catching it)
-            cancelable: true,
-            dataTransfer: dropDt,
-        });
-        target.dispatchEvent(dropEvent);
-        LOG(`ส่ง drop event บน file input (bubbles=${!isMac})`);
-    } catch (_) {
-        // drop event dispatch is optional — ignore errors
-    }
 
     LOG(`✅ ฉีดไฟล์เสร็จ: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → <input> ${platformTag}`);
     return true;
@@ -1898,68 +1747,10 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
 
         // ── STEP 3: Inject file via base64 into file input ──
         LOG("── ขั้น 3: ฉีดไฟล์ base64 เข้า file input ──");
-        let ok = restoreAndInject(neutralized, file, preExistingInputs);
+        const ok = restoreAndInject(neutralized, file, preExistingInputs);
         if (!ok) {
-            // ★ FALLBACK: Drag-and-drop the file onto the open dialog or prompt bar
-            LOG(`⚠️ file input injection ล้มเหลว — ลอง drag-and-drop แทน`);
-            
-            // Find the best drop target: open dialog upload area > prompt bar
-            let dropTarget: HTMLElement | null = null;
-            
-            // Try 1: Dialog content area (Radix dialog portal)
-            const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"], [data-state="open"][aria-haspopup="dialog"]');
-            for (const d of dialogs) {
-                if (d.getBoundingClientRect().width > 0) {
-                    dropTarget = d;
-                    break;
-                }
-            }
-            // Try 2: Any overlay/portal container
-            if (!dropTarget) {
-                const portals = document.querySelectorAll<HTMLElement>('[data-radix-portal], [class*="overlay"], [class*="modal"]');
-                for (const p of portals) {
-                    if (p.getBoundingClientRect().width > 0 && !p.closest("#netflow-engine-overlay")) {
-                        dropTarget = p;
-                        break;
-                    }
-                }
-            }
-            // Try 3: Prompt bar area (bottom of page)
-            if (!dropTarget) {
-                const promptArea = document.querySelector<HTMLElement>('[contenteditable="true"], [role="textbox"]');
-                if (promptArea) dropTarget = promptArea;
-            }
-            
-            if (dropTarget) {
-                LOG(`🎯 Drop target: <${dropTarget.tagName}> ${(dropTarget.className || "").substring(0, 40)}`);
-                const dropDt = new DataTransfer();
-                dropDt.items.add(file);
-                const rect = dropTarget.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const evtInit = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, dataTransfer: dropDt };
-                
-                dropTarget.dispatchEvent(new DragEvent('dragenter', evtInit));
-                await sleep(100);
-                dropTarget.dispatchEvent(new DragEvent('dragover', { ...evtInit, cancelable: true }));
-                await sleep(100);
-                dropTarget.dispatchEvent(new DragEvent('drop', evtInit));
-                LOG(`✅ ส่ง drop event บน target แล้ว`);
-                await sleep(2000);
-                
-                // Check if drop worked (thumbnail appeared or upload %)
-                const afterDropCount = countPromptBarThumbnails();
-                if (afterDropCount > baselineCount) {
-                    LOG(`✅ Drop สำเร็จ — รูปย่อเพิ่มจาก ${baselineCount} → ${afterDropCount}`);
-                    ok = true;
-                } else {
-                    LOG(`⚠️ Drop อาจไม่สำเร็จ — ยังคง ${afterDropCount} รูป — ดำเนินการต่อ`);
-                    ok = true; // still continue, upload % tracking will verify
-                }
-            } else {
-                WARN(`ฉีดไฟล์ ${fileName} ล้มเหลว — ไม่พบ file input และ drop target`);
-                return false;
-            }
+            WARN(`ฉีดไฟล์ ${fileName} ล้มเหลว`);
+            return false;
         }
         LOG(`ฉีดไฟล์ ${fileName} เสร็จ ✅`);
 
@@ -1969,49 +1760,7 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             return true;
         }
 
-        // ★ Mac-only fallback: file input injection may have failed silently.
-        // Try clipboard paste and drag-drop as alternative methods.
-        if (isMac) {
-            LOG("🍎 Mac: file input ไม่สำเร็จ — ลอง clipboard paste แทน");
-
-            // Fallback A: Real clipboard paste (TRUSTED paste via navigator.clipboard.write)
-            try {
-                const clipOk = await pasteImageViaRealClipboard(dataUrl, file, baselineCount);
-                if (clipOk && countPromptBarThumbnails() > baselineCount) {
-                    LOG("✅ Mac clipboard paste สำเร็จ!");
-                    return true;
-                }
-            } catch (e: any) {
-                LOG(`⚠️ Mac clipboard paste ล้มเหลว: ${e.message}`);
-            }
-
-            // Fallback B: Drag-and-drop onto prompt bar
-            try {
-                const dropOk = await dropFileOnPromptBar(file);
-                if (dropOk && countPromptBarThumbnails() > baselineCount) {
-                    LOG("✅ Mac drag-and-drop สำเร็จ!");
-                    return true;
-                }
-            } catch (e: any) {
-                LOG(`⚠️ Mac drag-and-drop ล้มเหลว: ${e.message}`);
-            }
-
-            // Fallback C: Synthetic clipboard paste events
-            try {
-                const syntheticOk = await pasteImageIntoPromptBar(file);
-                if (syntheticOk && countPromptBarThumbnails() > baselineCount) {
-                    LOG("✅ Mac synthetic paste สำเร็จ!");
-                    return true;
-                }
-            } catch (e: any) {
-                LOG(`⚠️ Mac synthetic paste ล้มเหลว: ${e.message}`);
-            }
-
-            LOG("⚠️ Mac: ลองครบทุกวิธีแล้ว — รูปย่ออาจกำลังประมวลผลอยู่");
-            return true; // optimistic — upload may still be processing
-        }
-
-        // Windows: optimistic return (upload might be processing with %)
+        // Even if thumbnail not detected yet, the upload might be processing (shows %)
         LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%)");
         return true;
     } finally {
@@ -2578,34 +2327,6 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     if (req.productImage) {
         updateStep("upload-prod", "active");
-
-        // ★ FULL UI RESET before 2nd upload — match the exact clean state of 1st upload
-        LOG("🧹 รีเซ็ต UI ก่อนอัพโหลดสินค้า...");
-        // 1) Close all menus/dialogs
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(300);
-        document.body.click();
-        await sleep(300);
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(500);
-        // 2) Remove ALL stale file inputs AND hidden text inputs (neutralized leftovers)
-        document.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(inp => {
-            LOG(`🧹 ลบ file input เก่า`);
-            inp.remove();
-        });
-        document.querySelectorAll<HTMLInputElement>('input[type="text"]').forEach(inp => {
-            // Only remove hidden/invisible ones (neutralized file inputs from previous upload)
-            if (inp.offsetParent === null && !inp.closest('[role="textbox"]') && !inp.closest('[contenteditable]')) {
-                const rect = inp.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) {
-                    LOG(`🧹 ลบ hidden text input เก่า`);
-                    inp.remove();
-                }
-            }
-        });
-        await sleep(1000);
-        LOG("🧹 รีเซ็ตเสร็จ — เริ่มอัพโหลดสินค้า");
-
         try {
             const ok = await uploadImageToPromptBar(req.productImage, "product.png");
             steps.push(ok ? "✅ สินค้า" : "⚠️ สินค้า");
@@ -2668,79 +2389,18 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 2: ALWAYS paste prompt (even if uploads failed) ──
     LOG("=== ขั้น 2: วาง Image Prompt ===");
     updateStep("img-prompt", "active");
-
-    // ★ FOCUS_TAB: Keep tab active during paste+generate — Slate.js REQUIRES real document focus
-    let needsImgUnfocus = false;
-    if (document.hidden) {
-        LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อวาง prompt ภาพ + กด Generate");
-        try {
-            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-            needsImgUnfocus = true;
-            await sleep(1500);
-        } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
-    }
-
     await sleep(1000);
-
-    // ★ FOCUS_TAB: Keep tab active during paste+generate — Slate.js REQUIRES real document focus
-    let needsUnfocus = false;
-    if (document.hidden) {
-        LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อวาง Image prompt + กด Generate");
-        try {
-            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-            needsUnfocus = true;
-            // Wait for document.hidden to become false (window must be in foreground)
-            const focusStart = Date.now();
-            while (document.hidden && Date.now() - focusStart < 5000) {
-                await sleep(200);
-            }
-            if (document.hidden) {
-                LOG("⚠️ Tab ยังซ่อนอยู่หลัง FOCUS_TAB 5 วิ — ลองวางต่อ");
-            } else {
-                LOG("✅ Tab กลับมาแสดงผลแล้ว — รอ DOM render 3 วิ");
-                await sleep(3000);
-            }
-        } catch (_) { LOG("⚠️ FOCUS_TAB ล้มเหลว — ลองวางต่อ"); }
-    }
-
-    let imgPromptOk = false;
-    for (let attempt = 1; attempt <= 5 && !imgPromptOk; attempt++) {
-        // ★ Re-focus Chrome on every retry — previous attempt may have lost focus
-        if (attempt > 1 && document.hidden) {
-            LOG(`🔄 Retry ${attempt}: Tab ซ่อน — ดึง Chrome ขึ้นมาอีกครั้ง`);
-            try {
-                await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
-                needsUnfocus = true;
-                const retryStart = Date.now();
-                while (document.hidden && Date.now() - retryStart < 5000) {
-                    await sleep(200);
-                }
-                if (!document.hidden) await sleep(2000);
-            } catch (_) {}
-        }
-        const promptInput = findPromptTextInput();
-        if (!promptInput) {
-            LOG(`⚠️ ครั้งที่ ${attempt}: ไม่พบช่อง Image Prompt — รอแล้วลองใหม่`);
-            await sleep(3000);
-            continue;
-        }
-        if (attempt > 1) {
-            promptInput.focus();
-            await sleep(500);
-        }
+    const promptInput = findPromptTextInput();
+    if (promptInput) {
         await setPromptText(promptInput, req.imagePrompt);
         LOG(`วาง Prompt แล้ว (${req.imagePrompt.length} ตัวอักษร)`);
         steps.push("✅ Prompt");
         updateStep("img-prompt", "done");
-        imgPromptOk = true;
-        break;
-    }
-    if (!imgPromptOk) {
+    } else {
         WARN("ไม่พบช่องป้อนข้อความ Prompt");
         steps.push("❌ Prompt");
-        errors.push("image prompt paste failed after 5 attempts");
+        errors.push("prompt input not found");
         updateStep("img-prompt", "error");
-        return { success: false, message: "❌ วาง Prompt ไม่สำเร็จ", step: "img-prompt" };
     }
     await sleep(800);
 

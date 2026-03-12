@@ -69,7 +69,7 @@ export const createVideoSchema = z.object({
     outputType: z.enum(["image", "video"]).default("video"),
     orientation: z.enum(["horizontal", "vertical"]).default("vertical"),
     outputCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
-    veoQuality: z.enum(["fast", "quality"]).default("quality"),
+    veoQuality: z.enum(["fast", "quality"]).default("fast"),
     sceneCount: z.number().int().min(1).max(10).default(2),
 
 
