@@ -367,6 +367,7 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
 // Helper: pick random outfit prompt variant
 function getOutfitDescription(outfitKey?: string): string {
     if (!outfitKey) return "casual everyday wear";
+    if (outfitKey === "original") return "EXACTLY the same clothing visible in the reference image — preserve every detail of the outfit including color, pattern, fabric, fit, and accessories. Do NOT change or replace any clothing item.";
     const variants = OUTFIT_PROMPT_MAP[outfitKey];
     if (!variants || variants.length === 0) return "casual everyday wear";
     return variants[Math.floor(Math.random() * variants.length)];

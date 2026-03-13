@@ -28,6 +28,7 @@ export type AgeRangeOption = "child" | "teen" | "young-adult" | "adult" | "middl
 export type PersonalityOption = "cheerful" | "calm" | "professional" | "playful" | "mysterious";
 export type ClothingStyleOption = "casual" | "formal" | "sporty" | "fashion" | "uniform";
 export type CharacterOutfitOption =
+    | "original"
     | "tshirt-casual" | "shirt-button" | "polo" | "hoodie" | "sweater-knit"
     | "jacket-denim" | "jacket-leather" | "blazer" | "suit-formal"
     | "tank-top" | "crop-top" | "oversize-tee"
@@ -115,6 +116,8 @@ export const sceneBackgroundOptions: { value: string; label: string; emoji: stri
 ];
 
 export const characterOutfitOptions: { value: CharacterOutfitOption; label: string; emoji: string; group: string }[] = [
+    // ── ใช้จากรูปต้นฉบับ ──
+    { value: "original", label: "ใช้เสื้อผ้าจากรูปต้นฉบับ", emoji: "📷", group: "ค่าเริ่มต้น" },
     // ── เสื้อผ้าพื้นฐาน ──
     { value: "tshirt-casual", label: "เสื้อยืดลำลอง", emoji: "👕", group: "พื้นฐาน" },
     { value: "shirt-button", label: "เสื้อเชิ้ต", emoji: "👔", group: "พื้นฐาน" },

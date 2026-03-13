@@ -1073,14 +1073,42 @@ function blockFileDialogs(): () => void {
     const origClick = HTMLInputElement.prototype.click;
     HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
         if (this.type === "file") {
-            LOG(`🚫 บล็อกการเปิด file dialog (${platformTag})`);
+            LOG(`🚫 บล็อกการเปิด file dialog via click (${platformTag})`);
             return; // suppress native file chooser
         }
         return origClick.call(this);
     };
+
+    // ★ Mac fix: also block showPicker() — Chrome 99+ may use this instead of .click()
+    const origShowPicker = (HTMLInputElement.prototype as any).showPicker;
+    if (typeof origShowPicker === 'function') {
+        (HTMLInputElement.prototype as any).showPicker = function(this: HTMLInputElement) {
+            if (this.type === "file") {
+                LOG(`🚫 บล็อกการเปิด file dialog via showPicker (${platformTag})`);
+                return;
+            }
+            return origShowPicker.call(this);
+        };
+    }
+
+    // ★ Mac fix: also block window.showOpenFilePicker (File System Access API)
+    const origShowOpenFilePicker = (window as any).showOpenFilePicker;
+    if (typeof origShowOpenFilePicker === 'function') {
+        (window as any).showOpenFilePicker = function(...args: any[]) {
+            LOG(`🚫 บล็อก showOpenFilePicker (${platformTag})`);
+            return Promise.reject(new DOMException('Blocked by Netflow', 'AbortError'));
+        };
+    }
+
     LOG(`🔒 ติดตั้งตัวบล็อก file dialog แล้ว (${platformTag})`);
     return () => {
         HTMLInputElement.prototype.click = origClick;
+        if (typeof origShowPicker === 'function') {
+            (HTMLInputElement.prototype as any).showPicker = origShowPicker;
+        }
+        if (typeof origShowOpenFilePicker === 'function') {
+            (window as any).showOpenFilePicker = origShowOpenFilePicker;
+        }
         LOG(`🔓 ถอดตัวบล็อก file dialog แล้ว`);
     };
 }
@@ -1159,9 +1187,24 @@ function restoreAndInject(neutralized: { input: HTMLInputElement; origType: stri
         LOG(`รีเซ็ต React _valueTracker บน file input`);
     }
 
-    // ★ Dispatch 'change' event — React's delegated listener at root should pick this up
-    target.dispatchEvent(new Event('change', { bubbles: true }));
-    target.dispatchEvent(new Event('input', { bubbles: true }));
+    // ★ Also try React fiber's nativeInputValueSetter (older React / older Chrome compat)
+    try {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+            HTMLInputElement.prototype, 'value'
+        )?.set;
+        if (nativeSetter) {
+            nativeSetter.call(target, '');
+            LOG(`รีเซ็ต native value setter`);
+        }
+    } catch (_) { /* ignore */ }
+
+    // ★ Dispatch comprehensive events — covers React 16/17/18 on all platforms
+    target.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
+    target.dispatchEvent(new Event('input', { bubbles: true, cancelable: false }));
+    // ★ Mac compat: some frameworks listen on blur or focusout after file selection
+    target.dispatchEvent(new Event('blur', { bubbles: true }));
+    // ★ Mac compat: dispatch with composed:true to cross shadow DOM boundaries
+    target.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
     LOG(`✅ ฉีดไฟล์เสร็จ: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → <input> ${platformTag}`);
     return true;
@@ -1657,96 +1700,242 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     observer.observe(document.body, { childList: true, subtree: true });
 
     try {
-        // Click "+" to open the dialog (use single .click() — NOT robustClick)
-        // robustClick fires synthetic click + .click() = 2 clicks, which TOGGLES Radix dialog open→closed
-        addBtn.click();
-        LOG("คลิกปุ่ม '+' (สร้าง) แล้ว ✅");
-        await sleep(1500);
+        // ═══════════════════════════════════════════════════════════════
+        // NEW GOOGLE FLOW UI (2025+): "+" opens a Radix Dialog, NOT a dropdown menu.
+        // The dialog contains: Image/Video tabs, Landscape/Portrait, x1-x4, and an UPLOAD button.
+        // The upload button has icon "upload" and screen-reader text "Upload image".
+        // ═══════════════════════════════════════════════════════════════
 
-        // ── STEP 2: Find and click "upload" button (อัปโหลดรูปภาพ) ──
-        LOG("── ขั้น 2: คลิกปุ่ม 'อัปโหลดรูปภาพ' ──");
+        // ── Helper: check if the Radix dialog opened ──
+        const isDialogOpen = () => {
+            // Check data-state on the "+" button itself
+            if (addBtn.getAttribute("data-state") === "open" || addBtn.getAttribute("aria-expanded") === "true") return true;
+            // Check if dialog element exists via aria-controls
+            const dialogId = addBtn.getAttribute("aria-controls");
+            if (dialogId) {
+                const dialogEl = document.getElementById(dialogId);
+                if (dialogEl && dialogEl.offsetWidth > 0) return true;
+            }
+            return false;
+        };
+
+        // ── Helper: find upload button inside dialog or anywhere on page ──
+        const findUploadButton = (): HTMLElement | null => {
+            // Strategy A: Find via aria-controls dialog container
+            const dialogId = addBtn.getAttribute("aria-controls");
+            if (dialogId) {
+                const dialogEl = document.getElementById(dialogId);
+                if (dialogEl) {
+                    // Look for button with "upload" icon inside dialog
+                    const btns = dialogEl.querySelectorAll<HTMLElement>("button");
+                    for (const btn of btns) {
+                        const icons = btn.querySelectorAll("i");
+                        for (const icon of icons) {
+                            const it = icon.textContent?.trim() || "";
+                            if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
+                                return btn;
+                            }
+                        }
+                        // Also check screen-reader text
+                        const srText = (btn.querySelector("span")?.textContent || "").trim().toLowerCase();
+                        if (srText === "upload image" || srText === "upload" || srText === "อัปโหลดรูปภาพ") {
+                            return btn;
+                        }
+                    }
+                    // Strategy B: Direct CSS path inside dialog (user-provided)
+                    const directBtn = dialogEl.querySelector<HTMLElement>("div > div > button");
+                    if (directBtn) {
+                        const iconText = directBtn.querySelector("i")?.textContent?.trim() || "";
+                        if (iconText === "upload" || iconText === "upload_file") return directBtn;
+                    }
+                }
+            }
+            // Strategy C: Find any button on page with "upload" icon that is NOT the "+" button
+            const allBtns = document.querySelectorAll<HTMLElement>("button");
+            for (const btn of allBtns) {
+                if (btn === addBtn) continue;
+                const rect = btn.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) continue;
+                const icons = btn.querySelectorAll("i");
+                for (const icon of icons) {
+                    const it = icon.textContent?.trim() || "";
+                    if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
+                        const allIconTexts = Array.from(btn.querySelectorAll("i")).map(i => i.textContent?.trim());
+                        if (!allIconTexts.includes("drive_folder_upload") && !allIconTexts.includes("photo_library")) {
+                            return btn;
+                        }
+                    }
+                }
+            }
+            return null;
+        };
+
+        // ── STEP 1A: Click "+" with .click() (Radix Dialog uses onClick, NOT pointer events) ──
+        addBtn.click();
+        LOG("คลิกปุ่ม '+' (สร้าง) ด้วย .click() ✅");
+        await sleep(1200);
+
+        // ── STEP 1B: Check if Radix Dialog opened ──
+        if (!isDialogOpen()) {
+            LOG("⚠️ Dialog ไม่เปิดจาก .click() — ลอง pointer events");
+            const r = addBtn.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+            addBtn.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+            addBtn.dispatchEvent(new MouseEvent("mousedown", opts));
+            await sleep(80);
+            addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+            addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
+            addBtn.dispatchEvent(new MouseEvent("click", opts));
+            await sleep(1200);
+        }
+
+        if (!isDialogOpen()) {
+            LOG("⚠️ Dialog ยังไม่เปิด — ลอง focus + Enter");
+            addBtn.focus();
+            await sleep(100);
+            addBtn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+            addBtn.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
+            await sleep(1200);
+        }
+
+        const dialogOpened = isDialogOpen();
+        LOG(`Radix Dialog ${dialogOpened ? "เปิดแล้ว ✅" : "ไม่เปิด ❌"} (data-state: ${addBtn.getAttribute("data-state")}, aria-expanded: ${addBtn.getAttribute("aria-expanded")})`);
+
+        // ── STEP 1C: Check if "+" directly created a file input ──
+        if (neutralized.length > 0) {
+            LOG(`🎯 พบ file input ${neutralized.length} ตัวหลังคลิก '+' — ข้ามเมนูไป inject เลย`);
+            await sleep(500);
+        } else {
+
+        // ── STEP 2: Find and click "upload" button inside the Radix Dialog ──
+        LOG("── ขั้น 2: หาปุ่ม 'Upload image' ในRadix Dialog ──");
         let clickedUpload = false;
         const menuPollStart = Date.now();
-        while (!clickedUpload && Date.now() - menuPollStart < 8000) {
+
+        while (!clickedUpload && Date.now() - menuPollStart < 6000) {
+            const uploadBtn = findUploadButton();
+            if (uploadBtn) {
+                uploadBtn.click();
+                clickedUpload = true;
+                const iconTxt = uploadBtn.querySelector("i")?.textContent?.trim() || "";
+                LOG(`คลิกปุ่มอัปโหลด (icon: "${iconTxt}") ในDialog ✅`);
+                break;
+            }
+
+            // Also check if file input appeared
+            if (neutralized.length > 0) {
+                LOG(`🎯 Observer จับ file input ได้ — ข้ามไป inject`);
+                clickedUpload = true;
+                break;
+            }
+
+            await sleep(500);
+        }
+
+        // ── STEP 2 FALLBACK: Try old menu detection if dialog approach failed ──
+        if (!clickedUpload) {
+            LOG("⚠️ ไม่พบ upload button ใน Dialog — ลองแบบเก่า (menu items)");
             const menuElements = document.querySelectorAll<HTMLElement>(
                 "button, [role='menuitem'], [role='option'], li, div[role='button'], [role='menuitemradio'], a[role='button']"
             );
-            // Icon-based detection first (look for "upload" icon)
             for (const el of menuElements) {
                 if (el === addBtn) continue;
                 const icons = el.querySelectorAll("i, .material-icons, .material-symbols-outlined, [class*='icon']");
                 for (const icon of icons) {
                     const it = icon.textContent?.trim() || "";
-                    // Strictly match local upload icons. Avoid 'photo_library' or 'image' which open the asset manager.
                     if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
                         const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
                         if (!allIconTexts.includes("drive_folder_upload") && !allIconTexts.includes("photo_library")) {
                             el.click();
                             clickedUpload = true;
-                            LOG(`คลิกปุ่มอัปโหลด (ไอคอน: ${it}) ✅`);
+                            LOG(`คลิกปุ่มอัปโหลด (legacy icon: ${it}) ✅`);
                             break;
                         }
                     }
                 }
                 if (clickedUpload) break;
-            }
-            // Text fallback (look for "อัปโหลดรูปภาพ" / "upload" text)
-            if (!clickedUpload) {
-                for (const el of menuElements) {
-                    if (el === addBtn) continue;
-                    const directText = el.childNodes.length <= 8 ? (el.textContent || "").trim() : "";
-                    if (directText.length > 0 && directText.length < 60) {
-                        const lower = directText.toLowerCase();
-                        // Skip library options
-                        if (lower.includes("ไลบรารี") || lower.includes("library") || lower.includes("drive") || lower.includes("ไดรฟ์")) continue;
-                        
-                        if (lower === "upload" || lower === "อัปโหลด" || lower === "อัพโหลด"
-                            || lower.includes("upload image") || lower.includes("upload photo")
-                            || lower.includes("upload a file") || lower.includes("upload file")
-                            || lower.includes("อัปโหลดรูปภาพ") || lower.includes("อัพโหลดรูปภาพ")
-                            || lower.includes("อัปโหลดไฟล์") || lower.includes("อัพโหลดไฟล์")
-                            || lower.includes("from computer") || lower.includes("จากคอมพิวเตอร์")
-                            || lower.includes("from device") || lower.includes("จากอุปกรณ์")
-                            || lower.includes("my computer") || lower.includes("คอมพิวเตอร์ของฉัน")) {
-                            el.click();
-                            clickedUpload = true;
-                            LOG(`คลิกปุ่มอัปโหลด (ข้อความ: "${directText}") ✅`);
-                            break;
-                        }
+                // Text fallback
+                const txt = (el.textContent || "").trim().toLowerCase();
+                if (txt.length > 0 && txt.length < 60) {
+                    if (txt.includes("upload image") || txt.includes("upload photo") || txt.includes("อัปโหลดรูปภาพ") || txt === "upload" || txt === "อัปโหลด") {
+                        el.click();
+                        clickedUpload = true;
+                        LOG(`คลิกปุ่มอัปโหลด (legacy text: "${txt.substring(0, 40)}") ✅`);
+                        break;
                     }
                 }
-            }
-            // ★ Broader fallback: any menu item that's NOT "สร้าง"/"Create"/"Google Drive"/"Library"
-            if (!clickedUpload) {
-                for (const el of menuElements) {
-                    if (el === addBtn) continue;
-                    const txt = (el.textContent || "").trim().toLowerCase();
-                    if (txt.length > 0 && txt.length < 60) {
-                        // Skip known non-upload items
-                        if (txt.includes("drive") || txt.includes("ไดรฟ์") || txt.includes("google") 
-                            || txt.includes("สร้าง") || txt.includes("create") || txt.includes("cancel")
-                            || txt.includes("ยกเลิก") || txt.includes("ไลบรารี") || txt.includes("library")) continue;
-                        // If it contains upload-related keywords in any language
-                        if (txt.includes("upload") || txt.includes("อัป") || txt.includes("อัพ") || txt.includes("file") || txt.includes("ไฟล์") || txt.includes("รูปภาพ") || txt.includes("image") || txt.includes("photo")) {
-                            const rect = el.getBoundingClientRect();
-                            if (rect.width > 0 && rect.height > 0) {
-                                el.click();
-                                clickedUpload = true;
-                                LOG(`คลิกปุ่มอัปโหลด (broad match: "${txt.substring(0, 40)}") ✅`);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (!clickedUpload) {
-                await sleep(500);
             }
         }
+
         if (!clickedUpload) {
-            WARN("ไม่พบปุ่มอัปโหลดในเมนูหลังรอ 8 วินาที");
+            // ★ DIAGNOSTIC DUMP
+            LOG("══════ DIAGNOSTIC: elements หลังคลิก '+' ══════");
+            const dialogId = addBtn.getAttribute("aria-controls");
+            LOG(`  aria-controls: ${dialogId}, data-state: ${addBtn.getAttribute("data-state")}`);
+            if (dialogId) {
+                const dialogEl = document.getElementById(dialogId);
+                LOG(`  dialog element: ${dialogEl ? `found (${dialogEl.tagName} ${dialogEl.offsetWidth}x${dialogEl.offsetHeight})` : "NOT FOUND"}`);
+                if (dialogEl) {
+                    const innerBtns = dialogEl.querySelectorAll("button");
+                    LOG(`  buttons inside dialog: ${innerBtns.length}`);
+                    innerBtns.forEach((b, i) => {
+                        const ic = Array.from(b.querySelectorAll("i")).map(x => x.textContent?.trim()).join(",");
+                        LOG(`    [${i}] "${(b.textContent || "").trim().substring(0, 40)}" icons=[${ic}]`);
+                    });
+                }
+            }
+            const allVisible = document.querySelectorAll<HTMLElement>("button");
+            let dumpCount = 0;
+            for (const el of allVisible) {
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) continue;
+                const ic = Array.from(el.querySelectorAll("i")).map(x => x.textContent?.trim()).filter(Boolean);
+                if (ic.includes("upload") || ic.includes("upload_file")) {
+                    LOG(`  ★ UPLOAD CANDIDATE: <button>${(el.textContent || "").trim().substring(0, 50)} [icons: ${ic.join(",")}] @(${Math.round(rect.left)},${Math.round(rect.top)})`);
+                }
+                if (++dumpCount >= 30) break;
+            }
+            LOG("══════ END DIAGNOSTIC ══════");
+
+            // ★ FALLBACK: drag-and-drop onto workspace ("Start creating or drop media")
+            LOG("── Fallback: ลอง drag-and-drop ลงบน workspace ──");
+            const dropDt = new DataTransfer();
+            dropDt.items.add(file);
+            let dropZone: HTMLElement | null = null;
+            const candidates = document.querySelectorAll<HTMLElement>(
+                '[class*="canvas"], [class*="workspace"], [class*="drop"], [class*="media"], [class*="gallery"], main, [role="main"]'
+            );
+            for (const el of candidates) {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 200 && rect.height > 200) { dropZone = el; break; }
+            }
+            if (!dropZone) {
+                dropZone = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLElement || document.body;
+            }
+            const dzRect = dropZone.getBoundingClientRect();
+            const dzCx = dzRect.left + dzRect.width / 2;
+            const dzCy = dzRect.top + dzRect.height / 2;
+            const dzEvt = { bubbles: true, cancelable: true, clientX: dzCx, clientY: dzCy, dataTransfer: dropDt };
+            dropZone.dispatchEvent(new DragEvent('dragenter', dzEvt));
+            await sleep(100);
+            dropZone.dispatchEvent(new DragEvent('dragover', dzEvt));
+            await sleep(100);
+            dropZone.dispatchEvent(new DragEvent('drop', dzEvt));
+            dropZone.dispatchEvent(new DragEvent('dragleave', dzEvt));
+            LOG(`ส่ง drag-drop ลง workspace (${dropZone.tagName})`);
+            document.dispatchEvent(new DragEvent('drop', { ...dzEvt, bubbles: true }));
+
+            if (await verifyNewThumbnail("WorkspaceDrop", 8000)) {
+                return true;
+            }
+            WARN("ไม่พบปุ่มอัปโหลดและ drop ไม่สำเร็จ");
             return false;
         }
+
+        } // end of else (no direct file input from "+")
+
 
         // Wait for file input to be triggered
         await sleep(1000);
@@ -1754,21 +1943,142 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         // ── STEP 3: Inject file via base64 into file input ──
         LOG("── ขั้น 3: ฉีดไฟล์ base64 เข้า file input ──");
         const ok = restoreAndInject(neutralized, file, preExistingInputs);
-        if (!ok) {
-            WARN(`ฉีดไฟล์ ${fileName} ล้มเหลว`);
-            return false;
+        if (ok) {
+            LOG(`ฉีดไฟล์ ${fileName} เสร็จ ✅`);
+        } else {
+            WARN(`ฉีดไฟล์ ${fileName} ผ่าน file input ล้มเหลว — ลอง fallback`);
         }
-        LOG(`ฉีดไฟล์ ${fileName} เสร็จ ✅`);
 
         // ── STEP 4: Verify upload succeeded (thumbnail appeared) ──
         LOG("── ขั้น 4: ตรวจสอบว่ารูปอัพโหลดเสร็จ ──");
-        if (await verifyNewThumbnail("FileInput", 10000)) {
+        if (ok && await verifyNewThumbnail("FileInput", 10000)) {
             return true;
         }
 
-        // Even if thumbnail not detected yet, the upload might be processing (shows %)
-        LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%)");
-        return true;
+        // ★ Windows: PERFECT AUTOMATION behavior — if injection succeeded, trust it
+        if (ok && !isMac) {
+            LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%) [Windows: ข้ามตรง]");
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MAC ONLY FALLBACKS — only run when primary file-input method fails on Mac
+        // ═══════════════════════════════════════════════════════════════════
+        LOG(`── 🍎 Mac Fallback: primary ${ok ? 'ฉีดสำเร็จแต่ไม่เห็นรูปย่อ' : 'ฉีดล้มเหลว'} — ลอง fallback ──`);
+
+        // ── FALLBACK A: Clipboard Paste ──
+        LOG("── Fallback A: วางผ่าน Clipboard Paste ──");
+        try {
+            const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+            const clipItem = new ClipboardItem({ [file.type]: blob });
+            await navigator.clipboard.write([clipItem]);
+            LOG(`เขียนรูปลง clipboard แล้ว (${(file.size / 1024).toFixed(1)} KB)`);
+            await sleep(300);
+
+            // Dispatch paste on all editable targets + document
+            const pasteTargets = [
+                ...document.querySelectorAll<HTMLElement>('[contenteditable="true"]'),
+                ...document.querySelectorAll<HTMLElement>('textarea'),
+                ...document.querySelectorAll<HTMLElement>('[data-slate-editor]'),
+                ...document.querySelectorAll<HTMLElement>('[role="textbox"]'),
+            ];
+            const promptBar = document.querySelector<HTMLElement>('[class*="prompt"], [class*="input-area"], [class*="compose"]');
+            if (promptBar && !pasteTargets.includes(promptBar)) pasteTargets.push(promptBar);
+
+            for (const target of pasteTargets) {
+                try {
+                    target.focus();
+                    await sleep(100);
+                    const pasteDt = new DataTransfer();
+                    pasteDt.items.add(file);
+                    target.dispatchEvent(new ClipboardEvent('paste', {
+                        bubbles: true, cancelable: true, clipboardData: pasteDt,
+                    }));
+                    LOG(`ส่ง paste event บน <${target.tagName.toLowerCase()}>`);
+
+                    try {
+                        const dtForInput = new DataTransfer();
+                        dtForInput.items.add(file);
+                        target.dispatchEvent(new InputEvent('beforeinput', {
+                            bubbles: true, cancelable: true,
+                            inputType: 'insertFromPaste',
+                            dataTransfer: dtForInput,
+                        } as any));
+                    } catch (_) { /* optional */ }
+
+                    await sleep(800);
+                    if (countPromptBarThumbnails() > baselineCount) {
+                        LOG("✅ พบรูปย่อหลัง paste!");
+                        return true;
+                    }
+                } catch (err: any) {
+                    LOG(`paste บน target ล้มเหลว: ${err.message}`);
+                }
+            }
+
+            // Paste on document
+            try {
+                const docDt = new DataTransfer();
+                docDt.items.add(file);
+                document.dispatchEvent(new ClipboardEvent('paste', {
+                    bubbles: true, cancelable: true, clipboardData: docDt,
+                }));
+                LOG("ส่ง paste event บน document");
+            } catch (_) {}
+
+            if (await verifyNewThumbnail("ClipboardPaste", 5000)) {
+                return true;
+            }
+            LOG("⚠️ Clipboard paste ไม่สำเร็จ — ลอง drag-and-drop");
+        } catch (pasteErr: any) {
+            LOG(`Clipboard paste ล้มเหลว: ${pasteErr.message}`);
+        }
+
+        // ── FALLBACK B: Drag-and-Drop ──
+        LOG("── Fallback B: วางผ่าน Drag-and-Drop ──");
+        try {
+            let dropTarget: HTMLElement | null = null;
+            const dropCandidates = document.querySelectorAll<HTMLElement>(
+                '[class*="prompt"], [class*="input"], [class*="compose"], [class*="drop"], textarea, [contenteditable="true"], [role="textbox"]'
+            );
+            for (const el of dropCandidates) {
+                const rect = el.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.5 && rect.width > 100 && rect.height > 20) {
+                    dropTarget = el;
+                    break;
+                }
+            }
+            if (!dropTarget) dropTarget = document.body;
+
+            const dropDt = new DataTransfer();
+            dropDt.items.add(file);
+            const rect = dropTarget.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const evtInit = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, dataTransfer: dropDt };
+
+            dropTarget.dispatchEvent(new DragEvent('dragenter', evtInit));
+            dropTarget.dispatchEvent(new DragEvent('dragover', evtInit));
+            await sleep(200);
+            dropTarget.dispatchEvent(new DragEvent('drop', evtInit));
+            dropTarget.dispatchEvent(new DragEvent('dragleave', evtInit));
+            LOG(`ส่ง drag-and-drop บน <${dropTarget.tagName.toLowerCase()}>`);
+
+            if (await verifyNewThumbnail("DragDrop", 5000)) {
+                return true;
+            }
+            LOG("⚠️ Drag-and-drop ไม่สำเร็จ");
+        } catch (dragErr: any) {
+            LOG(`Drag-and-drop ล้มเหลว: ${dragErr.message}`);
+        }
+
+        // Last resort: if injection reported success, trust it
+        if (ok) {
+            LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%)");
+            return true;
+        }
+        WARN(`❌ อัพโหลด ${fileName} ล้มเหลวทุกวิธี (Mac)`);
+        return false;
     } finally {
         observer.disconnect();
         unblockDialogs();
