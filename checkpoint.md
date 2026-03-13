@@ -71,3 +71,98 @@ The previous fix added these AND broke everything:
 - **Windows**: PERFECT AUTOMATION behavior PRESERVED — if injection succeeds, returns `true` immediately (no fallbacks, no delay)
 - **Mac**: tries 3 methods before giving up. If injection reported success but no thumbnail, still returns `true` at end
 - If Mac upload still fails, check console logs for: `🍎 Mac Fallback` → `Fallback A` → `Fallback B`
+
+---
+
+## Checkpoint: Google Flow UI Update — Radix Dialog Upload Fix
+- **Date**: 2026-03-13 21:50 (UTC+7)
+- **Commit**: `6aac009` — "fix: Google Flow new UI - Radix Dialog upload detection + fallbacks"
+- **Status**: ✅ Built + pushed — zero TypeScript errors, awaiting test
+
+### What Changed in Google Flow (Google's side)
+Google updated the Flow UI. The "+" button on the prompt bar **no longer opens a dropdown menu**. It now opens a **Radix Dialog** panel containing:
+
+| Element | Details |
+|---------|---------|
+| "+" button (Create) | `<button aria-haspopup="dialog" aria-controls="radix-:rXX:" data-state="closed">` with icon `add_2` |
+| Upload button | `<button>` with icon `upload` and screen-reader `<span>Upload image</span>` — **inside the dialog** |
+| Image/Video tabs | `role="tab"` buttons with `data-state="active"/"inactive"` |
+| Landscape/Portrait tabs | `role="tab"` buttons |
+| x1/x2/x3/x4 tabs | Output count selectors |
+| Model selector | `🍌 Nano Banana 2` with `crop_9_16` icon |
+
+### Why Old Code Failed
+```
+OLD UI: "+" → dropdown menu ([role='menuitem']) → "Upload" menu item → file input
+NEW UI: "+" → Radix Dialog (aria-haspopup="dialog") → Upload button (icon "upload") → file input
+```
+- Old code searched for `[role='menuitem']`, `[role='option']` etc. — new UI uses plain `<button>` inside a Radix Dialog
+- Dialog content rendered via portal with ID from `aria-controls`
+- If dialog doesn't open, upload button never exists in DOM → 8-second timeout → fail
+
+### How It Was Fixed (`uploadImageToPromptBar()` in `content-flow.ts`)
+
+#### Step 1: Open the Radix Dialog (3 attempts)
+```
+1A. addBtn.click()                          — Radix uses onClick
+1B. Synthetic pointer/mouse event sequence  — fallback for React handlers
+1C. focus() + Enter key                     — keyboard fallback
+```
+Each attempt checks `isDialogOpen()` which verifies:
+- `data-state="open"` on the button
+- `aria-expanded="true"` on the button
+- Dialog element exists (via `aria-controls` ID) and has `offsetWidth > 0`
+
+#### Step 2: Find Upload Button (3 strategies)
+```
+A. aria-controls → find dialog element by ID → scan <button> inside for icon "upload"
+B. Direct CSS path inside dialog: dialogEl.querySelector("div > div > button")
+C. Global scan: all <button> on page with icon "upload" (excluding "+" button itself)
+```
+Also checks screen-reader `<span>` text: "Upload image", "อัปโหลดรูปภาพ"
+
+#### Step 2 Fallback: Legacy menu detection
+If dialog approach fails, falls back to old menu item scanning (for backward compatibility with older UI versions).
+
+#### Last Resort: Workspace drag-and-drop
+New UI shows "Start creating or drop media" — sends synthetic `dragenter → dragover → drop` events to workspace center area.
+
+#### Diagnostic Dump (if all fails)
+Logs:
+- `aria-controls` value and `data-state` of "+" button
+- Dialog element existence and dimensions
+- All buttons inside dialog with their icon text
+- Any button on page with `upload`/`upload_file` icon
+
+### Key DOM Elements Reference
+```html
+<!-- "+" button (prompt bar) -->
+<button aria-haspopup="dialog" aria-controls="radix-:rXX:" data-state="closed" class="sc-addd5871-0">
+  <i class="google-symbols">add_2</i>
+  <span>Create</span>
+</button>
+
+<!-- Upload button (inside dialog) -->
+<button class="sc-e8425ea6-0">
+  <i class="google-symbols">upload</i>
+  <span>Upload image</span>
+</button>
+
+<!-- JS path to upload button (dynamic ID) -->
+document.querySelector("#radix-\\:rXX\\: > div > div > button")
+```
+**Note**: `:rXX:` is dynamic (Radix-generated) — never hardcode. Always use `aria-controls` from the "+" button.
+
+### Lessons Learned
+1. **Google Flow uses Radix UI** — dialogs, tabs, menus all use Radix primitives with `data-state`, `aria-controls`, `aria-haspopup`
+2. **Icon font changed from `material-icons` to `google-symbols`** — but still uses `<i>` tags, so tag-based detection (`el.querySelectorAll("i")`) still works
+3. **Screen-reader text is reliable** — upload button always has `<span>Upload image</span>` (visually hidden but queryable)
+4. **`aria-controls` is the key to finding dialog content** — Radix renders dialog in a portal, but the ID link is always there
+5. **`.click()` works better than synthetic events for Radix** — Radix Dialog trigger responds to React's `onClick`, not raw pointer events
+6. **Always check `data-state` attribute** — Radix components use `data-state="open"/"closed"/"active"/"inactive"` instead of CSS classes
+7. **Never hardcode Radix IDs** — they change on every page load (`:r24:`, `:r25:`, etc.)
+
+### Key Rule
+- If upload breaks again after a Google Flow update, inspect the "+" button's `aria-haspopup` and `aria-controls` attributes
+- Check console for `DIAGNOSTIC:` dump to see what's inside the dialog
+- The upload button icon text `"upload"` is the most reliable identifier
