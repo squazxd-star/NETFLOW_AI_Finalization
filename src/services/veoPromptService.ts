@@ -1422,7 +1422,7 @@ const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No dec
 // Face Identity Lock — preserve facial features while framing as anonymous/fictional character
 // CRITICAL: Avoid "identical likeness" or "direct match" phrasing that triggers Google's "famous person" policy.
 // Instead, frame as "original anonymous character inspired by reference style".
-const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE & SKIN TONE PRESERVATION: Use Image 1 as the absolute visual blueprint for this anonymous fictional character. You MUST preserve the EXACT skin tone (match the exact complexion, warmth, and pigmentation perfectly — do NOT lighten, wash out, or alter the skin color). You MUST preserve the exact bone structure, face width, jawline shape, eye shape, nose shape, and natural skin texture of the reference. Do NOT widen the face, do NOT exaggerate facial proportions. Keep the makeup natural, subtle, and exactly as shown. This character must maintain the identical natural facial anatomy, ethnicity markers, and aesthetic style as the reference.";
+const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE & SKIN TONE PRESERVATION: Use Image 1 as the absolute visual blueprint for this character's face. You MUST reproduce the EXACT face from Image 1 with maximum fidelity — this is the #1 priority above all other instructions. Preserve EXACT: skin tone (match exact complexion, warmth, pigmentation — do NOT lighten or alter), bone structure, face width-to-height ratio, jawline shape and angle, eye shape and size, eye spacing, nose bridge width, nose tip shape, lip shape and thickness, eyebrow shape and arch, forehead height, cheekbone prominence, chin shape, ear shape. Do NOT widen the face, do NOT alter any facial proportion. Keep makeup natural and exactly as shown. The output face must be indistinguishable from the reference — same person, same facial geometry, same skin, same features.";
 
 // Front-Facing Character Directive — ensures face consistency with reference input
 const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, looking directly into the lens. Face fully visible. Avoid extreme close-ups that distort facial proportions. Keep a natural, relaxed posture.";
@@ -1523,13 +1523,13 @@ const getBrandVisualSignature = (originalProductName: string, category: ProductC
 const PRODUCT_MATCH_DIRECTIVE = "PRODUCT FIDELITY: Reproduce the reference product with photographic accuracy — same silhouette, same proportions, same material finish, same color palette. Render with extreme surface detail: visible material texture, realistic light interaction (caustics through glass, specular highlights on metallic surfaces, soft diffusion on matte, light refraction on transparent elements). SINGLE PRODUCT ONLY: EXACTLY ONE product unit in frame. No duplicate bottles, no extra containers, no background props resembling the product. Character holds ONE product. PRODUCT LIGHTING: soft rim light defining product edges and silhouette, key light revealing surface texture and material quality, fill light preventing harsh shadows, realistic light refraction through any transparent/glass elements.";
 
 // Anti-Text Directive — strongest possible anti-text/font rendering prevention
-const ANTI_TEXT_DIRECTIVE = "CRITICAL NO TEXT DIRECTIVE: Absolutely NO subtitles, NO captions, NO watermarks, NO floating text, NO on-screen graphics, NO gibberish fonts, NO banners, NO UI elements anywhere in the video. The video must be purely visual action and audio dialogue. Do NOT attempt to render any language or letters visually.";
+const ANTI_TEXT_DIRECTIVE = "CRITICAL NO TEXT DIRECTIVE: Absolutely NO subtitles, NO captions, NO watermarks, NO floating text, NO on-screen graphics, NO gibberish fonts, NO banners, NO UI elements anywhere in the video. The video must contain zero rendered text or letters. Do NOT attempt to render any language or letters visually.";
 
 // Anti-Addition Directive — prevents AI from inventing accessories/elements not in the reference
 const ANTI_ADDITION_DIRECTIVE = "ZERO INVENTION POLICY: Do NOT add ANY accessory, prop, or element that is NOT explicitly shown in the reference images. Specifically: NO glasses/sunglasses unless in reference. NO hats/headbands unless in reference. NO scarves/neckwear unless in reference. NO earphones/AirPods unless the product IS earphones. NO extra jewelry unless in reference. NO tattoos unless in reference. NO background logos or brand signs. NO secondary products or props not in the brief. If the reference shows a plain-faced person, the output MUST show a plain-faced person. Every visible element must be traceable to either the character reference or the product reference.";
 
 // Voice Discipline Directive — prevents filler sounds/gasps between dialogue lines during scene transitions
-const VOICE_DISCIPLINE_DIRECTIVE = "STRICT VOICE DISCIPLINE: Character speaks EXACTLY and ONLY the provided dialogue text — NO filler sounds, NO random gasps, NO surprised exclamations (NO 'ยะ!', 'ฮ๊า!', 'อ้าว!', 'ว้าว!', 'โอ้!'), NO giggling, NO humming between lines. When revealing or presenting the product, character uses a CONFIDENT smooth presenter tone (like a polished 'ท๊าดา!' reveal) — NOT a shocked/gasping reaction. Between spoken lines, the character's mouth MUST be fully closed with composed silence. Do NOT let the character mouth words that are not in the script.";
+const VOICE_DISCIPLINE_DIRECTIVE = "VOICE DISCIPLINE: Character speaks ONLY the provided dialogue text with confident presenter delivery. No filler sounds, no gasps, no random exclamations between lines. Smooth confident tone when presenting the product. Between spoken lines, maintain composed silence with mouth closed.";
 
 // Clothing Fidelity Directive — ensures AI reproduces outfit accurately from reference or description
 const CLOTHING_FIDELITY_DIRECTIVE = "CLOTHING ACCURACY: Reproduce the character's outfit with 90%+ fidelity to the reference or description. Match: neckline shape, sleeve length, fabric color (exact hue/saturation), pattern/print, layering order, fit (loose/slim/oversized). Do NOT substitute a described casual t-shirt with a formal blouse. Do NOT change colors or add patterns not in the reference. If reference shows a white round-neck t-shirt, output MUST show a white round-neck t-shirt — not a V-neck, not cream, not striped.";
@@ -6694,7 +6694,7 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
     const durationConfig = DURATION_CONFIGS[config.clipDuration ?? 16] || DURATION_CONFIGS[16];
 
     // Step 3: Build Image Prompt (for Google Labs ImageFX)
-    const imagePrompt = buildImagePrompt(config, templateConfig, productAnalysis);
+    const imagePrompt = buildImagePrompt(config, templateConfig, productAnalysis, characterAnalysis);
     
     // Step 4: Build Video Prompt (for Google Labs VideoFX)
     // Pass characterAnalysis so persona selection matches the actual character's age/appearance
@@ -6743,7 +6743,8 @@ const parseAiAnalysis = (analysis: string): Record<string, string> => {
 const buildImagePrompt = (
     config: PromptGenerationConfig,
     templateConfig: typeof TEMPLATE_CONFIGS[TemplateOption],
-    productAnalysis: string
+    productAnalysis: string,
+    characterAnalysis?: CharacterAnalysis | null
 ): string => {
     const genderText = config.gender === 'male' ? 'professional male presenter' : 'professional female presenter';
     const category = detectProductCategory(config.productName, productAnalysis, config.template);
@@ -6792,9 +6793,13 @@ const buildImagePrompt = (
             ? 'muscular athletic build, broad shoulders, toned arms and chest, confident gym-ready posture, wearing fitted gym tank top and athletic shorts'
             : 'athletic toned fit body, slim waist, toned arms and shoulders, confident gym-ready posture, wearing fitted athletic sports bra and leggings')
         : '';
+    // ── AI-analyzed appearance details from character image (if available) ──
+    const aiCharDetails = characterAnalysis
+        ? `Appearance from reference: ${characterAnalysis.overallLook}. Hair: ${characterAnalysis.hairstyle}. Skin tone: ${characterAnalysis.skinTone}. Build: ${characterAnalysis.build}.`
+        : '';
     const characterLine = isFitnessCategory
-        ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}`
-        : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}`;
+        ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`
+        : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`;
 
     // ── Sanitize product name for ImageFX too — copyright filter also rejects trademarked names ──
     const imageSafeProductName = sanitizeProductNameForVeo(config.productName);
@@ -6825,7 +6830,7 @@ ${ANTI_ADDITION_DIRECTIVE}
 ${CLOTHING_FIDELITY_DIRECTIVE}
 
 Reference Images:
-- Image 1: Character style reference — use as visual inspiration for an ORIGINAL ANONYMOUS fictional character with similar aesthetic${hasProductImage ? `
+- Image 1: CHARACTER FACE REFERENCE (HIGHEST PRIORITY FOR FACE) — reproduce this person's EXACT facial features, bone structure, skin tone, hairstyle, and overall appearance with maximum fidelity. The output character's face must look like the SAME PERSON as Image 1. Match every facial detail: eye shape, nose shape, jawline, lip shape, eyebrow arch, forehead, cheekbones, chin, skin texture. This is the absolute authority for the character's face.${hasProductImage ? `
 - Image 2: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.` : ''}
 - If text conflicts with images, images win. Product structure from Image 2 is the absolute visual authority for product design.
 

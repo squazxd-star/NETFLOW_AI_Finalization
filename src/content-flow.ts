@@ -490,6 +490,7 @@ async function ensureTabVisible(): Promise<boolean> {
 /** Check if Google Flow is showing a generation failure message (Thai + English) */
 function isGenerationFailed(): string | null {
     const failurePatterns = [
+        "audio generation failed",
         "couldn't generate", "could not generate", "failed to generate",
         "generation failed", "ไม่สามารถสร้าง", "สร้างไม่สำเร็จ",
         "try again later", "ลองอีกครั้งภายหลัง", "ลองใหม่อีกครั้ง",
