@@ -56,6 +56,75 @@ const WARN = (msg: string) => {
     try { chrome.runtime.sendMessage({ action: "FLOW_LOG", level: "warn", msg: `⚠️ ${msg}` }); } catch (_) { /* popup closed */ }
 };
 
+// ─── Debug Element Inspector (Mouse Logger) ─────────────────────────────────
+(() => {
+    const _inspectEl = (el: Element, eventType: string) => {
+        const tag = el.tagName.toLowerCase();
+        const id = el.id ? `#${el.id}` : '';
+        const cls = el.className && typeof el.className === 'string'
+            ? '.' + el.className.trim().split(/\s+/).join('.')
+            : '';
+        const rect = el.getBoundingClientRect();
+        const attrs: Record<string, string> = {};
+        for (const a of el.attributes) {
+            if (['class', 'id', 'style'].includes(a.name)) continue;
+            attrs[a.name] = a.value.length > 80 ? a.value.slice(0, 80) + '…' : a.value;
+        }
+        const text = (el.textContent || '').trim().slice(0, 120);
+        const iconText = Array.from(el.querySelectorAll('i, [class*="icon"]'))
+            .map(i => i.textContent?.trim()).filter(Boolean).join(', ');
+
+        // ancestor chain (up to 5 levels)
+        const ancestors: string[] = [];
+        let p = el.parentElement;
+        for (let i = 0; i < 5 && p; i++) {
+            const pTag = p.tagName.toLowerCase();
+            const pId = p.id ? `#${p.id}` : '';
+            const pCls = p.className && typeof p.className === 'string'
+                ? '.' + p.className.trim().split(/\s+/).slice(0, 2).join('.')
+                : '';
+            ancestors.push(`${pTag}${pId}${pCls}`);
+            p = p.parentElement;
+        }
+
+        const label = eventType === 'click'
+            ? `%c🖱️ CLICK %c<${tag}${id}${cls}>`
+            : `%c👆 HOVER %c<${tag}${id}${cls}>`;
+        const c1 = eventType === 'click'
+            ? 'background:#e74c3c;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold'
+            : 'background:#3498db;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold';
+        const c2 = 'color:#f39c12;font-weight:bold';
+
+        console.groupCollapsed(label, c1, c2);
+        console.log('Element:', el);
+        console.log('Selector:', `${tag}${id}${cls}`);
+        console.log('Rect:', { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) });
+        if (Object.keys(attrs).length) console.log('Attributes:', attrs);
+        if (text) console.log('Text:', text);
+        if (iconText) console.log('Icons:', iconText);
+        if (ancestors.length) console.log('Ancestors:', ancestors.join(' > '));
+        console.groupEnd();
+    };
+
+    document.addEventListener('click', (e) => {
+        const el = e.target as Element;
+        if (el?.closest('#netflow-engine-overlay')) return;
+        _inspectEl(el, 'click');
+    }, true);
+
+    let _lastHovered: Element | null = null;
+    document.addEventListener('mouseover', (e) => {
+        const el = e.target as Element;
+        if (el === _lastHovered) return;
+        if (el?.closest('#netflow-engine-overlay')) return;
+        _lastHovered = el;
+        _inspectEl(el, 'hover');
+    }, true);
+
+    console.log('%c[Netflow AI] 🔍 Debug Element Inspector ACTIVE — click/hover elements to inspect',
+        'background:#2ecc71;color:#000;padding:4px 8px;border-radius:4px;font-weight:bold');
+})();
+
 // ─── Close Automation Tab ────────────────────────────────────────────────────
 /** ปิดแท็บ automation (Google Flow) หลังแสดงผลวิดีโอเสร็จ */
 function closeAutomationTab(delayMs: number = 3000): void {
@@ -1699,6 +1768,10 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // ★ Snapshot Radix portal count BEFORE clicking (to detect new dialogs)
+    const portalCountBefore = document.querySelectorAll('[data-radix-portal]').length;
+    const neutralizedCountBeforeClick = neutralized.length;
+
     try {
         // ═══════════════════════════════════════════════════════════════
         // NEW GOOGLE FLOW UI (2025+): "+" opens a Radix Dialog, NOT a dropdown menu.
@@ -1706,77 +1779,85 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         // The upload button has icon "upload" and screen-reader text "Upload image".
         // ═══════════════════════════════════════════════════════════════
 
-        // ── Helper: check if the Radix dialog opened ──
+        // ── Helper: check if the Radix dialog opened (broad detection) ──
         const isDialogOpen = () => {
-            // Check data-state on the "+" button itself
+            // 1. Button attributes
             if (addBtn.getAttribute("data-state") === "open" || addBtn.getAttribute("aria-expanded") === "true") return true;
-            // Check if dialog element exists via aria-controls
+            // 2. aria-controls element exists (rendered via Radix portal)
             const dialogId = addBtn.getAttribute("aria-controls");
-            if (dialogId) {
-                const dialogEl = document.getElementById(dialogId);
-                if (dialogEl && dialogEl.offsetWidth > 0) return true;
+            if (dialogId && document.getElementById(dialogId)) return true;
+            // 3. New Radix portals appeared since we clicked
+            if (document.querySelectorAll('[data-radix-portal]').length > portalCountBefore) return true;
+            // 4. Any visible role="dialog" on page
+            const visDialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+            for (const d of visDialogs) { if (d.offsetWidth > 0) return true; }
+            return false;
+        };
+
+        // ── Helper: check if a button is the upload button ──
+        const _isUploadBtn = (btn: HTMLElement): boolean => {
+            if (btn === addBtn) return false;
+            const icons = btn.querySelectorAll("i");
+            for (const icon of icons) {
+                const it = icon.textContent?.trim() || "";
+                if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
+                    const allIcons = Array.from(btn.querySelectorAll("i")).map(i => i.textContent?.trim());
+                    if (!allIcons.includes("drive_folder_upload") && !allIcons.includes("photo_library")) return true;
+                }
+            }
+            const spans = btn.querySelectorAll("span");
+            for (const sp of spans) {
+                const t = sp.textContent?.trim().toLowerCase() || "";
+                if (t === "upload image" || t === "upload" || t === "อัปโหลดรูปภาพ") return true;
             }
             return false;
         };
 
-        // ── Helper: find upload button inside dialog or anywhere on page ──
+        // ── Helper: find upload button (multi-strategy: dialog → portals → role=dialog → global) ──
         const findUploadButton = (): HTMLElement | null => {
-            // Strategy A: Find via aria-controls dialog container
+            // Strategy A: Inside aria-controls dialog container
             const dialogId = addBtn.getAttribute("aria-controls");
             if (dialogId) {
                 const dialogEl = document.getElementById(dialogId);
                 if (dialogEl) {
-                    // Look for button with "upload" icon inside dialog
-                    const btns = dialogEl.querySelectorAll<HTMLElement>("button");
-                    for (const btn of btns) {
-                        const icons = btn.querySelectorAll("i");
-                        for (const icon of icons) {
-                            const it = icon.textContent?.trim() || "";
-                            if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
-                                return btn;
-                            }
-                        }
-                        // Also check screen-reader text
-                        const srText = (btn.querySelector("span")?.textContent || "").trim().toLowerCase();
-                        if (srText === "upload image" || srText === "upload" || srText === "อัปโหลดรูปภาพ") {
-                            return btn;
-                        }
-                    }
-                    // Strategy B: Direct CSS path inside dialog (user-provided)
-                    const directBtn = dialogEl.querySelector<HTMLElement>("div > div > button");
-                    if (directBtn) {
-                        const iconText = directBtn.querySelector("i")?.textContent?.trim() || "";
-                        if (iconText === "upload" || iconText === "upload_file") return directBtn;
+                    for (const btn of dialogEl.querySelectorAll<HTMLElement>("button")) {
+                        if (_isUploadBtn(btn)) { LOG("  findUpload → A (aria-controls)"); return btn; }
                     }
                 }
             }
-            // Strategy C: Find any button on page with "upload" icon that is NOT the "+" button
-            const allBtns = document.querySelectorAll<HTMLElement>("button");
-            for (const btn of allBtns) {
+            // Strategy B: Inside ALL Radix portals (dialog content rendered via portal)
+            for (const portal of document.querySelectorAll('[data-radix-portal]')) {
+                for (const btn of portal.querySelectorAll<HTMLElement>("button")) {
+                    if (_isUploadBtn(btn)) { LOG("  findUpload → B (Radix portal)"); return btn; }
+                }
+            }
+            // Strategy C: Inside any visible role="dialog"
+            for (const dlg of document.querySelectorAll('[role="dialog"]')) {
+                for (const btn of dlg.querySelectorAll<HTMLElement>("button")) {
+                    if (_isUploadBtn(btn)) { LOG("  findUpload → C (role=dialog)"); return btn; }
+                }
+            }
+            // Strategy D: Global — any VISIBLE button with upload icon on page
+            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 if (btn === addBtn) continue;
                 const rect = btn.getBoundingClientRect();
                 if (rect.width === 0 || rect.height === 0) continue;
-                const icons = btn.querySelectorAll("i");
-                for (const icon of icons) {
-                    const it = icon.textContent?.trim() || "";
-                    if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
-                        const allIconTexts = Array.from(btn.querySelectorAll("i")).map(i => i.textContent?.trim());
-                        if (!allIconTexts.includes("drive_folder_upload") && !allIconTexts.includes("photo_library")) {
-                            return btn;
-                        }
-                    }
-                }
+                if (_isUploadBtn(btn)) { LOG("  findUpload → D (global visible)"); return btn; }
             }
             return null;
         };
 
-        // ── STEP 1A: Click "+" with .click() (Radix Dialog uses onClick, NOT pointer events) ──
+        // ── STEP 1A: Click "+" with .click() (Radix Dialog uses onClick) ──
         addBtn.click();
         LOG("คลิกปุ่ม '+' (สร้าง) ด้วย .click() ✅");
-        await sleep(1200);
+        await sleep(1500);
 
-        // ── STEP 1B: Check if Radix Dialog opened ──
-        if (!isDialogOpen()) {
+        // ── STEP 1B: AVOID TOGGLE — only re-click if NEITHER dialog NOR upload button found ──
+        let earlyUploadBtn = findUploadButton();
+        if (earlyUploadBtn) {
+            LOG("✅ พบปุ่ม Upload ทันทีหลังคลิก '+' — ไม่คลิกซ้ำ");
+        } else if (!isDialogOpen()) {
+            // Dialog NOT detected at all — safe to try pointer events (won't toggle-close)
             LOG("⚠️ Dialog ไม่เปิดจาก .click() — ลอง pointer events");
             const r = addBtn.getBoundingClientRect();
             const cx = r.left + r.width / 2;
@@ -1788,24 +1869,27 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
             addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
             addBtn.dispatchEvent(new MouseEvent("click", opts));
-            await sleep(1200);
+            await sleep(1500);
+            // Re-check BEFORE trying Enter (avoid triple-toggle)
+            earlyUploadBtn = findUploadButton();
+            if (!earlyUploadBtn && !isDialogOpen()) {
+                LOG("⚠️ Dialog ยังไม่เปิด — ลอง focus + Enter");
+                addBtn.focus();
+                await sleep(100);
+                addBtn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+                addBtn.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
+                await sleep(1500);
+            }
+        } else {
+            LOG("✅ Dialog เปิดแล้วหลังคลิก '+' — ไม่คลิกซ้ำ (ป้องกัน toggle)");
         }
 
-        if (!isDialogOpen()) {
-            LOG("⚠️ Dialog ยังไม่เปิด — ลอง focus + Enter");
-            addBtn.focus();
-            await sleep(100);
-            addBtn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
-            addBtn.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
-            await sleep(1200);
-        }
+        LOG(`Dialog state: data-state=${addBtn.getAttribute("data-state")}, aria-controls=${addBtn.getAttribute("aria-controls")}, portals=${document.querySelectorAll('[data-radix-portal]').length}, dialogs=${document.querySelectorAll('[role="dialog"]').length}`);
 
-        const dialogOpened = isDialogOpen();
-        LOG(`Radix Dialog ${dialogOpened ? "เปิดแล้ว ✅" : "ไม่เปิด ❌"} (data-state: ${addBtn.getAttribute("data-state")}, aria-expanded: ${addBtn.getAttribute("aria-expanded")})`);
-
-        // ── STEP 1C: Check if "+" directly created a file input ──
-        if (neutralized.length > 0) {
-            LOG(`🎯 พบ file input ${neutralized.length} ตัวหลังคลิก '+' — ข้ามเมนูไป inject เลย`);
+        // ── STEP 1C: Check if "+" directly created a NEW file input ──
+        const newInputsAfterClick = neutralized.length - neutralizedCountBeforeClick;
+        if (newInputsAfterClick > 0) {
+            LOG(`🎯 พบ file input ใหม่ ${newInputsAfterClick} ตัวหลังคลิก '+' — ข้ามเมนูไป inject เลย`);
             await sleep(500);
         } else {
 
@@ -1817,16 +1901,32 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         while (!clickedUpload && Date.now() - menuPollStart < 6000) {
             const uploadBtn = findUploadButton();
             if (uploadBtn) {
+                // Click with .click() first
                 uploadBtn.click();
+                await sleep(400);
+                // If no file input yet, try full pointer event sequence for React/Radix
+                if (neutralized.length <= neutralizedCountBeforeClick) {
+                    const ur = uploadBtn.getBoundingClientRect();
+                    const ucx = ur.left + ur.width / 2;
+                    const ucy = ur.top + ur.height / 2;
+                    const uOpts = { bubbles: true, cancelable: true, clientX: ucx, clientY: ucy, button: 0 };
+                    uploadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...uOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                    uploadBtn.dispatchEvent(new MouseEvent("mousedown", uOpts));
+                    await sleep(80);
+                    uploadBtn.dispatchEvent(new PointerEvent("pointerup", { ...uOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                    uploadBtn.dispatchEvent(new MouseEvent("mouseup", uOpts));
+                    uploadBtn.dispatchEvent(new MouseEvent("click", uOpts));
+                    LOG("คลิกปุ่มอัปโหลดด้วย pointer events (fallback)");
+                }
                 clickedUpload = true;
                 const iconTxt = uploadBtn.querySelector("i")?.textContent?.trim() || "";
-                LOG(`คลิกปุ่มอัปโหลด (icon: "${iconTxt}") ในDialog ✅`);
+                LOG(`คลิกปุ่มอัปโหลด (icon: "${iconTxt}") ✅`);
                 break;
             }
 
-            // Also check if file input appeared
-            if (neutralized.length > 0) {
-                LOG(`🎯 Observer จับ file input ได้ — ข้ามไป inject`);
+            // Also check if NEW file input appeared
+            if (neutralized.length > neutralizedCountBeforeClick) {
+                LOG(`🎯 Observer จับ file input ใหม่ได้ — ข้ามไป inject`);
                 clickedUpload = true;
                 break;
             }
