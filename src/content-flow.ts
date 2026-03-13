@@ -2136,12 +2136,17 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     break;
                 }
                 // Check for generation failure (Thai + English)
-                const failMsg = isGenerationFailed();
-                if (failMsg) {
-                    WARN(`❌ สร้างรูปล้มเหลว: ${failMsg}`);
-                    errors.push(`image gen failed: ${failMsg}`);
-                    updateStep("img-wait", "error");
-                    break;
+                // ★ Mac fix: skip failure check if generation is actively progressing
+                // (prevents false positives from unrelated UI text like cookie banners)
+                const timeSinceLastPct = lastImgPctTime > 0 ? Date.now() - lastImgPctTime : Infinity;
+                if (lastImgPct < 20 || timeSinceLastPct > 30000) {
+                    const failMsg = isGenerationFailed();
+                    if (failMsg) {
+                        WARN(`❌ สร้างรูปล้มเหลว: ${failMsg}`);
+                        errors.push(`image gen failed: ${failMsg}`);
+                        updateStep("img-wait", "error");
+                        break;
+                    }
                 }
 
                 // Track image generation % progress
@@ -2158,6 +2163,13 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const lostFor = Math.floor((Date.now() - lastImgPctTime) / 1000);
                     if (lostFor >= 3) {
                         LOG(`🖼️ % หายที่ ${lastImgPct}% — รูปน่าจะเสร็จแล้ว`);
+                    }
+                    // ★ Mac fix: when tab hidden + image likely done, bring tab to foreground
+                    // so Chrome can render/load images for proper detection
+                    if (document.hidden && lostFor >= 5 && lastImgPct > 50) {
+                        LOG("🍎 Tab ซ่อน + รูปน่าจะเสร็จ → เปิด tab เต็มเพื่อตรวจหารูป");
+                        await ensureTabVisible();
+                        await sleep(3000);
                     }
                 }
 
