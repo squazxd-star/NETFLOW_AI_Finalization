@@ -1688,6 +1688,11 @@ const PROP_INTRODUCTION_DIRECTIVE = "PROP CONTINUITY (CRITICAL): Every new objec
 // Prevents product from changing brand/logo/design between scenes
 // E.g. Mama noodle turning into "Antala TOM YUM KUNG" in later scenes
 // ═══════════════════════════════════════════════════════════════════════════
+// Prevents product PHYSICAL SHAPE from morphing between scenes
+// E.g. Versace Bright Crystal hexagonal bottle becoming rectangular in Scene 2
+// ═══════════════════════════════════════════════════════════════════════════
+const SCENE_PRODUCT_SHAPE_CONTINUITY = "PRODUCT SHAPE CONTINUITY (CRITICAL — Scene 2+): The product in THIS scene is the EXACT SAME physical object from the previous scene — NOT a new product, NOT a re-creation. Do NOT re-imagine, re-design, or re-generate the product's 3D shape. TRACE the product's outline from the reference frame and LOCK it: same silhouette, same height-to-width ratio, same body curvature, same cap/closure geometric shape (every facet, every angle), same base shape, same proportions. If the reference shows a hexagonal bottle, it MUST stay hexagonal — not rectangular, not round. If the reference shows a diamond-cut faceted cap, that cap MUST keep the EXACT same facet count and angles. ZERO shape drift. The product is a RIGID PHYSICAL OBJECT — it cannot morph, stretch, shrink, or change geometric form between scenes.";
+
 const PRODUCT_ANTI_MORPH_DIRECTIVE = "BRAND IDENTITY FREEZE (HIGHEST PRIORITY): The product's brand name, logo design, packaging layout, color scheme, and typography MUST remain ABSOLUTELY IDENTICAL across ALL scenes — zero deviation. The product brand MUST NOT morph, transform, evolve, or change into a different brand at any point. If Scene 1 shows brand X, Scene 2/3/4 MUST show the EXACT SAME brand X with IDENTICAL logo, IDENTICAL text layout, IDENTICAL color bands, IDENTICAL packaging design. BRAND MORPHING IS THE #1 FORBIDDEN ERROR. If the AI is uncertain about brand details in later scenes, show the product with the label slightly angled or partially visible rather than inventing wrong branding. NEVER replace the original brand with any other brand name or logo design.";
 
 /** Build category-specific contact + physics directive (full — for image prompts) */
@@ -7155,6 +7160,8 @@ export const buildSceneVideoPromptJSON = (
         productBlock,
         // [2.5. BRAND VISUAL SIGNATURE — explicit logo/emblem for brands like Apple]
         (!isTalkOnly && meta.brandVisualSignature) ? meta.brandVisualSignature : '',
+        // [2.7. PRODUCT SHAPE CONTINUITY — prevents physical shape morphing across scenes]
+        !isTalkOnly ? SCENE_PRODUCT_SHAPE_CONTINUITY : '',
 
         // [3. VOICE + SCRIPT] — voiceoverDescriptor already contains voice lock
         meta.voiceoverDescriptor,
