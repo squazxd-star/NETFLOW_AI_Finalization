@@ -1117,169 +1117,6 @@ async function setPromptText(el: HTMLElement, text: string) {
 // ─── Upload Image into Prompt Bar ───────────────────────────────────────────
 
 /**
- * Neutralize all file inputs: change type to "text" so .click() won't open native dialog.
- * Returns the original types for restoration.
- */
-function neutralizeFileInputs(): { input: HTMLInputElement; origType: string }[] {
-    const neutralized: { input: HTMLInputElement; origType: string }[] = [];
-    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    for (const inp of inputs) {
-        neutralized.push({ input: inp, origType: "file" });
-        inp.type = "text";
-    }
-    if (neutralized.length > 0) {
-        LOG(`ปิดกั้น file input ${neutralized.length} ตัว (type → text)`);
-    }
-    return neutralized;
-}
-
-/**
- * Block ALL file dialog opens by overriding HTMLInputElement.prototype.click.
- * Returns a restore function. CRITICAL for Mac where MutationObserver timing
- * cannot reliably beat Google Flow's synchronous create→click sequence.
- */
-function blockFileDialogs(): () => void {
-    const origClick = HTMLInputElement.prototype.click;
-    HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-        if (this.type === "file") {
-            LOG(`🚫 บล็อกการเปิด file dialog via click (${platformTag})`);
-            return; // suppress native file chooser
-        }
-        return origClick.call(this);
-    };
-
-    // ★ Mac fix: also block showPicker() — Chrome 99+ may use this instead of .click()
-    const origShowPicker = (HTMLInputElement.prototype as any).showPicker;
-    if (typeof origShowPicker === 'function') {
-        (HTMLInputElement.prototype as any).showPicker = function(this: HTMLInputElement) {
-            if (this.type === "file") {
-                LOG(`🚫 บล็อกการเปิด file dialog via showPicker (${platformTag})`);
-                return;
-            }
-            return origShowPicker.call(this);
-        };
-    }
-
-    // ★ Mac fix: also block window.showOpenFilePicker (File System Access API)
-    const origShowOpenFilePicker = (window as any).showOpenFilePicker;
-    if (typeof origShowOpenFilePicker === 'function') {
-        (window as any).showOpenFilePicker = function(...args: any[]) {
-            LOG(`🚫 บล็อก showOpenFilePicker (${platformTag})`);
-            return Promise.reject(new DOMException('Blocked by Netflow', 'AbortError'));
-        };
-    }
-
-    LOG(`🔒 ติดตั้งตัวบล็อก file dialog แล้ว (${platformTag})`);
-    return () => {
-        HTMLInputElement.prototype.click = origClick;
-        if (typeof origShowPicker === 'function') {
-            (HTMLInputElement.prototype as any).showPicker = origShowPicker;
-        }
-        if (typeof origShowOpenFilePicker === 'function') {
-            (window as any).showOpenFilePicker = origShowOpenFilePicker;
-        }
-        LOG(`🔓 ถอดตัวบล็อก file dialog แล้ว`);
-    };
-}
-
-/**
- * Restore file inputs to type="file", inject our file, and dispatch events.
- * Uses multiple dispatch strategies for cross-platform React compatibility.
- */
-function restoreAndInject(neutralized: { input: HTMLInputElement; origType: string }[], file: File, preExistingInputs?: Set<HTMLInputElement>): boolean {
-    // Also check for any inputs that were added during the process
-    const allInputs = document.querySelectorAll<HTMLInputElement>('input[type="text"][style*="display: none"], input[type="text"][hidden], input[type="text"]');
-    const candidates = [...neutralized.map(n => n.input)];
-
-    // Also add any recently created hidden text inputs (likely our neutralized ones)
-    for (const inp of allInputs) {
-        if (!candidates.includes(inp) && inp.offsetParent === null) {
-            candidates.push(inp);
-        }
-    }
-
-    for (const inp of candidates) {
-        inp.type = "file";
-    }
-    LOG(`คืนค่า input ${candidates.length} ตัวเป็น type=file`);
-
-    // Find the best file input to inject into
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    if (fileInputs.length === 0) {
-        LOG(`⚠️ ไม่พบ file input หลังคืนค่า (${platformTag})`);
-        return false;
-    }
-
-    // ★ Prefer NEW file inputs (not pre-existing) — fixes second upload targeting stale input
-    let target: HTMLInputElement;
-    if (preExistingInputs && preExistingInputs.size > 0) {
-        const newInputs = Array.from(fileInputs).filter(inp => !preExistingInputs.has(inp));
-        if (newInputs.length > 0) {
-            target = newInputs[newInputs.length - 1];
-            LOG(`เล็งเป้า file input ใหม่ (${newInputs.length} ใหม่, ${fileInputs.length} ทั้งหมด)`);
-        } else {
-            target = fileInputs[fileInputs.length - 1];
-            LOG(`ไม่พบ file input ใหม่ — ใช้ตัวสุดท้ายจาก ${fileInputs.length} ตัว`);
-        }
-    } else {
-        target = fileInputs[fileInputs.length - 1];
-    }
-
-    // ★ Inject file via DataTransfer — cross-platform
-    const dt = new DataTransfer();
-    dt.items.add(file);
-
-    // Method 1: Direct assignment (works on most Chrome)
-    try {
-        target.files = dt.files;
-        LOG(`ฉีดไฟล์ผ่าน target.files (${target.files?.length ?? 0} ไฟล์)`);
-    } catch (e: any) {
-        LOG(`กำหนด target.files ล้มเหลว: ${e.message} — ลอง defineProperty`);
-        // Method 2: defineProperty override (Mac fallback)
-        try {
-            Object.defineProperty(target, 'files', {
-                value: dt.files,
-                writable: true,
-                configurable: true,
-            });
-            LOG(`ฉีดไฟล์ผ่าน Object.defineProperty`);
-        } catch (e2: any) {
-            WARN(`การฉีดไฟล์ล้มเหลวทั้ง 2 วิธี: ${e2.message}`);
-            return false;
-        }
-    }
-
-    // ★ React _valueTracker reset — CRITICAL for React to detect the change
-    const tracker = (target as any)._valueTracker;
-    if (tracker) {
-        tracker.setValue('');
-        LOG(`รีเซ็ต React _valueTracker บน file input`);
-    }
-
-    // ★ Also try React fiber's nativeInputValueSetter (older React / older Chrome compat)
-    try {
-        const nativeSetter = Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype, 'value'
-        )?.set;
-        if (nativeSetter) {
-            nativeSetter.call(target, '');
-            LOG(`รีเซ็ต native value setter`);
-        }
-    } catch (_) { /* ignore */ }
-
-    // ★ Dispatch comprehensive events — covers React 16/17/18 on all platforms
-    target.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
-    target.dispatchEvent(new Event('input', { bubbles: true, cancelable: false }));
-    // ★ Mac compat: some frameworks listen on blur or focusout after file selection
-    target.dispatchEvent(new Event('blur', { bubbles: true }));
-    // ★ Mac compat: dispatch with composed:true to cross shadow DOM boundaries
-    target.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-
-    LOG(`✅ ฉีดไฟล์เสร็จ: ${file.name} (${(file.size / 1024).toFixed(1)} KB) → <input> ${platformTag}`);
-    return true;
-}
-
-/**
  * Count how many reference thumbnails are in the prompt bar area.
  */
 function countPromptBarThumbnails(): number {
@@ -1309,396 +1146,43 @@ function countPromptBarThumbnails(): number {
 }
 
 /**
- * Check if a thumbnail/image reference appeared in the prompt bar area.
- * Looks for <img> tags or thumbnail containers in the bottom prompt bar region.
+ * Find the "Upload image" button inside a Radix dialog opened by the "+" button.
+ * Searches by icon text "upload" and span text "Upload image".
  */
-function checkPromptBarThumbnail(): boolean {
-    // Look for image thumbnails in the bottom portion of the page (prompt bar area)
-    const images = document.querySelectorAll<HTMLImageElement>("img");
-    for (const img of images) {
-        if (!img.src) continue;
-        if (img.closest("#netflow-engine-overlay")) continue;
-        if (_hidden()) {
-            LOG(`พบรูปย่อ (minimized mode)`);
-            return true;
+async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): Promise<HTMLElement | null> {
+    const pollStart = Date.now();
+    while (Date.now() - pollStart < timeoutMs) {
+        // Search in Radix dialog via aria-controls
+        const dialogId = addBtn.getAttribute("aria-controls");
+        const containers: Element[] = [];
+        if (dialogId) {
+            const el = document.getElementById(dialogId);
+            if (el) containers.push(el);
         }
-        const rect = img.getBoundingClientRect();
-        // Thumbnail should be in the bottom 40% of the screen, small-ish, and visible
-        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
-            && rect.height > 20 && rect.height < 200 && img.offsetParent !== null) {
-            LOG(`พบรูปย่อ: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} ที่ y=${rect.top.toFixed(0)}`);
-            return true;
-        }
-    }
-    // Also check for div/span with background-image in prompt bar area
-    const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
-    for (const div of thumbDivs) {
-        if (div.closest("#netflow-engine-overlay")) continue;
-        if (_hidden()) return true;
-        const rect = div.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
-            && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
-            LOG(`พบรูปย่อ div: ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} ที่ y=${rect.top.toFixed(0)}`);
-            return true;
-        }
-    }
-    return false;
-}
+        for (const portal of document.querySelectorAll('[data-radix-portal]')) containers.push(portal);
+        for (const dlg of document.querySelectorAll('[role="dialog"]')) containers.push(dlg);
 
-/**
- * Drop a file onto the prompt bar via drag-and-drop events.
- * Bypasses file input entirely — Google Flow's drop handler processes the file directly.
- */
-async function dropFileOnPromptBar(file: File): Promise<boolean> {
-    LOG("ลองลากวางไฟล์บน Prompt Bar (drag-and-drop)...");
-
-    // Find the prompt bar container — the area with contenteditable or the form/wrapper
-    const targets: HTMLElement[] = [];
-
-    // Priority 1: contenteditable in bottom area
-    const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
-    for (const el of editables) {
-        if (_hidden()) { targets.push(el); continue; }
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.5) targets.push(el);
-    }
-
-    // Priority 2: form or wrapper in bottom area
-    const wrappers = document.querySelectorAll<HTMLElement>('form, [role="textbox"], [data-slate-editor]');
-    for (const el of wrappers) {
-        if (_hidden()) { if (!targets.includes(el)) targets.push(el); continue; }
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.5 && !targets.includes(el)) targets.push(el);
-    }
-
-    // Priority 3: any div in bottom area that looks like a prompt container
-    if (targets.length === 0 && !_hidden()) {
-        const bottomDivs = document.querySelectorAll<HTMLElement>("div");
-        for (const div of bottomDivs) {
-            const rect = div.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight * 0.8 && rect.width > 300 && rect.height > 30 && rect.height < 200) {
-                targets.push(div);
-                if (targets.length >= 3) break;
+        for (const container of containers) {
+            for (const btn of container.querySelectorAll<HTMLElement>("button")) {
+                if (btn === addBtn) continue;
+                const iconText = btn.querySelector("i")?.textContent?.trim() || "";
+                const spans = Array.from(btn.querySelectorAll("span")).map(s => s.textContent?.trim().toLowerCase() || "");
+                if (iconText === "upload" || iconText === "upload_file" ||
+                    spans.some(s => s === "upload image" || s === "อัปโหลดรูปภาพ" || s === "upload")) {
+                    return btn;
+                }
             }
         }
+        await sleep(500);
     }
-
-    if (targets.length === 0) {
-        LOG("ไม่พบเป้าหมายบน Prompt Bar สำหรับ drag-and-drop");
-        return false;
-    }
-
-    LOG(`พบเป้าหมาย drag-and-drop ${targets.length} ตัว`);
-
-    for (const target of targets) {
-        try {
-            const rect = target.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const commonOpts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy };
-
-            // Create DataTransfer with our file
-            const dt = new DataTransfer();
-            dt.items.add(file);
-
-            // Dispatch drag sequence: dragenter → dragover → drop
-            target.dispatchEvent(new DragEvent('dragenter', { ...commonOpts, dataTransfer: dt }));
-            await sleep(100);
-            target.dispatchEvent(new DragEvent('dragover', { ...commonOpts, dataTransfer: dt }));
-            await sleep(100);
-            target.dispatchEvent(new DragEvent('drop', { ...commonOpts, dataTransfer: dt }));
-            LOG(`ส่ง drag-and-drop บน <${target.tagName.toLowerCase()}> ที่ (${cx.toFixed(0)}, ${cy.toFixed(0)})`);
-
-            await sleep(500);
-            // Check if this worked immediately
-            if (checkPromptBarThumbnail()) return true;
-        } catch (err: any) {
-            LOG(`drag-and-drop ผิดพลาด: ${err.message}`);
-        }
-    }
-
-    return false;
-}
-
-/**
- * PRIMARY METHOD: Write image to REAL system clipboard, then trigger real paste.
- * This creates a TRUSTED paste event (isTrusted: true) that Slate.js accepts.
- * Requires manifest permissions: clipboardWrite, clipboardRead.
- */
-async function pasteImageViaRealClipboard(dataUrl: string, file: File, baselineCount: number): Promise<boolean> {
-    LOG("── Real Clipboard: เขียนรูปลง system clipboard แล้ว paste จริง ──");
-
-    // Helper: wait up to waitMs checking if thumbnail count increased above baseline
-    const waitForNewThumb = async (label: string, waitMs = 2500): Promise<boolean> => {
-        const t0 = Date.now();
-        while (Date.now() - t0 < waitMs) {
-            if (countPromptBarThumbnails() > baselineCount) {
-                LOG(`✅ [${label}] รูปย่อเพิ่ม! (${countPromptBarThumbnails()} > ${baselineCount})`);
-                return true;
-            }
-            await sleep(400);
-        }
-        return false;
-    };
-
-    // Find target editor (Slate or contenteditable)
-    let editor: HTMLElement | null = null;
-    const slateEds = document.querySelectorAll<HTMLElement>('[data-slate-editor="true"]');
-    for (const el of slateEds) {
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.4) { editor = el; break; }
-    }
-    if (!editor) {
-        const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
-        for (const el of editables) {
-            const rect = el.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight * 0.4) { editor = el; break; }
-        }
-    }
-    if (!editor) {
-        LOG("ไม่พบ editor สำหรับ paste");
-        return false;
-    }
-
-    // ═══ Method A: navigator.clipboard.write() + execCommand('paste') ═══
-    let pasteDispatched = false;
-    try {
-        const arrayBuffer = await file.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: file.type || 'image/png' });
-        const clipItem = new ClipboardItem({ [blob.type]: blob });
-        await navigator.clipboard.write([clipItem]);
-        LOG(`เขียนรูป ${(file.size / 1024).toFixed(1)}KB ลง system clipboard สำเร็จ`);
-
-        editor.focus();
-        await sleep(300);
-
-        const pasted = document.execCommand('paste');
-        LOG(`execCommand('paste'): ${pasted}`);
-
-        if (pasted) {
-            pasteDispatched = true;
-            // ★ Paste was dispatched — wait longer (8s) for thumbnail, then return true regardless
-            //   DO NOT try more methods — that causes duplicate images
-            if (await waitForNewThumb("ClipboardAPI", 8000)) return true;
-            LOG("⚠️ Method A: paste dispatched แต่ thumbnail ยังไม่ขึ้น — ถือว่าสำเร็จ (async processing)");
-            return true;
-        }
-    } catch (err: any) {
-        LOG(`Method A (Clipboard API) ล้มเหลว: ${err.message}`);
-    }
-
-    // ★ Guard: check if Method A succeeded asynchronously before trying B
-    if (countPromptBarThumbnails() > baselineCount) {
-        LOG("✅ Method A สำเร็จ (ตรวจพบทีหลัง)");
-        return true;
-    }
-
-    // ═══ Method B: Hidden contenteditable img copy → paste ═══
-    try {
-        LOG("ลอง Method B: copy img จาก hidden div → paste ลง editor");
-        const tempDiv = document.createElement('div');
-        tempDiv.contentEditable = 'true';
-        tempDiv.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.style.cssText = 'max-width:200px;max-height:200px;';
-        tempDiv.appendChild(img);
-        document.body.appendChild(tempDiv);
-
-        await new Promise<void>((resolve) => {
-            if (img.complete) { resolve(); return; }
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-            setTimeout(resolve, 2000);
-        });
-        await sleep(200);
-
-        const range = document.createRange();
-        range.selectNodeContents(tempDiv);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-
-        const copied = document.execCommand('copy');
-        LOG(`execCommand('copy') จาก temp img: ${copied}`);
-        document.body.removeChild(tempDiv);
-
-        if (copied) {
-            editor.focus();
-            await sleep(300);
-            const pasted = document.execCommand('paste');
-            LOG(`execCommand('paste') ลง editor: ${pasted}`);
-            if (pasted) {
-                pasteDispatched = true;
-                // ★ Paste dispatched — wait longer, then return true regardless
-                if (await waitForNewThumb("HiddenDiv", 8000)) return true;
-                LOG("⚠️ Method B: paste dispatched แต่ thumbnail ยังไม่ขึ้น — ถือว่าสำเร็จ");
-                return true;
-            }
-        }
-    } catch (err: any) {
-        LOG(`Method B (hidden div) ล้มเหลว: ${err.message}`);
-    }
-
-    // ★ Guard: check again before trying C
-    if (countPromptBarThumbnails() > baselineCount) {
-        LOG("✅ Method B สำเร็จ (ตรวจพบทีหลัง)");
-        return true;
-    }
-
-    // ═══ Method C: canvas.toBlob → clipboard.write → paste ═══
-    try {
-        LOG("ลอง Method C: canvas toBlob → clipboard write → paste");
-        const img2 = new Image();
-        img2.crossOrigin = 'anonymous';
-        const loadPromise = new Promise<void>((resolve, reject) => {
-            img2.onload = () => resolve();
-            img2.onerror = () => reject(new Error("img load failed"));
-            setTimeout(() => reject(new Error("img load timeout")), 5000);
-        });
-        img2.src = dataUrl;
-        await loadPromise;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = img2.naturalWidth;
-        canvas.height = img2.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error("no canvas context");
-        ctx.drawImage(img2, 0, 0);
-
-        const pngBlob = await new Promise<Blob>((resolve, reject) => {
-            canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob null")), 'image/png');
-        });
-
-        await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': pngBlob })
-        ]);
-        LOG(`เขียน canvas PNG ${(pngBlob.size / 1024).toFixed(1)}KB ลง clipboard`);
-
-        editor.focus();
-        await sleep(300);
-        const pasted = document.execCommand('paste');
-        LOG(`execCommand('paste') จาก canvas: ${pasted}`);
-        if (pasted) {
-            pasteDispatched = true;
-            if (await waitForNewThumb("Canvas", 8000)) return true;
-            LOG("⚠️ Method C: paste dispatched แต่ thumbnail ยังไม่ขึ้น — ถือว่าสำเร็จ");
-            return true;
-        }
-    } catch (err: any) {
-        LOG(`Method C (canvas) ล้มเหลว: ${err.message}`);
-    }
-
-    LOG("Real clipboard methods ล้มเหลวทั้งหมด");
-    return false;
-}
-
-/**
- * Paste an image file into the prompt bar via synthetic clipboard events.
- * (Fallback — may not work if Google Flow checks isTrusted)
- */
-async function pasteImageIntoPromptBar(file: File): Promise<boolean> {
-    LOG("ลองวางไฟล์ผ่านคลิปบอร์ด (clipboard paste)...");
-
-    // Build candidate targets in priority order
-    const targets: HTMLElement[] = [];
-
-    // Priority 1: Slate editor (data-slate-editor)
-    const slateEditors = document.querySelectorAll<HTMLElement>('[data-slate-editor="true"]');
-    for (const el of slateEditors) {
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.4) targets.push(el);
-    }
-
-    // Priority 2: contenteditable in bottom area
-    const editables = document.querySelectorAll<HTMLElement>('[contenteditable="true"]');
-    for (const el of editables) {
-        if (targets.includes(el)) continue;
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.4) targets.push(el);
-    }
-
-    // Priority 3: prompt text input
-    const promptEl = findPromptTextInput();
-    if (promptEl && !targets.includes(promptEl as HTMLElement)) {
-        targets.push(promptEl as HTMLElement);
-    }
-
-    if (targets.length === 0) {
-        LOG("ไม่พบช่อง prompt สำหรับวางไฟล์");
-        return false;
-    }
-
-    LOG(`พบเป้าหมาย paste ${targets.length} ตัว`);
-
-    for (const target of targets) {
-        try {
-            // Focus the target element first
-            target.focus();
-            await sleep(200);
-
-            const dt = new DataTransfer();
-            dt.items.add(file);
-
-            // Dispatch ClipboardEvent('paste')
-            const pasteEvent = new ClipboardEvent('paste', {
-                bubbles: true,
-                cancelable: true,
-                clipboardData: dt,
-            });
-            target.dispatchEvent(pasteEvent);
-            LOG(`ส่ง paste event บน <${target.tagName.toLowerCase()}${target.hasAttribute('data-slate-editor') ? ' [Slate]' : ''}>`);
-
-            // Also try InputEvent('insertFromPaste') for Slate.js beforeinput handler
-            try {
-                const inputEvent = new InputEvent('beforeinput', {
-                    bubbles: true,
-                    cancelable: true,
-                    inputType: 'insertFromPaste',
-                    dataTransfer: dt,
-                } as any);
-                target.dispatchEvent(inputEvent);
-                LOG("ส่ง beforeinput(insertFromPaste) ด้วย");
-            } catch (_) { /* optional — ignore */ }
-
-            await sleep(800);
-            // Quick check if thumbnail appeared
-            if (checkPromptBarThumbnail()) {
-                LOG("✅ พบรูปย่อหลัง paste!");
-                return true;
-            }
-        } catch (err: any) {
-            LOG(`วางผ่านคลิปบอร์ดผิดพลาดบน target: ${err.message}`);
-        }
-    }
-
-    // Final attempt: dispatch paste on document itself (some apps listen at document level)
-    try {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        const pasteEvent = new ClipboardEvent('paste', {
-            bubbles: true,
-            cancelable: true,
-            clipboardData: dt,
-        });
-        document.dispatchEvent(pasteEvent);
-        LOG("ส่ง paste event บน document");
-        return true;
-    } catch (err: any) {
-        LOG(`วาง paste บน document ผิดพลาด: ${err.message}`);
-    }
-
-    return false;
+    return null;
 }
 
 /**
  * Upload a single image into the prompt bar.
  *
- * Key trick: NEUTRALIZE all file inputs (type="text") BEFORE clicking upload menu.
- * When Google Flow calls .click() on the input, it won't open the native dialog
- * because type="text" inputs don't trigger file chooser.
- * Then we restore type="file", inject our file, and dispatch change.
- * Fallbacks: drag-and-drop onto prompt bar, clipboard paste.
+ * Flow: Click "+" (Create) → Click "Upload image" → Block file dialog →
+ * Inject base64 file into file input → Verify thumbnail appeared.
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── กำลังอัพโหลด ${fileName} ไปยัง Prompt Bar ──`);
@@ -1706,486 +1190,181 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     const file = base64ToFile(dataUrl, fileName);
     LOG(`ขนาดไฟล์: ${(file.size / 1024).toFixed(1)} KB`);
 
-    // ★ Baseline: count existing thumbnails BEFORE any upload attempt
     const baselineCount = countPromptBarThumbnails();
     LOG(`รูปย่อปัจจุบันใน Prompt Bar: ${baselineCount} รูป`);
 
-    // Helper: verify that a new thumbnail actually appeared
-    const verifyNewThumbnail = async (method: string, waitMs = 8000): Promise<boolean> => {
-        const start = Date.now();
-        while (Date.now() - start < waitMs) {
-            const currentCount = countPromptBarThumbnails();
-            if (currentCount > baselineCount) {
-                LOG(`✅ [${method}] ยืนยัน: รูปย่อเพิ่มจาก ${baselineCount} → ${currentCount}`);
-                return true;
-            }
-            await sleep(500);
-        }
-        LOG(`⚠️ [${method}] รูปย่อไม่เพิ่ม (ยังคง ${countPromptBarThumbnails()} รูป)`);
-        return false;
-    };
-
     // ═══════════════════════════════════════════════════════════════════════════
-    // PRIMARY METHOD: "+" Button → Upload Button → File Input Injection (base64)
+    // STEP 1: Click "+" (Create) button in prompt bar
     // ═══════════════════════════════════════════════════════════════════════════
-
-    // ── STEP 1: Find and click "+" button (add_2 icon / "สร้าง") ──
-    LOG("── ขั้น 1: คลิกปุ่ม '+' (สร้าง) ──");
+    LOG("── ขั้น 1: คลิกปุ่ม '+' (Create) ──");
     const addBtn = findPromptBarAddButton();
     if (!addBtn) {
         WARN("ไม่พบปุ่ม '+' บน Prompt Bar");
         return false;
     }
 
-    // ★ Snapshot existing file inputs BEFORE any action
-    const preExistingInputs = new Set(
-        document.querySelectorAll<HTMLInputElement>('input[type="file"]')
-    );
-    LOG(`file input ที่มีอยู่เดิม: ${preExistingInputs.size} ตัว`);
+    addBtn.click();
+    LOG("คลิกปุ่ม '+' (Create) ✅");
+    await sleep(1500);
 
-    // ★ Block file dialogs + neutralize inputs BEFORE clicking
-    const unblockDialogs = blockFileDialogs();
-    let neutralized = neutralizeFileInputs();
-
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node instanceof HTMLInputElement && node.type === "file") {
-                    node.type = "text";
-                    neutralized.push({ input: node, origType: "file" });
-                    LOG(`🎯 Observer ปิดกั้น file input ใหม่`);
-                }
-                if (node instanceof HTMLElement) {
-                    const fis = node.querySelectorAll<HTMLInputElement>('input[type="file"]');
-                    for (const fi of fis) {
-                        fi.type = "text";
-                        neutralized.push({ input: fi, origType: "file" });
-                        LOG(`🎯 Observer ปิดกั้น file input ซ้อน`);
-                    }
-                }
-            }
-        }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // ★ Snapshot Radix portal count BEFORE clicking (to detect new dialogs)
-    const portalCountBefore = document.querySelectorAll('[data-radix-portal]').length;
-    const neutralizedCountBeforeClick = neutralized.length;
-
-    try {
-        // ═══════════════════════════════════════════════════════════════
-        // NEW GOOGLE FLOW UI (2025+): "+" opens a Radix Dialog, NOT a dropdown menu.
-        // The dialog contains: Image/Video tabs, Landscape/Portrait, x1-x4, and an UPLOAD button.
-        // The upload button has icon "upload" and screen-reader text "Upload image".
-        // ═══════════════════════════════════════════════════════════════
-
-        // ── Helper: check if the Radix dialog opened (broad detection) ──
-        const isDialogOpen = () => {
-            // 1. Button attributes
-            if (addBtn.getAttribute("data-state") === "open" || addBtn.getAttribute("aria-expanded") === "true") return true;
-            // 2. aria-controls element exists (rendered via Radix portal)
-            const dialogId = addBtn.getAttribute("aria-controls");
-            if (dialogId && document.getElementById(dialogId)) return true;
-            // 3. New Radix portals appeared since we clicked
-            if (document.querySelectorAll('[data-radix-portal]').length > portalCountBefore) return true;
-            // 4. Any visible role="dialog" on page
-            const visDialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
-            for (const d of visDialogs) { if (d.offsetWidth > 0) return true; }
-            return false;
-        };
-
-        // ── Helper: check if a button is the upload button ──
-        const _isUploadBtn = (btn: HTMLElement): boolean => {
-            if (btn === addBtn) return false;
-            const icons = btn.querySelectorAll("i");
-            for (const icon of icons) {
-                const it = icon.textContent?.trim() || "";
-                if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
-                    const allIcons = Array.from(btn.querySelectorAll("i")).map(i => i.textContent?.trim());
-                    if (!allIcons.includes("drive_folder_upload") && !allIcons.includes("photo_library")) return true;
-                }
-            }
-            const spans = btn.querySelectorAll("span");
-            for (const sp of spans) {
-                const t = sp.textContent?.trim().toLowerCase() || "";
-                if (t === "upload image" || t === "upload" || t === "อัปโหลดรูปภาพ") return true;
-            }
-            return false;
-        };
-
-        // ── Helper: find upload button (multi-strategy: dialog → portals → role=dialog → global) ──
-        const findUploadButton = (): HTMLElement | null => {
-            // Strategy A: Inside aria-controls dialog container
-            const dialogId = addBtn.getAttribute("aria-controls");
-            if (dialogId) {
-                const dialogEl = document.getElementById(dialogId);
-                if (dialogEl) {
-                    for (const btn of dialogEl.querySelectorAll<HTMLElement>("button")) {
-                        if (_isUploadBtn(btn)) { LOG("  findUpload → A (aria-controls)"); return btn; }
-                    }
-                }
-            }
-            // Strategy B: Inside ALL Radix portals (dialog content rendered via portal)
-            for (const portal of document.querySelectorAll('[data-radix-portal]')) {
-                for (const btn of portal.querySelectorAll<HTMLElement>("button")) {
-                    if (_isUploadBtn(btn)) { LOG("  findUpload → B (Radix portal)"); return btn; }
-                }
-            }
-            // Strategy C: Inside any visible role="dialog"
-            for (const dlg of document.querySelectorAll('[role="dialog"]')) {
-                for (const btn of dlg.querySelectorAll<HTMLElement>("button")) {
-                    if (_isUploadBtn(btn)) { LOG("  findUpload → C (role=dialog)"); return btn; }
-                }
-            }
-            // Strategy D: Global — any VISIBLE button with upload icon on page
-            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                if (btn === addBtn) continue;
-                const rect = btn.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) continue;
-                if (_isUploadBtn(btn)) { LOG("  findUpload → D (global visible)"); return btn; }
-            }
-            return null;
-        };
-
-        // ── STEP 1A: Click "+" with .click() (Radix Dialog uses onClick) ──
-        addBtn.click();
-        LOG("คลิกปุ่ม '+' (สร้าง) ด้วย .click() ✅");
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 2: Find and click "Upload image" button in the opened Radix dialog
+    // ═══════════════════════════════════════════════════════════════════════════
+    LOG("── ขั้น 2: หาและคลิกปุ่ม 'Upload image' ──");
+    const uploadBtn = await findUploadButtonInDialog(addBtn, 5000);
+    if (!uploadBtn) {
+        WARN("ไม่พบปุ่ม 'Upload image' ใน Dialog — ลอง pointer events บนปุ่ม '+'");
+        // Try pointer events on "+" if .click() didn't open the dialog
+        const r = addBtn.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+        addBtn.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+        addBtn.dispatchEvent(new MouseEvent("mousedown", opts));
+        await sleep(80);
+        addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+        addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
+        addBtn.dispatchEvent(new MouseEvent("click", opts));
         await sleep(1500);
 
-        // ── STEP 1B: AVOID TOGGLE — only re-click if NEITHER dialog NOR upload button found ──
-        let earlyUploadBtn = findUploadButton();
-        if (earlyUploadBtn) {
-            LOG("✅ พบปุ่ม Upload ทันทีหลังคลิก '+' — ไม่คลิกซ้ำ");
-        } else if (!isDialogOpen()) {
-            // Dialog NOT detected at all — safe to try pointer events (won't toggle-close)
-            LOG("⚠️ Dialog ไม่เปิดจาก .click() — ลอง pointer events");
-            const r = addBtn.getBoundingClientRect();
-            const cx = r.left + r.width / 2;
-            const cy = r.top + r.height / 2;
-            const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
-            addBtn.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            addBtn.dispatchEvent(new MouseEvent("mousedown", opts));
-            await sleep(80);
-            addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
-            addBtn.dispatchEvent(new MouseEvent("click", opts));
-            await sleep(1500);
-            // Re-check BEFORE trying Enter (avoid triple-toggle)
-            earlyUploadBtn = findUploadButton();
-            if (!earlyUploadBtn && !isDialogOpen()) {
-                LOG("⚠️ Dialog ยังไม่เปิด — ลอง focus + Enter");
-                addBtn.focus();
-                await sleep(100);
-                addBtn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
-                addBtn.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
-                await sleep(1500);
-            }
-        } else {
-            LOG("✅ Dialog เปิดแล้วหลังคลิก '+' — ไม่คลิกซ้ำ (ป้องกัน toggle)");
-        }
-
-        LOG(`Dialog state: data-state=${addBtn.getAttribute("data-state")}, aria-controls=${addBtn.getAttribute("aria-controls")}, portals=${document.querySelectorAll('[data-radix-portal]').length}, dialogs=${document.querySelectorAll('[role="dialog"]').length}`);
-
-        // ── STEP 1C: Check if "+" directly created a NEW file input ──
-        const newInputsAfterClick = neutralized.length - neutralizedCountBeforeClick;
-        if (newInputsAfterClick > 0) {
-            LOG(`🎯 พบ file input ใหม่ ${newInputsAfterClick} ตัวหลังคลิก '+' — ข้ามเมนูไป inject เลย`);
-            await sleep(500);
-        } else {
-
-        // ── STEP 2: Find and click "upload" button inside the Radix Dialog ──
-        LOG("── ขั้น 2: หาปุ่ม 'Upload image' ในRadix Dialog ──");
-        let clickedUpload = false;
-        const menuPollStart = Date.now();
-
-        while (!clickedUpload && Date.now() - menuPollStart < 6000) {
-            const uploadBtn = findUploadButton();
-            if (uploadBtn) {
-                // Click with .click() first
-                uploadBtn.click();
-                await sleep(400);
-                // If no file input yet, try full pointer event sequence for React/Radix
-                if (neutralized.length <= neutralizedCountBeforeClick) {
-                    const ur = uploadBtn.getBoundingClientRect();
-                    const ucx = ur.left + ur.width / 2;
-                    const ucy = ur.top + ur.height / 2;
-                    const uOpts = { bubbles: true, cancelable: true, clientX: ucx, clientY: ucy, button: 0 };
-                    uploadBtn.dispatchEvent(new PointerEvent("pointerdown", { ...uOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                    uploadBtn.dispatchEvent(new MouseEvent("mousedown", uOpts));
-                    await sleep(80);
-                    uploadBtn.dispatchEvent(new PointerEvent("pointerup", { ...uOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-                    uploadBtn.dispatchEvent(new MouseEvent("mouseup", uOpts));
-                    uploadBtn.dispatchEvent(new MouseEvent("click", uOpts));
-                    LOG("คลิกปุ่มอัปโหลดด้วย pointer events (fallback)");
-                }
-                clickedUpload = true;
-                const iconTxt = uploadBtn.querySelector("i")?.textContent?.trim() || "";
-                LOG(`คลิกปุ่มอัปโหลด (icon: "${iconTxt}") ✅`);
-                break;
-            }
-
-            // Also check if NEW file input appeared
-            if (neutralized.length > neutralizedCountBeforeClick) {
-                LOG(`🎯 Observer จับ file input ใหม่ได้ — ข้ามไป inject`);
-                clickedUpload = true;
-                break;
-            }
-
-            await sleep(500);
-        }
-
-        // ── STEP 2 FALLBACK: Try old menu detection if dialog approach failed ──
-        if (!clickedUpload) {
-            LOG("⚠️ ไม่พบ upload button ใน Dialog — ลองแบบเก่า (menu items)");
-            const menuElements = document.querySelectorAll<HTMLElement>(
-                "button, [role='menuitem'], [role='option'], li, div[role='button'], [role='menuitemradio'], a[role='button']"
-            );
-            for (const el of menuElements) {
-                if (el === addBtn) continue;
-                const icons = el.querySelectorAll("i, .material-icons, .material-symbols-outlined, [class*='icon']");
-                for (const icon of icons) {
-                    const it = icon.textContent?.trim() || "";
-                    if (it === "upload" || it === "upload_file" || it === "add_photo_alternate") {
-                        const allIconTexts = Array.from(el.querySelectorAll("i")).map(i => i.textContent?.trim());
-                        if (!allIconTexts.includes("drive_folder_upload") && !allIconTexts.includes("photo_library")) {
-                            el.click();
-                            clickedUpload = true;
-                            LOG(`คลิกปุ่มอัปโหลด (legacy icon: ${it}) ✅`);
-                            break;
-                        }
-                    }
-                }
-                if (clickedUpload) break;
-                // Text fallback
-                const txt = (el.textContent || "").trim().toLowerCase();
-                if (txt.length > 0 && txt.length < 60) {
-                    if (txt.includes("upload image") || txt.includes("upload photo") || txt.includes("อัปโหลดรูปภาพ") || txt === "upload" || txt === "อัปโหลด") {
-                        el.click();
-                        clickedUpload = true;
-                        LOG(`คลิกปุ่มอัปโหลด (legacy text: "${txt.substring(0, 40)}") ✅`);
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!clickedUpload) {
-            // ★ DIAGNOSTIC DUMP
-            LOG("══════ DIAGNOSTIC: elements หลังคลิก '+' ══════");
-            const dialogId = addBtn.getAttribute("aria-controls");
-            LOG(`  aria-controls: ${dialogId}, data-state: ${addBtn.getAttribute("data-state")}`);
-            if (dialogId) {
-                const dialogEl = document.getElementById(dialogId);
-                LOG(`  dialog element: ${dialogEl ? `found (${dialogEl.tagName} ${dialogEl.offsetWidth}x${dialogEl.offsetHeight})` : "NOT FOUND"}`);
-                if (dialogEl) {
-                    const innerBtns = dialogEl.querySelectorAll("button");
-                    LOG(`  buttons inside dialog: ${innerBtns.length}`);
-                    innerBtns.forEach((b, i) => {
-                        const ic = Array.from(b.querySelectorAll("i")).map(x => x.textContent?.trim()).join(",");
-                        LOG(`    [${i}] "${(b.textContent || "").trim().substring(0, 40)}" icons=[${ic}]`);
-                    });
-                }
-            }
-            const allVisible = document.querySelectorAll<HTMLElement>("button");
-            let dumpCount = 0;
-            for (const el of allVisible) {
-                const rect = el.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) continue;
-                const ic = Array.from(el.querySelectorAll("i")).map(x => x.textContent?.trim()).filter(Boolean);
-                if (ic.includes("upload") || ic.includes("upload_file")) {
-                    LOG(`  ★ UPLOAD CANDIDATE: <button>${(el.textContent || "").trim().substring(0, 50)} [icons: ${ic.join(",")}] @(${Math.round(rect.left)},${Math.round(rect.top)})`);
-                }
-                if (++dumpCount >= 30) break;
-            }
-            LOG("══════ END DIAGNOSTIC ══════");
-
-            // ★ FALLBACK: drag-and-drop onto workspace ("Start creating or drop media")
-            LOG("── Fallback: ลอง drag-and-drop ลงบน workspace ──");
-            const dropDt = new DataTransfer();
-            dropDt.items.add(file);
-            let dropZone: HTMLElement | null = null;
-            const candidates = document.querySelectorAll<HTMLElement>(
-                '[class*="canvas"], [class*="workspace"], [class*="drop"], [class*="media"], [class*="gallery"], main, [role="main"]'
-            );
-            for (const el of candidates) {
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 200 && rect.height > 200) { dropZone = el; break; }
-            }
-            if (!dropZone) {
-                dropZone = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLElement || document.body;
-            }
-            const dzRect = dropZone.getBoundingClientRect();
-            const dzCx = dzRect.left + dzRect.width / 2;
-            const dzCy = dzRect.top + dzRect.height / 2;
-            const dzEvt = { bubbles: true, cancelable: true, clientX: dzCx, clientY: dzCy, dataTransfer: dropDt };
-            dropZone.dispatchEvent(new DragEvent('dragenter', dzEvt));
-            await sleep(100);
-            dropZone.dispatchEvent(new DragEvent('dragover', dzEvt));
-            await sleep(100);
-            dropZone.dispatchEvent(new DragEvent('drop', dzEvt));
-            dropZone.dispatchEvent(new DragEvent('dragleave', dzEvt));
-            LOG(`ส่ง drag-drop ลง workspace (${dropZone.tagName})`);
-            document.dispatchEvent(new DragEvent('drop', { ...dzEvt, bubbles: true }));
-
-            if (await verifyNewThumbnail("WorkspaceDrop", 8000)) {
-                return true;
-            }
-            WARN("ไม่พบปุ่มอัปโหลดและ drop ไม่สำเร็จ");
+        const retryUploadBtn = await findUploadButtonInDialog(addBtn, 3000);
+        if (!retryUploadBtn) {
+            WARN("❌ ไม่พบปุ่ม Upload image หลังลองทั้ง 2 วิธี");
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
             return false;
         }
-
-        } // end of else (no direct file input from "+")
-
-
-        // Wait for file input to be triggered
-        await sleep(1000);
-
-        // ── STEP 3: Inject file via base64 into file input ──
-        LOG("── ขั้น 3: ฉีดไฟล์ base64 เข้า file input ──");
-        const ok = restoreAndInject(neutralized, file, preExistingInputs);
-        if (ok) {
-            LOG(`ฉีดไฟล์ ${fileName} เสร็จ ✅`);
-        } else {
-            WARN(`ฉีดไฟล์ ${fileName} ผ่าน file input ล้มเหลว — ลอง fallback`);
-        }
-
-        // ── STEP 4: Verify upload succeeded (thumbnail appeared) ──
-        LOG("── ขั้น 4: ตรวจสอบว่ารูปอัพโหลดเสร็จ ──");
-        if (ok && await verifyNewThumbnail("FileInput", 10000)) {
-            return true;
-        }
-
-        // ★ Windows: PERFECT AUTOMATION behavior — if injection succeeded, trust it
-        if (ok && !isMac) {
-            LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%) [Windows: ข้ามตรง]");
-            return true;
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // MAC ONLY FALLBACKS — only run when primary file-input method fails on Mac
-        // ═══════════════════════════════════════════════════════════════════
-        LOG(`── 🍎 Mac Fallback: primary ${ok ? 'ฉีดสำเร็จแต่ไม่เห็นรูปย่อ' : 'ฉีดล้มเหลว'} — ลอง fallback ──`);
-
-        // ── FALLBACK A: Clipboard Paste ──
-        LOG("── Fallback A: วางผ่าน Clipboard Paste ──");
-        try {
-            const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-            const clipItem = new ClipboardItem({ [file.type]: blob });
-            await navigator.clipboard.write([clipItem]);
-            LOG(`เขียนรูปลง clipboard แล้ว (${(file.size / 1024).toFixed(1)} KB)`);
-            await sleep(300);
-
-            // Dispatch paste on all editable targets + document
-            const pasteTargets = [
-                ...document.querySelectorAll<HTMLElement>('[contenteditable="true"]'),
-                ...document.querySelectorAll<HTMLElement>('textarea'),
-                ...document.querySelectorAll<HTMLElement>('[data-slate-editor]'),
-                ...document.querySelectorAll<HTMLElement>('[role="textbox"]'),
-            ];
-            const promptBar = document.querySelector<HTMLElement>('[class*="prompt"], [class*="input-area"], [class*="compose"]');
-            if (promptBar && !pasteTargets.includes(promptBar)) pasteTargets.push(promptBar);
-
-            for (const target of pasteTargets) {
-                try {
-                    target.focus();
-                    await sleep(100);
-                    const pasteDt = new DataTransfer();
-                    pasteDt.items.add(file);
-                    target.dispatchEvent(new ClipboardEvent('paste', {
-                        bubbles: true, cancelable: true, clipboardData: pasteDt,
-                    }));
-                    LOG(`ส่ง paste event บน <${target.tagName.toLowerCase()}>`);
-
-                    try {
-                        const dtForInput = new DataTransfer();
-                        dtForInput.items.add(file);
-                        target.dispatchEvent(new InputEvent('beforeinput', {
-                            bubbles: true, cancelable: true,
-                            inputType: 'insertFromPaste',
-                            dataTransfer: dtForInput,
-                        } as any));
-                    } catch (_) { /* optional */ }
-
-                    await sleep(800);
-                    if (countPromptBarThumbnails() > baselineCount) {
-                        LOG("✅ พบรูปย่อหลัง paste!");
-                        return true;
-                    }
-                } catch (err: any) {
-                    LOG(`paste บน target ล้มเหลว: ${err.message}`);
-                }
-            }
-
-            // Paste on document
-            try {
-                const docDt = new DataTransfer();
-                docDt.items.add(file);
-                document.dispatchEvent(new ClipboardEvent('paste', {
-                    bubbles: true, cancelable: true, clipboardData: docDt,
-                }));
-                LOG("ส่ง paste event บน document");
-            } catch (_) {}
-
-            if (await verifyNewThumbnail("ClipboardPaste", 5000)) {
-                return true;
-            }
-            LOG("⚠️ Clipboard paste ไม่สำเร็จ — ลอง drag-and-drop");
-        } catch (pasteErr: any) {
-            LOG(`Clipboard paste ล้มเหลว: ${pasteErr.message}`);
-        }
-
-        // ── FALLBACK B: Drag-and-Drop ──
-        LOG("── Fallback B: วางผ่าน Drag-and-Drop ──");
-        try {
-            let dropTarget: HTMLElement | null = null;
-            const dropCandidates = document.querySelectorAll<HTMLElement>(
-                '[class*="prompt"], [class*="input"], [class*="compose"], [class*="drop"], textarea, [contenteditable="true"], [role="textbox"]'
-            );
-            for (const el of dropCandidates) {
-                const rect = el.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight * 0.5 && rect.width > 100 && rect.height > 20) {
-                    dropTarget = el;
-                    break;
-                }
-            }
-            if (!dropTarget) dropTarget = document.body;
-
-            const dropDt = new DataTransfer();
-            dropDt.items.add(file);
-            const rect = dropTarget.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const evtInit = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, dataTransfer: dropDt };
-
-            dropTarget.dispatchEvent(new DragEvent('dragenter', evtInit));
-            dropTarget.dispatchEvent(new DragEvent('dragover', evtInit));
-            await sleep(200);
-            dropTarget.dispatchEvent(new DragEvent('drop', evtInit));
-            dropTarget.dispatchEvent(new DragEvent('dragleave', evtInit));
-            LOG(`ส่ง drag-and-drop บน <${dropTarget.tagName.toLowerCase()}>`);
-
-            if (await verifyNewThumbnail("DragDrop", 5000)) {
-                return true;
-            }
-            LOG("⚠️ Drag-and-drop ไม่สำเร็จ");
-        } catch (dragErr: any) {
-            LOG(`Drag-and-drop ล้มเหลว: ${dragErr.message}`);
-        }
-
-        // Last resort: if injection reported success, trust it
-        if (ok) {
-            LOG("⚠️ ยังไม่พบรูปย่อใหม่ — อาจกำลังอัพโหลด (%)");
-            return true;
-        }
-        WARN(`❌ อัพโหลด ${fileName} ล้มเหลวทุกวิธี (Mac)`);
-        return false;
-    } finally {
-        observer.disconnect();
-        unblockDialogs();
-        for (const n of neutralized) {
-            if (n.input.type !== "file") n.input.type = "file";
-        }
+        // Use the retry button
+        return await _clickUploadAndInject(retryUploadBtn, file, fileName, baselineCount);
     }
+
+    return await _clickUploadAndInject(uploadBtn, file, fileName, baselineCount);
+}
+
+/**
+ * Internal: Click the Upload button, block file dialog, inject base64 file, verify thumbnail.
+ */
+async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileName: string, baselineCount: number): Promise<boolean> {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 3: Block file dialog → Click Upload → Inject base64 into file input
+    // ═══════════════════════════════════════════════════════════════════════════
+    LOG("── ขั้น 3: บล็อก file dialog + คลิก Upload + ฉีดไฟล์ ──");
+
+    // Block native file dialog from opening (override prototype.click for file inputs)
+    const origClick = HTMLInputElement.prototype.click;
+    HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
+        if (this.type === "file") {
+            LOG("🚫 บล็อก file dialog จาก click()");
+            return;
+        }
+        return origClick.call(this);
+    };
+
+    try {
+        // Click the upload button — Google Flow will internally try to open file picker
+        uploadBtn.click();
+        LOG("คลิกปุ่ม 'Upload image' ✅");
+        await sleep(800);
+    } finally {
+        // Always restore click prototype
+        HTMLInputElement.prototype.click = origClick;
+    }
+
+    // Find the file input to inject into
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!fileInput) {
+        WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct drag-drop");
+        // Fallback: drag-drop onto workspace
+        return await _dragDropFallback(file, baselineCount);
+    }
+
+    // Inject file via DataTransfer
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    LOG(`ฉีดไฟล์ ${fileName} เข้า file input (${fileInput.files?.length ?? 0} ไฟล์)`);
+
+    // Reset React _valueTracker if present (CRITICAL for React to detect change)
+    const tracker = (fileInput as any)._valueTracker;
+    if (tracker) {
+        tracker.setValue('');
+        LOG("รีเซ็ต React _valueTracker");
+    }
+
+    // Dispatch comprehensive events for React compatibility
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    LOG("ส่ง change + input event ✅");
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 4: Wait and verify thumbnail appeared in prompt bar
+    // ═══════════════════════════════════════════════════════════════════════════
+    LOG("── ขั้น 4: รอยืนยันรูปย่อ ──");
+    const verifyStart = Date.now();
+    while (Date.now() - verifyStart < 15000) {
+        const currentCount = countPromptBarThumbnails();
+        if (currentCount > baselineCount) {
+            LOG(`✅ ยืนยัน: รูปย่อเพิ่มจาก ${baselineCount} → ${currentCount}`);
+            return true;
+        }
+        // Also check for upload % indicator
+        const pctEls = document.querySelectorAll<HTMLElement>("span, div, p");
+        for (const el of pctEls) {
+            const txt = (el.textContent || "").trim();
+            if (/^\d{1,2}%$/.test(txt)) {
+                LOG(`กำลังอัพโหลด: ${txt}`);
+                break;
+            }
+        }
+        await sleep(1000);
+    }
+
+    WARN(`❌ อัพโหลด ${fileName} ล้มเหลว — ไม่พบรูปย่อใหม่หลัง 15 วินาที`);
+    return false;
+}
+
+/**
+ * Fallback: drag-and-drop file onto workspace area.
+ */
+async function _dragDropFallback(file: File, baselineCount: number): Promise<boolean> {
+    LOG("── Fallback: drag-and-drop ลงบน workspace ──");
+    const dropDt = new DataTransfer();
+    dropDt.items.add(file);
+
+    let dropZone: HTMLElement | null = null;
+    const candidates = document.querySelectorAll<HTMLElement>(
+        '[class*="workspace"], [class*="drop"], [class*="media"], main, [role="main"]'
+    );
+    for (const el of candidates) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 200 && rect.height > 200) { dropZone = el; break; }
+    }
+    if (!dropZone) {
+        dropZone = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLElement || document.body;
+    }
+
+    const rect = dropZone.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const evtInit = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, dataTransfer: dropDt };
+
+    dropZone.dispatchEvent(new DragEvent('dragenter', evtInit));
+    await sleep(100);
+    dropZone.dispatchEvent(new DragEvent('dragover', evtInit));
+    await sleep(100);
+    dropZone.dispatchEvent(new DragEvent('drop', evtInit));
+    LOG(`ส่ง drag-drop ลง <${dropZone.tagName}>`);
+
+    const verifyStart = Date.now();
+    while (Date.now() - verifyStart < 8000) {
+        if (countPromptBarThumbnails() > baselineCount) {
+            LOG("✅ drag-drop สำเร็จ — พบรูปย่อใหม่");
+            return true;
+        }
+        await sleep(1000);
+    }
+    WARN("❌ drag-drop ล้มเหลว — ไม่พบรูปย่อใหม่");
+    return false;
 }
 
 // ─── GENERATE_IMAGE handler ─────────────────────────────────────────────────
