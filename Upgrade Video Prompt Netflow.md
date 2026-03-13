@@ -222,3 +222,31 @@ When camera MUST move, product silhouette stays pixel-locked to reference.
 | **`PRODUCT_SIZE_REALISM`** | Case 5 | สินค้าใหญ่ผิดสัดส่วน — บังคับขนาดตามจริงแต่ละ category (food: "fits in ONE hand") |
 | **`PROP_INTRODUCTION_DIRECTIVE`** | Case 5 | Props โผล่จากที่ว่าง — ทุก prop ต้องถูกนำเข้าโดย visible character action |
 | **`PRODUCT_ANTI_MORPH_DIRECTIVE`** | Case 5 | แบรนด์เพี้ยนข้ามซีน — "BRAND IDENTITY FREEZE" ล็อคแบรนด์ทุกซีน |
+
+---
+
+## Failed Case No.7 — Monster Energy Zero Sugar (เครื่องดื่มพลังงาน)
+
+**สินค้า:** Monster Energy Zero Sugar (กระป๋องขาว)  
+**ปัญหาหลัก:** Product miscategorized → prompt มี directive ผิด category 3 จุด  
+
+### ปัญหาที่พบจาก prompt:
+1. **"premium laptop texture"** — คำว่า "surface" ใน template ถูก regex `\bsurface\b` (Microsoft Surface brand replacement) เปลี่ยนเป็น "premium laptop" ทำให้ prompt เขียนว่า "material premium laptop texture" และ "Render with extreme premium laptop detail" แทนที่จะเป็น "material surface texture"
+2. **Gift wrapping usage realism** — ได้ "REALISTIC USAGE: For wrapping — measure and cut paper to size..." (gift category) แทน beverage usage realism (เปิดกระป๋อง/เท/ดื่ม)
+3. **Wrong category detection** — "monster" ไม่อยู่ใน beverage keywords, และ AI product analysis มีคำว่า "present" (ภาษาอังกฤษทั่วไป) ทำให้ `detectProductCategory` ตีเป็น `"gift"` ก่อนถึง `"beverage"`
+
+### Root Cause Analysis:
+- **Bug 1**: `BRAND_REPLACEMENTS` line 4146 มี `[/\bsurface\b/gi, "premium laptop"]` — regex ไม่ specific พอ จับคำว่า "surface" ทั่วไปในเทมเพลต
+- **Bug 2+3**: `detectProductCategory` line 4657 มี `"present"` ใน gift keywords — คำนี้เป็นภาษาอังกฤษทั่วไปมาก AI analysis อาจเขียน "the can presents..." ทำให้ match gift ก่อน beverage. และ "monster" เองก็ไม่มีใน beverage keyword list
+
+### แก้ไขที่ทำ:
+
+| # | ตำแหน่งใน code | สิ่งที่แก้ |
+|---|---|---|
+| 1 | `BRAND_REPLACEMENTS` line 4146 | ลบ `[/\bsurface\b/gi, "premium laptop"]` — ยังคงเหลือ `surface pro`, `surface laptop`, `surface go` ที่ specific กว่า |
+| 2 | `detectProductCategory` gift keywords | ลบ `"present"` ออกจาก gift detection — คำนี้กว้างเกินไป ทำให้เกิด false positive |
+| 3 | `detectProductCategory` beverage keywords | เพิ่ม energy drink brands: `"monster"`, `"monster energy"`, `"red bull"`, `"redbull"`, `"carabao"`, `"shark"`, `"sting"`, `"m-150"`, `"m150"`, `"กระทิงแดง"`, `"คาราบาว"`, `"สตาร์ค"`, `"เอ็ม-150"` |
+
+**สถานะ:** ✅ Fixed — commit `8f8a42d`  
+**ไฟล์ที่แก้:** `src/services/veoPromptService.ts`  
+**Build:** ✅ Zero TypeScript errors
