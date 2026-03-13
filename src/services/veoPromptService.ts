@@ -4143,7 +4143,6 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\bsurface\s*pro\b/gi, "premium 2-in-1 laptop"],
     [/\bsurface\s*laptop\b/gi, "premium laptop"],
     [/\bsurface\s*go\b/gi, "compact laptop tablet"],
-    [/\bsurface\b/gi, "premium laptop"],
     [/\bxbox\s*series\s*[xs]\b/gi, "gaming console"],
     [/\bxbox\b/gi, "gaming console"],
     // ── Google product lines ──
@@ -4653,7 +4652,7 @@ const detectProductCategory = (productName: string, productAnalysis: string, tem
 
     // ── Gift (before other) ──
     if (includesAny(t, [
-        "gift set", "gift box", "gift basket", "gift wrap", "gift card", "present", "gift hamper",
+        "gift set", "gift box", "gift basket", "gift wrap", "gift card", "gift hamper",
         "ของขวัญ", "เซ็ตของขวัญ", "กล่องของขวัญ", "ห่อของขวัญ"
     ])) return "gift";
 
@@ -4729,6 +4728,8 @@ const detectProductCategory = (productName: string, productAnalysis: string, tem
     if (includesAny(t, [
         "drink", "beverage", "milk", "juice", "soda", "cola", "smoothie", "water", "energy drink",
         "protein shake", "bubble tea", "boba",
+        "monster", "monster energy", "red bull", "redbull", "carabao", "shark", "sting", "m-150", "m150",
+        "กระทิงแดง", "คาราบาว", "สตาร์ค", "เอ็ม-150",
         "เครื่องดื่ม", "นม", "น้ำผลไม้", "น้ำอัดลม", "ชานมไข่มุก", "น้ำ"
     ])) return "beverage";
 
