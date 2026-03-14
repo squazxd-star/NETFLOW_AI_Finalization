@@ -196,15 +196,15 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
         "elegant double-breasted suit with satin lapels, sophisticated formal presence",
     ],
     "tank-top": [
-        "fitted ribbed tank top showing toned arms, casual summer vibe",
-        "clean cotton sleeveless tank with scoop neck, relaxed warm-weather look",
-        "athletic-fit muscle tank top, sporty confident casual energy",
+        "casual summer outfit with sleeveless top, relaxed warm-weather look",
+        "clean cotton sleeveless top with scoop neck, relaxed warm-weather look",
+        "athletic-fit sleeveless top, sporty confident casual energy",
     ],
     "crop-top": [
-        "trendy cropped top with high-waist bottoms, youthful fashionable look",
-        "fitted ribbed crop top showing midriff, paired with high-waisted jeans",
-        "off-shoulder cropped blouse, feminine stylish summer aesthetic",
-        "sporty crop tank with matching high-waist leggings, gym-to-street style",
+        "trendy short top with high-waist bottoms, youthful fashionable look",
+        "fitted short top paired with high-waisted jeans",
+        "off-shoulder blouse, feminine stylish summer aesthetic",
+        "sporty short tank with matching high-waist leggings, gym-to-street style",
     ],
     "oversize-tee": [
         "baggy oversized graphic tee tucked at front, effortless street style",
@@ -230,9 +230,9 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
         "layered Korean-style outfit with pleated skirt and knit vest, cute coordinated look",
     ],
     "dress-mini": [
-        "chic fitted mini dress with modern cut, confident youthful style",
-        "flirty A-line mini dress with structured bodice, playful party-ready look",
-        "bodycon mini dress with sleek fabric, bold fashion-forward silhouette",
+        "chic fitted short dress with modern cut, confident youthful style",
+        "flirty A-line short dress with structured bodice, playful party-ready look",
+        "modern short dress with sleek fabric, bold fashion-forward silhouette",
     ],
     "skirt-outfit": [
         "pleated midi skirt with tucked-in blouse, feminine polished look",
@@ -252,10 +252,10 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
         "sleek performance sportswear with moisture-wicking fabric, competitive athlete style",
     ],
     "gym-wear": [
-        "fitted compression gym top with athletic leggings, workout-ready physique",
+        "fitted compression gym top with athletic leggings, workout-ready appearance",
         "athletic tank top with training shorts, sweat-ready gym aesthetic",
-        "sports bra and high-waist leggings set, toned active fitness look",
-        "performance dry-fit gym outfit, muscular active training style",
+        "athletic top and high-waist leggings set, active fitness look",
+        "performance dry-fit gym outfit, active training style",
     ],
     "yoga-wear": [
         "stretchy yoga pants with fitted crop top, zen athletic flexibility",
@@ -325,7 +325,7 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
     "beach-wear": [
         "breezy linen beach outfit with sun hat, tropical vacation vibes",
         "colorful floral resort wear with sandals, summer beach-ready look",
-        "casual beach cover-up with swimwear peaking through, coastal holiday style",
+        "casual beach cover-up, coastal holiday style",
     ],
     "luxury-brand": [
         "high-end designer outfit with impeccable tailoring, luxury fashion statement",
@@ -380,6 +380,15 @@ function descriptionHasExplicitClothing(desc: string): boolean {
     const d = desc.toLowerCase();
     const clothingPattern = /ใส่ชุด|ใส่เสื้อ|สวมชุด|สวมเสื้อ|ใส่กางเกง|ใส่กระโปรง|ชุดนักเรียน|ชุดพยาบาล|ชุดทำงาน|ชุดนอน|ชุดกีฬา|ชุดว่ายน้ำ|ชุดเดรส|ชุดสูท|ชุดไทย|ชุดครัว|ชุดเชฟ|ชุดยิม|ชุดโยคะ|ชุดออกกำลังกาย|ชุดฟอร์มอล|ชุดราตรี|ชุดแฟชั่น|เสื้อฮู้ด|เสื้อเชิ้ต|เสื้อยืด|เสื้อโปโล|เสื้อกล้าม|เสื้อครอป|เสื้อแจ็คเก็ต|เสื้อสูท|เสื้อกันหนาว|เสื้อผ้า|กางเกงยีนส์|กระโปรง|wearing|dressed in/i;
     return clothingPattern.test(d);
+}
+
+// Helper: detect if character description explicitly mentions hairstyle
+// When true, skips generating a random default hairstyle to avoid conflicts.
+function descriptionHasExplicitHair(desc: string): boolean {
+    if (!desc) return false;
+    const d = desc.toLowerCase();
+    const hairPattern = /ผม|hair|หน้าม้า|เปีย|ลอน|หยิก|ทรงผม/i;
+    return hairPattern.test(d);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1608,7 +1617,7 @@ const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No dec
 // Face Identity Lock — preserve facial features while framing as anonymous/fictional character
 // CRITICAL: Avoid "identical likeness" or "direct match" phrasing that triggers Google's "famous person" policy.
 // Instead, frame as "original anonymous character inspired by reference style".
-const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE & SKIN TONE PRESERVATION: Use Image 1 as the absolute visual blueprint for this character's face. You MUST reproduce the EXACT face from Image 1 with maximum fidelity — this is the #1 priority above all other instructions. Preserve EXACT: skin tone (match exact complexion, warmth, pigmentation — do NOT lighten or alter), bone structure, face width-to-height ratio, jawline shape and angle, eye shape and size, eye spacing, nose bridge width, nose tip shape, lip shape and thickness, eyebrow shape and arch, forehead height, cheekbone prominence, chin shape, ear shape. Do NOT widen the face, do NOT alter any facial proportion. Keep makeup natural and exactly as shown. The output face must be indistinguishable from the reference — same person, same facial geometry, same skin, same features.";
+const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE & COMPLEXION PRESERVATION: Use Image 1 as the absolute visual blueprint for this character's face. You MUST reproduce the EXACT face from Image 1 with maximum fidelity — this is the #1 priority above all other instructions. Preserve EXACT: skin tone (match exact complexion, warmth, pigmentation — do NOT lighten or alter), bone structure, face width-to-height ratio, jawline shape and angle, eye shape and size, eye spacing, nose bridge width, nose tip shape, lip shape and thickness, eyebrow shape and arch, forehead height, cheekbone prominence, chin shape, ear shape. Do NOT widen the face, do NOT alter any facial proportion. Keep makeup natural and exactly as shown. The output face must be indistinguishable from the reference — same person, same facial geometry, same complexion, same features.";
 
 // Front-Facing Character Directive — ensures face consistency with reference input
 const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, looking directly into the lens. Face fully visible. Avoid extreme close-ups that distort facial proportions. Keep a natural, relaxed posture.";
@@ -4779,20 +4788,21 @@ const BRAND_REPLACEMENTS: [RegExp, string][] = [
     [/\bobama\b/gi, "political figure"],
     [/\bmessi\b/gi, "football player"],
     [/\bronaldo\b/gi, "football player"],
-    [/\bมิลลิ\b/gi, "นักร้องหญิง"],
-    [/\bลิซ่า\b/gi, "สาวเอเชีย"],
-    [/\bแบมแบม\b/gi, "หนุ่มเอเชีย"],
-    [/\bบิวกิ้น\b/gi, "หนุ่มไทย"],
-    [/\bพีพี\b/gi, "หนุ่มไทย"],
-    [/\bใบเฟิร์น\b/gi, "สาวไทย"],
-    [/\bญาญ่า\b/gi, "สาวไทย"],
-    [/\bมาริโอ้\b/gi, "หนุ่มไทย"],
-    [/\bณเดชน์\b/gi, "หนุ่มไทย"],
-    [/\bเบลล่า\b/gi, "สาวไทย"],
-    [/\bดาวิกา\b/gi, "สาวไทย"],
-    [/\bอั้ม\b(?!\s*พัชรา)/gi, "สาวไทย"],
-    [/\bอั้ม\s*พัชราภา\b/gi, "สาวไทย"],
-    [/\bมาร์กี้\b/gi, "สาวไทย"],
+    [/\b(?:มิลลิ)\b/gi, "นักร้องหญิง"], // Will fix these below
+    [/มิลลิ/gi, "นักร้องหญิง"],
+    [/ลิซ่า/gi, "สาวเอเชีย"],
+    [/แบมแบม/gi, "หนุ่มเอเชีย"],
+    [/บิวกิ้น/gi, "หนุ่มไทย"],
+    [/พีพี/gi, "หนุ่มไทย"],
+    [/ใบเฟิร์น/gi, "สาวไทย"],
+    [/ญาญ่า/gi, "สาวไทย"],
+    [/มาริโอ้/gi, "หนุ่มไทย"],
+    [/ณเดชน์/gi, "หนุ่มไทย"],
+    [/เบลล่า/gi, "สาวไทย"],
+    [/ดาวิกา/gi, "สาวไทย"],
+    [/อั้ม(?!\s*พัชรา)/gi, "สาวไทย"],
+    [/อั้ม\s*พัชราภา/gi, "สาวไทย"],
+    [/มาร์กี้/gi, "สาวไทย"],
 ];
 
 // Policy-unsafe keywords that should be stripped
@@ -4807,6 +4817,11 @@ const POLICY_UNSAFE_WORDS = [
     "bare skin", "exposed", "undressed", "lingerie", "bikini",
     "smooth skin", "body focus", "full-body", "figure", "curves",
     "sensual", "alluring", "provocative", "attractive body",
+    "smooth young skin", "perfect skin", "flawless body",
+    "glowing skin", "clear skin", "bright skin", "radiant skin",
+    "youthful skin", "ageless skin", "wrinkle-free skin",
+    // Lip sync trigger (specifically "lip sync" or "lip-sync" because it truncates to "Lip.")
+    "lip sync", "lip-sync", "lipsync",
     // Text-trigger words — these cause AI to render text/fonts in frames
     "poster style", "thumbnail", "title card", "signage", "banner ad",
     "infographic", "presentation slide", "YouTube style",
@@ -4826,6 +4841,8 @@ const POLICY_UNSAFE_WORDS = [
     "idol", "superstar", "mega star", "ดารา", "คนดัง", "เซเลบ",
     "นักร้องชื่อดัง", "ดาราชื่อดัง", "นางเอก", "พระเอก",
     "influencer ชื่อดัง", "ไอดอล",
+    // Thai safety triggers
+    "โป๊", "เปลือย", "ร่องอก", "หน้าอก", "ชุดว่ายน้ำ", "บิกินี่", "ชุดชั้นใน", "วาบหวิว", "ยั่วยวน",
 ];
 
 /** Sanitize a product name for Veo visual prompts — replaces known brand/trademark
@@ -4875,7 +4892,9 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
     }
     for (const word of POLICY_UNSAFE_WORDS) {
         const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const re = new RegExp(`\\b${escaped}\\b`, 'gi');
+        // Thai words don't work with \b (word boundary) because Thai characters are non-word characters in JS regex
+        const isThai = /[ก-๙]/.test(word);
+        const re = isThai ? new RegExp(escaped, 'gi') : new RegExp(`\\b${escaped}\\b`, 'gi');
         result = result.replace(re, '');
     }
     // ★ Strip "looks like [Name]", "resembles [Name]", "similar to [Name]" patterns
@@ -7281,11 +7300,11 @@ interface CharacterStyleProfile {
 const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     korean_female: {
         appearances: [
-            "stunningly beautiful Korean woman, glass skin, soft natural K-Beauty makeup, bright youthful complexion",
-            "gorgeous Korean woman, dewy radiant skin, subtle gradient lip tint, flawless luminous complexion",
-            "elegant Korean woman, porcelain skin, delicate natural makeup with soft blush, refined features",
-            "beautiful Korean woman, glowing glass skin, minimal makeup enhancing natural beauty, warm gentle gaze",
-            "attractive Korean woman, smooth dewy skin, soft peach-tone makeup, bright expressive eyes",
+            "stunningly beautiful Korean woman, glass-like complexion, soft natural K-Beauty makeup, bright youthful appearance",
+            "gorgeous Korean woman, dewy radiant appearance, subtle gradient lip tint, flawless luminous look",
+            "elegant Korean woman, porcelain complexion, delicate natural makeup with soft blush, refined features",
+            "beautiful Korean woman, glowing glass-like complexion, minimal makeup enhancing natural beauty, warm gentle gaze",
+            "attractive Korean woman, smooth dewy appearance, soft peach-tone makeup, bright expressive eyes",
         ],
         hairstyles: [
             "long wavy dark brown hair with soft layers",
@@ -7319,9 +7338,9 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     korean_male: {
         appearances: [
-            "handsome Korean man, clear smooth skin, sharp jawline, well-groomed appearance",
-            "attractive Korean man, clean-cut features, bright complexion, confident gaze",
-            "good-looking Korean man, defined features, healthy glowing skin, charismatic presence",
+            "handsome Korean man, clear smooth appearance, sharp jawline, well-groomed appearance",
+            "attractive Korean man, clean-cut features, bright appearance, confident gaze",
+            "good-looking Korean man, defined features, healthy glowing appearance, charismatic presence",
             "stylish Korean man, sharp bone structure, minimal grooming, refined look",
         ],
         hairstyles: [
@@ -7351,11 +7370,11 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     thai_female: {
         appearances: [
-            "gorgeous Thai woman, warm golden-tan skin, striking features, radiant natural beauty",
-            "beautiful Thai woman, honey-toned skin, elegant bone structure, captivating dark eyes",
-            "stunning Thai woman, smooth tan complexion, refined features, warm inviting smile",
-            "attractive Thai woman, sun-kissed glowing skin, defined cheekbones, natural elegance",
-            "lovely Thai woman, warm bronze skin tone, graceful features, bright expressive eyes",
+            "gorgeous Thai woman, warm golden-tan appearance, striking features, radiant natural beauty",
+            "beautiful Thai woman, honey-toned appearance, elegant bone structure, captivating dark eyes",
+            "stunning Thai woman, smooth tan appearance, refined features, warm inviting smile",
+            "attractive Thai woman, sun-kissed glowing appearance, defined cheekbones, natural elegance",
+            "lovely Thai woman, warm bronze appearance, graceful features, bright expressive eyes",
         ],
         hairstyles: [
             "long straight black hair, sleek and glossy",
@@ -7388,9 +7407,9 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     thai_male: {
         appearances: [
-            "handsome Thai man, warm tan skin, strong features, confident presence",
-            "attractive Thai man, golden-bronze complexion, defined jawline, charismatic look",
-            "good-looking Thai man, healthy tan skin, sharp features, warm smile",
+            "handsome Thai man, warm tan appearance, strong features, confident presence",
+            "attractive Thai man, golden-bronze appearance, defined jawline, charismatic look",
+            "good-looking Thai man, healthy tan appearance, sharp features, warm smile",
         ],
         hairstyles: [
             "neat dark hair, styled with clean lines",
@@ -7415,11 +7434,11 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     japanese_female: {
         appearances: [
-            "beautiful Japanese woman, fair porcelain skin, delicate refined features, pure natural look",
-            "elegant Japanese woman, flawless pale skin, soft natural makeup, serene beauty",
-            "lovely Japanese woman, luminous fair complexion, understated makeup, graceful presence",
-            "stunning Japanese woman, smooth light skin, minimal elegant makeup, quiet sophistication",
-            "attractive Japanese woman, clear bright complexion, natural beauty, gentle expression",
+            "beautiful Japanese woman, fair porcelain appearance, delicate refined features, pure natural look",
+            "elegant Japanese woman, flawless pale appearance, soft natural makeup, serene beauty",
+            "lovely Japanese woman, luminous fair appearance, understated makeup, graceful presence",
+            "stunning Japanese woman, smooth light appearance, minimal elegant makeup, quiet sophistication",
+            "attractive Japanese woman, clear bright appearance, natural beauty, gentle expression",
         ],
         hairstyles: [
             "short bob hairstyle, sleek and modern",
@@ -7452,9 +7471,9 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     japanese_male: {
         appearances: [
-            "handsome Japanese man, clear fair skin, refined features, calm confidence",
-            "attractive Japanese man, clean complexion, sharp understated features, composed presence",
-            "good-looking Japanese man, smooth light skin, defined jawline, sophisticated look",
+            "handsome Japanese man, clear fair appearance, refined features, calm confidence",
+            "attractive Japanese man, clean appearance, sharp understated features, composed presence",
+            "good-looking Japanese man, smooth light appearance, defined jawline, sophisticated look",
         ],
         hairstyles: [
             "textured dark hair, modern Japanese style",
@@ -7479,9 +7498,9 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     chinese_female: {
         appearances: [
-            "beautiful Chinese woman, luminous fair skin, elegant refined features, sophisticated beauty",
-            "gorgeous Chinese woman, smooth porcelain complexion, delicate makeup, regal presence",
-            "stunning Chinese woman, flawless bright skin, graceful bone structure, captivating eyes",
+            "beautiful Chinese woman, luminous fair appearance, elegant refined features, sophisticated beauty",
+            "gorgeous Chinese woman, smooth porcelain appearance, delicate makeup, regal presence",
+            "stunning Chinese woman, flawless bright appearance, graceful bone structure, captivating eyes",
         ],
         hairstyles: [
             "long flowing black hair, silky and lustrous",
@@ -7506,9 +7525,9 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     western_female: {
         appearances: [
-            "beautiful Western woman, radiant healthy skin, striking features, confident natural beauty",
-            "gorgeous Caucasian woman, bright complexion, defined features, warm engaging presence",
-            "stunning European woman, clear glowing skin, elegant bone structure, photogenic beauty",
+            "beautiful Western woman, radiant healthy appearance, striking features, confident natural beauty",
+            "gorgeous Caucasian woman, bright appearance, defined features, warm engaging presence",
+            "stunning European woman, clear glowing appearance, elegant bone structure, photogenic beauty",
         ],
         hairstyles: [
             "flowing blonde hair with soft waves",
@@ -7534,10 +7553,10 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     generic_female: {
         appearances: [
-            "beautiful woman, clear radiant skin, attractive features, warm natural beauty",
-            "gorgeous woman, healthy glowing complexion, elegant bone structure, captivating presence",
-            "stunning woman, smooth flawless skin, refined features, photogenic beauty",
-            "attractive woman, luminous complexion, graceful features, confident warm gaze",
+            "beautiful woman, clear radiant appearance, attractive features, warm natural beauty",
+            "gorgeous woman, healthy glowing appearance, elegant bone structure, captivating presence",
+            "stunning woman, smooth flawless appearance, refined features, photogenic beauty",
+            "attractive woman, luminous appearance, graceful features, confident warm gaze",
         ],
         hairstyles: [
             "long flowing dark hair with soft layers",
@@ -7563,9 +7582,9 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
     },
     generic_male: {
         appearances: [
-            "handsome man, healthy clear skin, strong features, confident presence",
+            "handsome man, healthy clear appearance, strong features, confident presence",
             "attractive man, well-groomed appearance, defined jawline, charismatic look",
-            "good-looking man, clean complexion, sharp features, warm confident gaze",
+            "good-looking man, clean appearance, sharp features, warm confident gaze",
         ],
         hairstyles: [
             "styled dark hair, modern clean cut",
@@ -7662,7 +7681,11 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
 
     // ── Build randomized character prompt ──
     const appearance = pickRandom(profile.appearances);
-    const hair = pickRandom(profile.hairstyles);
+    
+    // If user explicitly describes hair, skip random hairstyle
+    const descHasHair = descriptionHasExplicitHair(desc);
+    const hair = descHasHair ? '' : pickRandom(profile.hairstyles);
+    
     // If user explicitly describes clothing in text, prioritize that over dropdown/profile
     const descHasClothing = descriptionHasExplicitClothing(desc);
     const outfit = descHasClothing
@@ -7688,8 +7711,9 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
     const extraDesc = desc.replace(knownKeywords, '').replace(/\s+/g, ' ').trim();
     const extraStr = extraDesc ? ` Additional details: ${extraDesc}.` : '';
 
+    const hairPart = hair ? `, ${hair}` : '';
     const outfitPart = outfit ? `, ${outfit}` : '';
-    return `${ageDesc}, ${appearance}${traitStr}, ${hair}${outfitPart}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
+    return `${ageDesc}, ${appearance}${traitStr}${hairPart}${outfitPart}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
 };
 
 /**
@@ -7758,8 +7782,8 @@ const buildImagePrompt = (
     const isFitnessCategory = ATHLETIC_CATEGORIES.has(category);
     const fitnessBodyDesc = isFitnessCategory
         ? (config.gender === 'male'
-            ? 'muscular athletic build, broad shoulders, toned arms and chest, confident gym-ready posture, wearing fitted gym tank top and athletic shorts'
-            : 'athletic toned fit body, slim waist, toned arms and shoulders, confident gym-ready posture, wearing fitted athletic sports bra and leggings')
+            ? 'athletic build, broad shoulders, confident gym-ready posture, wearing fitted gym tank top and athletic shorts'
+            : 'athletic fit build, confident gym-ready posture, wearing athletic top and leggings')
         : '';
     // ── AI-analyzed appearance details from character image (if available) ──
     const aiCharDetails = characterAnalysis
@@ -7774,12 +7798,12 @@ const buildImagePrompt = (
     // Age descriptor for image prompt — ensures generated face matches selected age
     // SAFETY: Do NOT use specific minor ages (e.g. "6-12") — triggers Veo safety filters for minors in commercial content.
     const IMAGE_AGE_DESC: Record<string, string> = {
-        "child": "young child with round youthful face, childlike proportions, smooth young skin, small body frame",
+        "child": "young child with round youthful face, childlike proportions, clear youthful complexion, small frame",
         "teen": "teenager with youthful face, slim adolescent build, clear youthful complexion, fresh young appearance",
         "young-adult": "young adult with fresh face, fit build, youthful energy",
         "adult": "adult with mature face, adult proportions, confident presence",
         "middle-age": "middle-aged person with some aging features, experienced mature look",
-        "senior": "elderly person with wrinkled aged skin, gray or white hair, elderly proportions, wisdom lines on face"
+        "senior": "elderly person with gray hair and wisdom lines on face"
     };
     const imageAgeDesc = config.ageRange ? (IMAGE_AGE_DESC[config.ageRange] || '') : '';
 
@@ -7805,6 +7829,25 @@ const buildImagePrompt = (
     const imageGripPhysics = buildContactPhysicsDirective(category);
     const imageUsageRealism = PRODUCT_USAGE_REALISM[category] || '';
 
+    let referenceSection = "";
+    if (hasCharImage && hasProductImage) {
+        referenceSection = `Reference Images:
+- Image 1: CHARACTER FACE REFERENCE (HIGHEST PRIORITY FOR FACE) — reproduce this person's EXACT facial features, bone structure, complexion, hairstyle, and overall appearance with maximum fidelity. The output character's face must look like the SAME PERSON as Image 1. Match every facial detail: eye shape, nose shape, jawline, lip shape, eyebrow arch, forehead, cheekbones, chin, complexion texture. This is the absolute authority for the character's face.
+- Image 2: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.
+- If text conflicts with images, images win. Product structure from Image 2 is the absolute visual authority for product design.`;
+    } else if (hasCharImage) {
+        referenceSection = `Reference Images:
+- Image 1: CHARACTER FACE REFERENCE (HIGHEST PRIORITY FOR FACE) — reproduce this person's EXACT facial features, bone structure, complexion, hairstyle, and overall appearance with maximum fidelity. The output character's face must look like the SAME PERSON as Image 1. Match every facial detail: eye shape, nose shape, jawline, lip shape, eyebrow arch, forehead, cheekbones, chin, complexion texture. This is the absolute authority for the character's face.
+- If text conflicts with images, images win. Character face from Image 1 is the absolute visual authority.`;
+    } else if (hasProductImage) {
+        referenceSection = `Reference Images:
+- Image 1: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.
+- If text conflicts with images, images win. Product structure from Image 1 is the absolute visual authority for product design.
+${charDescPrompt ? `\nCHARACTER NOTE: No character reference image provided. Generate character based on the [CHARACTER] description above. The character MUST face the camera directly (front-facing portrait).` : ''}`;
+    } else {
+        referenceSection = charDescPrompt ? `CHARACTER NOTE: No character reference image provided. Generate character based on the [CHARACTER] description above. The character MUST face the camera directly (front-facing portrait).` : '';
+    }
+
     let prompt = `Professional ${templateConfig.englishName} photograph.
 
 [PRODUCT] ${imageSafeProductName}: ${productDesc}. ${productAnatomy} PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette, material texture and finish — all from reference image. Render with extreme surface detail: visible material grain, realistic light response (specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass/transparent elements, light dispersion on faceted surfaces). Reproduce all text, logos, and branding on the product label exactly as shown in the reference image — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality.
@@ -7824,12 +7867,7 @@ ${FACE_IDENTITY_LOCK}
 ${ANTI_ADDITION_DIRECTIVE}
 ${CLOTHING_FIDELITY_DIRECTIVE}
 
-Reference Images:
-${hasCharImage ? `- Image 1: CHARACTER FACE REFERENCE (HIGHEST PRIORITY FOR FACE) — reproduce this person's EXACT facial features, bone structure, skin tone, hairstyle, and overall appearance with maximum fidelity. The output character's face must look like the SAME PERSON as Image 1. Match every facial detail: eye shape, nose shape, jawline, lip shape, eyebrow arch, forehead, cheekbones, chin, skin texture. This is the absolute authority for the character's face.
-${hasProductImage ? `- Image 2: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.` : ''}
-- If text conflicts with images, images win. Product structure from Image 2 is the absolute visual authority for product design.` : `${hasProductImage ? `- Image 1: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.
-- If text conflicts with images, images win. Product structure from Image 1 is the absolute visual authority for product design.` : ''}${charDescPrompt ? `
-CHARACTER NOTE: No character reference image provided. Generate character based on the [CHARACTER] description above. The character MUST face the camera directly (front-facing portrait).` : ''}`}
+${referenceSection}
 
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
@@ -8024,8 +8062,8 @@ const buildVideoPrompt = (
     // Age-appropriate visual label for character anchor
     // SAFETY: Do NOT use specific minor ages (e.g. "6-12") — triggers Veo safety filters for minors in commercial content.
     const AGE_ANCHOR_LABEL: Record<string, string> = {
-        "child": "young child — small body, round youthful face, childlike proportions, smooth young skin, NO wrinkles, NO mature features",
-        "teen": "teenager — youthful face, slim build, adolescent proportions, smooth young skin, NO wrinkles",
+        "child": "young child — small frame, round youthful face, childlike proportions, clear youthful complexion, NO wrinkles, NO mature features",
+        "teen": "teenager — youthful face, slim build, adolescent proportions, clear youthful complexion, NO wrinkles",
         "young-adult": "young adult — fresh face, fit build, youthful energy",
         "adult": "adult — mature face, adult proportions, confident presence",
         "middle-age": "middle-aged person — some aging features, mature build, experienced look",
