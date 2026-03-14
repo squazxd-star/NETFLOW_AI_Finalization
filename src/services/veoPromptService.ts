@@ -7071,6 +7071,20 @@ function getPersonaFromCharacterAnalysis(
     const pool = VOICE_PERSONA_DB[genderKey];
     const targetAge = characterAnalysis.estimatedAge;
 
+    // Map ageRange string → representative numeric age for comparison
+    const AGE_RANGE_MIDPOINT: Record<string, number> = {
+        "child": 9, "teen": 16, "young-adult": 25,
+        "adult": 35, "middle-age": 52, "senior": 68
+    };
+
+    // Map estimated age → best ageRange bucket
+    const estimatedAgeRange = targetAge <= 12 ? "child"
+        : targetAge <= 20 ? "teen"
+        : targetAge <= 30 ? "young-adult"
+        : targetAge <= 45 ? "adult"
+        : targetAge <= 60 ? "middle-age"
+        : "senior";
+
     // Filter by tone first
     const tonePool = pool.filter(p => p.voiceTone === voiceTone);
     if (tonePool.length === 0) {
@@ -7078,15 +7092,21 @@ function getPersonaFromCharacterAnalysis(
         return pool[Math.floor(Math.random() * pool.length)];
     }
 
-    // Sort by closest age match
+    // Priority 1: exact ageRange match + same tone
+    const exactAgeMatch = tonePool.filter(p => p.ageRange === estimatedAgeRange);
+    if (exactAgeMatch.length > 0) {
+        return exactAgeMatch[Math.floor(Math.random() * exactAgeMatch.length)];
+    }
+
+    // Priority 2: sort by closest numeric age midpoint
     const sorted = [...tonePool].sort((a, b) => {
-        const diffA = Math.abs(parseInt(a.age) - targetAge);
-        const diffB = Math.abs(parseInt(b.age) - targetAge);
-        return diffA - diffB;
+        const midA = AGE_RANGE_MIDPOINT[a.ageRange] ?? 35;
+        const midB = AGE_RANGE_MIDPOINT[b.ageRange] ?? 35;
+        return Math.abs(midA - targetAge) - Math.abs(midB - targetAge);
     });
 
-    // Pick from top 2 closest (small randomization to avoid always same pick)
-    const topN = sorted.slice(0, Math.min(2, sorted.length));
+    // Pick from top 3 closest (small randomization for diversity)
+    const topN = sorted.slice(0, Math.min(3, sorted.length));
     return topN[Math.floor(Math.random() * topN.length)];
 }
 
@@ -8069,10 +8089,10 @@ export const buildSceneVideoPromptJSON = (
         ? `${meta.template} commercial. Character speaks directly to camera in a confident, engaging manner. Product is NOT visible — character builds anticipation through storytelling and natural body language.`
         : `${meta.template} commercial. ${meta.productAnchor}`;
 
-    // ── ACTION block (includes hand anatomy for non-talk scenes) ──
+    // ── ACTION block (includes hand anatomy + usage realism for non-talk scenes) ──
     const actionBlock = isTalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `Anatomically correct hands, five fingers each. Character holds and presents ${productName}. ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
+        : `Anatomically correct hands, five fingers each. Character holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
 
     // ── PRESENTATION block — use PAIRED action from meta (matches script content) ──
     // Priority: meta.sceneActions[sceneNumber-1] > sceneVideoAction > getScenePresentationDirective
