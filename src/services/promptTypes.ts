@@ -40,7 +40,7 @@ export interface EnginePromptBuilder {
      * วิเคราะห์รูปสินค้า (Vision API)
      * Return: คำอธิบายสินค้าจากรูป
      */
-    analyzeProductImage(imageBase64: string, productName: string): Promise<string>;
+    analyzeProductImage(imageBase64: string, productName: string, clothingStyles?: string[], characterOutfit?: string, customOutfitPrompt?: string, cameraAngles?: string[]): Promise<string>;
 
     /**
      * สร้าง prompt สำหรับฉากที่ 2+ (ต่อฉาก)

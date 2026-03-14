@@ -640,7 +640,7 @@ function robustHover(el: HTMLElement) {
  */
 function findCardsByIcon(iconText: string): HTMLElement[] {
     const results: HTMLElement[] = [];
-    const icons = document.querySelectorAll<HTMLElement>("i");
+    const icons = document.querySelectorAll<HTMLElement>("i, span[class*='icon'], span[class*='material'], span[class*='google-symbols'], [data-icon]");
     for (const icon of icons) {
         const txt = (icon.textContent || "").trim();
         if (txt !== iconText) continue;
@@ -833,6 +833,56 @@ function base64ToFile(dataUrl: string, fileName: string): File {
     return new File([bytes], fileName, { type: mime });
 }
 
+/**
+ * Compress/resize a base64 image if it's too large — critical for 8GB RAM macOS.
+ * Reduces memory by converting to max 1024px JPEG 0.8 quality.
+ * Returns the original dataUrl if already small or compression fails.
+ */
+async function compressImageForUpload(dataUrl: string, maxDim = 1024, quality = 0.8): Promise<string> {
+    try {
+        // Quick size check — if base64 string is < 500KB, skip compression
+        if (dataUrl.length < 500_000) {
+            LOG(`🗜️ รูปเล็กพอ (${(dataUrl.length / 1024).toFixed(0)} KB base64) — ไม่บีบอัด`);
+            return dataUrl;
+        }
+        LOG(`🗜️ รูปใหญ่ (${(dataUrl.length / 1024).toFixed(0)} KB base64) — กำลังบีบอัด...`);
+
+        const img = new Image();
+        const loaded = new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error("Image load failed"));
+            img.src = dataUrl;
+        });
+        await loaded;
+
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+            const scale = maxDim / Math.max(width, height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return dataUrl;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        LOG(`🗜️ บีบอัดแล้ว: ${(dataUrl.length / 1024).toFixed(0)} KB → ${(compressed.length / 1024).toFixed(0)} KB (${width}x${height})`);
+
+        // Free memory immediately
+        canvas.width = 0;
+        canvas.height = 0;
+
+        return compressed;
+    } catch (e: any) {
+        WARN(`🗜️ บีบอัดล้มเหลว: ${e.message} — ใช้รูปต้นฉบับ`);
+        return dataUrl;
+    }
+}
+
 /** Inject a File into a file input using DataTransfer */
 function setFileInput(input: HTMLInputElement, file: File) {
     const dt = new DataTransfer();
@@ -842,16 +892,41 @@ function setFileInput(input: HTMLInputElement, file: File) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-/** Find all buttons with a specific Material icon text */
+/** Find all buttons with a specific Material icon text — broadened for Tahoe 26.2+ */
 function findAllButtonsByIcon(iconText: string): HTMLElement[] {
     const results: HTMLElement[] = [];
-    const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons");
-    for (const icon of icons) {
-        if (icon.textContent?.trim() === iconText) {
-            const btn = icon.closest("button") as HTMLElement | null;
-            if (btn) results.push(btn);
+    const seen = new WeakSet<HTMLElement>();
+
+    // Strategy 1: <i> and <span> icon elements with known Google icon classes
+    const iconSelectors = [
+        "i.google-symbols", "i[class*='google-symbols']",
+        ".material-symbols-outlined", ".material-icons",
+        ".material-symbols-rounded", ".material-symbols-sharp",
+        "i[class*='material']", "span[class*='material']",
+        "i[class*='icon']", "span[class*='icon']",
+        "[data-icon]", "[class*='gm-icon']", "[class*='gmat-icon']",
+        "i", // generic <i> tags (last resort)
+    ];
+    for (const sel of iconSelectors) {
+        for (const icon of document.querySelectorAll(sel)) {
+            if (icon.textContent?.trim() === iconText) {
+                const btn = icon.closest("button") as HTMLElement | null;
+                if (btn && !seen.has(btn)) { seen.add(btn); results.push(btn); }
+            }
+        }
+        if (results.length > 0) break; // stop at first matching selector to avoid duplicates
+    }
+
+    // Strategy 2: buttons with aria-label matching the icon text
+    if (results.length === 0) {
+        for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+            const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+            if (aria === iconText.toLowerCase() || aria.includes(iconText.toLowerCase())) {
+                if (!seen.has(btn)) { seen.add(btn); results.push(btn); }
+            }
         }
     }
+
     return results;
 }
 
@@ -870,41 +945,113 @@ async function waitForFileInput(timeoutMs = 5000): Promise<HTMLInputElement | nu
 
 /**
  * Find the "+" button in the prompt bar (bottom-most add button on page).
+ * Broadened for Tahoe 26.2+ — multiple fallback strategies.
  */
 function findPromptBarAddButton(): HTMLElement | null {
-    const addButtons = [...findAllButtonsByIcon("add"), ...findAllButtonsByIcon("add_2")];
+    // Strategy A: icon-based search (original + expanded icon names)
+    const iconNames = ["add", "add_2", "add_circle", "add_circle_outline", "attach_file", "attach_file_add", "attachment", "note_add"];
+    let addButtons: HTMLElement[] = [];
+    for (const icon of iconNames) {
+        addButtons = findAllButtonsByIcon(icon);
+        if (addButtons.length > 0) break;
+    }
 
-    if (addButtons.length === 0) {
-        LOG("ไม่พบปุ่มเพิ่มจากไอคอน — ลองค้นหาจากข้อความ");
-        // Fallback: look for buttons with just "+" text at the bottom
-        const allBtns = document.querySelectorAll<HTMLElement>("button");
-        for (const btn of allBtns) {
-            const txt = (btn.textContent || "").trim();
-            if (txt !== "+" && txt !== "add") continue;
-            if (_hidden()) return btn;
+    if (addButtons.length > 0) {
+        // Pick the one closest to the bottom of the viewport
+        let bestBtn: HTMLElement | null = null;
+        let bestY = 0;
+        for (const btn of addButtons) {
             const rect = btn.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight * 0.7 && rect.width < 60 && rect.height < 60) {
+            if (rect.y > bestY) { bestY = rect.y; bestBtn = btn; }
+        }
+        if (bestBtn) {
+            LOG(`พบปุ่ม "+" ของ Prompt Bar (icon) ที่ y=${bestY.toFixed(0)}`);
+            return bestBtn;
+        }
+    }
+
+    LOG("ไม่พบปุ่มเพิ่มจากไอคอน — ลอง fallback ทั้งหมด");
+
+    // Strategy B: buttons with aria-label containing add/attach/upload/create
+    const ariaKeywords = ["add", "attach", "upload", "create", "insert", "plus", "เพิ่ม", "แนบ", "อัปโหลด", "สร้าง"];
+    for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+        const title = (btn.getAttribute("title") || "").toLowerCase();
+        if (ariaKeywords.some(kw => aria.includes(kw) || title.includes(kw))) {
+            if (_hidden()) { LOG(`พบปุ่ม "+" (aria/title) hidden mode`); return btn; }
+            const rect = btn.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight * 0.6 && rect.width < 80 && rect.height < 80) {
+                LOG(`พบปุ่ม "+" (aria="${aria}" title="${title}") ที่ y=${rect.y.toFixed(0)}`);
                 return btn;
             }
         }
-        return null;
     }
 
-    // Pick the one closest to the bottom of the viewport
-    let bestBtn: HTMLElement | null = null;
-    let bestY = 0;
-    for (const btn of addButtons) {
+    // Strategy C: small buttons with "+" text at the bottom of viewport
+    const allBtns = document.querySelectorAll<HTMLElement>("button");
+    for (const btn of allBtns) {
+        const txt = (btn.textContent || "").trim();
+        if (txt !== "+" && txt !== "add" && txt !== "Add") continue;
+        if (_hidden()) return btn;
         const rect = btn.getBoundingClientRect();
-        if (rect.y > bestY) {
-            bestY = rect.y;
-            bestBtn = btn;
+        if (rect.bottom > window.innerHeight * 0.6 && rect.width < 80 && rect.height < 80) {
+            LOG(`พบปุ่ม "+" (text="${txt}") ที่ y=${rect.y.toFixed(0)}`);
+            return btn;
         }
     }
 
-    if (bestBtn) {
-        LOG(`พบปุ่ม "+" ของ Prompt Bar ที่ y=${bestY.toFixed(0)}`);
+    // Strategy D: find button nearest to the Slate editor / prompt bar area
+    const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
+    if (promptArea) {
+        const pRect = promptArea.getBoundingClientRect();
+        let nearestBtn: HTMLElement | null = null;
+        let nearestDist = Infinity;
+        for (const btn of allBtns) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.width < 10 || rect.height < 10 || rect.width > 100 || rect.height > 100) continue;
+            // Button should be roughly same Y level or slightly above/below the prompt area
+            if (Math.abs(rect.top - pRect.top) > 80) continue;
+            // Prefer button to the left of the prompt area (where "+" typically sits)
+            const dist = Math.abs(rect.left - pRect.left) + Math.abs(rect.top - pRect.top);
+            if (dist < nearestDist) { nearestDist = dist; nearestBtn = btn; }
+        }
+        if (nearestBtn) {
+            LOG(`พบปุ่ม "+" (ใกล้ prompt bar, dist=${nearestDist.toFixed(0)})`);
+            return nearestBtn;
+        }
     }
-    return bestBtn;
+
+    // Strategy E: SVG-based plus icon buttons at the bottom
+    for (const btn of allBtns) {
+        const svg = btn.querySelector("svg");
+        if (!svg) continue;
+        const paths = svg.querySelectorAll("path, line, polygon");
+        // Check if the SVG looks like a "+" (has path data with plus shape characteristics)
+        const pathData = Array.from(paths).map(p => p.getAttribute("d") || "").join(" ");
+        if (pathData.includes("M12") || pathData.includes("M11") || pathData.includes("M10")) {
+            if (_hidden()) return btn;
+            const rect = btn.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight * 0.6 && rect.width < 80 && rect.height < 80) {
+                LOG(`พบปุ่ม "+" (SVG) ที่ y=${rect.y.toFixed(0)}`);
+                return btn;
+            }
+        }
+    }
+
+    // Diagnostic: log what buttons ARE at the bottom of the page
+    const bottomBtns: string[] = [];
+    for (const btn of allBtns) {
+        const rect = btn.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 0) {
+            const txt = (btn.textContent || "").trim().substring(0, 30);
+            const aria = btn.getAttribute("aria-label") || "";
+            const cls = (btn.className || "").substring(0, 40);
+            const icon = btn.querySelector("i, span[class*='icon'], svg") ? "has-icon" : "no-icon";
+            bottomBtns.push(`"${txt}" aria="${aria}" cls="${cls}" ${icon} y=${rect.y.toFixed(0)}`);
+        }
+    }
+    WARN(`ไม่พบปุ่ม "+" — ปุ่มที่พบบริเวณล่าง (${bottomBtns.length}): ${bottomBtns.slice(0, 5).join(" | ")}`);
+    return null;
 }
 
 /**
@@ -1228,34 +1375,103 @@ function countPromptBarThumbnails(): number {
 
 /**
  * Find the "Upload image" button inside a Radix dialog opened by the "+" button.
- * Searches by icon text "upload" and span text "Upload image".
+ * Broadened for Tahoe 26.2+ — multiple search strategies.
  */
 async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): Promise<HTMLElement | null> {
     const pollStart = Date.now();
+    const uploadKeywords = ["upload", "upload_file", "upload_2", "cloud_upload", "file_upload", "image"];
+    const uploadTexts = ["upload image", "อัปโหลดรูปภาพ", "upload", "อัปโหลด", "upload file", "add image", "เพิ่มรูป", "เพิ่มรูปภาพ"];
+
     while (Date.now() - pollStart < timeoutMs) {
-        // Search in Radix dialog via aria-controls
-        const dialogId = addBtn.getAttribute("aria-controls");
+        // Collect all possible containers (Radix dialog, popover, menu, portal)
         const containers: Element[] = [];
+
+        // Via aria-controls
+        const dialogId = addBtn.getAttribute("aria-controls");
         if (dialogId) {
             const el = document.getElementById(dialogId);
             if (el) containers.push(el);
         }
-        for (const portal of document.querySelectorAll('[data-radix-portal]')) containers.push(portal);
-        for (const dlg of document.querySelectorAll('[role="dialog"]')) containers.push(dlg);
+        // Via aria-owns
+        const ownsId = addBtn.getAttribute("aria-owns");
+        if (ownsId) {
+            const el = document.getElementById(ownsId);
+            if (el) containers.push(el);
+        }
 
+        // Radix portals, dialogs, popovers, menus, dropdowns
+        for (const sel of [
+            '[data-radix-portal]', '[data-radix-popper-content-wrapper]',
+            '[role="dialog"]', '[role="menu"]', '[role="listbox"]',
+            '[data-radix-menu-content]', '[data-radix-dropdown-menu-content]',
+            '[data-radix-popover-content]', '[class*="popover"]', '[class*="dropdown"]',
+            '[class*="menu-content"]', '[class*="dialog"]',
+        ]) {
+            for (const el of document.querySelectorAll(sel)) containers.push(el);
+        }
+
+        // Search each container for upload button
         for (const container of containers) {
-            for (const btn of container.querySelectorAll<HTMLElement>("button")) {
+            // Search buttons AND clickable divs/li items
+            for (const btn of container.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], li, div[tabindex], a")) {
                 if (btn === addBtn) continue;
-                const iconText = btn.querySelector("i")?.textContent?.trim() || "";
-                const spans = Array.from(btn.querySelectorAll("span")).map(s => s.textContent?.trim().toLowerCase() || "");
-                if (iconText === "upload" || iconText === "upload_file" ||
-                    spans.some(s => s === "upload image" || s === "อัปโหลดรูปภาพ" || s === "upload")) {
+
+                // Check icon text (i, span with icon class)
+                const iconEl = btn.querySelector("i, span[class*='icon'], span[class*='material']");
+                const iconText = iconEl?.textContent?.trim().toLowerCase() || "";
+                if (uploadKeywords.includes(iconText)) {
+                    LOG(`พบปุ่ม Upload (icon="${iconText}")`);
+                    return btn;
+                }
+
+                // Check all text content (spans, direct text)
+                const allText = (btn.textContent || "").trim().toLowerCase();
+                const spans = Array.from(btn.querySelectorAll("span, div, p")).map(s => s.textContent?.trim().toLowerCase() || "");
+                if (uploadTexts.some(t => allText === t || spans.some(s => s === t))) {
+                    LOG(`พบปุ่ม Upload (text="${allText.substring(0, 40)}")`);
+                    return btn;
+                }
+
+                // Check aria-label
+                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                if (uploadTexts.some(t => aria.includes(t))) {
+                    LOG(`พบปุ่ม Upload (aria="${aria}")`);
                     return btn;
                 }
             }
         }
+
+        // Fallback: search globally (not just in containers) — Tahoe may not use Radix portals
+        if (Date.now() - pollStart > timeoutMs / 2) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button, [role='menuitem']")) {
+                if (btn === addBtn) continue;
+                const allText = (btn.textContent || "").trim().toLowerCase();
+                const rect = btn.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) continue;
+                if (uploadTexts.some(t => allText === t || allText.includes(t)) && allText.length < 50) {
+                    LOG(`พบปุ่ม Upload (global search, text="${allText.substring(0, 40)}")`);
+                    return btn;
+                }
+            }
+        }
+
         await sleep(500);
     }
+
+    // Diagnostic: log what's in containers
+    const diag: string[] = [];
+    for (const sel of ['[data-radix-portal]', '[role="dialog"]', '[role="menu"]']) {
+        const els = document.querySelectorAll(sel);
+        if (els.length > 0) {
+            for (const el of els) {
+                const btns = el.querySelectorAll("button, [role='menuitem']");
+                for (const b of btns) {
+                    diag.push(`[${sel}] "${(b.textContent || "").trim().substring(0, 30)}"`);
+                }
+            }
+        }
+    }
+    WARN(`ไม่พบปุ่ม Upload — พบ elements ใน dialogs: ${diag.slice(0, 8).join(" | ") || "(ว่าง)"}`);
     return null;
 }
 
@@ -1268,11 +1484,16 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── กำลังอัพโหลด ${fileName} ไปยัง Prompt Bar ──`);
 
-    const file = base64ToFile(dataUrl, fileName);
+    // ★ Compress image before conversion — critical for 8GB RAM macOS
+    const compressedDataUrl = await compressImageForUpload(dataUrl);
+    const file = base64ToFile(compressedDataUrl, fileName);
     LOG(`ขนาดไฟล์: ${(file.size / 1024).toFixed(1)} KB`);
 
     const baselineCount = countPromptBarThumbnails();
     LOG(`รูปย่อปัจจุบันใน Prompt Bar: ${baselineCount} รูป`);
+
+    // ★ macOS timing multiplier — slower rendering under memory pressure (8GB RAM)
+    const T = isMac ? 1.8 : 1;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 1: Click "+" (Create) button in prompt bar — with retry
@@ -1282,8 +1503,8 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     
     // Retry: wait a bit and re-scan (first-image scenario may need the prompt bar to fully render)
     if (!addBtn) {
-        LOG("ไม่พบปุ่ม '+' — รอ 2 วินาทีแล้วลองใหม่...");
-        await sleep(2000);
+        LOG("ไม่พบปุ่ม '+' — รอแล้วลองใหม่...");
+        await sleep(3000 * T);
         addBtn = findPromptBarAddButton();
     }
     if (!addBtn) {
@@ -1292,27 +1513,36 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
         if (promptArea) {
             promptArea.click();
-            await sleep(1500);
+            await sleep(2000 * T);
             addBtn = findPromptBarAddButton();
         }
     }
     if (!addBtn) {
-        WARN("ไม่พบปุ่ม '+' บน Prompt Bar — ลอง drag-drop fallback");
+        WARN("ไม่พบปุ่ม '+' บน Prompt Bar — ลอง direct file input → drag-drop");
+        // Try direct file input injection before drag-drop
+        const directOk = await _directFileInputFallback(file, baselineCount);
+        if (directOk) return true;
         return await _dragDropFallback(file, baselineCount);
     }
 
-    addBtn.click();
+    // ★ Use robustClick instead of plain .click() — Tahoe 26.2+ may need pointer events
+    await robustClick(addBtn);
     LOG("คลิกปุ่ม '+' (Create) ✅");
-    await sleep(1500);
+    await sleep(1500 * T);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 2: Find and click "Upload image" button in the opened Radix dialog
     // ═══════════════════════════════════════════════════════════════════════════
     LOG("── ขั้น 2: หาและคลิกปุ่ม 'Upload image' ──");
-    const uploadBtn = await findUploadButtonInDialog(addBtn, 5000);
+    let uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 8000 : 5000);
+
     if (!uploadBtn) {
-        WARN("ไม่พบปุ่ม 'Upload image' ใน Dialog — ลอง pointer events บนปุ่ม '+'");
-        // Try pointer events on "+" if .click() didn't open the dialog
+        WARN("ไม่พบปุ่ม 'Upload image' ครั้ง 1 — ลอง robustClick + pointer events บนปุ่ม '+'");
+        // Close any partial dialog first
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
+
+        // Re-click with full pointer event chain
         const r = addBtn.getBoundingClientRect();
         const cx = r.left + r.width / 2;
         const cy = r.top + r.height / 2;
@@ -1323,17 +1553,30 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
         addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
         addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
         addBtn.dispatchEvent(new MouseEvent("click", opts));
-        await sleep(1500);
+        await sleep(2000 * T);
 
-        const retryUploadBtn = await findUploadButtonInDialog(addBtn, 3000);
-        if (!retryUploadBtn) {
-            WARN("❌ ไม่พบปุ่ม Upload image หลังลองทั้ง 2 วิธี — ลอง drag-drop");
-            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-            await sleep(500);
-            return await _dragDropFallback(file, baselineCount);
-        }
-        // Use the retry button
-        return await _clickUploadAndInject(retryUploadBtn, file, fileName, baselineCount);
+        uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 5000 : 3000);
+    }
+
+    if (!uploadBtn) {
+        WARN("ไม่พบปุ่ม 'Upload image' ครั้ง 2 — ลอง robustHover + robustClick อีกครั้ง");
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
+        robustHover(addBtn);
+        await sleep(300);
+        await robustClick(addBtn);
+        await sleep(2000 * T);
+        uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 5000 : 3000);
+    }
+
+    if (!uploadBtn) {
+        WARN("❌ ไม่พบปุ่ม Upload image หลังลองทั้ง 3 วิธี — ลอง direct file input → drag-drop");
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
+        // Try direct file input injection
+        const directOk = await _directFileInputFallback(file, baselineCount);
+        if (directOk) return true;
+        return await _dragDropFallback(file, baselineCount);
     }
 
     return await _clickUploadAndInject(uploadBtn, file, fileName, baselineCount);
@@ -1360,19 +1603,37 @@ async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileNam
 
     try {
         // Click the upload button — Google Flow will internally try to open file picker
+        // ★ Use both .click() and robustClick for Tahoe 26.2 compatibility
         uploadBtn.click();
         LOG("คลิกปุ่ม 'Upload image' ✅");
-        await sleep(800);
+        await sleep(isMac ? 1500 : 800);
     } finally {
         // Always restore click prototype
         HTMLInputElement.prototype.click = origClick;
     }
 
-    // Find the file input to inject into
-    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    // Find the file input to inject into — poll for up to 3 seconds (Tahoe 26.2 may create it lazily)
+    let fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
     if (!fileInput) {
-        WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct drag-drop");
-        // Fallback: drag-drop onto workspace
+        LOG("ไม่พบ file input ทันที — รอ...");
+        fileInput = await waitForFileInput(isMac ? 5000 : 3000);
+    }
+    if (!fileInput) {
+        // ★ Retry: click upload button with robustClick (pointer events)
+        LOG("ลอง robustClick บนปุ่ม Upload อีกครั้ง...");
+        const origClick2 = HTMLInputElement.prototype.click;
+        HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
+            if (this.type === "file") return;
+            return origClick2.call(this);
+        };
+        try { await robustClick(uploadBtn); await sleep(1500); } finally { HTMLInputElement.prototype.click = origClick2; }
+        fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!fileInput) fileInput = await waitForFileInput(3000);
+    }
+    if (!fileInput) {
+        WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct file input → drag-drop");
+        const directOk = await _directFileInputFallback(file, baselineCount);
+        if (directOk) return true;
         return await _dragDropFallback(file, baselineCount);
     }
 
@@ -1419,6 +1680,95 @@ async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileNam
     }
 
     WARN(`❌ อัพโหลด ${fileName} ล้มเหลว — ไม่พบรูปย่อใหม่หลัง 15 วินาที`);
+    return false;
+}
+
+/**
+ * Fallback: Try to find any file input on the page and inject file directly.
+ * This bypasses the entire UI button chain — useful when Tahoe updates break selectors.
+ */
+async function _directFileInputFallback(file: File, baselineCount: number): Promise<boolean> {
+    LOG("── Fallback: direct file input injection (ข้าม UI ปุ่มทั้งหมด) ──");
+
+    // Strategy 1: Check if there's already a file input on the page
+    let fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+
+    // Strategy 2: If no file input, try clicking various areas that might trigger one
+    if (!fileInput) {
+        LOG("ไม่พบ file input — ลองคลิก prompt area เพื่อ trigger...");
+        // Click prompt bar area
+        const promptArea = document.querySelector<HTMLElement>(
+            '[data-slate-editor="true"], [role="textbox"][contenteditable="true"], [contenteditable="true"]'
+        );
+        if (promptArea) {
+            await robustClick(promptArea);
+            await sleep(1000);
+        }
+
+        // Try clicking any button that might be "add" or "attach" nearby
+        const allBtns = document.querySelectorAll<HTMLElement>("button");
+        for (const btn of allBtns) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.width < 10 || rect.height < 10 || rect.width > 80 || rect.height > 80) continue;
+            if (rect.bottom < window.innerHeight * 0.5) continue; // skip top-half buttons
+
+            // Block file dialog before clicking
+            const origClick = HTMLInputElement.prototype.click;
+            HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
+                if (this.type === "file") { LOG("🚫 บล็อก file dialog (direct fallback)"); return; }
+                return origClick.call(this);
+            };
+            try {
+                btn.click();
+                await sleep(800);
+            } finally {
+                HTMLInputElement.prototype.click = origClick;
+            }
+
+            fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+            if (fileInput) {
+                LOG(`พบ file input หลังคลิกปุ่ม "${(btn.textContent || "").trim().substring(0, 20)}"`);
+                break;
+            }
+
+            // Close any dialog that opened
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+            await sleep(300);
+        }
+    }
+
+    if (!fileInput) {
+        LOG("ไม่พบ file input ใดๆ บนหน้า — fallback นี้ล้มเหลว");
+        return false;
+    }
+
+    LOG(`พบ file input: accept="${fileInput.accept || "*"}" name="${fileInput.name || ""}"`);
+
+    // Inject file via DataTransfer
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+
+    // Reset React _valueTracker
+    const tracker = (fileInput as any)._valueTracker;
+    if (tracker) { tracker.setValue(''); }
+
+    // Dispatch events
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    LOG("ฉีดไฟล์ผ่าน direct file input ✅");
+
+    // Verify thumbnail
+    const verifyStart = Date.now();
+    while (Date.now() - verifyStart < 15000) {
+        if (countPromptBarThumbnails() > baselineCount) {
+            LOG("✅ direct file input สำเร็จ — พบรูปย่อใหม่");
+            return true;
+        }
+        await sleep(1000);
+    }
+    WARN("❌ direct file input — ไม่พบรูปย่อใหม่หลัง 15 วินาที");
     return false;
 }
 
@@ -1513,8 +1863,8 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         }
         if (settingsBtn) { LOG(`พบปุ่มตั้งค่าจากข้อความ: "${(settingsBtn.textContent || "").substring(0, 40).trim()}"`); break; }
 
-        // Strategy 2: element with crop/aspect-ratio icon in bottom area
-        const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons");
+        // Strategy 2: element with crop/aspect-ratio icon in bottom area — broadened for Tahoe 26.2+
+        const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons, .material-symbols-rounded, span[class*='material'], span[class*='icon'], i");
         for (const icon of icons) {
             const it = icon.textContent?.trim() || "";
             if (it.includes("crop") || it === "aspect_ratio" || it === "photo_size_select_large") {
@@ -1936,14 +2286,19 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         break;
                     }
                 }
-                // Strategy 2: find icon add_2 inside a button
+                // Strategy 2: find icon add_2 inside a button — broadened for Tahoe 26.2+
                 if (!newProjBtn) {
-                    const icons = document.querySelectorAll<HTMLElement>("i.google-symbols, i[class*='google-symbols']");
+                    const icons = document.querySelectorAll<HTMLElement>("i.google-symbols, i[class*='google-symbols'], i[class*='material'], span[class*='material'], span[class*='icon'], span[class*='google-symbols'], i");
                     for (const icon of icons) {
                         if ((icon.textContent || "").trim() === "add_2") {
                             const parent = icon.closest("button") as HTMLElement | null;
                             if (parent) { newProjBtn = parent; break; }
                         }
+                    }
+                    // Also try findAllButtonsByIcon as fallback
+                    if (!newProjBtn) {
+                        const btns = findAllButtonsByIcon("add_2");
+                        if (btns.length > 0) newProjBtn = btns[0];
                     }
                 }
                 if (newProjBtn) break;
@@ -2424,7 +2779,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         btnRect.top >= imgRect.top - 10 && btnRect.top <= imgRect.top + 60 &&
                         btnRect.left >= imgRect.right - 80) {
                         // Check if it has 3-dots icon or "เพิ่มเติม" tooltip
-                        const icons = btn.querySelectorAll("i");
+                        const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
                         for (const icon of icons) {
                             const t = icon.textContent?.trim() || "";
                             if (t.includes("more")) {
@@ -3075,7 +3430,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     await sleep(1500); // wait for video player to render
     const muteBtn = (() => {
         for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-            const icons = btn.querySelectorAll("i");
+            const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
             for (const icon of icons) {
                 const txt = (icon.textContent || "").trim();
                 if (txt === "volume_up" || txt === "volume_off" || txt === "volume_mute") {
@@ -3165,11 +3520,11 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
             for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 if ((btn as HTMLButtonElement).disabled) continue; // skip disabled buttons
-                const icons = btn.querySelectorAll("i");
+                const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material'], span[class*='google-symbols']");
                 let hasArrow = false;
                 for (const icon of icons) {
                     const txt = (icon.textContent || "").trim();
-                    if (txt === "arrow_forward") { hasArrow = true; break; }
+                    if (txt === "arrow_forward" || txt === "send" || txt === "arrow_upward") { hasArrow = true; break; }
                 }
                 if (!hasArrow) continue;
                 const r = btn.getBoundingClientRect();
@@ -3181,10 +3536,23 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                     sendBtn = btn;
                 }
             }
-            // Fallback: any visible arrow_forward button
+            // Fallback: use broadened findAllButtonsByIcon
+            if (!sendBtn) {
+                for (const iconName of ["arrow_forward", "send", "arrow_upward"]) {
+                    const btns = findAllButtonsByIcon(iconName);
+                    for (const btn of btns) {
+                        if (!(btn as HTMLButtonElement).disabled) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { sendBtn = btn; break; }
+                        }
+                    }
+                    if (sendBtn) break;
+                }
+            }
+            // Fallback 2: any visible arrow_forward button (broad icon search)
             if (!sendBtn) {
                 for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                    const icons = btn.querySelectorAll("i");
+                    const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
                     for (const icon of icons) {
                         if ((icon.textContent || "").trim() === "arrow_forward") {
                             const r = btn.getBoundingClientRect();
@@ -3281,29 +3649,50 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         LOG("── เริ่มดาวน์โหลด Full Video ──");
         try { updateStep("download", "active"); } catch (_) {}
         
-        // ★ FOCUS_TAB: Radix UI dropdown menus require real layout/focus to render properly
+        // ★ ensureTabVisible: Radix UI dropdown menus REQUIRE real layout/focus to render
+        // On macOS 8GB RAM, Chrome may throttle hidden tabs — menus won't appear
         let needsDownloadUnfocus = false;
+        const wasVisible = await ensureTabVisible();
+        if (wasVisible && document.hidden === false) {
+            needsDownloadUnfocus = true; // we forced focus, will unfocus later
+        }
         if (document.hidden) {
-            LOG("🔄 Tab ซ่อนอยู่ — สลับมาค้างเพื่อคลิกเมนูดาวน์โหลด (Radix UI)");
+            LOG("🔄 Tab ยังซ่อนอยู่ — ลอง FOCUS_TAB โดยตรง");
             try {
                 await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
                 needsDownloadUnfocus = true;
-                await sleep(5000); // wait for focus + layout to settle (5 วิ ชัวร์)
+                await sleep(isMac ? 8000 : 5000);
             } catch (_) {}
         }
         
-        await sleep(2000);
+        await sleep(isMac ? 3000 : 2000);
         const downloadStartedAt2 = Date.now();
 
-        // Step 1: Click ดาวน์โหลด button (has <i>download</i> icon)
+        // Step 1: Click ดาวน์โหลด button — broadened for Tahoe 26.2+
         let dlBtn2: HTMLElement | null = null;
         const dlPoll2 = Date.now();
-        while (!dlBtn2 && Date.now() - dlPoll2 < 10000) {
-            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                const icon = btn.querySelector("i");
-                if (icon && (icon.textContent || "").trim() === "download") {
-                    const r = btn.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+        while (!dlBtn2 && Date.now() - dlPoll2 < (isMac ? 15000 : 10000)) {
+            // Strategy A: use broadened findAllButtonsByIcon
+            const dlBtns = findAllButtonsByIcon("download");
+            for (const btn of dlBtns) {
+                const r = btn.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+            }
+            // Strategy B: check <i>, <span> icon elements directly
+            if (!dlBtn2) {
+                for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                    const iconEl = btn.querySelector("i, span[class*='icon'], span[class*='material']");
+                    if (iconEl && (iconEl.textContent || "").trim() === "download") {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+                    }
+                    // Strategy C: aria-label or title
+                    const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                    const title = (btn.getAttribute("title") || "").toLowerCase();
+                    if (aria.includes("download") || aria.includes("ดาวน์โหลด") || title.includes("download") || title.includes("ดาวน์โหลด")) {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+                    }
                 }
             }
             if (!dlBtn2) await sleep(1000);
@@ -3316,63 +3705,83 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         await robustClick(dlBtn2);
         LOG("คลิกดาวน์โหลดแล้ว ✅");
         try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
-        await sleep(1500);
+        await sleep(isMac ? 3000 : 1500);
+
+        // ★ Helper: find Radix menu item by text (broader selectors for macOS compatibility)
+        const findRadixMenuItem = (text: string, timeout: number): Promise<HTMLElement | null> => {
+            return new Promise(async (resolve) => {
+                const start = Date.now();
+                while (Date.now() - start < timeout) {
+                    // Broad selector: role=menuitem, data-radix-collection-item, or items inside radix menu content
+                    const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] div, [data-radix-dropdown-menu-content] div";
+                    for (const mi of document.querySelectorAll<HTMLElement>(selectors)) {
+                        const t = (mi.textContent || "").trim();
+                        if (t.includes(text) && t.length < 100) {
+                            const r = mi.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { resolve(mi); return; }
+                        }
+                    }
+                    await sleep(500);
+                }
+                resolve(null);
+            });
+        };
+
+        // ★ Helper: find 720p button in submenu (broader selectors)
+        const find720pButton = (timeout: number, hoverTarget: HTMLElement | null): Promise<HTMLElement | null> => {
+            return new Promise(async (resolve) => {
+                const start = Date.now();
+                while (Date.now() - start < timeout) {
+                    // Broad selector: buttons, menuitems, radix items, clickable divs
+                    const selectors = "button[role='menuitem'], div[role='menuitem'] button, [data-radix-collection-item], [data-radix-menu-content] button, [role='menu'] button";
+                    for (const btn of document.querySelectorAll<HTMLElement>(selectors)) {
+                        const txt = (btn.textContent || "").trim();
+                        if (txt.includes("720p") && txt.length < 50) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { resolve(btn); return; }
+                        }
+                        // Also check spans inside
+                        const spans = btn.querySelectorAll("span");
+                        for (const sp of spans) {
+                            if ((sp.textContent || "").trim() === "720p") {
+                                const r = btn.getBoundingClientRect();
+                                if (r.width > 0 && r.height > 0) { resolve(btn); return; }
+                            }
+                        }
+                    }
+                    // Re-hover to keep submenu open
+                    if (hoverTarget?.isConnected) robustHover(hoverTarget);
+                    await sleep(500);
+                }
+                resolve(null);
+            });
+        };
 
         // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
         let res720: HTMLElement | null = null;
-        for (let attempt = 0; attempt < 3 && !res720; attempt++) {
+        for (let attempt = 0; attempt < (isMac ? 5 : 3) && !res720; attempt++) {
             if (attempt > 0) {
                 LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
                 // ★ Re-click download button to reopen Radix dropdown (it auto-closes)
                 if (dlBtn2.isConnected) {
                     await robustClick(dlBtn2);
                     LOG("🔄 คลิกปุ่ม Download อีกครั้ง (เปิดเมนูใหม่)");
-                    await sleep(2000);
+                    await sleep(isMac ? 3000 : 2000);
                 }
             }
 
-            let fullVideoBtn: HTMLElement | null = null;
-            const fvStart = Date.now();
-            while (!fullVideoBtn && Date.now() - fvStart < 5000) {
-                for (const mi of document.querySelectorAll<HTMLElement>("[role='menuitem']")) {
-                    const t = (mi.textContent || "").trim();
-                    if (t.includes("Full Video")) {
-                        const r = mi.getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) { fullVideoBtn = mi; break; }
-                    }
-                }
-                if (!fullVideoBtn) await sleep(500);
-            }
+            const fullVideoBtn = await findRadixMenuItem("Full Video", isMac ? 10000 : 5000);
             if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
             // Hover using robustHover (PointerEvent + MouseEvent) then click to expand submenu
             robustHover(fullVideoBtn);
-            await sleep(500);
+            await sleep(isMac ? 1000 : 500);
             await robustClick(fullVideoBtn);
             LOG("คลิก/hover Full Video ✅");
-            await sleep(2000);
+            await sleep(isMac ? 3000 : 2000);
 
-            // Step 3: Find "720p" button[role=menuitem] in expanded submenu
-            const r720Start = Date.now();
-            while (!res720 && Date.now() - r720Start < 8000) {
-                for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem'], div[role='menuitem'] button")) {
-                    const spans = btn.querySelectorAll("span");
-                    for (const sp of spans) {
-                        if ((sp.textContent || "").trim() === "720p") {
-                            const r = btn.getBoundingClientRect();
-                            if (r.width > 0 && r.height > 0) { res720 = btn; break; }
-                        }
-                    }
-                    if (res720) break;
-                }
-                if (!res720) {
-                    // Re-hover to keep submenu open
-                    if (fullVideoBtn.isConnected) {
-                        robustHover(fullVideoBtn);
-                    }
-                    await sleep(500);
-                }
-            }
+            // Step 3: Find "720p" button in expanded submenu
+            res720 = await find720pButton(isMac ? 12000 : 8000, fullVideoBtn);
         }
         
         if (!res720) {
@@ -3474,7 +3883,19 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     // ── 1-Scene Download Flow: ดาวน์โหลด → 1080p → Upscale → Open in Chrome ──
     // ══════════════════════════════════════════════════════════════
     LOG("═══ 1 ฉาก — เริ่มดาวน์โหลด ═══");
-    await sleep(2000); // wait for detail page to fully load
+
+    // ★ ensureTabVisible: Radix UI dropdown menus REQUIRE real layout/focus to render
+    // On macOS 8GB RAM, Chrome may throttle hidden tabs — menus won't appear
+    await ensureTabVisible();
+    if (document.hidden) {
+        LOG("🔄 Tab ยังซ่อนอยู่ — ลอง FOCUS_TAB โดยตรง");
+        try {
+            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+            await sleep(isMac ? 8000 : 5000);
+        } catch (_) {}
+    }
+
+    await sleep(isMac ? 3000 : 2000); // wait for detail page to fully load
 
     // Helper: find visible element by text
     const findByText = (text: string, sel = "button, [role='menuitem'], [role='option'], li, span, div[role='button']"): HTMLElement | null => {
@@ -3488,23 +3909,34 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         return null;
     };
 
-    // ── STEP 1: Find & click "ดาวน์โหลด" button (poll 10s) ──
+    // ── STEP 1: Find & click "ดาวน์โหลด" button (poll) — broadened for Tahoe 26.2+ ──
     LOG("── ค้นหาปุ่มดาวน์โหลด ──");
     let dlBtn: HTMLElement | null = null;
     const dlPollStart = Date.now();
-    while (!dlBtn && Date.now() - dlPollStart < 10000) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
-            const txt = (btn.textContent || "").trim();
-            const lower = txt.toLowerCase();
-            if ((lower.includes("download") || lower.includes("ดาวน์โหลด")) && txt.length < 80) {
-                const r = btn.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+    while (!dlBtn && Date.now() - dlPollStart < (isMac ? 15000 : 10000)) {
+        // Strategy A: icon-based (broadened findAllButtonsByIcon)
+        const dlBtns = findAllButtonsByIcon("download");
+        for (const btn of dlBtns) {
+            const r = btn.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+        }
+        // Strategy B: text content
+        if (!dlBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
+                const txt = (btn.textContent || "").trim();
+                const lower = txt.toLowerCase();
+                if ((lower.includes("download") || lower.includes("ดาวน์โหลด")) && txt.length < 80) {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+                }
             }
         }
+        // Strategy C: aria-label / title
         if (!dlBtn) {
             for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
-                if (aria.includes("download") || aria.includes("ดาวน์")) {
+                const title = (btn.getAttribute("title") || "").toLowerCase();
+                if (aria.includes("download") || aria.includes("ดาวน์") || title.includes("download") || title.includes("ดาวน์")) {
                     const r = btn.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
                 }
@@ -3522,13 +3954,13 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     LOG(`พบปุ่มดาวน์โหลด: "${(dlBtn.textContent || "").trim().substring(0, 40)}"`);
     await robustClick(dlBtn);
     LOG("คลิกปุ่มดาวน์โหลดแล้ว ✅");
-    await sleep(1500);
+    await sleep(isMac ? 3000 : 1500);
 
     // ── STEP 2: Click "1080p Upscaled" ──
     const downloadStartedAt = Date.now(); // timestamp to filter correct download later
     let res1080: HTMLElement | null = null;
     const sub1080Start = Date.now();
-    while (!res1080 && Date.now() - sub1080Start < 5000) {
+    while (!res1080 && Date.now() - sub1080Start < (isMac ? 10000 : 5000)) {
         res1080 = findByText("1080p");
         if (!res1080) { LOG("รอ 1080p..."); await sleep(500); }
     }
@@ -3669,13 +4101,18 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     await sleep(2000);
     const muteBtn = (() => {
         for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-            const icons = btn.querySelectorAll("i");
+            const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
             for (const icon of icons) {
                 const txt = (icon.textContent || "").trim();
                 if (txt === "volume_up" || txt === "volume_off" || txt === "volume_mute") {
                     const r = btn.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) return btn;
                 }
+            }
+            const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+            if (aria.includes("mute") || aria.includes("ปิดเสียง")) {
+                const r = btn.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) return btn;
             }
         }
         return null;
@@ -3796,24 +4233,40 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             try { updateStep(`scene${scene}-prompt`, "done"); updateStep(`scene${scene}-gen`, "active"); } catch (_) {}
             await sleep(1000);
 
-            // Find generate/send button nearest to editor
+            // Find generate/send button nearest to editor — broadened for Tahoe 26.2+
             const editorRect2 = slateEditor.getBoundingClientRect();
             let sendBtn2: HTMLElement | null = null;
             let bestDist2 = Infinity;
             for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 if ((btn as HTMLButtonElement).disabled) continue;
-                const icons = btn.querySelectorAll("i");
+                const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material'], span[class*='google-symbols']");
                 let hasArrow = false;
-                for (const icon of icons) { if ((icon.textContent || "").trim() === "arrow_forward") { hasArrow = true; break; } }
+                for (const icon of icons) {
+                    const txt = (icon.textContent || "").trim();
+                    if (txt === "arrow_forward" || txt === "send" || txt === "arrow_upward") { hasArrow = true; break; }
+                }
                 if (!hasArrow) continue;
                 const r = btn.getBoundingClientRect();
                 if (r.width <= 0 || r.height <= 0) continue;
                 const dist = Math.abs(r.top - editorRect2.top) + Math.abs(r.right - editorRect2.right);
                 if (dist < bestDist2) { bestDist2 = dist; sendBtn2 = btn; }
             }
+            // Fallback: use broadened findAllButtonsByIcon
+            if (!sendBtn2) {
+                for (const iconName of ["arrow_forward", "send", "arrow_upward"]) {
+                    const btns = findAllButtonsByIcon(iconName);
+                    for (const btn of btns) {
+                        if (!(btn as HTMLButtonElement).disabled) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { sendBtn2 = btn; break; }
+                        }
+                    }
+                    if (sendBtn2) break;
+                }
+            }
             if (!sendBtn2) {
                 for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                    const icons = btn.querySelectorAll("i");
+                    const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
                     for (const icon of icons) {
                         if ((icon.textContent || "").trim() === "arrow_forward") {
                             const r = btn.getBoundingClientRect();
@@ -3936,17 +4389,46 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     let tiktokVideoUrlNav: string | null = null;
     try { updateStep("download", "active"); } catch (_) {}
     LOG("── เริ่มดาวน์โหลด Full Video (หลัง page navigate) ──");
+
+    // ★ ensureTabVisible: Radix UI dropdown menus REQUIRE real layout/focus to render
+    // On macOS 8GB RAM, Chrome may throttle hidden tabs — menus won't appear
+    await ensureTabVisible();
+    if (document.hidden) {
+        LOG("🔄 Tab ยังซ่อนอยู่ — ลอง FOCUS_TAB โดยตรง");
+        try {
+            await new Promise<void>(r => chrome.runtime.sendMessage({ type: 'FOCUS_TAB' }, () => r()));
+            await sleep(isMac ? 8000 : 5000);
+        } catch (_) {}
+    }
+    await sleep(isMac ? 3000 : 2000);
+
     const downloadStartedAt = Date.now();
 
-    // Step 1: Click ดาวน์โหลด button (has <i>download</i> icon)
+    // Step 1: Click ดาวน์โหลด button — broadened for Tahoe 26.2+
     let dlBtn: HTMLElement | null = null;
     const dlPoll = Date.now();
-    while (!dlBtn && Date.now() - dlPoll < 10000) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-            const icon = btn.querySelector("i");
-            if (icon && (icon.textContent || "").trim() === "download") {
-                const r = btn.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+    while (!dlBtn && Date.now() - dlPoll < (isMac ? 15000 : 10000)) {
+        // Strategy A: use broadened findAllButtonsByIcon
+        const dlBtns = findAllButtonsByIcon("download");
+        for (const btn of dlBtns) {
+            const r = btn.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+        }
+        // Strategy B: check <i>, <span> icon elements directly
+        if (!dlBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                const iconEl = btn.querySelector("i, span[class*='icon'], span[class*='material']");
+                if (iconEl && (iconEl.textContent || "").trim() === "download") {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+                }
+                // Strategy C: aria-label or title
+                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                const title = (btn.getAttribute("title") || "").toLowerCase();
+                if (aria.includes("download") || aria.includes("ดาวน์โหลด") || title.includes("download") || title.includes("ดาวน์โหลด")) {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+                }
             }
         }
         if (!dlBtn) await sleep(1000);
@@ -3955,63 +4437,79 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     await robustClick(dlBtn);
     LOG("คลิกดาวน์โหลดแล้ว ✅");
     try { updateStep("download", "done"); updateStep("upscale", "active"); } catch (_) {}
-    await sleep(1500);
+    await sleep(isMac ? 3000 : 1500);
+
+    // ★ Helper: find Radix menu item by text (broader selectors for macOS compatibility)
+    const findRadixMenuItemNav = (text: string, timeout: number): Promise<HTMLElement | null> => {
+        return new Promise(async (resolve) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+                const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] div, [data-radix-dropdown-menu-content] div";
+                for (const mi of document.querySelectorAll<HTMLElement>(selectors)) {
+                    const t = (mi.textContent || "").trim();
+                    if (t.includes(text) && t.length < 100) {
+                        const r = mi.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { resolve(mi); return; }
+                    }
+                }
+                await sleep(500);
+            }
+            resolve(null);
+        });
+    };
+
+    // ★ Helper: find 720p button in submenu (broader selectors)
+    const find720pButtonNav = (timeout: number, hoverTarget: HTMLElement | null): Promise<HTMLElement | null> => {
+        return new Promise(async (resolve) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+                const selectors = "button[role='menuitem'], div[role='menuitem'] button, [data-radix-collection-item], [data-radix-menu-content] button, [role='menu'] button";
+                for (const btn of document.querySelectorAll<HTMLElement>(selectors)) {
+                    const txt = (btn.textContent || "").trim();
+                    if (txt.includes("720p") && txt.length < 50) {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { resolve(btn); return; }
+                    }
+                    const spans = btn.querySelectorAll("span");
+                    for (const sp of spans) {
+                        if ((sp.textContent || "").trim() === "720p") {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { resolve(btn); return; }
+                        }
+                    }
+                }
+                if (hoverTarget?.isConnected) robustHover(hoverTarget);
+                await sleep(500);
+            }
+            resolve(null);
+        });
+    };
 
     // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
     let res720: HTMLElement | null = null;
-    for (let attempt = 0; attempt < 3 && !res720; attempt++) {
+    for (let attempt = 0; attempt < (isMac ? 5 : 3) && !res720; attempt++) {
         if (attempt > 0) {
             LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
             // ★ Re-click download button to reopen Radix dropdown (it auto-closes)
             if (dlBtn.isConnected) {
                 await robustClick(dlBtn);
                 LOG("🔄 คลิกปุ่ม Download อีกครั้ง (เปิดเมนูใหม่)");
-                await sleep(2000);
+                await sleep(isMac ? 3000 : 2000);
             }
         }
 
-        let fullVideoBtn: HTMLElement | null = null;
-        const fvStart = Date.now();
-        while (!fullVideoBtn && Date.now() - fvStart < 5000) {
-            for (const mi of document.querySelectorAll<HTMLElement>("[role='menuitem']")) {
-                const t = (mi.textContent || "").trim();
-                if (t.includes("Full Video")) {
-                    const r = mi.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) { fullVideoBtn = mi; break; }
-                }
-            }
-            if (!fullVideoBtn) await sleep(500);
-        }
+        const fullVideoBtn = await findRadixMenuItemNav("Full Video", isMac ? 10000 : 5000);
         if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
         // Hover using robustHover (PointerEvent + MouseEvent) then click to expand submenu
         robustHover(fullVideoBtn);
-        await sleep(500);
+        await sleep(isMac ? 1000 : 500);
         await robustClick(fullVideoBtn);
         LOG("คลิก/hover Full Video ✅");
-        await sleep(2000);
+        await sleep(isMac ? 3000 : 2000);
 
-        // Step 3: Find "720p" button[role=menuitem] in expanded submenu
-        const r720Start = Date.now();
-        while (!res720 && Date.now() - r720Start < 8000) {
-            for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem'], div[role='menuitem'] button")) {
-                const spans = btn.querySelectorAll("span");
-                for (const sp of spans) {
-                    if ((sp.textContent || "").trim() === "720p") {
-                        const r = btn.getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) { res720 = btn; break; }
-                    }
-                }
-                if (res720) break;
-            }
-            if (!res720) {
-                // Re-hover to keep submenu open
-                if (fullVideoBtn.isConnected) {
-                    robustHover(fullVideoBtn);
-                }
-                await sleep(500);
-            }
-        }
+        // Step 3: Find "720p" button in expanded submenu
+        res720 = await find720pButtonNav(isMac ? 12000 : 8000, fullVideoBtn);
     }
     if (!res720) { WARN("ไม่พบ 720p"); return; }
     await robustClick(res720);

@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Controller } from "react-hook-form";
 import {
     FileText, Stars, Pencil, RefreshCw, Mic, Sparkles, Globe,
-    ImageIcon, ChevronDown, Tag, ShieldAlert
+    ImageIcon, ChevronDown, Tag, ShieldAlert, Video
 } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { AiScriptSectionProps } from "./types";
@@ -14,6 +14,7 @@ import {
     saleStyleOptions,
     languageOptions,
     sceneBackgroundOptions,
+    videoStyleOptions,
 } from "@/types/netflow";
 
 const AiScriptSection = ({
@@ -23,11 +24,13 @@ const AiScriptSection = ({
     watch,
     isOpen,
     onToggle,
-    productImage
+    productImage,
+    characterImage
 }: AiScriptSectionProps) => {
     const { config: themeConfig } = useTheme();
     const useAiScript = watch("useAiScript");
     const template = watch("template");
+    const videoStyle = watch("videoStyle") || "ugc-review";
     const hookEnabled = watch("hookEnabled");
     const ctaEnabled = watch("ctaEnabled");
     const sceneBackground = watch("sceneBackground") || "studio";
@@ -36,6 +39,78 @@ const AiScriptSection = ({
     const [showAllBackgrounds, setShowAllBackgrounds] = useState(false);
     const [autoFlash, setAutoFlash] = useState(false);
     const [isAutoBgLoading, setIsAutoBgLoading] = useState(false);
+
+    const riskyFaceStyles = new Set([
+        "cgi-realistic",
+        "fantasy",
+        "scifi",
+        "stop-motion",
+        "cute",
+        "cute-dance",
+        "vintage",
+        "futuristic",
+        "theater-drama",
+        "musical"
+    ]);
+
+    const motionEffectStyles = new Set([
+        "stop-motion",
+        "timelapse",
+        "split-screen",
+        "chaotic",
+        "musical",
+        "cute-dance",
+        "action"
+    ]);
+
+    const structuredTemplates = new Set([
+        "product-review",
+        "gadget-review",
+        "food-review",
+        "fashion-review",
+        "tutorial",
+        "comparison",
+        "unboxing"
+    ]);
+
+    const storyHeavyTemplates = new Set([
+        "mini-drama",
+        "testimonial",
+        "before-after",
+        "flash-sale",
+        "trending"
+    ]);
+
+    const dramaticStyles = new Set([
+        "chaotic",
+        "theater-drama",
+        "musical",
+        "mild-horror",
+        "fantasy",
+        "action",
+        "stop-motion"
+    ]);
+
+    const styleWarnings = [
+        characterImage && riskyFaceStyles.has(videoStyle)
+            ? {
+                title: "มีรูปหน้าคนจริง + สไตล์แรง",
+                description: "ระบบจะลดความแรงของสไตล์อัตโนมัติเพื่อคงหน้าเดิม ผิวจริง และความเป็นมนุษย์ของตัวแบบ ไม่ให้กลายเป็นหน้าพลาสติกหรือการ์ตูนเกินไป"
+            }
+            : null,
+        structuredTemplates.has(template) && dramaticStyles.has(videoStyle)
+            ? {
+                title: "Template เน้นความชัดเจน แต่ Style อาจกลบสาร",
+                description: "ระบบจะให้เทมเพลตคุมเนื้อหาและลำดับการเล่า ส่วนสไตล์จะเหลือบทบาทเป็น mood, lighting และ camera treatment เพื่อไม่ให้สารขายหรือเดโมหลุดประเด็น"
+            }
+            : null,
+        storyHeavyTemplates.has(template) && motionEffectStyles.has(videoStyle)
+            ? {
+                title: "Template เน้นเรื่องเล่า + Style มีเอฟเฟกต์การเคลื่อนไหว",
+                description: "ระบบจะกดเอฟเฟกต์พิเศษให้อยู่ในระดับพอดี เพื่อรักษา lip-sync, face continuity และ product continuity ระหว่างแต่ละซีน"
+            }
+            : null
+    ].filter(Boolean) as { title: string; description: string }[];
 
     // Cache top 3 results + cycle index
     const top3Cache = useRef<string[]>([]);
@@ -164,69 +239,48 @@ const AiScriptSection = ({
                         </div>
                     </div>
 
-                    {/* ═══ Row 3: Prompt Area ═══ */}
-                    <div className="rounded-xl border border-border/60 bg-background/50 overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
-                            <label className={`text-[11px] font-medium flex items-center gap-1.5 ${isAiMode ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                                <RefreshCw className="w-3.5 h-3.5" style={{ color: themeConfig.hex, opacity: isAiMode ? 0.5 : 1 }} />
-                                คำสั่งเพิ่มเติม (Prompt)
-                            </label>
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    const img = productImage;
-                                    if (!img) {
-                                        alert("กรุณาอัพโหลดรูปสินค้าก่อน (ในส่วนข้อมูลสินค้า)");
-                                        return;
-                                    }
-                                    try {
-                                        const { generateVisualPrompt } = await import("@/services/geminiService");
-                                        const { getApiKey } = await import("@/services/storageService");
-                                        const apiKey = await getApiKey("openai");
-
-                                        if (!apiKey) {
-                                            alert("ไม่พบ OpenAI API Key");
-                                            return;
-                                        }
-
-                                        const btn = document.getElementById("analyze-btn");
-                                        if (btn) btn.innerText = "กำลังวิเคราะห์...";
-
-                                        const style = watch("saleStyle") || "hard";
-                                        const name = watch("productName") || "";
-
-                                        const result = await generateVisualPrompt(apiKey, img, name, style);
-
-                                        const promptMatch = result.match(/Prompt:\s*([\s\S]+)/i);
-                                        const cleanPrompt = promptMatch ? promptMatch[1].trim() : result;
-
-                                        setValue("aiPrompt", cleanPrompt);
-                                        setValue("useAiScript", false);
-
-                                        if (btn) btn.innerText = "วิเคราะห์ภาพด้วย AI";
-                                    } catch (e: any) {
-                                        alert("เกิดข้อผิดพลาด: " + e.message);
-                                        const btn = document.getElementById("analyze-btn");
-                                        if (btn) btn.innerText = "วิเคราะห์ภาพด้วย AI";
-                                    }
-                                }}
-                                id="analyze-btn"
-                                className="text-[10px] px-2.5 py-1 rounded-lg transition-all duration-200 flex items-center gap-1 font-medium"
-                                style={{ background: `rgba(${themeConfig.hexRgb},0.15)`, color: themeConfig.hex }}
-                                onMouseEnter={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.3)`)}
-                                onMouseLeave={e => (e.currentTarget.style.background = `rgba(${themeConfig.hexRgb},0.15)`)}
-                            >
-                                <Sparkles className="w-3 h-3" />
-                                วิเคราะห์ภาพด้วย AI
-                            </button>
-                        </div>
-                        <textarea
-                            {...register("aiPrompt")}
-                            placeholder="ระบุรายละเอียดเพิ่มเติม เช่น จุดเด่นที่ต้องการเน้น, คำที่ต้องการใช้, สิ่งที่ต้องการหลีกเลี่ยง..."
-                            rows={3}
-                            disabled={isAiMode}
-                            className={`w-full bg-transparent px-3 py-2.5 text-xs resize-none outline-none placeholder:text-muted-foreground/40 transition-opacity ${isAiMode ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        />
+                    {/* ═══ Row 3: สไตล์ภาพ/วีดีโอ ═══ */}
+                    <div>
+                        <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
+                            <Video className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
+                            สไตล์ภาพ / วีดีโอ
+                        </label>
+                        <select
+                            {...register("videoStyle")}
+                            className="w-full neon-select text-xs"
+                        >
+                            {videoStyleOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-muted-foreground/70 mt-1.5 flex items-start gap-1.5 leading-tight">
+                            <Sparkles className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            ระบบจะใช้สไตล์นี้กับทั้ง image และ video prompt โดยยังคง template, ใบหน้า, เสียงพูด และรูปทรงสินค้าที่อ้างอิงไว้เป็น priority หลัก
+                        </p>
+                        {styleWarnings.length > 0 && (
+                            <div className="mt-2 space-y-2">
+                                {styleWarnings.map((warning) => (
+                                    <div
+                                        key={warning.title}
+                                        className="rounded-xl border px-3 py-2.5 bg-amber-500/10 border-amber-400/25"
+                                    >
+                                        <div className="flex items-start gap-2">
+                                            <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-300" />
+                                            <div className="space-y-1">
+                                                <p className="text-[11px] font-semibold text-amber-100 leading-tight">
+                                                    {warning.title}
+                                                </p>
+                                                <p className="text-[10px] leading-relaxed text-amber-50/85">
+                                                    {warning.description}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* ═══ Row 4: Voice & Energy (compact row) ═══ */}
@@ -355,12 +409,9 @@ const AiScriptSection = ({
                         {sceneBackground === "custom" && (
                             <input
                                 type="text"
+                                {...register("customSceneBackground")}
                                 placeholder="พิมพ์ฉากที่ต้องการ เช่น ร้านขายยา, สระว่ายน้ำ..."
                                 className="w-full neon-input text-xs mt-2"
-                                onChange={(e) => {
-                                    const input = e.target as HTMLInputElement;
-                                    input.dataset.customBg = e.target.value;
-                                }}
                             />
                         )}
                     </div>

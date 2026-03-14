@@ -26,15 +26,32 @@ export const createVideoSchema = z.object({
         "uniform-nurse", "uniform-office", "uniform-school", "uniform-chef",
         "pajamas", "beach-wear", "luxury-brand",
         "cardigan", "trenchcoat", "bomber-jacket",
-        "linen-casual", "ruffle-blouse", "off-shoulder"
+        "linen-casual", "ruffle-blouse", "off-shoulder",
+        "custom"
     ]).default("original"),
+<<<<<<< HEAD
     clothingHighlight: z.string().default(""),
+=======
+    customOutfitPrompt: z.string().default(""),
+>>>>>>> 49f681acae472624be685d31d6f90cb2f5162026
     touchLevel: z.enum(["none", "light", "medium", "heavy"]).default("light"),
     cameraAngles: z.array(z.enum(["front", "side", "close-up", "full-body", "dynamic"])).default(["front", "close-up"]),
 
     // AI Scripting
     useAiScript: z.boolean().default(true),
     aiPrompt: z.string().default(""),
+    videoStyle: z.enum([
+        "ugc-review", "cgi-realistic", "hands-only", "cute-dance", "runway",
+        "product-demo", "lifestyle", "studio", "outdoor", "hook-pain",
+        "educational", "opinion", "problem-solution", "comedy", "theater-drama",
+        "musical", "action", "mild-horror", "fantasy", "scifi",
+        "timelapse", "behind-the-scenes", "challenge", "comparison", "tutorial",
+        "interview", "vlog", "storytelling", "reaction", "unboxing",
+        "straight-review", "transformation", "stop-motion", "split-screen", "first-person",
+        "aesthetic", "vintage", "futuristic", "nature", "city",
+        "minimal", "chaotic", "satisfying", "epic", "cute",
+        "mysterious", "inspirational", "urgent", "relaxing"
+    ]).default("ugc-review"),
     sceneScriptsRaw: z.string().default(""),
     saleStyle: z.enum(["hard", "soft", "educational", "storytelling"]).default("hard"),
     language: z.enum(["th-central", "th-north", "th-south", "th-isan"]).default("th-central"),
@@ -91,6 +108,7 @@ export const createVideoSchema = z.object({
 
     // Scene Background
     sceneBackground: z.string().default("studio"),
+    customSceneBackground: z.string().default(""),
 
     // Keywords
     mustUseKeywords: z.string().default(""),
@@ -121,6 +139,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     cameraAngles: ["front", "close-up"],
     useAiScript: true,
     aiPrompt: "",
+    videoStyle: "ugc-review" as const,
     sceneScriptsRaw: "",
     saleStyle: "storytelling",
     language: "th-central",
