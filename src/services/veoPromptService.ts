@@ -135,6 +135,59 @@ const EXPRESSION_MAP: Record<string, string> = {
     serious: "professional focused expression"
 };
 
+// Video Style mapping (form value → descriptive English for prompts)
+const VIDEO_STYLE_MAP: Record<string, string> = {
+    "ugc-review": "authentic UGC style, raw and realistic smartphone footage look",
+    "cgi-realistic": "hyper-realistic CGI render, ultra-high fidelity, Unreal Engine 5 style",
+    "hands-only": "hands-only perspective, POV showing hands interacting with product",
+    "cute-dance": "cute upbeat style, slight rhythmic swaying or trendy dance movement",
+    "runway": "fashion runway style, walking confidently toward camera, dramatic flair",
+    "product-demo": "clean product demonstration style, clear and focused on functionality",
+    "lifestyle": "natural lifestyle aesthetic, everyday life integration, candid feel",
+    "studio": "professional commercial studio setup, clean backdrop, controlled environment",
+    "outdoor": "beautiful outdoor setting, natural sunlight, dynamic natural backdrop",
+    "hook-pain": "dramatic pain-point hook, slightly tense or distressed initial expression",
+    "educational": "informative educational style, informative gestures, professional tone",
+    "opinion": "candid opinion sharing style, talking directly to camera, conversational",
+    "problem-solution": "problem-solution narrative style, transition from frustrated to relieved",
+    "comedy": "lighthearted comedic style, exaggerated facial expressions, fun vibe",
+    "theater-drama": "theatrical dramatic lighting, emotional intensity, cinematic mood",
+    "musical": "rhythmic musical visual style, synchronized dynamic movements",
+    "action": "high-energy action style, fast movement, dynamic camera angles",
+    "mild-horror": "moody dark lighting, slight mild tension, cinematic thriller vibe",
+    "fantasy": "magical fantasy aesthetic, ethereal lighting, dreamy soft-focus",
+    "scifi": "futuristic sci-fi aesthetic, neon lighting, clean high-tech environment",
+    "timelapse": "time-lapse effect feel, showing progression or process quickly",
+    "behind-the-scenes": "behind-the-scenes documentary style, candid, handheld camera feel",
+    "challenge": "social media challenge style, enthusiastic, engaging direct eye contact",
+    "comparison": "side-by-side comparison style, analytical setup, clear visual contrast",
+    "tutorial": "step-by-step tutorial style, clear instructional framing, focus on hands/actions",
+    "interview": "professional interview setup, off-camera eyeline, documentary style lighting",
+    "vlog": "casual vlog style, handheld selfie-camera perspective, intimate and personal",
+    "storytelling": "intimate storytelling style, soft lighting, close connection with viewer",
+    "reaction": "genuine authentic reaction shot, wide eyes, surprised or impressed expression",
+    "unboxing": "satisfying unboxing perspective, focus on packaging reveal, anticipation",
+    "straight-review": "straightforward honest review, neutral setting, factual and clear",
+    "transformation": "dramatic transformation reveal, clear before-and-after contrast",
+    "stop-motion": "stop-motion animation aesthetic, slightly staggered frame rate feel",
+    "split-screen": "split-screen aesthetic, multiple perspectives simultaneously",
+    "first-person": "first-person POV camera angle, viewer's perspective looking at hands/product",
+    "aesthetic": "highly aesthetic Pinterest style, soft pastel colors, visually pleasing composition",
+    "vintage": "retro vintage film aesthetic, film grain, nostalgic color grading, 90s camcorder feel",
+    "futuristic": "sleek futuristic look, holographic UI elements, advanced technology vibe",
+    "nature": "lush nature documentary style, vibrant greens, beautiful natural environment",
+    "city": "dynamic urban city aesthetic, street photography style, bustling background",
+    "minimal": "clean minimalist aesthetic, negative space, simple uncluttered composition",
+    "chaotic": "chaotic Gen-Z viral style, fast cuts, high visual energy, memetic feel",
+    "satisfying": "oddly satisfying ASMR style, ultra-smooth movement, hyper-focus on texture",
+    "epic": "epic cinematic blockbuster style, dramatic sweeping camera, heroic lighting",
+    "cute": "kawaii cute aesthetic, soft lighting, pastel tones, adorable vibe",
+    "mysterious": "mysterious enigmatic vibe, low-key lighting, shadows, intriguing mood",
+    "inspirational": "uplifting inspirational mood, golden hour lighting, hopeful atmosphere",
+    "urgent": "urgent flash-sale style, high-tension energy, immediate action required vibe",
+    "relaxing": "calm relaxing zen aesthetic, soft diffused lighting, slow gentle movements"
+};
+
 // Clothing style → descriptive English
 const CLOTHING_MAP: Record<string, string> = {
     casual: "casual everyday wear", formal: "elegant formal attire",
@@ -6865,6 +6918,7 @@ export interface PromptGenerationConfig {
     template: TemplateOption;
     voiceTone: string;          // energetic, calm, friendly, professional
     saleStyle: string;          // hard, soft, educational, storytelling
+    videoStyle?: string;        // ugc-review, commercial, tutorial, etc.
 
     // Language
     language: string;           // th-central, etc.
@@ -7776,6 +7830,7 @@ const buildImagePrompt = (
     const environment = getSmartEnvironment(template, category, ai.environment, config.sceneBackground);
     const lighting = getSmartLighting(config.voiceTone || 'friendly', category, ai.lighting);
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
+    const visualStyleDesc = VIDEO_STYLE_MAP[config.videoStyle || "ugc-review"] || VIDEO_STYLE_MAP["ugc-review"];
 
     // ── Fitness/Supplement/Protein/Yoga/Sportswear body override ──
     const ATHLETIC_CATEGORIES = new Set(['supplement', 'fitness', 'protein', 'yoga', 'sportswear']);
@@ -7870,7 +7925,9 @@ ${CLOTHING_FIDELITY_DIRECTIVE}
 ${referenceSection}
 
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
-${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
+${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}
+Style: ${visualStyleDesc}.
+`;
 
     return sanitizePromptForPolicy(prompt.trim(), imageSafeProductName);
 };
@@ -7997,6 +8054,7 @@ const buildVideoPrompt = (
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
     const cameraMove = CAMERA_MOVEMENT[template] || CAMERA_MOVEMENT["product-review"];
     const transition = SCENE_TRANSITION[template] || SCENE_TRANSITION["product-review"];
+    const visualStyleDesc = VIDEO_STYLE_MAP[config.videoStyle || "ugc-review"] || VIDEO_STYLE_MAP["ugc-review"];
 
     // ── Select persona ONCE — if character image was analyzed, pick by closest age match ──
     const persona = characterAnalysis
@@ -8020,7 +8078,7 @@ const buildVideoPrompt = (
         ? 'Aspect ratio: 9:16 vertical portrait framing.'
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
 
-    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}`;
+    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}, ${visualStyleDesc}`;
 
     // ── TALK-ONLY SCENE 1 — character talks to camera WITHOUT product, product appears from Scene 2+ ──
     // For multi-scene (2+), Scene 1 is ALWAYS talk-only (index 0). Product is introduced from Scene 2 onward.
