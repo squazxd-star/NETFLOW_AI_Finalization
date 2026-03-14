@@ -6884,6 +6884,7 @@ export interface PromptGenerationConfig {
     movement?: string;          // static, minimal, active
     clothingStyles?: string[];  // casual, formal, sporty, fashion, uniform
     characterOutfit?: string;   // detailed outfit key from characterOutfitOptions
+    clothingHighlight?: string; // user-specified clothing feature highlights
     cameraAngles?: string[];    // front, side, close-up, full-body, dynamic
     touchLevel?: string;        // none, light, medium, heavy — how much character touches/interacts with product
 
@@ -7734,11 +7735,14 @@ const buildImagePrompt = (
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
     const imgDescHasClothing = descriptionHasExplicitClothing(config.characterDescription || '');
-    const clothingDesc = imgDescHasClothing
+    let clothingDesc = imgDescHasClothing
         ? (config.characterDescription?.trim() || "casual everyday wear")
         : config.characterOutfit
             ? getOutfitDescription(config.characterOutfit)
             : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
+    if (config.clothingHighlight?.trim()) {
+        clothingDesc += `. KEY CLOTHING FEATURES: ${config.clothingHighlight.trim()}`;
+    }
 
     // ── Camera angles → cinematic direction ──
     const cameraMap: Record<string, string> = {

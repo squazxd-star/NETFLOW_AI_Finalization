@@ -28,6 +28,7 @@ export const createVideoSchema = z.object({
         "cardigan", "trenchcoat", "bomber-jacket",
         "linen-casual", "ruffle-blouse", "off-shoulder"
     ]).default("original"),
+    clothingHighlight: z.string().default(""),
     touchLevel: z.enum(["none", "light", "medium", "heavy"]).default("light"),
     cameraAngles: z.array(z.enum(["front", "side", "close-up", "full-body", "dynamic"])).default(["front", "close-up"]),
 
@@ -115,6 +116,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     movement: "minimal",
     clothingStyles: ["casual"],
     characterOutfit: "original" as const,
+    clothingHighlight: "",
     touchLevel: "light",
     cameraAngles: ["front", "close-up"],
     useAiScript: true,
