@@ -713,6 +713,33 @@ const CreateVideoTab = () => {
                                                 />
                                             ))}
                                         </div>
+
+                                        {/* Powered by Netflow */}
+                                        <div className="flex flex-wrap items-center justify-center mt-4">
+                                            {'Powered by Netflow'.split('').map((char, i) => {
+                                                const baseDelay = ('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 1.0;
+                                                return (
+                                                    <span
+                                                        key={`pbn-${i}`}
+                                                        className="inline-block font-bold tracking-wider uppercase"
+                                                        style={{
+                                                            fontSize: '0.7rem',
+                                                            lineHeight: 1.2,
+                                                            fontFamily: '"Prompt", system-ui, sans-serif',
+                                                            letterSpacing: '0.18em',
+                                                            opacity: 0,
+                                                            background: `linear-gradient(135deg, ${themeConfig.gradientFrom}90, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom}90)`,
+                                                            WebkitBackgroundClip: 'text',
+                                                            WebkitTextFillColor: 'transparent',
+                                                            animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${baseDelay + i * 0.06}s forwards, prompt-complete-glow 2s ease-in-out ${baseDelay + i * 0.06 + 0.8}s infinite`,
+                                                            filter: `drop-shadow(0 0 8px ${themeConfig.gradientFrom}50)`,
+                                                        }}
+                                                    >
+                                                        {char === ' ' ? '\u00A0' : char}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
 
                                     {/* Bottom decorative bar */}
