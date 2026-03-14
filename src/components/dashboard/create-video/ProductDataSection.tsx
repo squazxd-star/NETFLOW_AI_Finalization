@@ -446,6 +446,23 @@ const ProductDataSection = ({
                             )}
                         </div>
 
+                        {/* Clothing Highlight */}
+                        <div>
+                            <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
+                                <Sparkles className="w-3 h-3 text-neon-red" />
+                                จุดเด่นลักษณะเสื้อผ้า
+                            </label>
+                            <textarea
+                                {...register("clothingHighlight")}
+                                placeholder="เช่น เสื้อคอวีสีขาว ผ้านิ่มใส่สบาย, เดรสลายดอกสไตล์เกาหลี..."
+                                rows={2}
+                                className="w-full neon-input text-xs resize-none placeholder:text-muted-foreground/40"
+                            />
+                            <p className="text-[9px] text-muted-foreground/50 mt-1">
+                                ระบุรายละเอียดเพิ่มเติมเพื่อเน้นจุดเด่นของเสื้อผ้าที่ต้องการให้ AI แสดงในคลิป
+                            </p>
+                        </div>
+
                         {/* Custom Outfit Prompt Textarea (shows only when 'custom' is selected) */}
                         {characterOutfit === "custom" && (
                             <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-300">

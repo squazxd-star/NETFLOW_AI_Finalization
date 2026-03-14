@@ -29,6 +29,7 @@ export const createVideoSchema = z.object({
         "linen-casual", "ruffle-blouse", "off-shoulder",
         "custom"
     ]).default("original"),
+    clothingHighlight: z.string().default(""),
     customOutfitPrompt: z.string().default(""),
     touchLevel: z.enum(["none", "light", "medium", "heavy"]).default("light"),
     cameraAngles: z.array(z.enum(["front", "side", "close-up", "full-body", "dynamic"])).default(["front", "close-up"]),
@@ -46,7 +47,8 @@ export const createVideoSchema = z.object({
         "straight-review", "transformation", "stop-motion", "split-screen", "first-person",
         "aesthetic", "vintage", "futuristic", "nature", "city",
         "minimal", "chaotic", "satisfying", "epic", "cute",
-        "mysterious", "inspirational", "urgent", "relaxing"
+        "mysterious", "inspirational", "urgent", "relaxing",
+        "anime", "3d-cartoon", "2d-cartoon"
     ]).default("ugc-review"),
     sceneScriptsRaw: z.string().default(""),
     saleStyle: z.enum(["hard", "soft", "educational", "storytelling"]).default("hard"),
@@ -130,6 +132,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     movement: "minimal",
     clothingStyles: ["casual"],
     characterOutfit: "original" as const,
+    clothingHighlight: "",
     touchLevel: "light",
     cameraAngles: ["front", "close-up"],
     useAiScript: true,

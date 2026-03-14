@@ -99,6 +99,7 @@ const GenerationSettingsSection = ({
 }: GenerationSettingsSectionProps) => {
     const { config: themeConfig } = useTheme();
     const { toast } = useToast();
+    const useAiScript = watch("useAiScript");
     const sceneCount = (watch("sceneCount") || 2) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
     const sceneScriptsRaw = watch("sceneScriptsRaw") || "";
     const language = watch("language") || "th-central";
@@ -1133,41 +1134,63 @@ Do not explain. Only output the lines above.`;
                     </div>
 
                     {/* Analyze with AI Button - Galactic Glow */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setStarSpin(true);
-                            setTimeout(() => setStarSpin(false), 600);
-                            generateScriptsWithAI();
-                        }}
-                        disabled={isGenerating}
-                        className={`group w-full py-3.5 px-4 rounded-xl font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2.5 hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                            isGenerating
-                                ? 'bg-neon-red/80 shadow-lg shadow-neon-red/20'
-                                : 'ai-btn-shimmer shadow-lg shadow-neon-red/30'
-                        }`}
-                    >
-                        {isGenerating ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span className="relative">
-                                    AI กำลังคิดสคริปต์
-                                    <span className="inline-flex ml-1 gap-0.5">
-                                        <span className="inline-block w-1 h-1 rounded-full bg-white animate-typing-dot-1" />
-                                        <span className="inline-block w-1 h-1 rounded-full bg-white animate-typing-dot-2" />
-                                        <span className="inline-block w-1 h-1 rounded-full bg-white animate-typing-dot-3" />
+                    {useAiScript ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setStarSpin(true);
+                                setTimeout(() => setStarSpin(false), 600);
+                                generateScriptsWithAI();
+                            }}
+                            disabled={isGenerating}
+                            className={`group w-full py-3.5 px-4 rounded-xl font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2.5 hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                                isGenerating
+                                    ? 'bg-neon-red/80 shadow-lg shadow-neon-red/20'
+                                    : 'ai-btn-shimmer shadow-lg shadow-neon-red/30'
+                            }`}
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <span className="relative">
+                                        AI กำลังคิดสคริปต์
+                                        <span className="inline-flex ml-1 gap-0.5">
+                                            <span className="inline-block w-1 h-1 rounded-full bg-white animate-typing-dot-1" />
+                                            <span className="inline-block w-1 h-1 rounded-full bg-white animate-typing-dot-2" />
+                                            <span className="inline-block w-1 h-1 rounded-full bg-white animate-typing-dot-3" />
+                                        </span>
                                     </span>
-                                </span>
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className={`w-5 h-5 transition-transform duration-500 group-hover:rotate-12 ${
-                                    starSpin ? 'animate-star-spin' : ''
-                                }`} />
-                                <span className="relative z-10">วิเคราะห์ด้วย AI</span>
-                            </>
-                        )}
-                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className={`w-5 h-5 transition-transform duration-500 group-hover:rotate-12 ${
+                                        starSpin ? 'animate-star-spin' : ''
+                                    }`} />
+                                    <span className="relative z-10">วิเคราะห์ด้วย AI</span>
+                                </>
+                            )}
+                        </button>
+                    ) : (
+                        <div
+                            className="rounded-xl border px-4 py-3"
+                            style={{
+                                borderColor: `rgba(${themeConfig.hexRgb}, 0.22)`,
+                                background: `linear-gradient(180deg, rgba(${themeConfig.hexRgb}, 0.08), rgba(${themeConfig.hexRgb}, 0.03))`,
+                            }}
+                        >
+                            <div className="flex items-start gap-2.5">
+                                <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: themeConfig.hex }} />
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold" style={{ color: themeConfig.hex }}>
+                                        โหมดเขียนเอง
+                                    </p>
+                                    <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+                                        พิมพ์บทพูดของแต่ละฉากเองได้เลยด้านล่าง ระบบจะไม่ให้ AI เขียนบทแทน แต่จะนำบทของคุณไปจัดภาพ การเคลื่อนไหว และ prompt ให้เหมาะกับ Veo ตอนกดสร้าง Prompt
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Scene Cards */}
                     <div className="space-y-3">
@@ -1214,7 +1237,7 @@ Do not explain. Only output the lines above.`;
                                     <textarea
                                         value={sceneScripts[i] || ""}
                                         onChange={(e) => onChangeSceneScript(i, e.target.value)}
-                                        placeholder="ใส่สคริปต์สำหรับฉากนี้..."
+                                        placeholder={useAiScript ? "ใส่สคริปต์สำหรับฉากนี้..." : `เขียนบทพูดฉาก ${i + 1} ที่ต้องการให้ตัวละครพูดจริง...`}
                                         rows={3}
                                         className="w-full neon-textarea text-sm resize-none focus:ring-1 focus:ring-neon-red/50"
                                     />

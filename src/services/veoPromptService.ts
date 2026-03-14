@@ -185,7 +185,10 @@ const VIDEO_STYLE_MAP: Record<string, string> = {
     "mysterious": "mysterious enigmatic vibe, low-key lighting, shadows, intriguing mood",
     "inspirational": "uplifting inspirational mood, golden hour lighting, hopeful atmosphere",
     "urgent": "urgent flash-sale style, high-tension energy, immediate action required vibe",
-    "relaxing": "calm relaxing zen aesthetic, soft diffused lighting, slow gentle movements"
+    "relaxing": "calm relaxing zen aesthetic, soft diffused lighting, slow gentle movements",
+    "anime": "Japanese 2D anime cel-shaded style inspired by Studio Ghibli and Makoto Shinkai, vibrant saturated color palette, clean precise ink line art with uniform stroke weight, large expressive detailed eyes with specular highlights, dramatic volumetric god-ray lighting, hand-painted watercolor background textures with depth-of-field bokeh, cinematic widescreen anime composition, smooth limited-animation keyframe movement",
+    "3d-cartoon": "Pixar and Disney-quality 3D animation render, soft subsurface scattering skin shader with warm translucency, physically-based global illumination with bounced fill light, stylized rounded character proportions with appealing big-eye design, smooth high-polygon surfaces with subtle ambient occlusion, rich candy-like color palette, studio-grade rim lighting and soft depth-of-field, Octane-level render clarity",
+    "2d-cartoon": "Western 2D cartoon flat-color style, bold clean vector outlines with consistent stroke width, graphic-novel comic aesthetic with dynamic panel-like composition, flat cel-shaded coloring with sharp geometric shadow edges, exaggerated squash-and-stretch poses, pop-art vibrant high-contrast color palette, crisp anti-aliased edges, Saturday-morning-cartoon energy with snappy timing"
 };
 
 const HIGH_STYLIZATION_STYLE_KEYS = new Set([
@@ -198,7 +201,10 @@ const HIGH_STYLIZATION_STYLE_KEYS = new Set([
     "vintage",
     "futuristic",
     "theater-drama",
-    "musical"
+    "musical",
+    "anime",
+    "3d-cartoon",
+    "2d-cartoon"
 ]);
 
 const MOTION_EFFECT_STYLE_KEYS = new Set([
@@ -479,10 +485,17 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
 };
 
 // Helper: pick random outfit prompt variant
+// Veo 3 best practice: clothing descriptions should be specific about fabric, color, pattern, fit, and accessories.
+// For custom prompts, we wrap user input with Veo 3-optimized structure for maximum visual fidelity.
 function getOutfitDescription(outfitKey?: string, customOutfitPrompt?: string): string {
     if (!outfitKey) return "casual everyday wear";
     if (outfitKey === "original") return "EXACTLY the same clothing visible in the reference image — preserve every detail of the outfit including color, pattern, fabric, fit, and accessories. Do NOT change or replace any clothing item.";
-    if (outfitKey === "custom" && customOutfitPrompt) return customOutfitPrompt;
+    if (outfitKey === "custom" && customOutfitPrompt) {
+        const trimmed = customOutfitPrompt.trim();
+        if (!trimmed) return "casual everyday wear";
+        // Veo 3 prompt structure: wrap custom description with clothing anchor + detail lock
+        return `wearing ${trimmed}. Clothing is rendered with photorealistic fabric texture, accurate folds, natural drape, and true-to-life material sheen. Preserve EXACT outfit details throughout the entire video.`;
+    }
     const variants = OUTFIT_PROMPT_MAP[outfitKey];
     if (!variants || variants.length === 0) return "casual everyday wear";
     return variants[Math.floor(Math.random() * variants.length)];
@@ -1065,6 +1078,160 @@ const USER_BACKGROUND_MAPPING: Record<string, string[]> = {
         "Thai ordination hall with elaborate murals, golden decorative ceiling, solemn ceremonial atmosphere",
         "Tibetan Buddhist monastery with prayer flags, mountain backdrop, colorful spiritual energy, Himalayan peace",
         "temple at night with illuminated pagoda, soft warm uplighting, peaceful quiet nocturnal spiritual beauty",
+    ],
+    "car-interior": [
+        "luxury car interior with cream leather seats, ambient LED strips along dashboard, soft warm glow, premium automotive comfort",
+        "modern SUV interior with panoramic sunroof, natural daylight flooding cabin, spacious clean dashboard, road trip atmosphere",
+        "sports car cockpit with carbon fiber trim, racing seats, digital instrument cluster glowing, high-performance automotive energy",
+        "vintage car interior with polished wood dashboard, chrome knobs, classic leather steering wheel, retro nostalgic elegance",
+        "Tesla-style minimalist car interior with large center touchscreen, white vegan leather, futuristic clean tech aesthetic",
+        "sedan interior at golden hour, warm sunlight through windshield, city skyline blurred outside, commuter lifestyle moment",
+        "luxury limousine back seat with champagne holder, tinted windows, ambient mood lighting, VIP executive travel",
+        "car interior at night with dashboard lights illuminating face, city lights passing outside windows, cinematic driving mood",
+        "convertible interior with top down, blue sky above, wind-swept hair feeling, open-road freedom, sunny coastal drive",
+        "campervan interior with cozy bed and fairy lights, wooden panels, small kitchenette, adventurous nomad lifestyle",
+        "car parked at scenic overlook, mountain view through windshield, peaceful morning coffee moment, road trip serenity",
+        "car interior during rain, droplets on windows, warm cozy cabin, soft dashboard glow, intimate rainy day mood",
+        "pickup truck interior with rugged dashboard, dirt road view outside, outdoor adventure lifestyle, tough versatile feel",
+        "electric car interior with ambient blue lighting, silent ride, futuristic HUD display, eco-modern sophistication",
+        "car back seat perspective looking forward, driver's shoulder visible, passenger POV, casual ride-along storytelling angle",
+        "car interior at drive-through, food tray on dashboard, casual fast-food moment, fun everyday relatable lifestyle",
+        "family car interior with child seat visible, warm cheerful atmosphere, family outing preparation, wholesome domestic energy",
+        "car interior at gas station at night, neon station lights outside, brief stop moment, cinematic night journey",
+        "luxury BMW/Mercedes interior with massage seats activated, ambient lighting in blue, executive comfort technology showcase",
+        "off-road jeep interior with mud splatter on windows, rough terrain outside, adrenaline adventure expedition",
+    ],
+    "camping": [
+        "cozy campsite with crackling bonfire, marshmallows roasting, pine trees surrounding, warm orange firelight, peaceful night outdoors",
+        "morning at campsite with tent and dewy grass, golden sunrise through trees, steaming coffee mug, fresh mountain air awakening",
+        "glamping tent interior with fairy lights, comfortable bed and throw blankets, lantern glow, luxurious nature retreat",
+        "riverside campsite with kayak parked nearby, crystal clear water, pebble beach, serene wilderness escape",
+        "mountain campsite at sunrise with panoramic valley view, low clouds below, golden light, epic elevated outdoor adventure",
+        "forest campsite with hammock between trees, dappled sunlight, bird sounds atmosphere, lazy relaxing woodland retreat",
+        "campfire cooking scene with cast iron skillet, outdoor meal preparation, rustic delicious wilderness dining",
+        "tent interior looking out through open flap, mountain landscape framed, sleeping bag and backpack, adventure anticipation",
+        "lakeside campsite with mirror-still water reflection, canoe on shore, sunset colors, tranquil wilderness serenity",
+        "snow camping setup with insulated tent, frosted trees, warm breath visible, winter wilderness expedition atmosphere",
+        "beach campsite with driftwood fire, stars above, ocean waves sound, bohemian beach bonfire gathering",
+        "rooftop camping setup on building terrace, city skyline in background, urban glamping creative lifestyle",
+        "camping under northern lights, aurora borealis green glow, snow-covered ground, magical once-in-a-lifetime atmosphere",
+        "desert camping with tent under vast starry sky, Milky Way visible, sand dunes, epic cosmic wilderness night",
+        "jungle campsite with tropical canopy, hanging lanterns, exotic birds, lush green adventure basecamp",
+        "campsite picnic table with trail map and compass, planning next hike, organized outdoor adventure preparation",
+        "rainy day at campsite inside tent, rain pattering on canvas, warm sleeping bag, cozy storm shelter comfort",
+        "campfire at dusk with guitar resting against log, friendship gathering atmosphere, folk music evening mood",
+        "cliff-edge campsite with dramatic ocean view below, wind-swept tent, adventurous extreme camping location",
+        "autumn forest campsite with golden falling leaves, warm flannel blanket, hot cocoa steam, harvest season coziness",
+    ],
+    "airport": [
+        "modern airport terminal with large glass windows, planes on tarmac visible, bright natural light, exciting travel anticipation",
+        "airport departure lounge with comfortable seating, flight information board, carry-on luggage, pre-flight relaxation",
+        "airport duty-free shopping area with luxury brands, bright well-lit displays, travel retail therapy atmosphere",
+        "airport cafe with runway view, coffee and pastry on table, watching planes take off, relaxed traveler moment",
+        "business class airport lounge with plush seating, warm ambient lighting, premium cocktail, VIP travel luxury",
+        "airport check-in area with modern self-service kiosks, bustling travelers, adventure beginning energy",
+        "airport arrival hall with welcome signs, happy reunion atmosphere, bright cheerful homecoming energy",
+        "airport walkway with moving sidewalk, futuristic corridor design, connecting flights, transit journey movement",
+        "small regional airport with propeller plane outside, charming intimate travel, boutique aviation adventure",
+        "airport at sunrise through panoramic windows, golden light on planes, early morning flight calm anticipation",
+        "airport gate seating area with boarding pass in hand, final wait before adventure, excited travel anticipation",
+        "airport baggage carousel area, spotting luggage, arrival energy, travel completion satisfaction",
+        "private jet terminal with sleek aircraft visible, red carpet, luxury VIP aviation experience",
+        "airport rooftop observation deck, planes taking off and landing, aviation enthusiast paradise, sky-gazing wonder",
+        "airport hotel lobby with rolling suitcases, transit overnight stay, global traveler lifestyle",
+        "tropical airport with open-air design, palm trees and ocean breeze, island destination arrival excitement",
+        "futuristic airport with curved glass architecture, LED signage, modern engineering marvel, next-gen travel",
+        "airport food court with diverse cuisine options, travelers from around the world, multicultural gathering hub",
+        "airport bookshop with travel guides and novels, browsing before flight, intellectual traveler moment",
+        "night airport with illuminated runway lights, dramatic plane silhouettes, cinematic late-night travel mood",
+    ],
+    "supermarket": [
+        "bright modern supermarket aisle with colorful product shelves, clean fluorescent lighting, everyday shopping atmosphere",
+        "organic grocery section with fresh produce display, wooden crates of fruits, farm-to-table healthy aesthetic",
+        "supermarket checkout area with conveyor belt and items, friendly cashier interaction, routine shopping completion",
+        "Asian grocery store with exotic ingredients, vibrant packaging, cultural food diversity, culinary exploration",
+        "premium gourmet supermarket with artisan cheese counter, wine bottles, upscale grocery shopping experience",
+        "supermarket frozen food aisle with glass door freezers, cool blue-tinted lighting, convenient meal solutions",
+        "weekend farmers market inside covered hall, handmade goods and fresh produce, community local shopping charm",
+        "supermarket snack aisle with colorful chips and candy, fun indulgent choices, casual everyday treat shopping",
+        "health food store with supplement shelves, clean green branding, wellness-focused natural product environment",
+        "supermarket bakery section with fresh bread display, warm baking aroma atmosphere, golden crusty artisan loaves",
+        "Japanese konbini convenience store interior, compact organized shelves, bright clean aesthetic, everyday convenience",
+        "warehouse club store with bulk items stacked high, industrial shelving, value-shopping family-size environment",
+        "supermarket cosmetics aisle with beauty products on display, soft lighting, self-care product browsing",
+        "Thai 7-Eleven interior with colorful snack shelves, bright neon branding, late-night convenience stop",
+        "supermarket fresh seafood counter with ice display, ocean-fresh ingredients, culinary market premium",
+        "grocery store shopping cart POV, items being placed in cart, first-person shopping experience perspective",
+        "supermarket wine section with bottles organized by region, warm accent lighting, sophisticated selection experience",
+        "small neighborhood grocery shop with personal touch, friendly owner, community corner store warmth",
+        "supermarket deli counter with sliced meats and cheese, glass display case, savory prepared food station",
+        "eco-friendly zero-waste grocery store with bulk bins and reusable containers, sustainable shopping movement",
+    ],
+    "swimming-pool": [
+        "luxury resort infinity pool overlooking ocean, turquoise water, palm trees, tropical paradise poolside relaxation",
+        "hotel rooftop swimming pool with city skyline view, sunset golden hour, stylish sun loungers, urban luxury escape",
+        "private villa pool with crystal clear water, tropical garden surroundings, exclusive secluded paradise atmosphere",
+        "modern indoor swimming pool with large glass ceiling, blue ambient lighting, architectural aquatic elegance",
+        "poolside cabana with flowing white curtains, fruit cocktail on side table, resort vacation leisure",
+        "children's splash pool area with water slides and fountains, bright colorful fun, family entertainment energy",
+        "Olympic-style lap pool with lane dividers, competitive swimming atmosphere, athletic training dedication",
+        "natural rock pool in tropical setting, waterfall cascading in background, jungle spa paradise",
+        "hotel pool at night with underwater LED lights, floating candles, romantic evening poolside ambiance",
+        "Mediterranean villa pool with terracotta tiles, olive trees, blue shutters, European summer escape",
+        "pool party setup with inflatable floats, DJ booth nearby, festive colorful decorations, summer celebration energy",
+        "spa hydrotherapy pool with water jets, steam rising, therapeutic relaxation, wellness retreat atmosphere",
+        "beachfront pool merging with ocean horizon, infinity edge, seamless tropical water paradise",
+        "desert oasis pool with palm trees and sand dunes beyond, surprising luxury in arid landscape",
+        "Scandinavian-style cold plunge pool next to sauna, misty morning, wellness contrast therapy setting",
+        "Japanese onsen-inspired pool with wooden deck, bamboo fence, zen garden view, tranquil bathing ritual",
+        "pool with swim-up bar, tropical cocktails served in water, fun vacation social atmosphere",
+        "glass-bottom rooftop pool with city visible below, daring architectural design, thrilling luxury height",
+        "poolside yoga session setup, calm morning water reflection, mindful wellness morning routine",
+        "underwater perspective looking up through pool surface, sun rays penetrating blue water, artistic aquatic view",
+    ],
+    "cyberpunk-city": [
+        "neon-drenched cyberpunk megacity street at night, holographic billboards in Asian characters, rain-slicked reflective roads, blade-runner atmosphere",
+        "futuristic cyberpunk alley with stacked vendor stalls, steam rising from grates, neon pink and cyan signs, dense urban future",
+        "high-tech cyberpunk apartment with floor-to-ceiling holographic displays, city view through smart glass, next-gen living space",
+        "cyberpunk rooftop with drone traffic in sky, massive LED advertisement towers, panoramic dystopian city horizon",
+        "underground cyberpunk nightclub with pulsating LED walls, fog machine, bass-heavy atmosphere, high-tech party scene",
+        "cyberpunk marketplace with robotic vendors, glowing merchandise displays, crowded narrow passages, tech bazaar energy",
+        "futuristic cyberpunk transit station with maglev train, holographic route maps, commuters in techwear, urban mobility",
+        "cyberpunk ramen shop with neon menu signs, steaming bowls, cramped authentic seating, late-night foodie refuge",
+        "cyberpunk corporate office with transparent displays, AI assistant holograms, sleek glass architecture, tech-forward workplace",
+        "rain-soaked cyberpunk bridge with city lights reflected below, lone figure silhouette, cinematic noir mood",
+        "cyberpunk medical clinic with glowing diagnostic screens, clean sterile futuristic interior, advanced healthcare",
+        "cyberpunk street food market with floating lanterns, holographic price tags, diverse alien-like cuisine, vibrant night bazaar",
+        "neon-lit cyberpunk parking garage with luxury hoverbikes, industrial concrete, underground urban edge",
+        "cyberpunk observation tower with panoramic city view, glass floor, vertiginous height, breathtaking futuristic panorama",
+        "cyberpunk library with digital book holograms, soft blue ambient glow, quiet knowledge sanctuary amid chaos",
+        "cyberpunk tattoo parlor with neon body art displays, LED-lit mirrors, underground culture hub",
+        "futuristic cyberpunk gym with holographic training interface, chrome equipment, high-tech fitness",
+        "cyberpunk convenience store with robotic clerk, glowing product shelves, 24/7 automated future retail",
+        "cyberpunk garden with bioluminescent plants, artificial sky dome, nature reclaimed in technology, bio-tech oasis",
+        "cyberpunk fashion boutique with AR mirror try-on, designer techwear on display, cutting-edge style hub",
+    ],
+    "fantasy-forest": [
+        "enchanted forest with glowing bioluminescent mushrooms, firefly particles floating, soft magical mist, fairy-tale dream atmosphere",
+        "ancient magical woodland with massive twisted trees, ethereal light beams through canopy, mystical wonder, Tolkien-inspired beauty",
+        "fairy garden clearing with tiny sparkling lights, colorful wildflowers, dewdrop crystals on leaves, whimsical enchanted space",
+        "dark enchanted forest with glowing runes on tree bark, purple magical fog, mysterious ancient power, dark fantasy atmosphere",
+        "magical treehouse village with rope bridges, lanterns hanging from branches, cozy woodland fantasy community",
+        "crystal cave entrance in magical forest, gemstones embedded in rock glowing, underground wonder, fantasy adventure gateway",
+        "magical forest stream with luminous blue water, stepping stones, dragonfly sparkles, serene enchanted waterway",
+        "autumn magical forest with golden-red leaves and sparkle dust falling, warm ethereal light, seasonal enchantment",
+        "magical forest at twilight with twin moons in sky, silver light filtering through trees, otherworldly lunar beauty",
+        "flower meadow at forest edge with oversized fantastical blooms, butterflies with glowing wings, vibrant magical garden",
+        "ancient stone ruins overgrown with magical vines, glowing symbols, forgotten civilization, archaeological fantasy wonder",
+        "magical forest with floating islands and waterfalls, gravity-defying landscape, epic high-fantasy world-building",
+        "snow-covered magical forest with ice crystal trees, northern lights above, frost sparkle, winter wonderland enchantment",
+        "magical bamboo forest with paper lanterns floating, soft green filtered light, Asian fantasy aesthetic, mystical zen woodland",
+        "giant mushroom forest with oversized colorful fungi, tiny creatures, Alice-in-Wonderland atmosphere, surreal fantasy scale",
+        "magical forest pond with lotus flowers glowing, koi fish with luminous scales, mirror-still reflection, meditative fantasy beauty",
+        "forest of cherry blossoms with petals perpetually falling, pink magical mist, Japanese fantasy dreamscape",
+        "haunted forest with will-o-wisps floating, twisted branches, eerie beautiful atmosphere, gothic fantasy mood",
+        "magical forest sunrise with golden light rays and rainbow prisms through dewdrops, awakening wonder, hope and beauty",
+        "elven forest with elegant organic architecture, spiral wooden towers, soft golden lanterns, ethereal civilization harmony",
     ],
 };
 
@@ -7002,6 +7169,7 @@ export interface PromptGenerationConfig {
     movement?: string;          // static, minimal, active
     clothingStyles?: string[];  // casual, formal, sporty, fashion, uniform
     characterOutfit?: string;   // detailed outfit key from characterOutfitOptions
+    clothingHighlight?: string; // user-specified clothing feature highlights
     customOutfitPrompt?: string; // user-provided custom outfit text
     cameraAngles?: string[];    // front, side, close-up, full-body, dynamic
     touchLevel?: string;        // none, light, medium, heavy — how much character touches/interacts with product
@@ -7855,11 +8023,14 @@ const buildImagePrompt = (
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
     const imgDescHasClothing = descriptionHasExplicitClothing(config.characterDescription || '');
-    const clothingDesc = imgDescHasClothing
+    let clothingDesc = imgDescHasClothing
         ? (config.characterDescription?.trim() || "casual everyday wear")
         : config.characterOutfit
-            ? getOutfitDescription(config.characterOutfit)
+            ? getOutfitDescription(config.characterOutfit, config.customOutfitPrompt)
             : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
+    if (config.clothingHighlight?.trim()) {
+        clothingDesc += `. KEY CLOTHING FEATURES: ${config.clothingHighlight.trim()}`;
+    }
 
     // ── Camera angles → cinematic direction ──
     const cameraMap: Record<string, string> = {

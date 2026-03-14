@@ -33,6 +33,14 @@ const CreateVideoTab = () => {
 
     const { register, control, watch, setValue, getValues } = form;
     const { theme, config: themeConfig } = useTheme();
+    const useAiScript = watch("useAiScript");
+    const sceneScriptsRaw = watch("sceneScriptsRaw") || "";
+    const sceneCount = (watch("sceneCount") || 2) as number;
+    const manualSceneScripts = sceneScriptsRaw
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    const isManualPromptReady = useAiScript || manualSceneScripts.length >= sceneCount;
 
     // TikTok ready state - true when products are synced
     const [isTikTokReady, setIsTikTokReady] = useState(false);
@@ -438,8 +446,16 @@ const CreateVideoTab = () => {
                                 }
 
                                 const data = getValues();
+                                const manualScripts = (data.sceneScriptsRaw || "")
+                                    .split(/\n{2,}/)
+                                    .map((part) => part.trim())
+                                    .filter(Boolean);
+                                if (!data.useAiScript && manualScripts.length < (data.sceneCount || 1)) {
+                                    alert(`โหมดเขียนเองต้องกรอกบทพูดให้ครบ ${data.sceneCount || 1} ฉากก่อนสร้าง Prompt`);
+                                    return;
+                                }
                                 console.log("[Prompt Button] Form data:", data);
-                                const { generatePrompts, generateQuickPrompts } = await import("@/services/veoPromptService");
+                                const { generatePrompts } = await import("@/services/veoPromptService");
 
                                 // Build config for AI prompt service — ALL form fields
                                 const promptConfig = {
@@ -459,8 +475,8 @@ const CreateVideoTab = () => {
                                     movement: data.movement || "minimal",
                                     aspectRatio: data.orientation === "vertical" ? "9:16" : "16:9",
                                     clipDuration: (data.sceneCount || 1) * 8,
-                                    hookText: data.hookEnabled ? data.hookText : "",
-                                    ctaText: data.ctaEnabled ? data.ctaText : "",
+                                    hookText: data.useAiScript && data.hookEnabled ? data.hookText : "",
+                                    ctaText: data.useAiScript && data.ctaEnabled ? data.ctaText : "",
                                     mustUseKeywords: data.mustUseKeywords || "",
                                     avoidKeywords: data.avoidKeywords || "",
                                     userScript: data.sceneScriptsRaw || "",
@@ -468,6 +484,8 @@ const CreateVideoTab = () => {
                                     cachedProductInfo: data.cachedProductInfo || "",
                                     clothingStyles: data.clothingStyles || ["casual"],
                                     characterOutfit: data.characterOutfit || "original",
+                                    customOutfitPrompt: data.customOutfitPrompt || "",
+                                    clothingHighlight: data.clothingHighlight || "",
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
                                     touchLevel: data.touchLevel || "light",
                                     sceneBackground: data.sceneBackground === "custom" && data.customSceneBackground 
@@ -478,21 +496,19 @@ const CreateVideoTab = () => {
                                 // Show loading state
                                 setIsGeneratingPrompt(true);
                                 setGeneratedImagePrompt("⏳ กำลังสร้าง Prompt...");
-                                setGeneratedVideoPrompt("⏳ กำลังวิเคราะห์ด้วย AI...");
+                                setGeneratedVideoPrompt(data.useAiScript ? "⏳ กำลังวิเคราะห์ด้วย AI..." : "⏳ กำลังจัดบทที่คุณเขียนให้เข้ากับ Veo...");
 
                                 try {
                                     console.log("[Prompt Button] Importing veoPromptService...");
-                                    const { generatePrompts, generateQuickPrompts } = await import("@/services/veoPromptService");
+                                    const { generatePrompts } = await import("@/services/veoPromptService");
                                     console.log("[Prompt Button] Imported successfully");
-                                    
-                                    let prompts;
-                                    if (data.useAiScript && productImage) {
-                                        console.log("[Prompt Button] Using AI mode with vision...");
-                                        prompts = await generatePrompts(promptConfig);
-                                    } else {
-                                        console.log("[Prompt Button] Using quick mode...");
-                                        prompts = generateQuickPrompts(promptConfig);
-                                    }
+
+                                    console.log(
+                                        data.useAiScript
+                                            ? "[Prompt Button] Using AI script mode..."
+                                            : "[Prompt Button] Using manual dialogue mode with main Veo prompt builder..."
+                                    );
+                                    const prompts = await generatePrompts(promptConfig);
                                     console.log("[Prompt Button] Prompts generated:", prompts);
                                     
                                     setGeneratedImagePrompt(prompts.imagePrompt);
@@ -531,27 +547,18 @@ const CreateVideoTab = () => {
                                 } catch (err: any) {
                                     console.error("[Prompt Button] Prompt generation failed:", err);
                                     alert("สร้าง Prompt ไม่สำเร็จ: " + (err.message || "Unknown error"));
-                                    // Fallback to quick mode
-                                    try {
-                                        const { generateQuickPrompts } = await import("@/services/veoPromptService");
-                                        const prompts = generateQuickPrompts(promptConfig);
-                                        setGeneratedImagePrompt(prompts.imagePrompt);
-                                        setGeneratedVideoPrompt(prompts.videoPrompt);
-                                        setVideoScenePrompts([prompts.videoPrompt]);
-                                    } catch (fallbackErr) {
-                                        console.error("[Prompt Button] Fallback also failed:", fallbackErr);
-                                    }
                                 } finally {
                                     setIsGeneratingPrompt(false);
                                 }
                             }}
-                            disabled={isGeneratingPrompt}
+                            disabled={isGeneratingPrompt || !isManualPromptReady}
                             data-prompt-generate-btn="true"
                             className={`text-[10px] px-3 py-1.5 rounded-lg transition-all duration-300 flex items-center gap-1.5 font-medium ${
-                                isGeneratingPrompt
+                                isGeneratingPrompt || !isManualPromptReady
                                     ? 'bg-neon-red/80 text-white cursor-wait'
                                     : 'ai-btn-shimmer text-white hover:scale-105 active:scale-95 shadow-sm shadow-neon-red/20'
                             }`}
+                            title={!isManualPromptReady ? `กรอกสคริปต์ให้ครบ ${sceneCount} ฉากก่อนสร้าง Prompt` : undefined}
                         >
                             {isGeneratingPrompt ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -561,6 +568,12 @@ const CreateVideoTab = () => {
                             {isGeneratingPrompt ? 'AI กำลังสร้าง...' : 'สร้าง/อัปเดต Prompt'}
                         </button>
                     </div>
+
+                    {!isManualPromptReady && (
+                        <p className="text-[10px] text-amber-300/90">
+                            โหมดเขียนเอง: กรุณากรอกบทพูดให้ครบ {sceneCount} ฉากในส่วนสคริปต์ด้านล่างก่อนกดสร้าง Prompt
+                        </p>
+                    )}
 
                     {generatedImagePrompt && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300 relative">
