@@ -7688,7 +7688,11 @@ export const buildSafeRetryPrompt = (originalPrompt: string): string => {
     });
     p = filtered.join(' ');
 
-    // ── 3. Collapse repeated whitespace ──
+    // ── 5. Clean up any remaining minor/child terms to prevent policy violations ──
+    const minorTerms = /\b(child|children|kid|kids|boy|girl|teen|teenager|youth|minor|student|toddler|baby|young)\b/gi;
+    p = p.replace(minorTerms, "person");
+
+    // ── 6. Collapse multiple spaces and trim ──
     p = p.replace(/\s{2,}/g, ' ').trim();
 
     // ── 4. If still too long (>1200 chars), aggressively trim non-essential parts ──
