@@ -1379,7 +1379,7 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
     const voiceDesc = voiceToneDesc[voiceTone] || voiceToneDesc["friendly"];
 
     return [
-        `Character '${persona.name}': ${genderWord} presenter, age ${persona.age}, ${persona.characterType}.`,
+        `Character '${persona.name}': ${genderWord} presenter.`,
         `Voice: ${voiceDesc}. Speaking Thai on-camera: ${behavior}.`,
         `Mouth opens and closes naturally matching spoken words — realistic speaking animation throughout.`,
         `VOICE IDENTITY LOCK: Speaker '${persona.name}' — same voice, same tone, same speaking style, same energy level in EVERY scene. No voice change between scenes. Consistent vocal character throughout the entire video.`
