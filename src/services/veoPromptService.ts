@@ -1185,28 +1185,28 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         { name: "Gun", voiceTone: "energetic", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มนักศึกษาสายสตรีท ผมทำสี แต่งตัวสตรีทแวร์ ไลฟ์ขายของมืออาชีพ" },
         { name: "Tle", voiceTone: "energetic", ageRange: "adult", age: "adult", characterType: "พิธีกรหนุ่มมาดเท่ ผมเซ็ตเป๊ะ หุ่นดี นักรีวิวสายเทค พลังงานล้น" },
         // ── CALM (5 variants) ──
-        { name: "Prem", voiceTone: "calm", ageRange: "young-adult", age: "adult", characterType: "หนุ่มสุภาพเรียบร้อย ผมยาวเล็กน้อย ใส่แว่น หน้าตาอ่อนโยน นักอ่าน" },
+        { name: "Prem", voiceTone: "calm", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มสุภาพเรียบร้อย ผมยาวเล็กน้อย ใส่แว่น หน้าตาอ่อนโยน นักอ่าน" },
         { name: "Pond", voiceTone: "calm", ageRange: "adult", age: "adult", characterType: "ผู้ชายวัยกลางคน สุขุม ผมเกรียน ใบหน้าคม สง่า แพทย์/ที่ปรึกษา" },
-        { name: "Suthep", voiceTone: "calm", ageRange: "middle-age", age: "adult", characterType: "ลุงใจดี ผมหงอกเล็กน้อย ท่าทางสุขุม ปราชญ์/ครูบาอาจารย์" },
-        { name: "Top", voiceTone: "calm", ageRange: "young-adult", age: "adult", characterType: "หนุ่มมินิมอล ผมยาวหวีเรียบ เสื้อผ้าโทนเอิร์ธ สุขุม นักเขียน/ช่างภาพ" },
+        { name: "Suthep", voiceTone: "calm", ageRange: "middle-age", age: "middle-aged adult", characterType: "ลุงใจดี ผมหงอกเล็กน้อย ท่าทางสุขุม ปราชญ์/ครูบาอาจารย์" },
+        { name: "Top", voiceTone: "calm", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มมินิมอล ผมยาวหวีเรียบ เสื้อผ้าโทนเอิร์ธ สุขุม นักเขียน/ช่างภาพ" },
         { name: "Mark", voiceTone: "calm", ageRange: "adult", age: "adult", characterType: "ผู้ชายสง่าเงียบขรึม หนวดเคราเล็กน้อย สายธรรมชาติ โยคะ/ครูสมาธิ" },
         // ── FRIENDLY (5 variants) ──
         { name: "Somsak", voiceTone: "friendly", ageRange: "teen", age: "teenager", characterType: "เด็กหนุ่มข้างบ้าน ยิ้มง่าย ผมตั้ง เสื้อยืดกางเกงยีนส์ เป็นกันเอง" },
         { name: "Bank", voiceTone: "friendly", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มออฟฟิศอบอุ่น ใส่เสื้อเชิ้ตพับแขน ยิ้มหวาน พ่อค้าออนไลน์" },
         { name: "Chai", voiceTone: "friendly", ageRange: "adult", age: "adult", characterType: "คุณพ่อยุคใหม่ หุ่นท้วมนิดๆ ใจดี อบอุ่น บล็อกเกอร์ครอบครัว" },
-        { name: "Pete", voiceTone: "friendly", ageRange: "young-adult", age: "adult", characterType: "หนุ่มบาริสต้า ผมหยิกธรรมชาติ ผ้ากันเปื้อน ยิ้มเป็นมิตร สายกาแฟ" },
+        { name: "Pete", voiceTone: "friendly", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มบาริสต้า ผมหยิกธรรมชาติ ผ้ากันเปื้อน ยิ้มเป็นมิตร สายกาแฟ" },
         { name: "Dome", voiceTone: "friendly", ageRange: "adult", age: "adult", characterType: "ช่างภาพฟรีแลนซ์ แต่งตัวชิลล์ ยิ้มง่าย เล่าเรื่องสนุก นักเดินทาง" },
         // ── PROFESSIONAL (5 variants) ──
-        { name: "Natt", voiceTone: "professional", ageRange: "young-adult", age: "adult", characterType: "หนุ่มสตาร์ทอัพ สูทสลิมฟิต ผมเซ็ต ดูดีมีระดับ CEO รุ่นใหม่" },
+        { name: "Natt", voiceTone: "professional", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มสตาร์ทอัพ สูทสลิมฟิต ผมเซ็ต ดูดีมีระดับ CEO รุ่นใหม่" },
         { name: "Arthit", voiceTone: "professional", ageRange: "adult", age: "adult", characterType: "ผู้บริหาร สูทสากล ท่าทางมั่นใจ น่าเชื่อถือ ผู้เชี่ยวชาญ" },
-        { name: "Somchai", voiceTone: "professional", ageRange: "middle-age", age: "adult", characterType: "ผู้ใหญ่มากประสบการณ์ ผมขาวเท่ มาดนิ่ง กูรู/ที่ปรึกษาอาวุโส" },
-        { name: "James", voiceTone: "professional", ageRange: "young-adult", age: "adult", characterType: "ทนายหนุ่ม สูทเข้ารูป ผมเซ็ตเรียบร้อย มาดจริงจัง น่าเชื่อถือ" },
+        { name: "Somchai", voiceTone: "professional", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้ใหญ่มากประสบการณ์ ผมขาวเท่ มาดนิ่ง กูรู/ที่ปรึกษาอาวุโส" },
+        { name: "James", voiceTone: "professional", ageRange: "young-adult", age: "young adult", characterType: "ทนายหนุ่ม สูทเข้ารูป ผมเซ็ตเรียบร้อย มาดจริงจัง น่าเชื่อถือ" },
         { name: "Ton", voiceTone: "professional", ageRange: "adult", age: "adult", characterType: "หมอผู้เชี่ยวชาญ เสื้อกาวน์ขาว ท่าทางน่าไว้วางใจ สุขุม แม่นยำ" },
         // ── CUTE (5 variants) ──
         { name: "Beam", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "เด็กหนุ่มหน้าใส ตาโต ผมปัด น่ารักสดใส ไอดอลวัยรุ่น" },
         { name: "Win", voiceTone: "cute", ageRange: "young-adult", age: "young adult", characterType: "ซอฟท์บอย ผิวขาว หน้าหวาน เสื้อผ้าพาสเทล อินฟลูเอนเซอร์" },
         { name: "Ohm", voiceTone: "cute", ageRange: "adult", age: "adult", characterType: "ผู้ชายเสน่ห์แรง ยิ้มมีเสน่ห์ ลุคชิลล์ ดูดีแบบไม่ต้องพยายาม" },
-        { name: "New", voiceTone: "cute", ageRange: "young-adult", age: "adult", characterType: "หนุ่มน้อยหน้าเด็ก ผิวใส ผมม้า ตาแป๋ว สดใสร่าเริง ไอดอลเกาหลี" },
+        { name: "New", voiceTone: "cute", ageRange: "young-adult", age: "young adult", characterType: "หนุ่มน้อยหน้าเด็ก ผิวใส ผมม้า ตาแป๋ว สดใสร่าเริง ไอดอลเกาหลี" },
         { name: "Film", voiceTone: "cute", ageRange: "adult", age: "adult", characterType: "หนุ่มหน้าใสดูอ่อนกว่าวัย ผมยาวปัดข้าง ยิ้มละไม เสน่ห์ธรรมชาติ" },
         // ── CHILD (6-12) — 20 personas ──
         { name: "Kan", voiceTone: "energetic", ageRange: "child", age: "child", characterType: "เด็กชายร่าเริง ผมสั้นเกรียน ยิ้มกว้าง ชุดนักเรียน วิ่งเล่นตลอด" },
@@ -1247,6 +1247,17 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         { name: "Champ", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "เด็กหนุ่มหน้าใส ตาโต ผมม้า แก้มป่อง น่ารัก ไอดอลม.ต้น" },
         { name: "BenzM", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "วัยรุ่นหน้าเด็ก ผิวขาว ผมนิ่ม เสื้อผ้าพาสเทล สดใส" },
         { name: "PopM", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "วัยรุ่นซอฟท์บอย ผมปัดข้าง ตาหวาน ยิ้มละมุน อ่อนหวาน" },
+        // ── MIDDLE-AGE (46-60) — 10 personas ──
+        { name: "Wuttichai", voiceTone: "energetic", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้ชายวัยกลางคนแข็งแรง ผมสั้นหงอกนิด หุ่นล่ำ เสื้อโปโล นักวิ่งมาราธอน พลังงานสูง" },
+        { name: "Preecha", voiceTone: "energetic", ageRange: "middle-age", age: "middle-aged adult", characterType: "ลุงวัยกลางคนสายกีฬา ผมสั้น ผิวแทน เสื้อกีฬา กระฉับกระเฉง นักเดินทาง" },
+        { name: "SuthepCalm", voiceTone: "calm", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้ชายวัยกลางคนสุขุม ผมหงอกเล็กน้อย ใส่แว่น เสื้อเชิ้ต อาจารย์มหาลัย" },
+        { name: "Prasert", voiceTone: "calm", ageRange: "middle-age", age: "middle-aged adult", characterType: "ลุงนิ่งสง่า ผมสั้นเทา สูทลำลอง ท่าทางมั่นคง อดีตผู้พิพากษา" },
+        { name: "Anon", voiceTone: "friendly", ageRange: "middle-age", age: "middle-aged adult", characterType: "ลุงข้างบ้านใจดี ผมหงอกนิด ยิ้มง่าย เสื้อยืดลำลอง อบอุ่น คุยสนุก" },
+        { name: "Worawit", voiceTone: "friendly", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้ชายวัยกลางคนอบอุ่น ผมสั้นเทา เสื้อผ้าสบาย พ่อค้าตลาดนัด เป็นกันเอง" },
+        { name: "SomchaiPro", voiceTone: "professional", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้บริหารวัยกลางคน ผมหงอกเล็กน้อย สูทเข้ารูป แว่นตา มาดมั่นใจ CEO" },
+        { name: "Thanakorn", voiceTone: "professional", ageRange: "middle-age", age: "middle-aged adult", characterType: "แพทย์ผู้เชี่ยวชาญวัยกลางคน ผมสั้นเทา เสื้อกาวน์ ท่าทางน่าเชื่อถือ" },
+        { name: "LungJai", voiceTone: "cute", ageRange: "middle-age", age: "middle-aged adult", characterType: "ลุงอารมณ์ดี หุ่นท้วมนิด ผมหงอกนิด ยิ้มซน ตาเป็นประกาย น่ารัก" },
+        { name: "LungDee", voiceTone: "cute", ageRange: "middle-age", age: "middle-aged adult", characterType: "ลุงใจดีหน้าอ่อนกว่าวัย ผมสั้นเรียบ ยิ้มหวาน เสื้อยืดลายน่ารัก อบอุ่น" },
         // ── SENIOR (60+) — 20 personas ──
         { name: "Sombat", voiceTone: "energetic", ageRange: "senior", age: "senior", characterType: "คุณลุงแข็งแรง ผมขาวสั้น ยิ้มกว้าง ชุดกีฬา ออกกำลังกายทุกวัน" },
         { name: "Prasit", voiceTone: "energetic", ageRange: "senior", age: "senior", characterType: "ลุงพลังงานสูง ผมหงอกเล็กน้อย เสื้อโปโล กางเกงขายาว นักเดินทาง" },
@@ -1283,7 +1294,7 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         // ── CALM (5 variants) ──
         { name: "Namwan", voiceTone: "calm", ageRange: "young-adult", age: "young adult", characterType: "สาวเรียบร้อย ผมยาวตรง ใบหน้าอ่อนหวาน แต่งตัวมินิมอล สุภาพ" },
         { name: "Noon", voiceTone: "calm", ageRange: "adult", age: "adult", characterType: "ผู้หญิงสง่า ผมประบ่า มาดสุขุม แพทย์/นักจิตวิทยา น่าไว้วางใจ" },
-        { name: "Aree", voiceTone: "calm", ageRange: "middle-age", age: "adult", characterType: "คุณป้าสง่างาม ผมสั้นเรียบร้อย ท่าทางอบอุ่น ครู/ที่ปรึกษาอาวุโส" },
+        { name: "Aree", voiceTone: "calm", ageRange: "middle-age", age: "middle-aged adult", characterType: "คุณป้าสง่างาม ผมสั้นเรียบร้อย ท่าทางอบอุ่น ครู/ที่ปรึกษาอาวุโส" },
         { name: "Mild", voiceTone: "calm", ageRange: "young-adult", age: "young adult", characterType: "สาวโยคะ ผิวเปล่งปลั่ง ผมยาวถักเปีย เสื้อผ้าธรรมชาติ สงบนิ่ง" },
         { name: "Orn", voiceTone: "calm", ageRange: "adult", age: "adult", characterType: "เภสัชกรหญิง ท่าทางน่าเชื่อถือ ผมรวบมวยต่ำ เสื้อกาวน์ สุขุมนุ่มนวล" },
         // ── FRIENDLY (5 variants) ──
@@ -1295,7 +1306,7 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         // ── PROFESSIONAL (5 variants) ──
         { name: "Ploy", voiceTone: "professional", ageRange: "young-adult", age: "young adult", characterType: "สาวมั่น สูทสวย ผมเก็บมวย ดูดีมีระดับ ผู้ก่อตั้งสตาร์ทอัพ" },
         { name: "Kwan", voiceTone: "professional", ageRange: "adult", age: "adult", characterType: "ผู้บริหารหญิง สง่า น่าเชื่อถือ เสื้อผ้าเนี้ยบ ผู้เชี่ยวชาญ" },
-        { name: "Suda", voiceTone: "professional", ageRange: "middle-age", age: "adult", characterType: "ผู้หญิงมากประสบการณ์ สง่างาม ผมสั้นทรงผู้ดี กูรู/ศาสตราจารย์" },
+        { name: "Suda", voiceTone: "professional", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้หญิงมากประสบการณ์ สง่างาม ผมสั้นทรงผู้ดี กูรู/ศาสตราจารย์" },
         { name: "May", voiceTone: "professional", ageRange: "young-adult", age: "young adult", characterType: "นักการตลาดสาว สูทเข้ารูป ผมยาวตรง แว่นตาทรงเท่ มาดมั่นใจ" },
         { name: "Ning", voiceTone: "professional", ageRange: "adult", age: "adult", characterType: "หมอผิวหนัง เสื้อกาวน์ขาว ท่าทางน่าไว้วางใจ ผมประบ่า สุขุม" },
         // ── CUTE (5 variants) ──
@@ -1343,6 +1354,17 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
         { name: "MinkF", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "สาวม.ต้นหน้าใส ตาโต ผมสองข้าง แก้มป่อง น่ารัก ไอดอล" },
         { name: "Pinky", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "วัยรุ่นสาวหน้าเด็ก ผิวขาว ผมยาว เสื้อผ้าพาสเทล สดใส" },
         { name: "PerryF", voiceTone: "cute", ageRange: "teen", age: "teenager", characterType: "วัยรุ่นหวานใส ผมลอน ตาหวาน ยิ้มละมุน อ่อนหวาน น่ารัก" },
+        // ── MIDDLE-AGE (46-60) — 10 personas ──
+        { name: "Ratchanee", voiceTone: "energetic", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้หญิงวัยกลางคนแข็งแรง ผมสั้นหงอกนิด หุ่นดี เสื้อกีฬา นักวิ่ง พลังงานสูง" },
+        { name: "Jintana", voiceTone: "energetic", ageRange: "middle-age", age: "middle-aged adult", characterType: "ป้าวัยกลางคนร่าเริง ผมประบ่า เสื้อผ้าสีสด แม่ค้าออนไลน์ กระฉับกระเฉง" },
+        { name: "Wanna", voiceTone: "calm", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้หญิงวัยกลางคนสง่า ผมสั้นเทา ใส่แว่น เสื้อเชิ้ตขาว อาจารย์มหาลัย สุขุม" },
+        { name: "Nittaya", voiceTone: "calm", ageRange: "middle-age", age: "middle-aged adult", characterType: "ป้านิ่งสง่างาม ผมประบ่าเทา เสื้อผ้าเรียบร้อย อดีตข้าราชการ น่าเชื่อถือ" },
+        { name: "Urai", voiceTone: "friendly", ageRange: "middle-age", age: "middle-aged adult", characterType: "ป้าข้างบ้านใจดี ผมสั้นหงอกนิด ยิ้มง่าย เสื้อยืดลำลอง อบอุ่น คุยสนุก" },
+        { name: "Kamol", voiceTone: "friendly", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้หญิงวัยกลางคนอบอุ่น ผมยาวเทา เสื้อผ้าสบาย แม่ค้าตลาดนัด เป็นกันเอง" },
+        { name: "SudaPro", voiceTone: "professional", ageRange: "middle-age", age: "middle-aged adult", characterType: "ผู้บริหารหญิงวัยกลางคน ผมสั้นเทา สูทเข้ารูป แว่นตา มาดมั่นใจ ผู้จัดการ" },
+        { name: "Ratree", voiceTone: "professional", ageRange: "middle-age", age: "middle-aged adult", characterType: "แพทย์หญิงผู้เชี่ยวชาญวัยกลางคน ผมประบ่า เสื้อกาวน์ ท่าทางน่าไว้วางใจ" },
+        { name: "PaJai", voiceTone: "cute", ageRange: "middle-age", age: "middle-aged adult", characterType: "ป้าอารมณ์ดี หุ่นท้วมนิด ผมสั้นหงอกนิด ยิ้มซน ตาเป็นประกาย น่ารัก" },
+        { name: "PaDee", voiceTone: "cute", ageRange: "middle-age", age: "middle-aged adult", characterType: "ป้าใจดีหน้าอ่อนกว่าวัย ผมยาวเทา ยิ้มหวาน เสื้อลายดอก อบอุ่น น่ารัก" },
         // ── SENIOR (60+) — 20 personas ──
         { name: "Somporn", voiceTone: "energetic", ageRange: "senior", age: "senior", characterType: "คุณป้าแข็งแรง ผมสั้นขาว ยิ้มกว้าง ชุดกีฬา ออกกำลังกายทุกวัน" },
         { name: "Pranee", voiceTone: "energetic", ageRange: "senior", age: "senior", characterType: "ป้าพลังงานสูง ผมสั้นหงอก เสื้อโปโล กางเกงขายาว นักเดินทาง" },
@@ -1418,8 +1440,19 @@ function getPersona(gender: string, voiceTone: string, ageRange?: string): Voice
  * Do NOT use the phrase "lip sync" — it gets truncated to "Lip." triggering safety filters.
  */
 const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: string, preSelectedPersona?: VoicePersona): string => {
-    const genderWord = gender === 'male' ? 'Thai male' : 'Thai female';
+    const isMale = gender === 'male';
     const persona = preSelectedPersona || getPersona(gender, voiceTone, ageRange);
+
+    // Age+Gender-aware character role label — no "presenter" for children/teens
+    const VOICEOVER_ROLE_LABEL: Record<string, { male: string; female: string }> = {
+        "child": { male: "Thai young boy", female: "Thai young girl" },
+        "teen": { male: "Thai teenage boy", female: "Thai teenage girl" },
+        "young-adult": { male: "Thai young man", female: "Thai young woman" },
+        "adult": { male: "Thai male presenter", female: "Thai female presenter" },
+        "middle-age": { male: "Thai mature male presenter", female: "Thai mature female presenter" },
+        "senior": { male: "Thai elderly male", female: "Thai elderly female" },
+    };
+    const roleLabel = (VOICEOVER_ROLE_LABEL[ageRange || 'adult'] || VOICEOVER_ROLE_LABEL['adult'])[isMale ? 'male' : 'female'];
 
     // Age-appropriate visual appearance label — tells Veo exactly how old the character looks
     // SAFETY: Do NOT use specific minor ages (e.g. "6-12") — triggers Veo safety filters for minors in commercial content.
@@ -1433,16 +1466,36 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
     };
     const ageLabel = ageRange ? (AGE_VISUAL_LABEL[ageRange] || 'adult') : 'adult';
 
-    // Age-appropriate voice quality — child should sound like a child, senior like an elder
-    const AGE_VOICE_QUALITY: Record<string, string> = {
-        "child": "bright cheerful young voice — light, innocent, full of wonder and excitement",
-        "teen": "youthful energetic voice — fresh, slightly higher pitch, natural young energy",
-        "young-adult": "young adult voice — clear, vibrant, confident, full vocal range",
-        "adult": "mature adult voice — full, confident, experienced, natural authority",
-        "middle-age": "mature seasoned voice — deep, authoritative, rich with experience",
-        "senior": "warm wise elderly voice — gentle, calm, deeper and slower, grandparent-like warmth"
+    // Age+Gender-aware voice quality — child boy ≠ child girl, senior man ≠ senior woman
+    const AGE_VOICE_QUALITY: Record<string, { male: string; female: string }> = {
+        "child": {
+            male: "young boy's voice — bright, high-pitched, innocent, cheerful, small child energy and wonder",
+            female: "young girl's voice — sweet, high-pitched, innocent, cheerful, small child brightness and wonder"
+        },
+        "teen": {
+            male: "teenage boy voice — youthful, slightly deeper than a child, fresh adolescent energy, not yet fully mature",
+            female: "teenage girl voice — youthful, bright and clear, fresh adolescent energy, lively and expressive"
+        },
+        "young-adult": {
+            male: "young man voice — clear, vibrant, confident, full vocal range, energetic masculinity",
+            female: "young woman voice — clear, vibrant, confident, full vocal range, lively femininity"
+        },
+        "adult": {
+            male: "mature male voice — full, deep, confident, experienced, natural authority and warmth",
+            female: "mature female voice — full, warm, confident, experienced, natural authority and grace"
+        },
+        "middle-age": {
+            male: "seasoned middle-aged male voice — deep, authoritative, rich baritone with experience",
+            female: "seasoned middle-aged female voice — warm, composed, authoritative with refined grace"
+        },
+        "senior": {
+            male: "elderly gentleman voice — deep, wise, gentle with age, slower pace, warm grandfatherly authority",
+            female: "elderly lady voice — warm, wise, gentle with age, slower pace, kind grandmotherly softness"
+        }
     };
-    const ageVoiceQuality = ageRange ? (AGE_VOICE_QUALITY[ageRange] || '') : '';
+    const ageVoiceQuality = ageRange
+        ? (AGE_VOICE_QUALITY[ageRange] || AGE_VOICE_QUALITY['adult'])[isMale ? 'male' : 'female']
+        : '';
 
     // Visual speaking behavior per tone (how the character LOOKS while speaking, not how they SOUND)
     const speakingBehavior: Record<string, string> = {
@@ -1465,7 +1518,7 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
     const voiceDesc = voiceToneDesc[voiceTone] || voiceToneDesc["friendly"];
 
     return [
-        `Character '${persona.name}': ${genderWord} presenter, ${ageLabel}.`,
+        `Character '${persona.name}': ${roleLabel}, ${ageLabel}.`,
         `Voice: ${ageVoiceQuality ? `${ageVoiceQuality}. ` : ''}${voiceDesc}. Speaking Thai on-camera: ${behavior}.`,
         `AGE LOCK: This character's visual age is ${ageLabel} — face, body, skin, and voice MUST match this appearance throughout. Do NOT change the character's apparent age.`,
         `Mouth opens and closes naturally matching spoken words — realistic speaking animation throughout.`,
