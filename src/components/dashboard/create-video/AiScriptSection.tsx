@@ -184,7 +184,7 @@ const AiScriptSection = ({
                             style={useAiScript ? { background: themeConfig.hex } : {}}
                         >
                             <Stars className="w-4 h-4" />
-                            AI สร้างอัตโนมัติ
+                            AI ช่วยเขียนบท
                             <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${useAiScript ? 'text-white/80 bg-white/15' : ''}`} style={!useAiScript ? { color: themeConfig.hex, background: `rgba(${themeConfig.hexRgb}, 0.12)` } : {}}>
                                 แนะนำ
                             </span>
@@ -199,7 +199,7 @@ const AiScriptSection = ({
                             style={!useAiScript ? { background: themeConfig.hex } : {}}
                         >
                             <Pencil className="w-3.5 h-3.5" />
-                            เขียนเอง
+                            กำหนดบทเอง
                         </button>
                     </div>
 
@@ -215,10 +215,10 @@ const AiScriptSection = ({
                                 <Pencil className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: themeConfig.hex }} />
                                 <div className="space-y-1">
                                     <p className="text-[11px] font-semibold" style={{ color: themeConfig.hex }}>
-                                        โหมดเขียนเองสำหรับ Veo
+                                        โหมดกำหนดบทพูดเอง
                                     </p>
                                     <p className="text-[10px] leading-relaxed text-muted-foreground/80">
-                                        พิมพ์บทพูดของแต่ละฉากในส่วนตั้งค่าความยาวและสคริปต์ด้านล่าง ระบบจะคงบทของคุณไว้ แล้วช่วยจัด image/video prompt ให้เข้ากับสินค้า ตัวละคร และสไตล์ที่เลือก
+                                        ใส่บทพูดของแต่ละฉากเองได้ด้านล่าง ระบบจะยึดตามบทที่คุณกำหนด แล้วช่วยเรียบเรียง image/video prompt ให้สอดคล้องกับสินค้า ตัวละคร และสไตล์ที่เลือก
                                     </p>
                                 </div>
                             </div>

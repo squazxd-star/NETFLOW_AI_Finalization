@@ -451,7 +451,7 @@ const CreateVideoTab = () => {
                                     .map((part) => part.trim())
                                     .filter(Boolean);
                                 if (!data.useAiScript && manualScripts.length < (data.sceneCount || 1)) {
-                                    alert(`โหมดเขียนเองต้องกรอกบทพูดให้ครบ ${data.sceneCount || 1} ฉากก่อนสร้าง Prompt`);
+                                    alert(`โหมดกำหนดบทเองต้องกรอกบทพูดให้ครบ ${data.sceneCount || 1} ฉากก่อนสร้าง Prompt`);
                                     return;
                                 }
                                 console.log("[Prompt Button] Form data:", data);
@@ -565,13 +565,15 @@ const CreateVideoTab = () => {
                             ) : (
                                 <Wand2 className="w-3 h-3" />
                             )}
-                            {isGeneratingPrompt ? 'AI กำลังสร้าง...' : 'สร้าง/อัปเดต Prompt'}
+                            {isGeneratingPrompt
+                                ? (useAiScript ? 'AI กำลังสร้าง...' : 'กำลังสร้างจากบทที่กำหนด...')
+                                : (useAiScript ? 'สร้าง Prompt ด้วย AI' : 'สร้าง Prompt จากบทที่กำหนด')}
                         </button>
                     </div>
 
                     {!isManualPromptReady && (
                         <p className="text-[10px] text-amber-300/90">
-                            โหมดเขียนเอง: กรุณากรอกบทพูดให้ครบ {sceneCount} ฉากในส่วนสคริปต์ด้านล่างก่อนกดสร้าง Prompt
+                            โหมดกำหนดบทเอง: กรุณากรอกบทพูดให้ครบ {sceneCount} ฉากในส่วนสคริปต์ด้านล่างก่อนกดสร้าง Prompt
                         </p>
                     )}
 

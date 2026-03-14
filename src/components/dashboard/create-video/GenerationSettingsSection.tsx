@@ -1182,10 +1182,10 @@ Do not explain. Only output the lines above.`;
                                 <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: themeConfig.hex }} />
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold" style={{ color: themeConfig.hex }}>
-                                        โหมดเขียนเอง
+                                        โหมดกำหนดบทพูดเอง
                                     </p>
                                     <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-                                        พิมพ์บทพูดของแต่ละฉากเองได้เลยด้านล่าง ระบบจะไม่ให้ AI เขียนบทแทน แต่จะนำบทของคุณไปจัดภาพ การเคลื่อนไหว และ prompt ให้เหมาะกับ Veo ตอนกดสร้าง Prompt
+                                        ใส่บทพูดของแต่ละฉากเองได้เลยด้านล่าง ระบบจะไม่เขียนบทแทน แต่จะนำบทของคุณไปจัดภาพ การเคลื่อนไหว และ prompt ให้เหมาะกับ Veo ตอนกดสร้าง Prompt
                                     </p>
                                 </div>
                             </div>
