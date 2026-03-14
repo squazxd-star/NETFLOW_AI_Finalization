@@ -373,6 +373,15 @@ function getOutfitDescription(outfitKey?: string): string {
     return variants[Math.floor(Math.random() * variants.length)];
 }
 
+// Helper: detect if character description explicitly mentions clothing/outfit
+// When true, the user's text-based clothing description takes priority over the outfit dropdown.
+function descriptionHasExplicitClothing(desc: string): boolean {
+    if (!desc) return false;
+    const d = desc.toLowerCase();
+    const clothingPattern = /ใส่ชุด|ใส่เสื้อ|สวมชุด|สวมเสื้อ|ใส่กางเกง|ใส่กระโปรง|ชุดนักเรียน|ชุดพยาบาล|ชุดทำงาน|ชุดนอน|ชุดกีฬา|ชุดว่ายน้ำ|ชุดเดรส|ชุดสูท|ชุดไทย|ชุดครัว|ชุดเชฟ|ชุดยิม|ชุดโยคะ|ชุดออกกำลังกาย|ชุดฟอร์มอล|ชุดราตรี|ชุดแฟชั่น|เสื้อฮู้ด|เสื้อเชิ้ต|เสื้อยืด|เสื้อโปโล|เสื้อกล้าม|เสื้อครอป|เสื้อแจ็คเก็ต|เสื้อสูท|เสื้อกันหนาว|เสื้อผ้า|กางเกงยีนส์|กระโปรง|wearing|dressed in/i;
+    return clothingPattern.test(d);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MASTER FORMULA — คัมภีร์ 5 ส่วน (The 5-Part Master Formula)
 // Based on Gemini expert recommendation for platform-safe commercial prompts
@@ -7139,10 +7148,13 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
     // ── Build randomized character prompt ──
     const appearance = pickRandom(profile.appearances);
     const hair = pickRandom(profile.hairstyles);
-    // Use form-selected outfit (e.g. nurse, school uniform) if provided; otherwise random from style profile
-    const outfit = (formOutfitKey && formOutfitKey !== 'original')
-        ? getOutfitDescription(formOutfitKey)
-        : pickRandom(profile.outfits);
+    // If user explicitly describes clothing in text, prioritize that over dropdown/profile
+    const descHasClothing = descriptionHasExplicitClothing(desc);
+    const outfit = descHasClothing
+        ? '' // Skip dropdown/profile — clothing from description flows through extraDesc
+        : (formOutfitKey && formOutfitKey !== 'original')
+            ? getOutfitDescription(formOutfitKey)
+            : pickRandom(profile.outfits);
     const setting = pickRandom(profile.settings);
     const lighting = pickRandom(profile.lightings);
 
@@ -7161,7 +7173,8 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
     const extraDesc = desc.replace(knownKeywords, '').replace(/\s+/g, ' ').trim();
     const extraStr = extraDesc ? ` Additional details: ${extraDesc}.` : '';
 
-    return `${ageDesc}, ${appearance}${traitStr}, ${hair}, ${outfit}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
+    const outfitPart = outfit ? `, ${outfit}` : '';
+    return `${ageDesc}, ${appearance}${traitStr}, ${hair}${outfitPart}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
 };
 
 /**
@@ -7181,9 +7194,12 @@ const buildImagePrompt = (
     const hasProductImage = !!config.productImage;
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
-    const clothingDesc = config.characterOutfit
-        ? getOutfitDescription(config.characterOutfit)
-        : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
+    const imgDescHasClothing = descriptionHasExplicitClothing(config.characterDescription || '');
+    const clothingDesc = imgDescHasClothing
+        ? (config.characterDescription?.trim() || "casual everyday wear")
+        : config.characterOutfit
+            ? getOutfitDescription(config.characterOutfit)
+            : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles → cinematic direction ──
     const cameraMap: Record<string, string> = {
@@ -7310,9 +7326,12 @@ const buildVideoPrompt = (
     const voiceTone = config.voiceTone || 'friendly';
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
-    const clothingDesc = config.characterOutfit
-        ? getOutfitDescription(config.characterOutfit)
-        : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
+    const vidDescHasClothing = descriptionHasExplicitClothing(config.characterDescription || '');
+    const clothingDesc = vidDescHasClothing
+        ? (config.characterDescription?.trim() || "casual everyday wear")
+        : config.characterOutfit
+            ? getOutfitDescription(config.characterOutfit)
+            : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles ──
     const cameraAngleMap: Record<string, string> = {
