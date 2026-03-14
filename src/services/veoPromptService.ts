@@ -6353,6 +6353,7 @@ export interface PromptGenerationConfig {
     avoidKeywords?: string;
 
     // Character & Style
+    characterDescription?: string; // Free text: "ผู้หญิง สาว สวยๆ เกาหลี"
     gender?: string;            // male, female
     ageRange?: string;          // teen, young-adult, adult, middle-age, senior
     expression?: string;        // neutral, happy, excited, serious
@@ -6989,9 +6990,10 @@ const buildVideoPrompt = (
     // ── CHARACTER VISUAL DNA ANCHOR — IDENTICAL text for Scene 1 AND Scene 2+ ──
     // Repeats FULL physical description in every scene for maximum consistency.
     // When characterAnalysis is available (AI Vision), include precise details from the actual reference image.
+    const userCharDesc = config.characterDescription?.trim() || '';
     const aiAppearance = characterAnalysis
         ? `AI-observed appearance: ${characterAnalysis.overallLook}. Hair: ${characterAnalysis.hairstyle}. Build: ${characterAnalysis.build}. Skin tone: ${characterAnalysis.skinTone}. Estimated age: ${characterAnalysis.estimatedAge}.`
-        : '';
+        : (userCharDesc ? `User-described appearance: ${userCharDesc}.` : '');
     const aiClothing = characterAnalysis?.clothing
         ? `Reference clothing: ${characterAnalysis.clothing}.`
         : '';

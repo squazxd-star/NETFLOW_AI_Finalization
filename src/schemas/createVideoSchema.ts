@@ -7,6 +7,7 @@ export const createVideoSchema = z.object({
     productDescription: z.string().default(""),
 
     // Character & Style
+    characterDescription: z.string().default(""),
     gender: z.enum(["male", "female"]).default("female"),
     ageRange: z.enum(["child", "teen", "young-adult", "adult", "middle-age", "senior"]).default("young-adult"),
     expression: z.enum(["neutral", "happy", "excited", "serious"]).default("happy"),
@@ -107,6 +108,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     productId: "",
     productName: "",
     productDescription: "",
+    characterDescription: "",
     gender: "female",
     ageRange: "young-adult",
     expression: "happy",

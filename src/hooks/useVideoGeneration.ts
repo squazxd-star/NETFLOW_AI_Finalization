@@ -400,6 +400,7 @@ export const useVideoGeneration = () => {
                 videoDuration: data.videoDuration || "short",
                 userImage: data.userImage || undefined,
                 characterImage: data.characterImage || undefined,
+                characterDescription: data.characterDescription || "",
                 prompt: data.aiPrompt || "",
                 loopCount: data.loopCount || 1,
                 concatenate: data.concatenate || false

@@ -111,9 +111,24 @@ Just write the raw spoken words seamlessly.
  * Supports both OpenAI GPT-4o and Gemini based on selected provider.
  * @param totalDuration - Total video duration in seconds (default 8)
  */
-export const generateVisualPrompt = async (apiKey: string, imageBase64: string, productName: string, style: string, characterImage?: string, totalDuration: number = 8): Promise<string> => {
+export const generateVisualPrompt = async (apiKey: string, imageBase64: string, productName: string, style: string, characterImage?: string, totalDuration: number = 8, characterDescription?: string): Promise<string> => {
     const aiProvider = localStorage.getItem("netflow_ai_provider") || "openai";
     console.log(`👁️ Analyzing Product (and Character) with ${aiProvider.toUpperCase()} Vision... Duration: ${totalDuration}s`);
+
+    // Build character instruction based on available inputs
+    const hasCharImage = !!characterImage;
+    const hasCharDesc = !!characterDescription && characterDescription.trim().length > 0;
+    
+    let characterInstruction = "";
+    let interactionInstruction = "The product is showcased with elegant camera movement.";
+    
+    if (hasCharImage) {
+        characterInstruction = `2. **Character**: Describe the person in Image 2 as an ORIGINAL ANONYMOUS FICTIONAL character. Describe ONLY generic visual traits: approximate hair style, hair color, skin tone, clothing style. Do NOT identify, name, or reference any real person, celebrity, public figure, or idol. Do NOT say "looks like", "resembles", or "similar to" anyone. Frame as: "an original fictional young woman/man with [visual traits]".`;
+        interactionInstruction = "The fictional character is holding/presenting the product naturally.";
+    } else if (hasCharDesc) {
+        characterInstruction = `2. **Character**: Create an ORIGINAL ANONYMOUS FICTIONAL character matching this description: "${characterDescription.trim()}". Describe visual traits clearly (hair, skin, clothing, body type). Do NOT reference any real person.`;
+        interactionInstruction = "The fictional character described above is holding/presenting the product naturally.";
+    }
 
     const visionPromptText = `Analyze these images to create a VIDEO GENERATION PROMPT.
                 
@@ -121,15 +136,15 @@ export const generateVisualPrompt = async (apiKey: string, imageBase64: string, 
 
                 Input Images:
                 - Image 1: Product (${productName})
-                ${characterImage ? "- Image 2: Character/Presenter (Reference Face)" : ""}
+                ${hasCharImage ? "- Image 2: Character/Presenter (Reference Face)" : ""}
 
                 INSTRUCTIONS:
                 1. **Product**: Describe the product in Image 1 exactly (color, shape, packaging type).
-                ${characterImage ? `2. **Character**: Describe the person in Image 2 as an ORIGINAL ANONYMOUS FICTIONAL character. Describe ONLY generic visual traits: approximate hair style, hair color, skin tone, clothing style. Do NOT identify, name, or reference any real person, celebrity, public figure, or idol. Do NOT say "looks like", "resembles", or "similar to" anyone. Frame as: "an original fictional young woman/man with [visual traits]".` : ""}
+                ${characterInstruction}
                 3. **Action**: Create a ${totalDuration}-second continuous shot.
                    - Movement: ${style || "Cinematic, smooth camera movement"}.
                    - Lighting: Professional studio or natural cinematic.
-                   - Interaction: ${characterImage ? "The fictional character is holding/presenting the product naturally." : "The product is showcased with elegant camera movement."}
+                   - Interaction: ${interactionInstruction}
                 
                 4. **Format**: Return ONLY the raw English prompt text. Do not include "Name:" or "Prompt:" labels.
                 
@@ -485,7 +500,7 @@ export const runFullWorkflow = async (data: ScriptRequest | AdvancedVideoRequest
             console.log(`🧠 Starting Smart Vision Analysis (${aiProvider.toUpperCase()})...`);
             const apiKey = await getApiKey(aiProvider);
             if (apiKey) {
-                const visionRes = await generateVisualPrompt(apiKey, advData.userImage, advData.productName, advData.style, advData.characterImage, totalDuration);
+                const visionRes = await generateVisualPrompt(apiKey, advData.userImage, advData.productName, advData.style, advData.characterImage, totalDuration, advData.characterDescription);
                 if (visionRes) {
                     console.log(`✅ Smart Vision found prompt: ${visionRes.substring(0, 50)}...`);
 

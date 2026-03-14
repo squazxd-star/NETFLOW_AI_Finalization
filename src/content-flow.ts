@@ -1195,13 +1195,30 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     LOG(`รูปย่อปัจจุบันใน Prompt Bar: ${baselineCount} รูป`);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 1: Click "+" (Create) button in prompt bar
+    // STEP 1: Click "+" (Create) button in prompt bar — with retry
     // ═══════════════════════════════════════════════════════════════════════════
     LOG("── ขั้น 1: คลิกปุ่ม '+' (Create) ──");
-    const addBtn = findPromptBarAddButton();
+    let addBtn = findPromptBarAddButton();
+    
+    // Retry: wait a bit and re-scan (first-image scenario may need the prompt bar to fully render)
     if (!addBtn) {
-        WARN("ไม่พบปุ่ม '+' บน Prompt Bar");
-        return false;
+        LOG("ไม่พบปุ่ม '+' — รอ 2 วินาทีแล้วลองใหม่...");
+        await sleep(2000);
+        addBtn = findPromptBarAddButton();
+    }
+    if (!addBtn) {
+        LOG("ลองคลิกบน prompt bar area เพื่อ activate...");
+        // Click on prompt bar area to activate it first (may reveal the "+" button)
+        const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
+        if (promptArea) {
+            promptArea.click();
+            await sleep(1500);
+            addBtn = findPromptBarAddButton();
+        }
+    }
+    if (!addBtn) {
+        WARN("ไม่พบปุ่ม '+' บน Prompt Bar — ลอง drag-drop fallback");
+        return await _dragDropFallback(file, baselineCount);
     }
 
     addBtn.click();
@@ -1230,9 +1247,10 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
 
         const retryUploadBtn = await findUploadButtonInDialog(addBtn, 3000);
         if (!retryUploadBtn) {
-            WARN("❌ ไม่พบปุ่ม Upload image หลังลองทั้ง 2 วิธี");
+            WARN("❌ ไม่พบปุ่ม Upload image หลังลองทั้ง 2 วิธี — ลอง drag-drop");
             document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-            return false;
+            await sleep(500);
+            return await _dragDropFallback(file, baselineCount);
         }
         // Use the retry button
         return await _clickUploadAndInject(retryUploadBtn, file, fileName, baselineCount);
@@ -3047,14 +3065,22 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
         let res720: HTMLElement | null = null;
         for (let attempt = 0; attempt < 3 && !res720; attempt++) {
-            if (attempt > 0) LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
+            if (attempt > 0) {
+                LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
+                // ★ Re-click download button to reopen Radix dropdown (it auto-closes)
+                if (dlBtn2.isConnected) {
+                    await robustClick(dlBtn2);
+                    LOG("🔄 คลิกปุ่ม Download อีกครั้ง (เปิดเมนูใหม่)");
+                    await sleep(2000);
+                }
+            }
 
             let fullVideoBtn: HTMLElement | null = null;
             const fvStart = Date.now();
             while (!fullVideoBtn && Date.now() - fvStart < 5000) {
                 for (const mi of document.querySelectorAll<HTMLElement>("[role='menuitem']")) {
                     const t = (mi.textContent || "").trim();
-                    if (t.includes("Full Video") && mi.querySelector("i")) {
+                    if (t.includes("Full Video")) {
                         const r = mi.getBoundingClientRect();
                         if (r.width > 0 && r.height > 0) { fullVideoBtn = mi; break; }
                     }
@@ -3063,13 +3089,9 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             }
             if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
-            // Hover + click to expand submenu
-            const fvRect = fullVideoBtn.getBoundingClientRect();
-            const fvX = fvRect.left + fvRect.width / 2;
-            const fvY = fvRect.top + fvRect.height / 2;
-            fullVideoBtn.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: fvX, clientY: fvY }));
-            fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
-            fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX, clientY: fvY }));
+            // Hover using robustHover (PointerEvent + MouseEvent) then click to expand submenu
+            robustHover(fullVideoBtn);
+            await sleep(500);
             await robustClick(fullVideoBtn);
             LOG("คลิก/hover Full Video ✅");
             await sleep(2000);
@@ -3077,7 +3099,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
             // Step 3: Find "720p" button[role=menuitem] in expanded submenu
             const r720Start = Date.now();
             while (!res720 && Date.now() - r720Start < 8000) {
-                for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem']")) {
+                for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem'], div[role='menuitem'] button")) {
                     const spans = btn.querySelectorAll("span");
                     for (const sp of spans) {
                         if ((sp.textContent || "").trim() === "720p") {
@@ -3090,8 +3112,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                 if (!res720) {
                     // Re-hover to keep submenu open
                     if (fullVideoBtn.isConnected) {
-                        fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
-                        fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX + 20, clientY: fvY }));
+                        robustHover(fullVideoBtn);
                     }
                     await sleep(500);
                 }
@@ -3683,14 +3704,22 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
     let res720: HTMLElement | null = null;
     for (let attempt = 0; attempt < 3 && !res720; attempt++) {
-        if (attempt > 0) LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
+        if (attempt > 0) {
+            LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
+            // ★ Re-click download button to reopen Radix dropdown (it auto-closes)
+            if (dlBtn.isConnected) {
+                await robustClick(dlBtn);
+                LOG("🔄 คลิกปุ่ม Download อีกครั้ง (เปิดเมนูใหม่)");
+                await sleep(2000);
+            }
+        }
 
         let fullVideoBtn: HTMLElement | null = null;
         const fvStart = Date.now();
         while (!fullVideoBtn && Date.now() - fvStart < 5000) {
             for (const mi of document.querySelectorAll<HTMLElement>("[role='menuitem']")) {
                 const t = (mi.textContent || "").trim();
-                if (t.includes("Full Video") && mi.querySelector("i")) {
+                if (t.includes("Full Video")) {
                     const r = mi.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) { fullVideoBtn = mi; break; }
                 }
@@ -3699,13 +3728,9 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         }
         if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
-        // Hover + click to expand submenu
-        const fvRect = fullVideoBtn.getBoundingClientRect();
-        const fvX = fvRect.left + fvRect.width / 2;
-        const fvY = fvRect.top + fvRect.height / 2;
-        fullVideoBtn.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, clientX: fvX, clientY: fvY }));
-        fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
-        fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX, clientY: fvY }));
+        // Hover using robustHover (PointerEvent + MouseEvent) then click to expand submenu
+        robustHover(fullVideoBtn);
+        await sleep(500);
         await robustClick(fullVideoBtn);
         LOG("คลิก/hover Full Video ✅");
         await sleep(2000);
@@ -3713,7 +3738,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         // Step 3: Find "720p" button[role=menuitem] in expanded submenu
         const r720Start = Date.now();
         while (!res720 && Date.now() - r720Start < 8000) {
-            for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem']")) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button[role='menuitem'], div[role='menuitem'] button")) {
                 const spans = btn.querySelectorAll("span");
                 for (const sp of spans) {
                     if ((sp.textContent || "").trim() === "720p") {
@@ -3726,8 +3751,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             if (!res720) {
                 // Re-hover to keep submenu open
                 if (fullVideoBtn.isConnected) {
-                    fullVideoBtn.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: fvX, clientY: fvY }));
-                    fullVideoBtn.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: fvX + 20, clientY: fvY }));
+                    robustHover(fullVideoBtn);
                 }
                 await sleep(500);
             }

@@ -1,4 +1,4 @@
-import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User, Shirt, Calendar } from "lucide-react";
+import { ShoppingBag, Link, FileText, Image, Plus, Sparkles, RefreshCw, ChevronDown, ExternalLink, User, Shirt, Calendar, Pencil } from "lucide-react";
 import { useState, useEffect } from "react";
 import SectionHeader from "./SectionHeader";
 import { ProductDataSectionProps } from "./types";
@@ -27,6 +27,7 @@ const ProductDataSection = ({
     const gender = watch("gender");
     const ageRange = watch("ageRange");
     const characterOutfit = watch("characterOutfit");
+    const characterDescription = watch("characterDescription");
     const [outfitDropdownOpen, setOutfitDropdownOpen] = useState(false);
     const { toast } = useToast();
 
@@ -308,6 +309,25 @@ const ProductDataSection = ({
                             <span className="text-[11px] font-semibold text-foreground/80">ตัวละคร</span>
                             <div className="h-px bg-border/50 flex-1" />
                         </div>
+
+                        {/* Character Description (free text) */}
+                        {!characterImage && (
+                            <div>
+                                <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
+                                    <Pencil className="w-3 h-3 text-neon-red" />
+                                    คำอธิบายตัวละคร (ไม่จำเป็นถ้ามีรูป)
+                                </label>
+                                <textarea
+                                    {...register("characterDescription")}
+                                    placeholder="เช่น ผู้หญิง สาว สวยๆ สไตล์เกาหลี, ผู้ชายหล่อ หุ่นดี..."
+                                    rows={2}
+                                    className="w-full neon-input text-xs resize-none placeholder:text-muted-foreground/40"
+                                />
+                                <p className="text-[9px] text-muted-foreground/50 mt-1">
+                                    AI จะสร้างตัวละครตามคำอธิบายนี้ หรือเว้นว่างเพื่อให้ AI เลือกให้อัตโนมัติ
+                                </p>
+                            </div>
+                        )}
 
                         {/* Gender */}
                         <div>

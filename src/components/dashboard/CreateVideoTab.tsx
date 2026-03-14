@@ -365,6 +365,7 @@ const CreateVideoTab = () => {
                                     voiceTone: data.voiceTone || "friendly",
                                     saleStyle: data.saleStyle || "storytelling",
                                     language: data.language || "th-central",
+                                    characterDescription: data.characterDescription || "",
                                     gender: data.gender || "female",
                                     ageRange: data.ageRange || "young-adult",
                                     expression: data.expression || "happy",
