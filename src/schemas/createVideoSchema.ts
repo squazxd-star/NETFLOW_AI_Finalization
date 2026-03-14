@@ -34,6 +34,18 @@ export const createVideoSchema = z.object({
     // AI Scripting
     useAiScript: z.boolean().default(true),
     aiPrompt: z.string().default(""),
+    videoStyle: z.enum([
+        "ugc-review", "cgi-realistic", "hands-only", "cute-dance", "runway",
+        "product-demo", "lifestyle", "studio", "outdoor", "hook-pain",
+        "educational", "opinion", "problem-solution", "comedy", "theater-drama",
+        "musical", "action", "mild-horror", "fantasy", "scifi",
+        "timelapse", "behind-the-scenes", "challenge", "comparison", "tutorial",
+        "interview", "vlog", "storytelling", "reaction", "unboxing",
+        "straight-review", "transformation", "stop-motion", "split-screen", "first-person",
+        "aesthetic", "vintage", "futuristic", "nature", "city",
+        "minimal", "chaotic", "satisfying", "epic", "cute",
+        "mysterious", "inspirational", "urgent", "relaxing"
+    ]).default("ugc-review"),
     sceneScriptsRaw: z.string().default(""),
     saleStyle: z.enum(["hard", "soft", "educational", "storytelling"]).default("hard"),
     language: z.enum(["th-central", "th-north", "th-south", "th-isan"]).default("th-central"),
@@ -56,8 +68,8 @@ export const createVideoSchema = z.object({
     ]).default("product-review"),
     hookText: z.string().default(""),
     ctaText: z.string().default(""),
-    hookEnabled: z.boolean().default(true),
-    ctaEnabled: z.boolean().default(true),
+    hookEnabled: z.boolean().default(false),
+    ctaEnabled: z.boolean().default(false),
 
     // Engine Selection
     videoEngine: z.enum(["veo", "grok"]).default("veo"),
@@ -119,6 +131,7 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     cameraAngles: ["front", "close-up"],
     useAiScript: true,
     aiPrompt: "",
+    videoStyle: "ugc-review" as const,
     sceneScriptsRaw: "",
     saleStyle: "storytelling",
     language: "th-central",
@@ -126,8 +139,8 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     template: "product-review",
     hookText: "",
     ctaText: "",
-    hookEnabled: true,
-    ctaEnabled: true,
+    hookEnabled: false,
+    ctaEnabled: false,
     videoEngine: "veo",
     outputType: "video",
     orientation: "vertical",

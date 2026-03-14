@@ -46,6 +46,17 @@ export type VoiceSettingOption = "original" | "ai-generated" | "text-to-speech";
 export type ExpressionOption = "neutral" | "happy" | "excited" | "serious";
 export type CameraAngleOption = "front" | "side" | "close-up" | "full-body" | "dynamic";
 export type MovementOption = "static" | "minimal" | "active";
+export type VideoStyleOption =
+    | "ugc-review" | "cgi-realistic" | "hands-only" | "cute-dance" | "runway"
+    | "product-demo" | "lifestyle" | "studio" | "outdoor" | "hook-pain"
+    | "educational" | "opinion" | "problem-solution" | "comedy" | "theater-drama"
+    | "musical" | "action" | "mild-horror" | "fantasy" | "scifi"
+    | "timelapse" | "behind-the-scenes" | "challenge" | "comparison" | "tutorial"
+    | "interview" | "vlog" | "storytelling" | "reaction" | "unboxing"
+    | "straight-review" | "transformation" | "stop-motion" | "split-screen" | "first-person"
+    | "aesthetic" | "vintage" | "futuristic" | "nature" | "city"
+    | "minimal" | "chaotic" | "satisfying" | "epic" | "cute"
+    | "mysterious" | "inspirational" | "urgent" | "relaxing";
 
 // Option arrays for select elements
 export const clipCountOptions: ClipCountOption[] = [5, 10, 25, 50, 100, "unlimited"];
@@ -165,6 +176,58 @@ export const characterOutfitOptions: { value: CharacterOutfitOption; label: stri
     { value: "thai-traditional", label: "ชุดไทย", emoji: "🇹🇭", group: "อื่นๆ" },
     { value: "pajamas", label: "ชุดนอน", emoji: "😴", group: "อื่นๆ" },
     { value: "beach-wear", label: "ชุดเที่ยวทะเล", emoji: "🏖️", group: "อื่นๆ" },
+];
+
+export const videoStyleOptions: { value: VideoStyleOption; label: string }[] = [
+    { value: "ugc-review", label: "รีวิว UGC" },
+    { value: "cgi-realistic", label: "CGI สมจริง" },
+    { value: "hands-only", label: "เฉพาะมือ" },
+    { value: "cute-dance", label: "เต้นน่ารัก" },
+    { value: "runway", label: "รันเวย์" },
+    { value: "product-demo", label: "สาธิตสินค้า" },
+    { value: "lifestyle", label: "ไลฟ์สไตล์" },
+    { value: "studio", label: "สตูดิโอ" },
+    { value: "outdoor", label: "กลางแจ้ง" },
+    { value: "hook-pain", label: "Hook + จุดปวด" },
+    { value: "educational", label: "การศึกษา" },
+    { value: "opinion", label: "ความคิดเห็น" },
+    { value: "problem-solution", label: "ปัญหา-วิธีแก้" },
+    { value: "comedy", label: "ตลก" },
+    { value: "theater-drama", label: "โรงละครดราม่า" },
+    { value: "musical", label: "มิวสิคัล" },
+    { value: "action", label: "แอ็คชั่น" },
+    { value: "mild-horror", label: "สยองขวัญเบาๆ" },
+    { value: "fantasy", label: "แฟนตาซี" },
+    { value: "scifi", label: "ไซไฟ" },
+    { value: "timelapse", label: "ไทม์แลปส์" },
+    { value: "behind-the-scenes", label: "เบื้องหลัง" },
+    { value: "challenge", label: "ชาเลนจ์" },
+    { value: "comparison", label: "เปรียบเทียบ" },
+    { value: "tutorial", label: "สอน" },
+    { value: "interview", label: "สัมภาษณ์" },
+    { value: "vlog", label: "วล็อก" },
+    { value: "storytelling", label: "เล่าเรื่อง" },
+    { value: "reaction", label: "รีแอ็คชั่น" },
+    { value: "unboxing", label: "แกะกล่อง" },
+    { value: "straight-review", label: "รีวิวตรงไปตรงมา" },
+    { value: "transformation", label: "การเปลี่ยนแปลง" },
+    { value: "stop-motion", label: "สต็อปโมชั่น" },
+    { value: "split-screen", label: "แยกหน้าจอ" },
+    { value: "first-person", label: "มุมบุคคลที่ 1" },
+    { value: "aesthetic", label: "สุนทรียศาสตร์" },
+    { value: "vintage", label: "วินเทจ" },
+    { value: "futuristic", label: "อนาคต" },
+    { value: "nature", label: "ธรรมชาติ" },
+    { value: "city", label: "เมือง" },
+    { value: "minimal", label: "มินิมอล" },
+    { value: "chaotic", label: "โกลาหล" },
+    { value: "satisfying", label: "พอใจ" },
+    { value: "epic", label: "ยิ่งใหญ่" },
+    { value: "cute", label: "Cute" },
+    { value: "mysterious", label: "ลึกลับ" },
+    { value: "inspirational", label: "บันดาลใจ" },
+    { value: "urgent", label: "เร่งด่วน" },
+    { value: "relaxing", label: "ผ่อนคลาย" },
 ];
 
 export const voiceToneOptions: { value: VoiceToneOption; label: string }[] = [
