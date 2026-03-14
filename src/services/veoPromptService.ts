@@ -1072,7 +1072,7 @@ const CINEMATIC_SPECS: Record<string, string> = {
     "product-review": "Professional product commercial, 85mm lens, zero lens distortion, frontal eye-level shot, perfectly centered, symmetrical composition, 4K, smooth transitions",
     "brainrot-product": "Handheld smartphone aesthetic, quick cuts, high frame rate, POV angles, vertical framing, zero lens distortion",
     "food-review": "Food photography style, 100mm macro lens, zero lens distortion, frontal eye-level, warm color grading, appetizing close-ups, 4K",
-    "fashion-review": "Fashion editorial style, 85mm lens, zero lens distortion, full-body and detail shots, smooth tracking, runway-inspired, 4K",
+    "fashion-review": "Fashion editorial style, 85mm lens, zero lens distortion, head-to-toe and detail shots, smooth tracking, runway-inspired, 4K",
     "gadget-review": "Tech review aesthetic, 85mm lens, zero lens distortion, frontal eye-level, clean product shots, hands-on close-ups, sharp focus, 4K",
     "unboxing": "ASMR unboxing style, 85mm lens, zero lens distortion, close-up hands, slow-motion reveals, crisp audio-visual, 4K",
     "comparison": "Clean split-frame capable, 85mm lens, zero lens distortion, perfectly centered, symmetrical composition, sharp focus, 4K",
@@ -6317,12 +6317,12 @@ const CATEGORY_SCENE_PAIRS: Partial<Record<ProductCategory, ScriptActionPair[]>>
         { script: (name) => `ใส่ ${name} แล้ว ดูดีมากเลย`, action: "CAMERA: Medium tracking with slow orbit. Presenter wearing garment — confident turn showing front, side, back. Fabric drapes beautifully. Flattering fit + confident body language PROOF." },
         { script: (name) => `เนื้อผ้า ${name} ดีมาก ใส่สบาย`, action: "CAMERA: Macro close-up on fabric then medium. Pinches/stretches fabric — quality texture, elasticity visible. Moves naturally (bends, stretches). Fabric quality + unrestricted movement PROOF." },
         { script: (name) => `แมตช์ง่าย ${name} ใส่ได้ทุกวัน`, action: "CAMERA: Medium lifestyle shot. Styles outfit with accessories — adjusts collar, rolls sleeves, pairs items. Checks self confidently. Effortless styling versatility PROOF." },
-        { script: (name) => `${name} ทรงสวย เข้ารูปพอดี`, action: "CAMERA: Full-body tracking then close-up on fit. Presenter shows silhouette — tailored fit, clean lines. Turns to show how garment follows body shape. Perfect fit/silhouette PROOF." },
+        { script: (name) => `${name} ทรงสวย เข้ารูปพอดี`, action: "CAMERA: Head-to-toe tracking then close-up on fit. Presenter shows silhouette — tailored fit, clean lines. Turns to show how garment follows body shape. Perfect fit/silhouette PROOF." },
         { script: (name) => `สี ${name} สวยมาก ถูกใจเลย`, action: "CAMERA: Well-lit medium shot. Garment color vibrant and true — presenter shows in different lighting. Rich dye quality visible. Color quality PROOF." },
         { script: (name) => `${name} ซักง่าย ไม่หด ไม่ย้วย`, action: "CAMERA: Close-up on fabric quality. Shows garment maintaining shape — no pilling, no stretching. Durable quality visible. Wash-durability PROOF." },
         { script: (name) => `ใส่ ${name} ไปทำงานก็ได้ ไปเที่ยวก็ดี`, action: "CAMERA: Multi-context medium shots. Same outfit in office, then casual outing — works for both. Versatile all-occasion PROOF." },
         { script: (name) => `ดีเทล ${name} ละเอียดมาก`, action: "CAMERA: Macro tracking on details. Stitching, buttons, zippers, lining — premium craftsmanship close-ups. Presenter points at details. Construction quality PROOF." },
-        { script: (name) => `${name} ใส่แล้วดูผอมเลย`, action: "CAMERA: Full-body medium with flattering angle. Garment's slimming/flattering effect visible — presenter turns showing how it shapes body. Flattering body effect PROOF." },
+        { script: (name) => `${name} ใส่แล้วดูผอมเลย`, action: "CAMERA: Head-to-toe medium with flattering angle. Garment's slimming/flattering effect visible — presenter turns showing how garment drapes. Flattering silhouette effect PROOF." },
         { script: (name) => `${name} ใส่กับอะไรก็เข้า`, action: "CAMERA: Quick outfit-change montage medium shots. Pairs with different bottoms/tops/accessories — all combinations work. Mix-and-match versatility PROOF." },
     ],
     sportswear: [
@@ -6866,6 +6866,7 @@ export interface PromptGenerationConfig {
     clothingStyles?: string[];  // casual, formal, sporty, fashion, uniform
     characterOutfit?: string;   // detailed outfit key from characterOutfitOptions
     cameraAngles?: string[];    // front, side, close-up, full-body, dynamic
+    touchLevel?: string;        // none, light, medium, heavy — how much character touches/interacts with product
 
     // Video Settings
     clipDuration?: number;
@@ -6912,6 +6913,7 @@ export interface VideoPromptMeta {
     sceneActions: string[];        // PAIRED visual action per scene — matches script content (zero conflict)
     brandVisualSignature: string;  // Brand-specific logo/emblem directive (e.g. Apple fruit emblem on lid)
     masterProductDirective: string; // Master Prompt: Material & Physicality + Anti-Warping + Camera Motion + Anti-Distortion
+    touchLevelDesc: string;         // Product contact level directive for Scene 2+
 }
 
 /**
@@ -7729,6 +7731,15 @@ const buildImagePrompt = (
     };
     const movementDesc = movementMap[config.movement || 'minimal'] || 'subtle gentle movement';
 
+    // ── Touch Level → product interaction intensity ──
+    const TOUCH_LEVEL_DESC: Record<string, string> = {
+        "none": "Character does NOT touch the product — product displayed separately on surface, character gestures toward it",
+        "light": "Character lightly holds the product with fingertips, gentle minimal contact",
+        "medium": "Character holds and interacts naturally with the product, demonstrating features",
+        "heavy": "Character actively uses the product with full hands-on demonstration, close physical interaction"
+    };
+    const touchDesc = TOUCH_LEVEL_DESC[config.touchLevel || 'light'] || TOUCH_LEVEL_DESC['light'];
+
     // ── Product description: user-provided > AI-analyzed > template default ──
     const ai = parseAiAnalysis(productAnalysis);
     const fallbackHighlight = PRODUCT_HIGHLIGHT[category] || PRODUCT_HIGHLIGHT["other"];
@@ -7764,7 +7775,7 @@ const buildImagePrompt = (
     // SAFETY: Do NOT use specific minor ages (e.g. "6-12") — triggers Veo safety filters for minors in commercial content.
     const IMAGE_AGE_DESC: Record<string, string> = {
         "child": "young child with round youthful face, childlike proportions, smooth young skin, small body frame",
-        "teen": "teenager with youthful face, slim adolescent build, smooth skin, fresh young appearance",
+        "teen": "teenager with youthful face, slim adolescent build, clear youthful complexion, fresh young appearance",
         "young-adult": "young adult with fresh face, fit build, youthful energy",
         "adult": "adult with mature face, adult proportions, confident presence",
         "middle-age": "middle-aged person with some aging features, experienced mature look",
@@ -7798,7 +7809,7 @@ const buildImagePrompt = (
 
 [PRODUCT] ${imageSafeProductName}: ${productDesc}. ${productAnatomy} PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, label typography and font, color palette, material texture and finish — all from reference image. Render with extreme surface detail: visible material grain, realistic light response (specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass/transparent elements, light dispersion on faceted surfaces). Reproduce all text, logos, and branding on the product label exactly as shown in the reference image — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail. Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality.
 [CHARACTER] ${characterLine}.
-[INTERACTION] ${imageInteraction}${imageUsageRealism ? ` ${imageUsageRealism}` : ''}
+[INTERACTION] ${touchDesc}. ${imageInteraction}${imageUsageRealism ? ` ${imageUsageRealism}` : ''}
 [HANDS] ${imageGripPhysics}
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
@@ -7882,6 +7893,15 @@ const buildVideoPrompt = (
         active: "dynamic active movement and gestures"
     };
     const movementDesc = movementMap[config.movement || 'minimal'] || 'subtle gentle gestures';
+
+    // ── Touch Level → product interaction intensity (video) ──
+    const VIDEO_TOUCH_LEVEL: Record<string, string> = {
+        "none": "Character does NOT touch the product — product displayed on surface, character gestures toward it without contact",
+        "light": "Character lightly touches the product with fingertips, gentle minimal contact, mostly presenting by gesture",
+        "medium": "Character holds and naturally interacts with the product, demonstrating features hands-on",
+        "heavy": "Character actively uses the product with full hands-on demonstration, vigorous close physical interaction"
+    };
+    const videoTouchDesc = VIDEO_TOUCH_LEVEL[config.touchLevel || 'light'] || VIDEO_TOUCH_LEVEL['light'];
 
     // ── Language → voiceover language ──
     const languageMap: Record<string, string> = {
@@ -8047,7 +8067,7 @@ const buildVideoPrompt = (
     const videoHandDirective = `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS}`;
     const scene1ActionBlock = isScene1TalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `${videoHandDirective} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
+        : `${videoHandDirective} PRODUCT CONTACT LEVEL: ${videoTouchDesc}. ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
 
     // Use PAIRED action for Scene 1 (matches script content) — falls back to generic if no paired action
     const scene1PairedAction = pairedSceneActions[0] || '';
@@ -8085,7 +8105,10 @@ const buildVideoPrompt = (
         // [7.5. SCENE 1 FACE TEMPLATE] — establishes the immutable face for all subsequent scenes
         `SCENE 1 FACE TEMPLATE: This scene establishes the DEFINITIVE face identity for the entire video. Every facial feature rendered here becomes the IMMUTABLE reference — all subsequent scenes MUST reproduce this EXACT face. The face is now LOCKED and FROZEN.`,
         // [8. CONSTRAINTS] — policy + anti-addition + brand freeze + voice discipline
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
+        // [9. USER KEYWORDS] — must-include and avoid keywords
+        config.mustUseKeywords ? `MUST INCLUDE these elements: ${config.mustUseKeywords}` : '',
+        config.avoidKeywords ? `MUST AVOID these elements: ${config.avoidKeywords}` : ''
     ].join(' '), veoSafeProductName);
 
 
@@ -8116,7 +8139,8 @@ const buildVideoPrompt = (
         talkOnlySceneIndex,
         sceneActions: pairedSceneActions,
         brandVisualSignature,
-        masterProductDirective
+        masterProductDirective,
+        touchLevelDesc: videoTouchDesc
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -8168,7 +8192,7 @@ export const buildSceneVideoPromptJSON = (
     // ── ACTION block (includes hand anatomy + usage realism for non-talk scenes) ──
     const actionBlock = isTalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `Anatomically correct hands, five fingers each. Character holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
+        : `Anatomically correct hands, five fingers each. PRODUCT CONTACT LEVEL: ${meta.touchLevelDesc}. Character holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
 
     // ── PRESENTATION block — use PAIRED action from meta (matches script content) ──
     // Priority: meta.sceneActions[sceneNumber-1] > sceneVideoAction > getScenePresentationDirective

@@ -465,6 +465,7 @@ const CreateVideoTab = () => {
                                     clothingStyles: data.clothingStyles || ["casual"],
                                     characterOutfit: data.characterOutfit || "original",
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
+                                    touchLevel: data.touchLevel || "light",
                                     sceneBackground: data.sceneBackground || "studio",
                                 };
 
