@@ -2640,6 +2640,78 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 if (count === 0) LOG("  🔍 ไม่พบ element ที่มีข้อความ '%'");
             };
 
+            // ── Helper: clear prompt → paste safe version → click Generate ──
+            const retrySafePrompt = async (originalPrompt: string, attemptNum: number): Promise<boolean> => {
+                LOG(`🔄 Policy Retry ${attemptNum}/2 — สร้าง Safe Prompt แล้วลองใหม่...`);
+                await ensureTabVisible();
+                await sleep(2000);
+
+                // Find prompt input
+                const promptEl = findPromptTextInput();
+                if (!promptEl) {
+                    WARN("❌ Retry: ไม่พบช่อง Prompt");
+                    return false;
+                }
+
+                // Clear existing text: select all → delete
+                promptEl.focus();
+                await sleep(300);
+                // Select all text in the editor
+                const sel = window.getSelection();
+                if (sel) {
+                    sel.selectAllChildren(promptEl);
+                }
+                await sleep(200);
+                // Delete via beforeinput (Slate.js compatible)
+                promptEl.dispatchEvent(new InputEvent("beforeinput", {
+                    bubbles: true, cancelable: true, inputType: "deleteContentBackward",
+                }));
+                promptEl.dispatchEvent(new InputEvent("input", {
+                    bubbles: true, inputType: "deleteContentBackward",
+                }));
+                await sleep(500);
+
+                // Build safe prompt (strip more on 2nd retry)
+                let safePrompt = buildSafeRetryPrompt(originalPrompt);
+                if (attemptNum >= 2) {
+                    // 2nd retry: even more aggressive — keep only first 600 chars
+                    safePrompt = safePrompt.substring(0, 600).replace(/\s\S*$/, '').trim();
+                    LOG(`🛡️ 2nd retry: ultra-short prompt (${safePrompt.length} chars)`);
+                }
+
+                // Paste safe prompt
+                await setPromptText(promptEl, safePrompt);
+                await sleep(500);
+                const pastedCheck = (promptEl.textContent || "").replace(/คุณต้องการสร้างอะไร|What do you want to create/gi, "").trim();
+                if (pastedCheck.length < 20) {
+                    WARN(`❌ Retry: วาง Safe Prompt ไม่สำเร็จ (${pastedCheck.length} ตัวอักษร)`);
+                    return false;
+                }
+                LOG(`✅ วาง Safe Prompt สำเร็จ (${pastedCheck.length} ตัวอักษร)`);
+
+                // Click Generate
+                await sleep(500);
+                const genBtn = findGenerateButton();
+                if (!genBtn) {
+                    WARN("❌ Retry: ไม่พบปุ่ม Generate");
+                    return false;
+                }
+                const gRect = genBtn.getBoundingClientRect();
+                const gCx = gRect.left + gRect.width / 2;
+                const gCy = gRect.top + gRect.height / 2;
+                const gOpts = { bubbles: true, cancelable: true, clientX: gCx, clientY: gCy, button: 0 };
+                genBtn.dispatchEvent(new PointerEvent("pointerdown", { ...gOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                genBtn.dispatchEvent(new MouseEvent("mousedown", gOpts));
+                await sleep(80);
+                genBtn.dispatchEvent(new PointerEvent("pointerup", { ...gOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+                genBtn.dispatchEvent(new MouseEvent("mouseup", gOpts));
+                genBtn.dispatchEvent(new MouseEvent("click", gOpts));
+                LOG(`✅ คลิก Generate สำหรับ Safe Retry ${attemptNum}`);
+
+                await sleep(5000); // wait for generation to start
+                return true;
+            };
+
             // Debug: scan for existing cards at start
             const earlyVideoCard = findFirstVideoCard();
             if (earlyVideoCard) {
@@ -2656,6 +2728,8 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             let lastPct = -1;
             let lastPctTime = 0;
             let completed = false;
+            let policyRetryCount = 0;
+            const MAX_POLICY_RETRIES = 2;
 
             // Poll until completion
             while (Date.now() - start < timeoutMs) {
@@ -2707,6 +2781,23 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                     const failMsg = isGenerationFailed();
                     if (failMsg) {
                         WARN(`❌ สร้างวิดีโอล้มเหลว: ${failMsg}`);
+
+                        // ★ POLICY RETRY: clear prompt → paste safe version → re-generate
+                        if (policyRetryCount < MAX_POLICY_RETRIES && req.videoPrompt) {
+                            policyRetryCount++;
+                            LOG(`🔄 Policy violation detected — attempting safe retry ${policyRetryCount}/${MAX_POLICY_RETRIES}...`);
+                            const retryOk = await retrySafePrompt(req.videoPrompt, policyRetryCount);
+                            if (retryOk) {
+                                // Reset tracking — new generation has started
+                                lastPct = -1;
+                                lastPctTime = 0;
+                                LOG(`✅ Safe retry ${policyRetryCount} started — continuing to monitor...`);
+                                continue;
+                            } else {
+                                WARN(`❌ Safe retry ${policyRetryCount} failed to start`);
+                            }
+                        }
+
                         return null;
                     }
                 }
