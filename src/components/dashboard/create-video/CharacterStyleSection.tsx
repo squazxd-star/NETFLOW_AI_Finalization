@@ -1,5 +1,5 @@
 import {
-    User, Plus, Image, Settings, Sparkles, Palette, Video, RefreshCw, Mic, Check
+    User, Plus, Image, Settings, Sparkles, Palette, Video, RefreshCw, Check
 } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { CharacterStyleSectionProps } from "./types";
@@ -131,21 +131,21 @@ const CharacterStyleSection = ({
                         </select>
                     </div>
 
-                    {/* Personality */}
+                    {/* Voice Tone / Personality */}
                     <div>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                             <Sparkles className="w-3 h-3 text-neon-red" />
                             บุคลิกตัวละคร
                         </label>
                         <select
-                            {...register("personality")}
+                            {...register("voiceTone")}
                             className="w-full neon-select text-xs"
                         >
-                            <option value="cheerful">วัยรุ่นสดใส/กระฉับกระเฉง</option>
+                            <option value="energetic">สดใส/กระฉับกระเฉง</option>
                             <option value="calm">สงบ/นิ่ง</option>
                             <option value="professional">มืออาชีพ/น่าเชื่อถือ</option>
-                            <option value="playful">ขี้เล่น/ตลก</option>
-                            <option value="mysterious">ลึกลับ/เท่</option>
+                            <option value="friendly">เป็นกันเอง/อบอุ่น</option>
+                            <option value="cute">น่ารัก/ขี้เล่น</option>
                         </select>
                     </div>
 
@@ -184,7 +184,7 @@ const CharacterStyleSection = ({
                             ฉากหลัง
                         </label>
                         <select
-                            {...register("background")}
+                            {...register("sceneBackground")}
                             className="w-full neon-select text-xs"
                         >
                             <option value="studio">สตูดิโอ/พื้นหลังสีพื้น</option>
@@ -192,22 +192,6 @@ const CharacterStyleSection = ({
                             <option value="home">ในบ้าน/ห้องนั่งเล่น</option>
                             <option value="office">สำนักงาน/ที่ทำงาน</option>
                             <option value="abstract">แอบสแตรกต์/กราฟิก</option>
-                        </select>
-                    </div>
-
-                    {/* Voice Setting */}
-                    <div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <Mic className="w-3 h-3 text-neon-red" />
-                            การตั้งค่าเสียง
-                        </label>
-                        <select
-                            {...register("voiceSetting")}
-                            className="w-full neon-select text-xs"
-                        >
-                            <option value="original">ต้นฉบับ/กระฉับกระเฉง</option>
-                            <option value="ai-generated">AI สร้างเสียง</option>
-                            <option value="text-to-speech">Text-to-Speech</option>
                         </select>
                     </div>
 
@@ -220,13 +204,13 @@ const CharacterStyleSection = ({
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">ต่ำ</span>
                             <div className="flex-1 flex gap-1">
-                                {(["low", "medium", "high"] as const).map((level) => (
+                                {(["light", "medium", "heavy"] as const).map((level) => (
                                     <button
                                         key={level}
                                         onClick={() => setValue("touchLevel", level)}
-                                        className={`flex-1 h-2 rounded-full transition-all ${(level === "low" && (touchLevel === "low" || touchLevel === "medium" || touchLevel === "high")) ||
-                                            (level === "medium" && (touchLevel === "medium" || touchLevel === "high")) ||
-                                            (level === "high" && touchLevel === "high")
+                                        className={`flex-1 h-2 rounded-full transition-all ${(level === "light" && (touchLevel === "light" || touchLevel === "medium" || touchLevel === "heavy")) ||
+                                            (level === "medium" && (touchLevel === "medium" || touchLevel === "heavy")) ||
+                                            (level === "heavy" && touchLevel === "heavy")
                                             ? 'bg-neon-red'
                                             : 'bg-muted'
                                             }`}
