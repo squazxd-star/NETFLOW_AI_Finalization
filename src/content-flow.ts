@@ -4138,6 +4138,43 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return false;
     }
 
+    // ── CAPTURE_PAGE_VIDEO: Background asks content script to capture the largest video on page ──
+    // Used as fallback (Strategy 4) in ensureFullVideoCached when file-based strategies fail
+    if (message?.type === "CAPTURE_PAGE_VIDEO") {
+        (async () => {
+            try {
+                const videos = document.querySelectorAll<HTMLVideoElement>("video");
+                let bestSrc = "";
+                let bestArea = 0;
+                for (const v of videos) {
+                    const src = v.src || v.currentSrc || "";
+                    if (!src) continue;
+                    const r = v.getBoundingClientRect();
+                    const area = r.width * r.height;
+                    if (area > bestArea || (!bestSrc && src)) {
+                        bestArea = area;
+                        bestSrc = src;
+                    }
+                }
+                if (!bestSrc) { sendResponse({ success: false, error: "No video found" }); return; }
+                const resp = await fetch(bestSrc);
+                if (!resp.ok) { sendResponse({ success: false, error: "HTTP " + resp.status }); return; }
+                const blob = await resp.blob();
+                if (blob.size < 10000) { sendResponse({ success: false, error: "Video too small: " + blob.size }); return; }
+                const dataUrl = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = () => reject(new Error("FileReader error"));
+                    reader.readAsDataURL(blob);
+                });
+                sendResponse({ success: true, data: dataUrl, size: blob.size });
+            } catch (e: any) {
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true; // async response
+    }
+
     if (message?.action === "CLICK_FIRST_IMAGE") {
         sendResponse({ success: true, message: "⏳ กำลังคลิกรูปแรก..." });
         (async () => {

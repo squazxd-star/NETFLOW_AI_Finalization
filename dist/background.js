@@ -168,9 +168,10 @@ let _cachedVideoDataUrl = null;
 let _cacheCleanupTimer = null;
 let _latestVideoFilePath = null;
 
-// ─── Ensure full video is cached for YouTube upload ─────────────────────────
+// ─── Ensure full video is cached for YouTube upload + Video Stock ────────────
 // Reads the FULL downloaded video file from disk (not just one scene from page)
 // tabId: optional — if provided, uses per-tab state; otherwise global fallback
+// Compatible with macOS (2016+) and Windows
 async function ensureFullVideoCached(tabId) {
     const ts = tabId ? getTabState(tabId) : null;
     const cachedUrl = ts ? ts.cachedVideoDataUrl : _cachedVideoDataUrl;
@@ -186,9 +187,9 @@ async function ensureFullVideoCached(tabId) {
     // Find latest downloaded video file
     let videoFilePath = ts ? ts.latestVideoFilePath : _latestVideoFilePath;
     let downloadUrl = null;
+    let downloadId = null;
 
     if (!videoFilePath) {
-        // Search recent downloads for the latest video
         const downloads = await new Promise((resolve) => {
             chrome.downloads.search(
                 { orderBy: ["-startTime"], limit: 10, state: "complete" },
@@ -202,6 +203,7 @@ async function ensureFullVideoCached(tabId) {
         if (videoDownload) {
             videoFilePath = videoDownload.filename;
             downloadUrl = videoDownload.url || videoDownload.finalUrl || '';
+            downloadId = videoDownload.id;
             if (ts) ts.latestVideoFilePath = videoFilePath;
             _latestVideoFilePath = videoFilePath;
             console.log('[Netflow BG] Found latest download:', videoFilePath, 'tab=' + (tabId || 'global'));
@@ -213,12 +215,26 @@ async function ensureFullVideoCached(tabId) {
         return;
     }
 
-    // Strategy 1: Read from file system via file:// URL
-    try {
-        const normalized = videoFilePath.replace(/\\/g, "/");
-        const fileUrl = normalized.startsWith("/") ? "file://" + normalized : "file:///" + normalized;
-        console.log('[Netflow BG] Trying to read video from file://', fileUrl.substring(0, 80));
+    // Helper: store cached data URL
+    const storeCachedData = (dataUrl, label) => {
+        if (ts) ts.cachedVideoDataUrl = dataUrl;
+        _cachedVideoDataUrl = dataUrl;
+        console.log('[Netflow BG] ✅ Full video cached via ' + label + ': ' + (dataUrl.length / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
+    };
 
+    // Helper: normalize file path to file:// URL (Windows + macOS compatible)
+    const toFileUrl = (fp) => {
+        const normalized = fp.replace(/\\/g, "/");
+        // macOS: /Users/... → file:///Users/...
+        // Windows: C:/Users/... → file:///C:/Users/...
+        return normalized.startsWith("/") ? "file://" + normalized : "file:///" + normalized;
+    };
+
+    // ── Strategy 1: Read from file system via file:// URL ──
+    // Works in some Chrome versions / extension configs with file access enabled
+    try {
+        const fileUrl = toFileUrl(videoFilePath);
+        console.log('[Netflow BG] Strategy 1: file:// fetch', fileUrl.substring(0, 80));
         const resp = await fetch(fileUrl);
         if (resp.ok) {
             const blob = await resp.blob();
@@ -228,19 +244,16 @@ async function ensureFullVideoCached(tabId) {
                     reader.onloadend = () => resolve(reader.result);
                     reader.readAsDataURL(blob);
                 });
-                if (ts) ts.cachedVideoDataUrl = dataUrl;
-                _cachedVideoDataUrl = dataUrl;
-                console.log('[Netflow BG] ✅ Full video cached from file: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
+                storeCachedData(dataUrl, 'file://');
                 return;
             }
         }
     } catch (e) {
-        console.warn('[Netflow BG] file:// fetch failed:', e.message);
+        console.warn('[Netflow BG] Strategy 1 failed:', e.message);
     }
 
-    // Strategy 2: Read via download URL (if HTTP)
+    // ── Strategy 2: Read via download URL (HTTP/HTTPS CDN URL) ──
     if (!downloadUrl && videoFilePath) {
-        // Try to find the download entry for this file
         const downloads = await new Promise((resolve) => {
             chrome.downloads.search(
                 { orderBy: ["-startTime"], limit: 10, state: "complete" },
@@ -248,12 +261,15 @@ async function ensureFullVideoCached(tabId) {
             );
         });
         const match = downloads.find(d => d.filename === videoFilePath);
-        if (match) downloadUrl = match.url || match.finalUrl || '';
+        if (match) {
+            downloadUrl = match.url || match.finalUrl || '';
+            downloadId = match.id;
+        }
     }
 
     if (downloadUrl && downloadUrl.startsWith('http')) {
         try {
-            console.log('[Netflow BG] Trying download URL:', downloadUrl.substring(0, 80));
+            console.log('[Netflow BG] Strategy 2: download URL fetch', downloadUrl.substring(0, 80));
             const resp = await fetch(downloadUrl);
             if (resp.ok) {
                 const blob = await resp.blob();
@@ -263,76 +279,155 @@ async function ensureFullVideoCached(tabId) {
                         reader.onloadend = () => resolve(reader.result);
                         reader.readAsDataURL(blob);
                     });
-                    if (ts) ts.cachedVideoDataUrl = dataUrl;
-                    _cachedVideoDataUrl = dataUrl;
-                    console.log('[Netflow BG] ✅ Full video cached from download URL: ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
+                    storeCachedData(dataUrl, 'download URL');
                     return;
                 }
             }
         } catch (e) {
-            console.warn('[Netflow BG] Download URL fetch failed:', e.message);
+            console.warn('[Netflow BG] Strategy 2 failed:', e.message);
         }
     }
 
-    // Strategy 3: Open the file in a temporary tab and inject a reader script
+    // ── Strategy 3: Tab injection — open file in Chrome tab, inject reader script ──
+    // Most reliable cross-platform method (works on Mac + Windows)
+    // Uses proper tab load detection instead of fixed timeout
     try {
-        const normalized = videoFilePath.replace(/\\/g, "/");
-        const fileUrl = normalized.startsWith("/") ? "file://" + normalized : "file:///" + normalized;
+        const fileUrl = toFileUrl(videoFilePath);
+        console.log('[Netflow BG] Strategy 3: tab injection', fileUrl.substring(0, 80));
 
         // Check if there's already a tab with this file open
-        const existingTabs = await chrome.tabs.query({ url: fileUrl });
-        let fileTab;
+        let existingTabs = [];
+        try { existingTabs = await chrome.tabs.query({ url: fileUrl }); } catch (_) {}
+        // Also check for tabs opened by OPEN_LATEST_VIDEO (might have different URL encoding)
+        if (existingTabs.length === 0) {
+            const allTabs = await chrome.tabs.query({});
+            existingTabs = allTabs.filter(t => t.url && t.url.includes(videoFilePath.split(/[\\/]/).pop()));
+        }
+
+        let fileTabId;
+        let weOpenedTab = false;
+
         if (existingTabs.length > 0) {
-            fileTab = existingTabs[0];
-            console.log('[Netflow BG] Found existing file tab:', fileTab.id);
+            fileTabId = existingTabs[0].id;
+            console.log('[Netflow BG] Found existing file tab:', fileTabId);
         } else {
             // Open file in a background tab
-            fileTab = await chrome.tabs.create({ url: fileUrl, active: false });
-            console.log('[Netflow BG] Opened file in background tab:', fileTab.id);
-            // Wait for tab to load
-            await new Promise(r => setTimeout(r, 3000));
+            const fileTab = await chrome.tabs.create({ url: fileUrl, active: false });
+            fileTabId = fileTab.id;
+            weOpenedTab = true;
+            console.log('[Netflow BG] Opened file in background tab:', fileTabId);
         }
 
-        // Inject script to read the video file and send back as data URL
-        const results = await chrome.scripting.executeScript({
-            target: { tabId: fileTab.id },
-            func: () => {
-                return new Promise((resolve) => {
-                    fetch(location.href)
-                        .then(r => r.blob())
-                        .then(blob => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve({ success: true, data: reader.result, size: blob.size });
-                            reader.onerror = () => resolve({ success: false, error: 'FileReader error' });
-                            reader.readAsDataURL(blob);
-                        })
-                        .catch(e => resolve({ success: false, error: e.message }));
-                });
-            },
+        // Wait for tab to be fully loaded (proper detection, not fixed timeout)
+        const waitForTabLoad = (tid, maxWait) => new Promise((resolve) => {
+            const deadline = Date.now() + maxWait;
+            const check = async () => {
+                try {
+                    const tab = await chrome.tabs.get(tid);
+                    if (tab.status === 'complete') { resolve(true); return; }
+                } catch (_) { resolve(false); return; }
+                if (Date.now() >= deadline) { resolve(false); return; }
+                setTimeout(check, 500);
+            };
+            check();
         });
 
-        if (results && results[0] && results[0].result && results[0].result.success) {
-            if (ts) ts.cachedVideoDataUrl = results[0].result.data;
-            _cachedVideoDataUrl = results[0].result.data;
-            console.log('[Netflow BG] ✅ Full video cached via tab injection: ' + (results[0].result.size / 1024 / 1024).toFixed(1) + ' MB tab=' + (tabId || 'global'));
+        const loaded = await waitForTabLoad(fileTabId, 15000); // 15s max for slow Mac 2016
+        if (!loaded) {
+            console.warn('[Netflow BG] Tab did not finish loading within timeout');
+            // Still try injection — might work even if status isn't 'complete'
+        }
 
-            // Close the background tab if we opened it
-            if (!existingTabs.length) {
-                try { chrome.tabs.remove(fileTab.id); } catch (_) {}
-            }
-            return;
-        } else {
-            console.warn('[Netflow BG] Tab injection read failed:', results?.[0]?.result?.error);
-            // Close the background tab if we opened it
-            if (!existingTabs.length) {
-                try { chrome.tabs.remove(fileTab.id); } catch (_) {}
+        // Extra wait for video element to render (Mac 2016 may be slower)
+        await new Promise(r => setTimeout(r, 1500));
+
+        // Inject reader script with retry
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const results = await chrome.scripting.executeScript({
+                    target: { tabId: fileTabId },
+                    func: () => {
+                        return new Promise((resolve) => {
+                            // Try fetching from current URL
+                            fetch(location.href)
+                                .then(r => {
+                                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                                    return r.blob();
+                                })
+                                .then(blob => {
+                                    if (blob.size < 1000) {
+                                        resolve({ success: false, error: 'Blob too small: ' + blob.size });
+                                        return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve({ success: true, data: reader.result, size: blob.size });
+                                    reader.onerror = () => resolve({ success: false, error: 'FileReader error' });
+                                    reader.readAsDataURL(blob);
+                                })
+                                .catch(e => {
+                                    // Fallback: try reading from <video> element on the page
+                                    const video = document.querySelector('video');
+                                    if (video && video.src) {
+                                        fetch(video.src)
+                                            .then(r => r.blob())
+                                            .then(blob => {
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => resolve({ success: true, data: reader.result, size: blob.size });
+                                                reader.onerror = () => resolve({ success: false, error: 'Video element FileReader error' });
+                                                reader.readAsDataURL(blob);
+                                            })
+                                            .catch(e2 => resolve({ success: false, error: 'Both fetch failed: ' + e.message + ' / ' + e2.message }));
+                                    } else {
+                                        resolve({ success: false, error: e.message });
+                                    }
+                                });
+                        });
+                    },
+                });
+
+                if (results && results[0] && results[0].result && results[0].result.success) {
+                    storeCachedData(results[0].result.data, 'tab injection (attempt ' + attempt + ')');
+                    if (weOpenedTab) { try { chrome.tabs.remove(fileTabId); } catch (_) {} }
+                    return;
+                } else {
+                    console.warn('[Netflow BG] Strategy 3 attempt ' + attempt + ' failed:', results?.[0]?.result?.error);
+                    if (attempt < 2) await new Promise(r => setTimeout(r, 2000)); // wait before retry
+                }
+            } catch (e) {
+                console.warn('[Netflow BG] Strategy 3 injection attempt ' + attempt + ' error:', e.message);
+                if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
             }
         }
+
+        // Clean up tab if we opened it
+        if (weOpenedTab) { try { chrome.tabs.remove(fileTabId); } catch (_) {} }
     } catch (e) {
-        console.warn('[Netflow BG] Tab injection strategy failed:', e.message);
+        console.warn('[Netflow BG] Strategy 3 failed:', e.message);
     }
 
-    console.warn('[Netflow BG] ensureFullVideoCached: all strategies failed — YouTube upload may use incomplete video');
+    // ── Strategy 4 (last resort): Ask content script on Google Flow page to capture ──
+    // The content script has Google auth cookies and can capture from the page's video element
+    if (tabId) {
+        try {
+            console.log('[Netflow BG] Strategy 4: ask content script to capture video on tab', tabId);
+            const result = await new Promise((resolve) => {
+                const timeout = setTimeout(() => resolve(null), 10000);
+                chrome.tabs.sendMessage(tabId, { type: 'CAPTURE_PAGE_VIDEO' }, (resp) => {
+                    clearTimeout(timeout);
+                    if (chrome.runtime.lastError) { resolve(null); return; }
+                    resolve(resp);
+                });
+            });
+            if (result && result.success && result.data && result.data.length > 500000) {
+                storeCachedData(result.data, 'content script capture');
+                return;
+            }
+        } catch (e) {
+            console.warn('[Netflow BG] Strategy 4 failed:', e.message);
+        }
+    }
+
+    console.warn('[Netflow BG] ensureFullVideoCached: all 4 strategies failed — video stock save may not work');
 }
 
 // Relay messages from sidepanel / content scripts

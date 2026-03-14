@@ -7,6 +7,37 @@ const DB_NAME = 'netflow_video_stock';
 const DB_VERSION = 1;
 const STORE_NAME = 'videos';
 
+// ── Compatibility helpers for older browsers (Mac 2016 / older Chrome) ──
+function generateId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    // Fallback: manual UUID v4 generation (for Chrome < 92)
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
+// Simple mutex fallback when navigator.locks is unavailable (Chrome < 69)
+let _saveMutex: Promise<void> = Promise.resolve();
+async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    if (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') {
+        return navigator.locks.request(name, fn);
+    }
+    // Fallback: sequential execution via promise chain
+    const prev = _saveMutex;
+    let resolve: () => void;
+    _saveMutex = new Promise<void>((r) => { resolve = r; });
+    await prev;
+    try {
+        return await fn();
+    } finally {
+        resolve!();
+    }
+}
+
 export interface VideoStockItem {
     id: string;
     title: string;
@@ -54,7 +85,7 @@ export async function saveVideoToStock(
     localStorage.setItem(dedupKey, now.toString());
 
     // Use Web Locks API to prevent concurrent saves across multiple extension contexts (side panel, popup, etc.)
-    return navigator.locks.request('video_stock_save_lock', async () => {
+    return withLock('video_stock_save_lock', async () => {
         const db = await openDB();
         
         // Deduplication check fallback: DB check
@@ -76,7 +107,7 @@ export async function saveVideoToStock(
             return "duplicate_skipped";
         }
 
-        const id = crypto.randomUUID();
+        const id = generateId();
         const record: VideoStockItem = {
             ...item,
             id,
