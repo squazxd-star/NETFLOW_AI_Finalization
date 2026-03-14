@@ -120,8 +120,18 @@ const CreateVideoTab = () => {
     const [isLooping, setIsLooping] = useState(false);
     const [promptCompleteAnim, setPromptCompleteAnim] = useState(false);
     const [showCustomLoop, setShowCustomLoop] = useState(false);
+    const [autoOpenVideo, setAutoOpenVideo] = useState(true);
     const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
     const prevGeneratingRef = useRef(false);
+
+    // Load auto-open video setting
+    useEffect(() => {
+        try {
+            chrome.storage.local.get({ autoOpenVideo: true }, (r: any) => {
+                setAutoOpenVideo(r.autoOpenVideo !== false);
+            });
+        } catch (_) {}
+    }, []);
 
     // Detect prompt generation complete → show animation (stays visible until next generate)
     useEffect(() => {
@@ -884,6 +894,32 @@ const CreateVideoTab = () => {
                                 🔄 Loop {currentLoop + 1}/{loopCount === Infinity ? '∞' : loopCount}
                             </span>
                         )}
+                    </div>
+
+                    {/* Auto-open video toggle */}
+                    <div className="flex items-center justify-between py-1 px-1">
+                        <div className="flex items-center gap-2">
+                            <Play className="w-3.5 h-3.5 text-neon-red/70" />
+                            <div>
+                                <span className="text-[10px] font-medium text-foreground">เปิดวิดีโออัตโนมัติ</span>
+                                <p className="text-[8px] text-muted-foreground">เปิดไฟล์วิดีโอใน Chrome หลังดาวน์โหลดเสร็จ</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const next = !autoOpenVideo;
+                                setAutoOpenVideo(next);
+                                try { chrome.storage.local.set({ autoOpenVideo: next }); } catch (_) {}
+                            }}
+                            className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                                autoOpenVideo ? 'bg-neon-red' : 'bg-muted-foreground/30'
+                            }`}
+                        >
+                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                                autoOpenVideo ? 'translate-x-4' : 'translate-x-0'
+                            }`} />
+                        </button>
                     </div>
 
                     {/* Electric Lightning Border Button */}
