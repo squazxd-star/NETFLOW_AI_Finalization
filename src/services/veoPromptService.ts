@@ -6737,6 +6737,400 @@ const parseAiAnalysis = (analysis: string): Record<string, string> => {
     return result;
 };
 
+// ════════════════════════════════════════════════════════════════
+// Character Portrait Prompt Builder — converts Thai descriptions
+// into rich, randomized English character portrait prompts.
+// ════════════════════════════════════════════════════════════════
+
+interface CharacterStyleProfile {
+    appearances: string[];   // physical descriptions
+    hairstyles: string[];
+    outfits: string[];
+    settings: string[];
+    lightings: string[];
+}
+
+const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
+    korean_female: {
+        appearances: [
+            "stunningly beautiful Korean woman, glass skin, soft natural K-Beauty makeup, bright youthful complexion",
+            "gorgeous Korean woman, dewy radiant skin, subtle gradient lip tint, flawless luminous complexion",
+            "elegant Korean woman, porcelain skin, delicate natural makeup with soft blush, refined features",
+            "beautiful Korean woman, glowing glass skin, minimal makeup enhancing natural beauty, warm gentle gaze",
+            "attractive Korean woman, smooth dewy skin, soft peach-tone makeup, bright expressive eyes",
+        ],
+        hairstyles: [
+            "long wavy dark brown hair with soft layers",
+            "sleek straight black hair with subtle highlights",
+            "medium-length chestnut brown hair with gentle curls",
+            "long silky dark hair with side-swept bangs",
+            "shoulder-length layered hair with warm brown tones",
+            "long flowing dark hair with soft face-framing layers",
+        ],
+        outfits: [
+            "stylish modern Korean fashion outfit, clean lines",
+            "trendy oversized blazer with minimal accessories",
+            "elegant knit top with delicate gold jewelry",
+            "chic casual Korean street style, sophisticated layers",
+            "soft pastel blouse with minimal modern aesthetic",
+        ],
+        settings: [
+            "trendy cafe in Seoul with warm ambient lighting",
+            "modern minimalist interior with soft natural light",
+            "elegant Korean-style room with warm wood tones",
+            "bright airy space with large windows and soft curtains",
+            "stylish boutique setting with clean aesthetic",
+        ],
+        lightings: [
+            "soft sunlight through window, warm golden hour glow",
+            "gentle diffused natural light, beauty lighting",
+            "warm studio lighting with soft fill, cinematic quality",
+            "golden hour side lighting, soft shadows on face",
+            "bright even lighting with subtle warm undertone",
+        ],
+    },
+    korean_male: {
+        appearances: [
+            "handsome Korean man, clear smooth skin, sharp jawline, well-groomed appearance",
+            "attractive Korean man, clean-cut features, bright complexion, confident gaze",
+            "good-looking Korean man, defined features, healthy glowing skin, charismatic presence",
+            "stylish Korean man, sharp bone structure, minimal grooming, refined look",
+        ],
+        hairstyles: [
+            "styled dark hair with textured layers, K-style",
+            "neat side-parted dark brown hair, clean cut",
+            "trendy two-block haircut with soft texture",
+            "natural dark hair with slight wave, effortless style",
+        ],
+        outfits: [
+            "smart casual Korean menswear, clean modern fit",
+            "crisp button-up shirt with tailored fit",
+            "minimal Korean street style, layered look",
+            "sleek modern outfit with subtle accessories",
+        ],
+        settings: [
+            "modern Seoul cafe with warm ambient lighting",
+            "minimalist studio with clean backdrop",
+            "stylish urban interior, contemporary design",
+            "bright modern space with large windows",
+        ],
+        lightings: [
+            "soft directional light, cinematic portrait quality",
+            "warm studio lighting with gentle shadows",
+            "natural window light, bright and even",
+            "golden hour glow, warm and flattering",
+        ],
+    },
+    thai_female: {
+        appearances: [
+            "gorgeous Thai woman, warm golden-tan skin, striking features, radiant natural beauty",
+            "beautiful Thai woman, honey-toned skin, elegant bone structure, captivating dark eyes",
+            "stunning Thai woman, smooth tan complexion, refined features, warm inviting smile",
+            "attractive Thai woman, sun-kissed glowing skin, defined cheekbones, natural elegance",
+            "lovely Thai woman, warm bronze skin tone, graceful features, bright expressive eyes",
+        ],
+        hairstyles: [
+            "long straight black hair, sleek and glossy",
+            "flowing dark hair with natural soft waves",
+            "long silky dark brown hair with subtle layers",
+            "elegant black hair flowing past shoulders",
+            "medium-length dark hair with gentle movement",
+        ],
+        outfits: [
+            "fashionable modern Thai style, elegant and trendy",
+            "stylish summer dress, vibrant colors",
+            "chic contemporary outfit with Thai-inspired accessories",
+            "elegant casual wear, sophisticated and fresh",
+            "modern Thai fashion, clean lines with cultural touches",
+        ],
+        settings: [
+            "tropical garden in Bangkok, lush green foliage",
+            "modern Thai-style interior with warm wood accents",
+            "bright outdoor setting with tropical plants",
+            "elegant Thai cafe with contemporary design",
+            "warm ambient space with Thai decorative elements",
+        ],
+        lightings: [
+            "golden hour tropical lighting, warm and rich",
+            "soft natural light with warm undertones",
+            "bright even lighting with soft bokeh background",
+            "sunset warm glow, flattering skin tones",
+            "diffused daylight, clean and luminous",
+        ],
+    },
+    thai_male: {
+        appearances: [
+            "handsome Thai man, warm tan skin, strong features, confident presence",
+            "attractive Thai man, golden-bronze complexion, defined jawline, charismatic look",
+            "good-looking Thai man, healthy tan skin, sharp features, warm smile",
+        ],
+        hairstyles: [
+            "neat dark hair, styled with clean lines",
+            "short textured dark hair, modern cut",
+            "styled black hair with slight volume",
+        ],
+        outfits: [
+            "smart casual Thai style, clean modern look",
+            "contemporary outfit, relaxed sophistication",
+            "modern Thai menswear, well-fitted",
+        ],
+        settings: [
+            "modern Bangkok interior, warm ambiance",
+            "tropical setting with natural elements",
+            "contemporary Thai space, clean design",
+        ],
+        lightings: [
+            "warm golden lighting, flattering portrait",
+            "natural tropical light, bright and warm",
+            "soft studio light with warm tones",
+        ],
+    },
+    japanese_female: {
+        appearances: [
+            "beautiful Japanese woman, fair porcelain skin, delicate refined features, pure natural look",
+            "elegant Japanese woman, flawless pale skin, soft natural makeup, serene beauty",
+            "lovely Japanese woman, luminous fair complexion, understated makeup, graceful presence",
+            "stunning Japanese woman, smooth light skin, minimal elegant makeup, quiet sophistication",
+            "attractive Japanese woman, clear bright complexion, natural beauty, gentle expression",
+        ],
+        hairstyles: [
+            "short bob hairstyle, sleek and modern",
+            "long straight black hair with blunt bangs",
+            "medium-length dark hair with soft layers",
+            "shoulder-length bob with slight wave",
+            "neat dark hair with side-parted fringe",
+        ],
+        outfits: [
+            "minimalist white linen shirt, clean Japanese aesthetic",
+            "elegant simple outfit, muted earth tones",
+            "refined casual Japanese fashion, understated luxury",
+            "soft neutral-toned outfit, minimal accessories",
+            "chic Japanese street style, layered and modern",
+        ],
+        settings: [
+            "under cherry blossom trees in Tokyo, soft spring ambiance",
+            "minimalist Japanese interior, clean lines and natural materials",
+            "bright airy Japanese cafe, warm wood and white",
+            "serene garden setting with subtle Japanese elements",
+            "modern Tokyo backdrop, clean urban aesthetic",
+        ],
+        lightings: [
+            "soft spring lighting, gentle and dreamy",
+            "natural diffused light, clean and bright",
+            "warm ambient glow, soft shadows",
+            "cinematic soft light with subtle bloom",
+            "bright even lighting, pure and clean",
+        ],
+    },
+    japanese_male: {
+        appearances: [
+            "handsome Japanese man, clear fair skin, refined features, calm confidence",
+            "attractive Japanese man, clean complexion, sharp understated features, composed presence",
+            "good-looking Japanese man, smooth light skin, defined jawline, sophisticated look",
+        ],
+        hairstyles: [
+            "textured dark hair, modern Japanese style",
+            "neat side-parted black hair, clean cut",
+            "medium-length styled dark hair, natural movement",
+        ],
+        outfits: [
+            "minimalist Japanese menswear, clean aesthetic",
+            "smart casual outfit, muted tones",
+            "refined modern Japanese fashion",
+        ],
+        settings: [
+            "minimalist Japanese interior, clean design",
+            "modern Tokyo setting, urban sophistication",
+            "serene Japanese-inspired space",
+        ],
+        lightings: [
+            "soft natural light, clean and even",
+            "warm ambient lighting, gentle portrait",
+            "bright diffused daylight, pure tones",
+        ],
+    },
+    chinese_female: {
+        appearances: [
+            "beautiful Chinese woman, luminous fair skin, elegant refined features, sophisticated beauty",
+            "gorgeous Chinese woman, smooth porcelain complexion, delicate makeup, regal presence",
+            "stunning Chinese woman, flawless bright skin, graceful bone structure, captivating eyes",
+        ],
+        hairstyles: [
+            "long flowing black hair, silky and lustrous",
+            "elegant dark hair with soft waves",
+            "sleek straight dark hair past shoulders",
+        ],
+        outfits: [
+            "elegant modern Chinese fashion, refined taste",
+            "sophisticated outfit with subtle cultural accents",
+            "chic contemporary style, luxurious fabrics",
+        ],
+        settings: [
+            "elegant Chinese-inspired interior, warm gold accents",
+            "modern luxurious space, sophisticated ambiance",
+            "bright contemporary setting with cultural elements",
+        ],
+        lightings: [
+            "warm golden lighting, rich and flattering",
+            "soft studio light, even and beautiful",
+            "bright elegant lighting, subtle warmth",
+        ],
+    },
+    western_female: {
+        appearances: [
+            "beautiful Western woman, radiant healthy skin, striking features, confident natural beauty",
+            "gorgeous Caucasian woman, bright complexion, defined features, warm engaging presence",
+            "stunning European woman, clear glowing skin, elegant bone structure, photogenic beauty",
+        ],
+        hairstyles: [
+            "flowing blonde hair with soft waves",
+            "long brunette hair with natural highlights",
+            "wavy auburn hair, voluminous and healthy",
+            "sleek dark blonde hair with subtle layers",
+        ],
+        outfits: [
+            "stylish modern Western fashion, effortless chic",
+            "elegant casual outfit, contemporary style",
+            "trendy fashion-forward look, clean silhouette",
+        ],
+        settings: [
+            "modern minimalist studio, clean backdrop",
+            "bright contemporary interior, natural light",
+            "chic urban setting, sophisticated ambiance",
+        ],
+        lightings: [
+            "bright studio lighting, beauty portrait quality",
+            "soft natural window light, warm and even",
+            "golden hour glow, cinematic warmth",
+        ],
+    },
+    generic_female: {
+        appearances: [
+            "beautiful woman, clear radiant skin, attractive features, warm natural beauty",
+            "gorgeous woman, healthy glowing complexion, elegant bone structure, captivating presence",
+            "stunning woman, smooth flawless skin, refined features, photogenic beauty",
+            "attractive woman, luminous complexion, graceful features, confident warm gaze",
+        ],
+        hairstyles: [
+            "long flowing dark hair with soft layers",
+            "medium-length styled hair, natural and healthy",
+            "sleek hair with gentle waves, well-kept",
+            "elegant hairstyle, face-framing layers",
+        ],
+        outfits: [
+            "stylish modern outfit, clean fashionable look",
+            "elegant casual wear, sophisticated style",
+            "trendy contemporary fashion, well-coordinated",
+        ],
+        settings: [
+            "modern bright interior, clean aesthetic",
+            "warm ambient space, natural elements",
+            "contemporary studio setting, professional backdrop",
+        ],
+        lightings: [
+            "soft beauty lighting, flattering and even",
+            "warm natural light, gentle shadows",
+            "bright studio lighting, cinematic quality",
+        ],
+    },
+    generic_male: {
+        appearances: [
+            "handsome man, healthy clear skin, strong features, confident presence",
+            "attractive man, well-groomed appearance, defined jawline, charismatic look",
+            "good-looking man, clean complexion, sharp features, warm confident gaze",
+        ],
+        hairstyles: [
+            "styled dark hair, modern clean cut",
+            "neat well-groomed hair, professional look",
+            "textured natural hair, contemporary style",
+        ],
+        outfits: [
+            "smart casual modern outfit, well-fitted",
+            "clean contemporary menswear, refined style",
+            "stylish modern look, minimal accessories",
+        ],
+        settings: [
+            "modern interior, clean professional backdrop",
+            "contemporary space, warm ambient design",
+            "bright studio setting, minimal aesthetic",
+        ],
+        lightings: [
+            "directional portrait lighting, cinematic",
+            "warm natural light, flattering",
+            "bright even studio light, professional",
+        ],
+    },
+};
+
+/**
+ * Convert a short Thai character description into a rich, randomized English
+ * character portrait prompt suitable for AI image generation.
+ * 
+ * @param description - Thai text like "สาวสวยเกาหลี", "สาวไทย", "หนุ่มญี่ปุ่น"
+ * @param formGender - gender from form ("male" | "female")
+ * @returns Rich English character portrait description string
+ */
+const buildCharacterPortraitPrompt = (description: string, formGender: string): string => {
+    const desc = description.toLowerCase().trim();
+    if (!desc) return '';
+
+    // ── Detect gender from description text (override form gender if explicit) ──
+    const maleKeywords = /ชาย|ผู้ชาย|หนุ่ม|พ่อ|male|man|boy/;
+    const femaleKeywords = /หญิง|ผู้หญิง|สาว|แม่|นาง|female|woman|girl/;
+    const isMaleFromText = maleKeywords.test(desc);
+    const isFemaleFromText = femaleKeywords.test(desc);
+    const effectiveGender = isMaleFromText ? 'male' : (isFemaleFromText ? 'female' : formGender);
+    const isMale = effectiveGender === 'male';
+
+    // ── Detect nationality/style ──
+    const isKorean = /เกาหลี|korean|k-?beauty|kpop|k-?pop|โคเรีย/.test(desc);
+    const isThai = /ไทย|thai|สยาม/.test(desc);
+    const isJapanese = /ญี่ปุ่น|japanese|japan|nihon/.test(desc);
+    const isChinese = /จีน|chinese|china/.test(desc);
+    const isWestern = /ฝรั่ง|western|american|european|อเมริกัน|ยุโรป/.test(desc);
+
+    // ── Select style profile ──
+    let profileKey: string;
+    if (isKorean) profileKey = isMale ? 'korean_male' : 'korean_female';
+    else if (isThai) profileKey = isMale ? 'thai_male' : 'thai_female';
+    else if (isJapanese) profileKey = isMale ? 'japanese_male' : 'japanese_female';
+    else if (isChinese) profileKey = isMale ? 'generic_female' : 'chinese_female'; // chinese_male falls to generic
+    else if (isWestern) profileKey = isMale ? 'generic_male' : 'western_female';
+    else profileKey = isMale ? 'generic_male' : 'generic_female';
+
+    const profile = STYLE_PROFILES[profileKey] || STYLE_PROFILES['generic_female'];
+
+    // ── Detect extra traits from the user's text ──
+    const isBeautiful = /สวย|gorgeous|beautiful|stunning|sexy|เซ็กซี่/.test(desc);
+    const isCute = /น่ารัก|cute|kawaii|sweet/.test(desc);
+    const isElegant = /สง่า|elegant|classy|หรู/.test(desc);
+    const isSexy = /เซ็กซี่|sexy|hot|ร้อนแรง/.test(desc);
+
+    // ── Build randomized character prompt ──
+    const appearance = pickRandom(profile.appearances);
+    const hair = pickRandom(profile.hairstyles);
+    const outfit = pickRandom(profile.outfits);
+    const setting = pickRandom(profile.settings);
+    const lighting = pickRandom(profile.lightings);
+
+    // Extra modifiers based on detected traits
+    const traitModifiers: string[] = [];
+    if (isBeautiful) traitModifiers.push('exceptionally beautiful');
+    if (isCute) traitModifiers.push('cute and charming');
+    if (isElegant) traitModifiers.push('elegant and sophisticated');
+    if (isSexy) traitModifiers.push('alluring and confident');
+
+    const traitStr = traitModifiers.length > 0 ? `, ${traitModifiers.join(', ')}` : '';
+
+    // ── Append any remaining user-specific keywords that weren't matched ──
+    // This allows "สาวเกาหลี ผมสั้น ชุดนักเรียน" to pass through extra details
+    const knownKeywords = /เกาหลี|ไทย|ญี่ปุ่น|จีน|ฝรั่ง|สาว|หนุ่ม|ผู้หญิง|ผู้ชาย|ชาย|หญิง|สวย|น่ารัก|สง่า|เซ็กซี่|korean|thai|japanese|chinese|western|male|female|beautiful|cute|sexy|elegant/gi;
+    const extraDesc = desc.replace(knownKeywords, '').replace(/\s+/g, ' ').trim();
+    const extraStr = extraDesc ? ` Additional details: ${extraDesc}.` : '';
+
+    return `${appearance}${traitStr}, ${hair}, ${outfit}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
+};
+
 /**
  * Build Image Generation Prompt — คัมภีร์ 5 ส่วน (Master Formula)
  * When AI analysis exists, its 5 parts OVERRIDE template defaults.
@@ -6798,9 +7192,23 @@ const buildImagePrompt = (
     const aiCharDetails = characterAnalysis
         ? `Appearance from reference: ${characterAnalysis.overallLook}. Hair: ${characterAnalysis.hairstyle}. Skin tone: ${characterAnalysis.skinTone}. Build: ${characterAnalysis.build}.`
         : '';
-    const characterLine = isFitnessCategory
-        ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`
-        : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`;
+    // ── Character portrait from text description (when no character image) ──
+    const hasCharImage = !!config.characterImage;
+    const charDescPrompt = (!hasCharImage && config.characterDescription?.trim())
+        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female')
+        : '';
+
+    let characterLine: string;
+    if (charDescPrompt) {
+        // Use rich generated portrait from text description
+        characterLine = isFitnessCategory
+            ? `${charDescPrompt}. ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}`
+            : `${charDescPrompt}. ${expressionText} expression. ${dynamics}. ${movementDesc}`;
+    } else {
+        characterLine = isFitnessCategory
+            ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`
+            : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`;
+    }
 
     // ── Sanitize product name for ImageFX too — copyright filter also rejects trademarked names ──
     const imageSafeProductName = sanitizeProductNameForVeo(config.productName);
@@ -6831,9 +7239,11 @@ ${ANTI_ADDITION_DIRECTIVE}
 ${CLOTHING_FIDELITY_DIRECTIVE}
 
 Reference Images:
-- Image 1: CHARACTER FACE REFERENCE (HIGHEST PRIORITY FOR FACE) — reproduce this person's EXACT facial features, bone structure, skin tone, hairstyle, and overall appearance with maximum fidelity. The output character's face must look like the SAME PERSON as Image 1. Match every facial detail: eye shape, nose shape, jawline, lip shape, eyebrow arch, forehead, cheekbones, chin, skin texture. This is the absolute authority for the character's face.${hasProductImage ? `
-- Image 2: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.` : ''}
-- If text conflicts with images, images win. Product structure from Image 2 is the absolute visual authority for product design.
+${hasCharImage ? `- Image 1: CHARACTER FACE REFERENCE (HIGHEST PRIORITY FOR FACE) — reproduce this person's EXACT facial features, bone structure, skin tone, hairstyle, and overall appearance with maximum fidelity. The output character's face must look like the SAME PERSON as Image 1. Match every facial detail: eye shape, nose shape, jawline, lip shape, eyebrow arch, forehead, cheekbones, chin, skin texture. This is the absolute authority for the character's face.
+${hasProductImage ? `- Image 2: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.` : ''}
+- If text conflicts with images, images win. Product structure from Image 2 is the absolute visual authority for product design.` : `${hasProductImage ? `- Image 1: PRODUCT STRUCTURE REFERENCE (HIGHEST PRIORITY) — This image defines the EXACT product design. Study every detail: silhouette, proportions, cap/closure shape, label layout, material finish, color palette, distinctive decorative elements. Reproduce the product with photographic accuracy. The label text and brand name spelling are the #1 priority. Do NOT simplify or reimagine any part of the product — if the reference shows a unique feature, that EXACT feature must appear in the output.
+- If text conflicts with images, images win. Product structure from Image 1 is the absolute visual authority for product design.` : ''}${charDescPrompt ? `
+CHARACTER NOTE: No character reference image provided. Generate character based on the [CHARACTER] description above. The character MUST face the camera directly (front-facing portrait).` : ''}`}
 
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}`;
@@ -6991,9 +7401,12 @@ const buildVideoPrompt = (
     // Repeats FULL physical description in every scene for maximum consistency.
     // When characterAnalysis is available (AI Vision), include precise details from the actual reference image.
     const userCharDesc = config.characterDescription?.trim() || '';
+    const richCharPortrait = (!config.characterImage && userCharDesc)
+        ? buildCharacterPortraitPrompt(userCharDesc, config.gender || 'female')
+        : '';
     const aiAppearance = characterAnalysis
         ? `AI-observed appearance: ${characterAnalysis.overallLook}. Hair: ${characterAnalysis.hairstyle}. Build: ${characterAnalysis.build}. Skin tone: ${characterAnalysis.skinTone}. Estimated age: ${characterAnalysis.estimatedAge}.`
-        : (userCharDesc ? `User-described appearance: ${userCharDesc}.` : '');
+        : (richCharPortrait ? `Generated appearance: ${richCharPortrait}` : '');
     const aiClothing = characterAnalysis?.clothing
         ? `Reference clothing: ${characterAnalysis.clothing}.`
         : '';
@@ -7194,6 +7607,96 @@ export const buildSceneVideoPromptJSON = (
     ].filter(Boolean).join(' '), productName);
 
     return prompt;
+};
+
+/**
+ * Build a SAFE retry prompt from the original prompt when generation fails
+ * with "might violate our policies" error.
+ *
+ * Strategy: Strip all heavy negative directives (LOCK, FREEZE, FORBIDDEN,
+ * ANTI-, DO NOT) that paradoxically trigger safety filters. Keep only the
+ * positive creative description: character + product + voice + script + camera.
+ *
+ * Typically reduces prompt from ~3000+ chars to ~800-1200 chars.
+ */
+export const buildSafeRetryPrompt = (originalPrompt: string): string => {
+    let p = originalPrompt;
+
+    // ── 1. Remove all LOCK / FREEZE / ANTI- directive blocks ──
+    // These contain aggressive negative language that can trigger safety filters
+    const heavyPatterns: RegExp[] = [
+        /STRICT FACE & HEAD LOCK:[^.]*\./gi,
+        /BODY LOCK:[^.]*\./gi,
+        /HAIR LOCK:[^.]*\./gi,
+        /FACE LOCK[^.]*\./gi,
+        /PRODUCT IDENTITY LOCK:[^.]*\./gi,
+        /LABEL LOCK:[^.]*\./gi,
+        /PRODUCT EVERY FRAME:[^.]*\./gi,
+        /TRANSITION STABILITY:[^.]*\./gi,
+        /ANTI[_-]DUPLICATION:[^.]*\./gi,
+        /ANTI[_-]TEXT[^.]*\./gi,
+        /ANTI[_-]MORPH[^.]*\./gi,
+        /ANTI[_-]DISTORTION[^.]*\./gi,
+        /ANTI[_-]ADDITION[^.]*\./gi,
+        /ANTI[_-]FLOATING[^.]*\./gi,
+        /PROPS vs PRODUCT:[^.]*\./gi,
+        /BRAND IDENTITY FREEZE[^.]*\./gi,
+        /BRAND MORPHING[^.]*\./gi,
+        /PRODUCT SIZE \(CRITICAL\):[^.]*\./gi,
+        /PRODUCT SIZE REALISM:[^.]*\./gi,
+        /VOICE DISCIPLINE:[^.]*\./gi,
+        /ZERO INVENTION:[^.]*\./gi,
+        /REALISM:[^.]*\./gi,
+        /SCREEN CONTENT[^.]*\./gi,
+        /SINGLE UTENSIL RULE[^.]*\./gi,
+        /PRODUCT LOCK[^.]*\./gi,
+        /FACE & HEAD LOCK[^.]*\./gi,
+        /CLOTHING FIDELITY[^.]*\./gi,
+        /FRONT[_-]FACING[^.]*\./gi,
+    ];
+    for (const re of heavyPatterns) {
+        p = p.replace(re, '');
+    }
+
+    // ── 2. Remove sentences containing heavy negative keywords ──
+    // Split into sentences, filter out ones with aggressive negation
+    const negativeKeywords = [
+        'DO NOT', 'NEVER', 'FORBIDDEN', 'MUST NOT', 'ABSOLUTELY NO',
+        'IMMUTABLE', 'LOCKED', 'HIGHEST PRIORITY', '#1 FORBIDDEN',
+        'Do NOT let', 'Do NOT add', 'Do NOT generate', 'Do NOT simplify',
+        'Do NOT invent', 'ZERO on-screen', 'NO split screen',
+        'NO collage', 'NO side-by-side', 'NO divided frames',
+        'never morph', 'never simplify', 'never change shape',
+        'never disappear', 'never be hidden', 'never exit',
+        'BRAND MORPHING IS', 'objects MUST NOT magically',
+    ];
+    const sentences = p.split(/(?<=[.!])\s+/);
+    const filtered = sentences.filter(s => {
+        const upper = s;
+        return !negativeKeywords.some(kw => upper.includes(kw));
+    });
+    p = filtered.join(' ');
+
+    // ── 3. Collapse repeated whitespace ──
+    p = p.replace(/\s{2,}/g, ' ').trim();
+
+    // ── 4. If still too long (>1200 chars), aggressively trim non-essential parts ──
+    if (p.length > 1200) {
+        // Remove product anatomy details
+        p = p.replace(/Render with extreme surface detail[^.]*\./gi, '');
+        p = p.replace(/High-fidelity visual detail[^.]*\./gi, '');
+        p = p.replace(/Product lit with soft rim light[^.]*\./gi, '');
+        p = p.replace(/visible material texture[^.]*\./gi, '');
+        // Remove camera movement details
+        p = p.replace(/Fluid motion, cinematic motion blur[^.]*\./gi, '');
+        // Remove AI-observed appearance if too verbose
+        p = p.replace(/AI-observed appearance:[^.]*\./gi, '');
+        p = p.replace(/Reference clothing:[^.]*\./gi, '');
+        p = p.replace(/\s{2,}/g, ' ').trim();
+    }
+
+    console.log(`🛡️ Safe retry prompt: ${originalPrompt.length} → ${p.length} chars (${Math.round((1 - p.length / originalPrompt.length) * 100)}% reduction)`);
+    return p;
 };
 
 /**

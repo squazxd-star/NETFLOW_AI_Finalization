@@ -496,6 +496,7 @@ function isGenerationFailed(): string | null {
         "try again later", "ลองอีกครั้งภายหลัง", "ลองใหม่อีกครั้ง",
         "something went wrong", "เกิดข้อผิดพลาด",
         "safety filter", "policy violation", "content policy",
+        "might violate", "violate our policies", "อาจละเมิด",
         "unable to generate", "ไม่สามารถสร้างวิดีโอ",
         "couldn't generate video", "couldn't generate image",
     ];
@@ -511,6 +512,85 @@ function isGenerationFailed(): string | null {
         }
     }
     return null;
+}
+
+/**
+ * Build a SAFE retry prompt by stripping heavy negative directives that
+ * paradoxically trigger Google's safety filters. Keeps only positive creative
+ * description: character + product + voice + script + camera.
+ */
+function buildSafeRetryPrompt(originalPrompt: string): string {
+    let p = originalPrompt;
+
+    // 1. Remove all LOCK / FREEZE / ANTI- directive blocks
+    const heavyPatterns: RegExp[] = [
+        /STRICT FACE & HEAD LOCK:[^.]*\./gi,
+        /BODY LOCK:[^.]*\./gi,
+        /HAIR LOCK:[^.]*\./gi,
+        /FACE LOCK[^.]*\./gi,
+        /PRODUCT IDENTITY LOCK:[^.]*\./gi,
+        /LABEL LOCK:[^.]*\./gi,
+        /PRODUCT EVERY FRAME:[^.]*\./gi,
+        /TRANSITION STABILITY:[^.]*\./gi,
+        /ANTI[_-]DUPLICATION:[^.]*\./gi,
+        /ANTI[_-]TEXT[^.]*\./gi,
+        /ANTI[_-]MORPH[^.]*\./gi,
+        /ANTI[_-]DISTORTION[^.]*\./gi,
+        /ANTI[_-]ADDITION[^.]*\./gi,
+        /ANTI[_-]FLOATING[^.]*\./gi,
+        /PROPS vs PRODUCT:[^.]*\./gi,
+        /BRAND IDENTITY FREEZE[^.]*\./gi,
+        /BRAND MORPHING[^.]*\./gi,
+        /PRODUCT SIZE \(CRITICAL\):[^.]*\./gi,
+        /PRODUCT SIZE REALISM:[^.]*\./gi,
+        /VOICE DISCIPLINE:[^.]*\./gi,
+        /ZERO INVENTION:[^.]*\./gi,
+        /REALISM:[^.]*\./gi,
+        /SCREEN CONTENT[^.]*\./gi,
+        /SINGLE UTENSIL RULE[^.]*\./gi,
+        /PRODUCT LOCK[^.]*\./gi,
+        /FACE & HEAD LOCK[^.]*\./gi,
+        /CLOTHING FIDELITY[^.]*\./gi,
+        /FRONT[_-]FACING[^.]*\./gi,
+    ];
+    for (const re of heavyPatterns) {
+        p = p.replace(re, '');
+    }
+
+    // 2. Remove sentences containing heavy negative keywords
+    const negativeKeywords = [
+        'DO NOT', 'NEVER', 'FORBIDDEN', 'MUST NOT', 'ABSOLUTELY NO',
+        'IMMUTABLE', 'LOCKED', 'HIGHEST PRIORITY', '#1 FORBIDDEN',
+        'Do NOT let', 'Do NOT add', 'Do NOT generate', 'Do NOT simplify',
+        'Do NOT invent', 'ZERO on-screen', 'NO split screen',
+        'NO collage', 'NO side-by-side', 'NO divided frames',
+        'never morph', 'never simplify', 'never change shape',
+        'never disappear', 'never be hidden', 'never exit',
+        'BRAND MORPHING IS', 'objects MUST NOT magically',
+    ];
+    const sentences = p.split(/(?<=[.!])\s+/);
+    const filtered = sentences.filter(s => {
+        return !negativeKeywords.some(kw => s.includes(kw));
+    });
+    p = filtered.join(' ');
+
+    // 3. Collapse repeated whitespace
+    p = p.replace(/\s{2,}/g, ' ').trim();
+
+    // 4. If still too long (>1200 chars), aggressively trim
+    if (p.length > 1200) {
+        p = p.replace(/Render with extreme surface detail[^.]*\./gi, '');
+        p = p.replace(/High-fidelity visual detail[^.]*\./gi, '');
+        p = p.replace(/Product lit with soft rim light[^.]*\./gi, '');
+        p = p.replace(/visible material texture[^.]*\./gi, '');
+        p = p.replace(/Fluid motion, cinematic motion blur[^.]*\./gi, '');
+        p = p.replace(/AI-observed appearance:[^.]*\./gi, '');
+        p = p.replace(/Reference clothing:[^.]*\./gi, '');
+        p = p.replace(/\s{2,}/g, ' ').trim();
+    }
+
+    LOG(`🛡️ Safe retry prompt: ${originalPrompt.length} → ${p.length} chars (${Math.round((1 - p.length / originalPrompt.length) * 100)}% reduction)`);
+    return p;
 }
 
 /** Cross-platform robust click: full pointer→mouse→click sequence for React/Radix */
