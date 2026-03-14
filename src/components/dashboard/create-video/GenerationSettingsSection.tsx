@@ -709,7 +709,7 @@ Do not explain. Only output the lines above.`;
                                     { value: "horizontal", label: "แนวนอน", Icon: Monitor },
                                     { value: "vertical", label: "แนวตั้ง", Icon: Smartphone }
                                 ] as const).map((opt) => {
-                                    const isActive = (watch("orientation") || "horizontal") === opt.value;
+                                    const isActive = (watch("orientation") || "vertical") === opt.value;
                                     return (
                                         <button
                                             key={opt.value}

@@ -1999,7 +1999,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
     // ── Step 0: Configure settings ──
     try {
         updateStep("settings", "active");
-        const orientation = req.orientation || "horizontal";
+        const orientation = req.orientation || "vertical";
         const outputCount = req.outputCount || 1;
         const ok = await configureFlowSettings(orientation, outputCount);
         steps.push(ok ? "✅ Settings" : "⚠️ Settings");

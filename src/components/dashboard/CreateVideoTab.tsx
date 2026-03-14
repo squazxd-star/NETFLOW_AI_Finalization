@@ -985,7 +985,7 @@ const CreateVideoTab = () => {
                                                 characterImage: characterImage || undefined,
                                                 orientation: formData.orientation || "vertical",
                                                 outputCount: formData.outputCount || 1,
-                                                veoQuality: formData.veoQuality || "quality",
+                                                veoQuality: formData.veoQuality || "fast",
                                                 grokAspectRatio: formData.grokAspectRatio || "9:16",
                                                 grokResolution: formData.grokResolution || "480p",
                                                 grokDuration: formData.grokDuration || "6s",
