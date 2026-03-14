@@ -150,13 +150,20 @@ export const getActiveProduct = async (): Promise<TikTokProduct | null> => {
 const findTikTokTab = (): Promise<chrome.tabs.Tab | null> => {
   return new Promise((resolve) => {
     chrome.tabs.query({}, (allTabs) => {
-      // Look for TikTok Studio tabs with priority order
+      // Look for TikTok Studio / Seller Center tabs with priority order
       const tiktokTab = allTabs.find(t => 
         t.url?.includes('tiktok.com/tiktokstudio')
       ) || allTabs.find(t => 
         t.url?.includes('seller-th.tiktok.com')
       ) || allTabs.find(t => 
         t.url?.includes('seller.tiktok.com')
+      ) || allTabs.find(t =>
+        t.url?.includes('affiliate-th.tiktok.com')
+      ) || allTabs.find(t =>
+        t.url?.includes('affiliate.tiktok.com')
+      ) || allTabs.find(t =>
+        // Any seller-*.tiktok.com or affiliate-*.tiktok.com
+        /seller-?\w*\.tiktok\.com|affiliate-?\w*\.tiktok\.com/.test(t.url || '')
       ) || allTabs.find(t =>
         t.url?.includes('tiktok.com') && !t.url?.includes('tiktok.com/@')
       );
@@ -169,33 +176,70 @@ const findTikTokTab = (): Promise<chrome.tabs.Tab | null> => {
  * Try to inject content script into a tab if it's not already loaded
  */
 const ensureContentScript = async (tabId: number): Promise<boolean> => {
-  return new Promise((resolve) => {
-    // First try to ping existing content script
-    chrome.tabs.sendMessage(tabId, { type: 'PING_TIKTOK_SCRIPT' }, (response) => {
-      if (!chrome.runtime.lastError && response?.status === 'ready') {
-        resolve(true);
+  // Try ping first
+  const pingOk = await new Promise<boolean>((resolve) => {
+    try {
+      chrome.tabs.sendMessage(tabId, { type: 'PING_TIKTOK_SCRIPT' }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(false);
+          return;
+        }
+        resolve(response?.status === 'ready');
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+
+  if (pingOk) {
+    console.log('[TikTokProductService] Content script already loaded');
+    return true;
+  }
+
+  // Content script not loaded — inject it (try up to 2 times)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const injected = await new Promise<boolean>((resolve) => {
+      if (!chrome.scripting) {
+        resolve(false);
         return;
       }
-      
-      // Content script not loaded - try to inject it
-      if (chrome.scripting) {
+      try {
         chrome.scripting.executeScript({
           target: { tabId },
           files: ['src/content-tiktok.js']
         }, () => {
           if (chrome.runtime.lastError) {
-            console.error('[TikTokProductService] Inject error:', chrome.runtime.lastError);
+            console.error('[TikTokProductService] Inject error (attempt ' + (attempt + 1) + '):', chrome.runtime.lastError.message);
             resolve(false);
             return;
           }
-          // Wait a moment for script to initialize
-          setTimeout(() => resolve(true), 500);
+          resolve(true);
         });
-      } else {
+      } catch (err) {
+        console.error('[TikTokProductService] Inject exception:', err);
         resolve(false);
       }
     });
-  });
+
+    if (injected) {
+      // Wait for script to initialize then verify
+      await new Promise(r => setTimeout(r, 800));
+      const verifyOk = await new Promise<boolean>((resolve) => {
+        try {
+          chrome.tabs.sendMessage(tabId, { type: 'PING_TIKTOK_SCRIPT' }, (response) => {
+            if (chrome.runtime.lastError) { resolve(false); return; }
+            resolve(response?.status === 'ready');
+          });
+        } catch { resolve(false); }
+      });
+      if (verifyOk) return true;
+      // Wait before retry
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+
+  console.error('[TikTokProductService] Failed to inject content script after retries');
+  return false;
 };
 
 /**

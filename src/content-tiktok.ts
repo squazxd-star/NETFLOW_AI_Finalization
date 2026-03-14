@@ -3,11 +3,12 @@
  * Runs on tiktok.com/tiktokstudio/* and seller-th.tiktok.com/*
  *
  * KEY DESIGN:
- *   1. Find the "เพิ่มลิงก์สินค้า" modal first — scope ALL queries to it
- *   2. Inside the modal, find product rows by looking for 16-20 digit IDs
- *   3. For each ID, walk up to the nearest <tr> or tight container
- *   4. Extract name + image + price from that tight row only
- *   5. NEVER search the full document — avoids picking up extension sidebar or page content
+ *   1. Try modal first ("เพิ่มลิงก์สินค้า" dialog)
+ *   2. If no modal → scrape directly from the product management page
+ *   3. Find product rows by looking for 16-20 digit product IDs
+ *   4. For each ID, walk up to the row container
+ *   5. Extract name + image + price from that row
+ *   6. Works on both modal and direct page layouts (table + div-based)
  */
 
 console.log('[NetFlow TikTok] Content script loaded on:', window.location.href);
@@ -32,64 +33,92 @@ const SKIP_NAMES = new Set([
   'Product', 'Price', 'Stock', 'Status', 'Name', 'ID',
   'Action', 'Actions', 'Select', 'Cancel', 'Next', 'Previous',
   'นำเสนอสินค้า', 'ยกเลิก', 'ถัดไป',
+  'Product ID', 'Product Name', 'product', 'Product name',
+  'Manage products', 'จัดการ', 'ดูทั้งหมด', 'View all',
 ]);
 
-// ── Step 0: Find the product modal ──────────────────────────────
-// TikTok renders the "เพิ่มลิงก์สินค้า" modal as a dialog/overlay.
-// We try multiple selectors to find it. If found, all scraping is
-// scoped to this container. This prevents reading extension sidebar
-// or other page content.
+// ── Step 0: Find the best scope to scrape ───────────────────────
+// Priority: modal > table > page content area > document.body
 
-const findModalContainer = (): Element | null => {
-  // Strategy 1: Look for a dialog/modal that contains product-related text
+const findScrapeScope = (): { scope: Element; isModal: boolean } => {
+  // ── A: Try modal/dialog first ──
   const modals = Array.from(document.querySelectorAll(
     '[role="dialog"], [role="modal"], .modal, .dialog, [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"], [class*="drawer"], [class*="Drawer"], [class*="overlay"], [class*="Overlay"], [class*="popup"], [class*="Popup"]'
   ));
-
   for (const modal of modals) {
     const tc = modal.textContent || '';
-    // Must contain a 16-20 digit product ID
     if (/\d{16,20}/.test(tc)) {
-      console.log('[NetFlow TikTok] Found modal via role/class, tag:', modal.tagName, 'textLen:', tc.length);
-      return modal;
+      console.log('[NetFlow TikTok] Scope: modal (role/class), tag:', modal.tagName, 'textLen:', tc.length);
+      return { scope: modal, isModal: true };
     }
   }
 
-  // Strategy 2: Look for elements containing header text "เพิ่มลิงก์สินค้า" or "นำเสนอสินค้า"
-  const allElements = Array.from(document.querySelectorAll('*'));
-  for (const el of allElements) {
-    const directText = getDirectText(el);
-    if (directText.includes('เพิ่มลิงก์สินค้า') || directText.includes('นำเสนอสินค้า')) {
-      // Walk up to find the modal wrapper (usually 2-5 levels up)
+  // ── B: Header text "เพิ่มลิงก์สินค้า" → walk up to wrapper ──
+  const headers = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, span, div, p'));
+  for (const el of headers) {
+    const dt = getDirectText(el);
+    if (dt.includes('เพิ่มลิงก์สินค้า') || dt.includes('นำเสนอสินค้า') || dt.includes('Showcase products')) {
       let wrapper: Element | null = el;
       for (let i = 0; i < 8 && wrapper; i++) {
         wrapper = wrapper.parentElement;
         if (!wrapper) break;
-        const wrapperTc = wrapper.textContent || '';
-        // Good modal: has product ID + reasonable size
-        if (/\d{16,20}/.test(wrapperTc) && wrapperTc.length > 100 && wrapperTc.length < 10000) {
-          // Make sure it's not the whole page
+        const wt = wrapper.textContent || '';
+        if (/\d{16,20}/.test(wt) && wt.length > 100 && wt.length < 15000) {
           if (wrapper.tagName !== 'BODY' && wrapper.tagName !== 'HTML') {
-            console.log('[NetFlow TikTok] Found modal via header text, tag:', wrapper.tagName, 'textLen:', wrapperTc.length);
-            return wrapper;
+            console.log('[NetFlow TikTok] Scope: modal (header text), tag:', wrapper.tagName, 'textLen:', wt.length);
+            return { scope: wrapper, isModal: true };
           }
         }
       }
     }
   }
 
-  // Strategy 3: Find any container with a <table> or product-table-like structure containing IDs
+  // ── C: <table> element with product IDs ──
   const tables = Array.from(document.querySelectorAll('table'));
   for (const table of tables) {
     const tc = table.textContent || '';
     if (/\d{16,20}/.test(tc)) {
-      console.log('[NetFlow TikTok] Found product table, textLen:', tc.length);
-      return table;
+      console.log('[NetFlow TikTok] Scope: <table>, textLen:', tc.length);
+      return { scope: table, isModal: false };
     }
   }
 
-  console.log('[NetFlow TikTok] No modal container found');
-  return null;
+  // ── D: Div-based product list (TikTok Seller Center uses divs, not tables) ──
+  // Look for a container that has multiple 16-20 digit IDs (product list area)
+  const bodyText = document.body.textContent || '';
+  if (/\d{16,20}/.test(bodyText)) {
+    // Try to find the tightest container that holds all product rows
+    // Look for common TikTok Seller Center layout containers
+    const containerSelectors = [
+      '[class*="product-list"]', '[class*="ProductList"]', '[class*="product_list"]',
+      '[class*="table-body"]', '[class*="TableBody"]', '[class*="table_body"]',
+      '[class*="list-body"]', '[class*="ListBody"]',
+      'main [class*="content"]', 'main [class*="Content"]',
+      '[data-tt]', '[class*="arco-table"]', '[class*="index_productList"]',
+      'main', '#app main', '#root main',
+    ];
+    for (const sel of containerSelectors) {
+      try {
+        const containers = Array.from(document.querySelectorAll(sel));
+        for (const c of containers) {
+          const ct = c.textContent || '';
+          const idMatches = ct.match(/(?<!\d)\d{16,20}(?!\d)/g) || [];
+          const uniqueIds = new Set(idMatches).size;
+          if (uniqueIds >= 1) {
+            console.log('[NetFlow TikTok] Scope: div-container "' + sel + '", IDs:', uniqueIds, 'textLen:', ct.length);
+            return { scope: c, isModal: false };
+          }
+        }
+      } catch { /* invalid selector */ }
+    }
+
+    // Last resort: use document.body
+    console.log('[NetFlow TikTok] Scope: document.body (fallback)');
+    return { scope: document.body, isModal: false };
+  }
+
+  console.log('[NetFlow TikTok] No product IDs found anywhere on page');
+  return { scope: document.body, isModal: false };
 };
 
 // Get only the direct text of an element (not children's text)
@@ -174,8 +203,9 @@ const findRow = (idEl: Element, pid: string): Element => {
     cur = cur.parentElement;
   }
 
-  // Walk up to find smallest container with image + this ID only
+  // Walk up to find smallest container that looks like a product row
   cur = idEl;
+  let bestRow: Element | null = null;
   for (let i = 0; i < 15 && cur; i++) {
     cur = cur.parentElement;
     if (!cur) break;
@@ -190,15 +220,19 @@ const findRow = (idEl: Element, pid: string): Element => {
     // Stop if we hit a container with multiple products
     if (uniqueCount > 1) break;
 
-    // Good row: has img, contains our ID, text < 500 chars
-    if (cur.querySelector('img') && tc.length < 500) {
-      return cur;
+    // Good row: contains our ID, text < 800 chars (relaxed for div-based layouts)
+    if (tc.length < 800) {
+      bestRow = cur;
+      // Ideal: has img too
+      if (cur.querySelector('img')) return cur;
     }
   }
 
-  // Fallback: go up 4 levels
+  if (bestRow) return bestRow;
+
+  // Fallback: go up 5 levels
   cur = idEl;
-  for (let i = 0; i < 4 && cur?.parentElement; i++) {
+  for (let i = 0; i < 5 && cur?.parentElement; i++) {
     cur = cur.parentElement;
   }
   return cur || idEl;
@@ -316,19 +350,14 @@ const scrapeAllProducts = (): TikTokProduct[] => {
   console.log('[NetFlow TikTok] === Starting scrape ===');
   console.log('[NetFlow TikTok] URL:', window.location.href);
 
-  // CRITICAL: Find the modal first — only search inside it
-  const modal = findModalContainer();
-  if (!modal) {
-    console.log('[NetFlow TikTok] No product modal found on page');
-    return [];
-  }
+  // Find the best scope — modal first, then page content
+  const { scope, isModal } = findScrapeScope();
+  console.log('[NetFlow TikTok] Scope type:', isModal ? 'MODAL' : 'PAGE', '| textLen:', (scope.textContent || '').length);
 
-  console.log('[NetFlow TikTok] Modal found, textLen:', (modal.textContent || '').length);
-
-  // Find product IDs within the modal only
-  const idElements = findProductIds(modal);
+  // Find product IDs within the scope
+  const idElements = findProductIds(scope);
   if (idElements.length === 0) {
-    console.log('[NetFlow TikTok] No product IDs found inside modal');
+    console.log('[NetFlow TikTok] No product IDs found in scope');
     return [];
   }
 
@@ -394,7 +423,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
         } else {
           sendResponse({
             success: false,
-            error: 'ไม่พบสินค้า กรุณาเปิด "เพิ่มลิงก์สินค้า" ให้แสดงรายการสินค้าก่อนกดซิงค์',
+            error: 'ไม่พบสินค้า กรุณาเปิดหน้ารายการสินค้า (Product list) ใน TikTok Studio / Seller Center แล้วกดซิงค์อีกครั้ง',
           });
         }
       } catch (err) {

@@ -62,7 +62,11 @@
       "matches": [
         "https://www.tiktok.com/tiktokstudio/*",
         "https://seller-th.tiktok.com/*",
-        "https://seller.tiktok.com/*"
+        "https://seller.tiktok.com/*",
+        "https://affiliate-th.tiktok.com/*",
+        "https://affiliate.tiktok.com/*",
+        "*://seller-*.tiktok.com/*",
+        "*://affiliate-*.tiktok.com/*"
       ],
       "js": ["src/content-tiktok.js"],
       "run_at": "document_idle",
@@ -72,7 +76,9 @@
       "matches": [
         "https://www.tiktok.com/tiktokstudio/upload*",
         "https://seller-th.tiktok.com/tiktokstudio/*",
-        "https://seller.tiktok.com/tiktokstudio/*"
+        "https://seller.tiktok.com/tiktokstudio/*",
+        "*://seller-*.tiktok.com/tiktokstudio/*",
+        "*://affiliate-*.tiktok.com/tiktokstudio/*"
       ],
       "js": ["src/content-tiktok-upload.js"],
       "run_at": "document_idle"

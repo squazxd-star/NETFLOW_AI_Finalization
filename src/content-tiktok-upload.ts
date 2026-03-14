@@ -561,24 +561,36 @@ const addHashtags = async (hashtags: string[]): Promise<boolean> => {
 const addProductLink = async (productId: string): Promise<boolean> => {
   log('Step 4: Adding product link for ID: ' + productId);
 
-  // ── 1. Scroll down to find "เพิ่มลิงก์" section ──
+  // All possible button texts (Thai + English variants)
+  const addLinkTexts = [
+    'เพิ่มลิงก์สินค้า', 'เพิ่มลิงก์', 'เพิ่มสินค้า', 'ปักหมุดสินค้า',
+    'นำเสนอสินค้า', 'Showcase products', 'Add product links', 'Add product',
+    'Add link', 'Product links', '+ เพิ่ม',
+  ];
+
+  // ── 1. Scroll down to find product link section ──
   const scrollContainer = document.querySelector('main') || document.documentElement;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     scrollContainer.scrollTop += 300;
     await delay(400);
-    const found = findByText('เพิ่มลิงก์สินค้า') || findByText('เพิ่มลิงก์') || findByText('Add product links') || findByText('Add link');
-    if (found) break;
+    for (const txt of addLinkTexts) {
+      if (findByText(txt)) { i = 99; break; }
+    }
   }
 
-  // Click "เพิ่มลิงก์สินค้า" / "เพิ่มลิงก์" / "Add link"
-  const addLinkBtn = findByText('เพิ่มลิงก์สินค้า') || findByText('เพิ่มลิงก์') || findByText('Add product links') || findByText('Add link') || findByText('+ เพิ่ม');
+  // Click the add-link button
+  let addLinkBtn: Element | null = null;
+  for (const txt of addLinkTexts) {
+    addLinkBtn = findByText(txt);
+    if (addLinkBtn) break;
+  }
   if (!addLinkBtn) {
-    warn('Could not find "เพิ่มลิงก์" button');
+    warn('Could not find "เพิ่มลิงก์" / "Add product" button');
     return false;
   }
   clickElement(addLinkBtn);
-  log('Clicked เพิ่มลิงก์สินค้า');
-  await delay(2500);
+  log('Clicked: ' + (addLinkBtn.textContent || '').trim().substring(0, 40));
+  await delay(3000);
 
   // ── 2. Handle link type dialog if it appears (ประเภทของลิงก์ → สินค้า) ──
   const nextBtn1 = findByText('ถัดไป', 'button') || findByText('Next', 'button');
@@ -591,20 +603,21 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   // ── 3. Wait for product selection dialog to fully load ──
   const productListReady = await waitForElement(
     () => {
-      // Scope search to modal/dialog container ONLY — avoids grabbing the wrong input
+      // Scope search to modal/dialog container ONLY
       const modalScope: Element = document.querySelector(
-        '[role="dialog"], [role="modal"], [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"], [class*="drawer"], [class*="Drawer"]'
+        '[role="dialog"], [role="modal"], [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"], [class*="drawer"], [class*="Drawer"], [class*="popup"], [class*="Popup"]'
       ) || document.body;
-      const inputs = Array.from(modalScope.querySelectorAll('input[type="text"], input[type="search"], input[placeholder*="ค้นหา"], input[placeholder*="Search"], input[placeholder*="search"]'));
-      // Filter to visible ones inside the modal
+      const inputs = Array.from(modalScope.querySelectorAll(
+        'input[type="text"], input[type="search"], input[placeholder*="ค้นหา"], input[placeholder*="Search"], input[placeholder*="search"], input[placeholder*="Find"], input[placeholder*="product"]'
+      ));
       for (const inp of inputs) {
         if (_hidden()) return inp;
         const rect = (inp as HTMLElement).getBoundingClientRect();
-        if (rect.width > 100 && rect.height > 20) return inp;
+        if (rect.width > 80 && rect.height > 15) return inp;
       }
       return null;
     },
-    10000
+    12000
   );
 
   // ── 4. Type product ID into search bar ──
@@ -614,10 +627,12 @@ const addProductLink = async (productId: string): Promise<boolean> => {
 
     // Clear existing text
     searchInput.focus();
-    await delay(200);
+    await delay(300);
     searchInput.select();
     document.execCommand('selectAll', false);
-    await delay(100);
+    await delay(150);
+    document.execCommand('delete', false);
+    await delay(150);
 
     // Type using native setter for React compatibility
     const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -628,62 +643,86 @@ const addProductLink = async (productId: string): Promise<boolean> => {
     }
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
-    // Also try keydown/keyup for search triggers
-    searchInput.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
-    searchInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
-    await delay(100);
-    // Simulate pressing Enter to trigger search
+    await delay(300);
+    // Also trigger keydown/keyup for search
+    searchInput.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', code: 'Enter' }));
+    searchInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter', code: 'Enter' }));
+    await delay(200);
     searchInput.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, key: 'Enter', code: 'Enter' }));
 
+    // Also try clicking search button if exists
+    const searchBtn = findByText('ค้นหา', 'button') || findByText('Search', 'button');
+    if (searchBtn) { clickElement(searchBtn); log('Clicked search button'); }
+
     log('Typed product ID into search, waiting for filter...');
-    await delay(3000); // Wait for search results to update
+    await delay(4000);
   } else {
     log('No search input found, will try to find product without search');
   }
 
   // ── 5. Find and select the product row matching our ID ──
+  // Try up to 2 times (first attempt, then retry after extra wait)
   let productSelected = false;
 
-  // Strategy A: Find smallest element containing exactly our product ID (most precise)
-  const candidates = Array.from(document.querySelectorAll('span, td, div, p')).filter(el => {
-    const t = (el.textContent || '').trim();
-    if (!t.includes(productId) || t.length >= 200) return false;
-    if (_hidden()) return true;
-    const rect = (el as HTMLElement).getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  });
+  for (let selAttempt = 0; selAttempt < 2 && !productSelected; selAttempt++) {
+    if (selAttempt > 0) {
+      log('Retrying product selection (attempt ' + (selAttempt + 1) + ')...');
+      await delay(3000);
+    }
 
-  // Sort by text length (smallest = most specific match)
-  candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+    // Scope to modal if available
+    const modalScope: Element = document.querySelector(
+      '[role="dialog"], [role="modal"], [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"]'
+    ) || document.body;
 
-  for (const el of candidates) {
-    // Walk up to find the row with a checkbox/radio
-    let row: Element | null = el;
-    for (let i = 0; i < 12 && row; i++) {
-      row = row.parentElement;
-      if (!row) break;
-      const checkbox = row.querySelector('input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], label[class*="check"], span[class*="check"]');
-      if (checkbox) {
-        clickElement(checkbox);
-        productSelected = true;
-        log('Selected product by checkbox/radio in row');
-        break;
-      }
-      // Check if this row looks like a product row (has image + product ID text)
-      if (row.querySelector('img') && (row.textContent || '').includes(productId)) {
-        const rowRect = (row as HTMLElement).getBoundingClientRect();
-        if (_hidden() || (rowRect.height > 40 && rowRect.height < 200)) {
-          // Click the leftmost part of the row (likely the checkbox area)
-          const clickX = _hidden() ? 30 : rowRect.left + 30;
-          const clickY = _hidden() ? 30 : rowRect.top + rowRect.height / 2;
-          row.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: clickX, clientY: clickY }));
+    // Find smallest element containing exactly our product ID
+    const candidates = Array.from(modalScope.querySelectorAll('span, td, div, p, em, a')).filter(el => {
+      const t = (el.textContent || '').trim();
+      if (!t.includes(productId) || t.length >= 300) return false;
+      if (_hidden()) return true;
+      const rect = (el as HTMLElement).getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+
+    for (const el of candidates) {
+      // Walk up to find the row with a checkbox/radio
+      let row: Element | null = el;
+      for (let i = 0; i < 12 && row; i++) {
+        row = row.parentElement;
+        if (!row) break;
+        const checkbox = row.querySelector(
+          'input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], ' +
+          'label[class*="check"], span[class*="check"], [class*="Checkbox"], [class*="checkbox"], ' +
+          '[class*="Radio"], [class*="radio"], [class*="selection"]'
+        );
+        if (checkbox) {
+          clickElement(checkbox);
           productSelected = true;
-          log('Selected product by clicking row area');
+          log('Selected product by checkbox/radio in row');
           break;
         }
+        // Check if this row looks like a product row (has image + product ID text)
+        if (row.querySelector('img') && (row.textContent || '').includes(productId)) {
+          const rowRect = (row as HTMLElement).getBoundingClientRect();
+          if (_hidden() || (rowRect.height > 30 && rowRect.height < 300)) {
+            // Click the leftmost part of the row (likely the checkbox area)
+            const clickX = _hidden() ? 30 : rowRect.left + 30;
+            const clickY = _hidden() ? 30 : rowRect.top + rowRect.height / 2;
+            row.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: clickX, clientY: clickY, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+            row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: clickX, clientY: clickY }));
+            row.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: clickX, clientY: clickY, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+            row.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: clickX, clientY: clickY }));
+            row.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: clickX, clientY: clickY }));
+            productSelected = true;
+            log('Selected product by clicking row area');
+            break;
+          }
+        }
       }
+      if (productSelected) break;
     }
-    if (productSelected) break;
   }
 
   if (!productSelected) {
@@ -691,7 +730,7 @@ const addProductLink = async (productId: string): Promise<boolean> => {
     return false;
   }
 
-  await delay(1500);
+  await delay(2000);
 
   // ── 6. Click confirm buttons ──
   // Try "ถัดไป" (Next) if visible
@@ -699,15 +738,19 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   if (nextBtn2) {
     clickElement(nextBtn2);
     log('Clicked ถัดไป (product selected)');
-    await delay(2000);
+    await delay(2500);
   }
 
-  // Click "เพิ่ม" (Add) / "Add" / "ยืนยัน" (Confirm)
-  const addBtn = findByText('เพิ่ม', 'button') || findByText('Add', 'button') || findByText('ยืนยัน', 'button') || findByText('Confirm', 'button');
-  if (addBtn) {
-    clickElement(addBtn);
-    log('Clicked เพิ่ม/Confirm');
-    await delay(1500);
+  // Click "เพิ่ม" (Add) / "Add" / "ยืนยัน" (Confirm) / "Done" / "เสร็จ"
+  const confirmTexts = ['เพิ่ม', 'Add', 'ยืนยัน', 'Confirm', 'Done', 'เสร็จ', 'ตกลง', 'OK'];
+  for (const txt of confirmTexts) {
+    const btn = findByText(txt, 'button');
+    if (btn) {
+      clickElement(btn);
+      log('Clicked confirm: ' + txt);
+      await delay(1500);
+      break;
+    }
   }
 
   log('Product link added successfully');
