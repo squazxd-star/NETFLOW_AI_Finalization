@@ -1371,15 +1371,35 @@ const VOICE_PERSONA_DB: Record<string, VoicePersona[]> = {
  * Lookup persona by gender + voiceTone + ageRange (with smart fallback).
  * Priority: exact match → same tone any age → same age any tone → first of tone.
  */
-function getPersona(gender: string, voiceTone: string, _ageRange?: string): VoicePersona {
+function getPersona(gender: string, voiceTone: string, ageRange?: string): VoicePersona {
     const genderKey = gender === 'male' ? 'male' : 'female';
     const pool = VOICE_PERSONA_DB[genderKey];
     const rnd = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    // Always pick RANDOM from ALL personas matching the tone (diverse age/look variants)
-    // DO NOT filter by ageRange — each (tone, ageRange) combo has only 1 persona,
-    // which would always return the same person (e.g. Mint, First). Instead, randomize
-    // from the full tone pool so every run can get a different persona.
+    // Compatible age ranges — e.g. UI "adult" maps to DB young-adult/adult/middle-age
+    const COMPATIBLE_AGES: Record<string, string[]> = {
+        "child": ["child"],
+        "teen": ["teen"],
+        "young-adult": ["young-adult", "teen", "adult"],
+        "adult": ["adult", "young-adult", "middle-age"],
+        "middle-age": ["middle-age", "adult"],
+        "senior": ["senior"]
+    };
+    const compatibleAges = ageRange ? (COMPATIBLE_AGES[ageRange] || [ageRange]) : [];
+
+    // Priority 1: same tone + matching age range → random pick (diverse personas within age group)
+    if (ageRange) {
+        const toneAndAge = pool.filter(p => p.voiceTone === voiceTone && compatibleAges.includes(p.ageRange));
+        if (toneAndAge.length > 0) return rnd(toneAndAge);
+    }
+
+    // Priority 2: any tone + matching age range (age is more important than tone for visual)
+    if (ageRange) {
+        const anyToneMatchAge = pool.filter(p => compatibleAges.includes(p.ageRange));
+        if (anyToneMatchAge.length > 0) return rnd(anyToneMatchAge);
+    }
+
+    // Priority 3: same tone, any age (fallback)
     const sameTonePool = pool.filter(p => p.voiceTone === voiceTone);
     if (sameTonePool.length > 0) return rnd(sameTonePool);
 
@@ -1400,6 +1420,28 @@ function getPersona(gender: string, voiceTone: string, _ageRange?: string): Voic
 const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: string, preSelectedPersona?: VoicePersona): string => {
     const genderWord = gender === 'male' ? 'Thai male' : 'Thai female';
     const persona = preSelectedPersona || getPersona(gender, voiceTone, ageRange);
+
+    // Age-appropriate visual appearance label — tells Veo exactly how old the character looks
+    const AGE_VISUAL_LABEL: Record<string, string> = {
+        "child": "6-12 year old child",
+        "teen": "13-20 year old teenager",
+        "young-adult": "21-30 year old young adult",
+        "adult": "25-40 year old adult",
+        "middle-age": "45-60 year old middle-aged adult",
+        "senior": "65+ year old elderly person"
+    };
+    const ageLabel = ageRange ? (AGE_VISUAL_LABEL[ageRange] || 'adult') : 'adult';
+
+    // Age-appropriate voice quality — child should sound like a child, senior like an elder
+    const AGE_VOICE_QUALITY: Record<string, string> = {
+        "child": "young child's voice — high-pitched, innocent, light and bright, small vocal cords, childlike wonder and excitement",
+        "teen": "teenage voice — youthful and fresh, slightly higher pitch, natural adolescent energy, not yet fully mature",
+        "young-adult": "young adult voice — clear, vibrant, confident, full vocal range",
+        "adult": "mature adult voice — full, confident, experienced, natural authority",
+        "middle-age": "mature middle-aged voice — deep, authoritative, seasoned with experience",
+        "senior": "elderly voice — warm and wise, gentle with age, slightly deeper and slower, calm grandparent-like authority"
+    };
+    const ageVoiceQuality = ageRange ? (AGE_VOICE_QUALITY[ageRange] || '') : '';
 
     // Visual speaking behavior per tone (how the character LOOKS while speaking, not how they SOUND)
     const speakingBehavior: Record<string, string> = {
@@ -1422,8 +1464,9 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
     const voiceDesc = voiceToneDesc[voiceTone] || voiceToneDesc["friendly"];
 
     return [
-        `Character '${persona.name}': ${genderWord} presenter.`,
-        `Voice: ${voiceDesc}. Speaking Thai on-camera: ${behavior}.`,
+        `Character '${persona.name}': ${genderWord} presenter, ${ageLabel}.`,
+        `Voice: ${ageVoiceQuality ? `${ageVoiceQuality}. ` : ''}${voiceDesc}. Speaking Thai on-camera: ${behavior}.`,
+        `AGE LOCK: This character is a ${ageLabel} — face, body, skin, and voice MUST match this age throughout. Do NOT age up or de-age the character.`,
         `Mouth opens and closes naturally matching spoken words — realistic speaking animation throughout.`,
         `VOICE IDENTITY LOCK: Speaker '${persona.name}' — same voice, same tone, same speaking style, same energy level in EVERY scene. No voice change between scenes. Consistent vocal character throughout the entire video.`
     ].join(' ');
@@ -7567,6 +7610,17 @@ const buildImagePrompt = (
         ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female', config.ageRange, config.characterOutfit)
         : '';
 
+    // Age descriptor for image prompt — ensures generated face matches selected age
+    const IMAGE_AGE_DESC: Record<string, string> = {
+        "child": "6-12 year old child with round youthful face, childlike proportions, smooth young skin, small body frame",
+        "teen": "13-20 year old teenager with youthful face, slim adolescent build, smooth skin, fresh young appearance",
+        "young-adult": "21-30 year old young adult with fresh vibrant face and fit build",
+        "adult": "25-40 year old adult with mature confident face",
+        "middle-age": "45-60 year old middle-aged person with some aging features, experienced mature look",
+        "senior": "65+ year old elderly person with wrinkled aged skin, gray/white hair, elderly proportions, wisdom lines on face"
+    };
+    const imageAgeDesc = config.ageRange ? (IMAGE_AGE_DESC[config.ageRange] || '') : '';
+
     let characterLine: string;
     if (charDescPrompt) {
         // Use rich generated portrait from text description
@@ -7574,9 +7628,10 @@ const buildImagePrompt = (
             ? `${charDescPrompt}. ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}`
             : `${charDescPrompt}. ${expressionText} expression. ${dynamics}. ${movementDesc}`;
     } else {
+        const agePrefix = imageAgeDesc ? `${imageAgeDesc}, ` : '';
         characterLine = isFitnessCategory
-            ? `${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`
-            : `${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`;
+            ? `${agePrefix}${genderText}, ${fitnessBodyDesc}, ${expressionText} expression. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`
+            : `${agePrefix}${genderText}, ${expressionText} expression, wearing ${clothingDesc}. ${dynamics}. ${movementDesc}${aiCharDetails ? ` ${aiCharDetails}` : ''}`;
     }
 
     // ── Sanitize product name for ImageFX too — copyright filter also rejects trademarked names ──
@@ -7786,9 +7841,21 @@ const buildVideoPrompt = (
         ? `Reference clothing: ${characterAnalysis.clothing}.`
         : '';
 
+    // Age-appropriate visual label for character anchor
+    const AGE_ANCHOR_LABEL: Record<string, string> = {
+        "child": "6-12 year old child — small body, round youthful face, childlike proportions, smooth young skin, NO wrinkles, NO mature features",
+        "teen": "13-20 year old teenager — youthful face, slim build, adolescent proportions, smooth young skin, NO wrinkles",
+        "young-adult": "21-30 year old young adult — fresh face, fit build, youthful energy",
+        "adult": "25-40 year old adult — mature face, adult proportions, confident presence",
+        "middle-age": "45-60 year old middle-aged — some aging features, mature build, experienced look",
+        "senior": "65+ year old elderly person — wrinkled skin, gray/white hair, elderly proportions, aged face with wisdom lines"
+    };
+    const ageAnchorText = config.ageRange ? (AGE_ANCHOR_LABEL[config.ageRange] || '') : '';
+
     const characterAnchor = [
         `CHARACTER VISUAL DNA (MUST be IDENTICAL in every scene — this is the SINGLE MOST IMPORTANT constraint):`,
         `Character '${persona.name}': ${genderText}.`,
+        ageAnchorText ? `AGE (CRITICAL — HIGHEST PRIORITY): ${ageAnchorText}. The character MUST visually appear this age — face, body, skin texture, and overall appearance MUST match this age range. Do NOT generate an older or younger looking person.` : '',
         aiAppearance,
         `Outfit: ${clothingDesc}${aiClothing ? ` (${aiClothing})` : ''} — same outfit in EVERY scene, absolutely no wardrobe changes.`,
         `Expression baseline: ${expressionText}.`,
