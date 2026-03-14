@@ -177,6 +177,8 @@ export const characterOutfitOptions: { value: CharacterOutfitOption; label: stri
     { value: "thai-traditional", label: "ชุดไทย", emoji: "🇹🇭", group: "อื่นๆ" },
     { value: "pajamas", label: "ชุดนอน", emoji: "😴", group: "อื่นๆ" },
     { value: "beach-wear", label: "ชุดเที่ยวทะเล", emoji: "🏖️", group: "อื่นๆ" },
+    // ── กำหนดเอง ──
+    { value: "custom", label: "กำหนดเอง (พิมพ์อธิบายชุด)", emoji: "✏️", group: "กำหนดเอง" },
 ];
 
 export const videoStyleOptions: { value: VideoStyleOption; label: string }[] = [
