@@ -7071,7 +7071,7 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
  * @param formAgeRange - age range from form ("child" | "teen" | "young-adult" | "adult" | "middle-age" | "senior")
  * @returns Rich English character portrait description string
  */
-const buildCharacterPortraitPrompt = (description: string, formGender: string, formAgeRange?: string): string => {
+const buildCharacterPortraitPrompt = (description: string, formGender: string, formAgeRange?: string, formOutfitKey?: string): string => {
     const desc = description.toLowerCase().trim();
     if (!desc) return '';
 
@@ -7134,7 +7134,10 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
     // ── Build randomized character prompt ──
     const appearance = pickRandom(profile.appearances);
     const hair = pickRandom(profile.hairstyles);
-    const outfit = pickRandom(profile.outfits);
+    // Use form-selected outfit (e.g. nurse, school uniform) if provided; otherwise random from style profile
+    const outfit = (formOutfitKey && formOutfitKey !== 'original')
+        ? getOutfitDescription(formOutfitKey)
+        : pickRandom(profile.outfits);
     const setting = pickRandom(profile.settings);
     const lighting = pickRandom(profile.lightings);
 
@@ -7220,7 +7223,7 @@ const buildImagePrompt = (
     // ── Character portrait from text description (when no character image) ──
     const hasCharImage = !!config.characterImage;
     const charDescPrompt = (!hasCharImage && config.characterDescription?.trim())
-        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female', config.ageRange)
+        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female', config.ageRange, config.characterOutfit)
         : '';
 
     let characterLine: string;
