@@ -57,8 +57,8 @@ export const createVideoSchema = z.object({
     ]).default("product-review"),
     hookText: z.string().default(""),
     ctaText: z.string().default(""),
-    hookEnabled: z.boolean().default(true),
-    ctaEnabled: z.boolean().default(true),
+    hookEnabled: z.boolean().default(false),
+    ctaEnabled: z.boolean().default(false),
 
     // Engine Selection
     videoEngine: z.enum(["veo", "grok"]).default("veo"),
@@ -128,8 +128,8 @@ export const createVideoDefaultValues: CreateVideoFormData = {
     template: "product-review",
     hookText: "",
     ctaText: "",
-    hookEnabled: true,
-    ctaEnabled: true,
+    hookEnabled: false,
+    ctaEnabled: false,
     videoEngine: "veo",
     outputType: "video",
     orientation: "vertical",
