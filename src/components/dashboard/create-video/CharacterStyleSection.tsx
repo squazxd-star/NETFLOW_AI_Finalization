@@ -122,11 +122,12 @@ const CharacterStyleSection = ({
                             {...register("ageRange")}
                             className="w-full neon-select text-xs"
                         >
-                            <option value="teen">วัยรุ่น (15-20 ปี)</option>
-                            <option value="young-adult">วัยผู้ใหญ่ตอนต้น (21-30 ปี)</option>
-                            <option value="adult">วัยผู้ใหญ่ (31-45 ปี)</option>
+                            <option value="child">เด็ก (ต่ำกว่า 12 ปี)</option>
+                            <option value="teen">วัยรุ่น (13-20 ปี)</option>
+                            <option value="young-adult">หนุ่มสาว (21-30 ปี)</option>
+                            <option value="adult">ผู้ใหญ่ (31-45 ปี)</option>
                             <option value="middle-age">วัยกลางคน (46-60 ปี)</option>
-                            <option value="senior">วัยสูงอายุ (60+ ปี)</option>
+                            <option value="senior">คนแก่ (60+ ปี)</option>
                         </select>
                     </div>
 

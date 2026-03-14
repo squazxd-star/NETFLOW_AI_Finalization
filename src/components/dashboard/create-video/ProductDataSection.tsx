@@ -364,11 +364,13 @@ const ProductDataSection = ({
                                 <Calendar className="w-3 h-3 text-neon-red" />
                                 ช่วงอายุ
                             </label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-1.5">
                                 {[
-                                    { value: "child", label: "เด็ก", desc: "6-12 ปี" },
+                                    { value: "child", label: "เด็ก", desc: "ต่ำกว่า 12" },
                                     { value: "teen", label: "วัยรุ่น", desc: "13-20 ปี" },
-                                    { value: "adult", label: "ผู้ใหญ่", desc: "21-60 ปี" },
+                                    { value: "young-adult", label: "หนุ่มสาว", desc: "21-30 ปี" },
+                                    { value: "adult", label: "ผู้ใหญ่", desc: "31-45 ปี" },
+                                    { value: "middle-age", label: "วัยกลางคน", desc: "46-60 ปี" },
                                     { value: "senior", label: "คนแก่", desc: "60+ ปี" },
                                 ].map((ag) => (
                                     <button
