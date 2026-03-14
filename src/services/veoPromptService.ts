@@ -7068,8 +7068,8 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
     // ── Map age range to descriptive English phrases ──
     const AGE_DESCRIPTORS: Record<string, { male: string; female: string }> = {
         // Safe descriptors to avoid "harmful content related to minors" policy violations
-        'child':       { male: 'young boy student, energetic and joyful', female: 'young girl student, cheerful and bright' },
-        'teen':        { male: 'teenage boy, high school student, energetic', female: 'teenage girl, high school student, cheerful' },
+        'child':       { male: 'person with a very youthful appearance, energetic and joyful', female: 'person with a very youthful appearance, cheerful and bright' },
+        'teen':        { male: 'young adult, fresh-faced and energetic', female: 'young adult, fresh-faced and cheerful' },
         'young-adult': { male: 'young man in his early 20s, vibrant and confident', female: 'young woman in her early 20s, vibrant and radiant' },
         'adult':       { male: 'man in his early 30s, mature and confident', female: 'woman in her early 30s, mature and graceful' },
         'middle-age':  { male: 'distinguished man in his late 40s, experienced and charismatic', female: 'elegant woman in her late 40s, refined and sophisticated' },
@@ -7412,7 +7412,7 @@ const buildVideoPrompt = (
 
     const characterAnchor = [
         `CHARACTER VISUAL DNA (MUST be IDENTICAL in every scene — this is the SINGLE MOST IMPORTANT constraint):`,
-        `Character '${persona.name}': ${genderText}, age ${persona.age}, ${persona.characterType}.`,
+        `Character '${persona.name}': ${genderText}.`,
         aiAppearance,
         `Outfit: ${clothingDesc}${aiClothing ? ` (${aiClothing})` : ''} — same outfit in EVERY scene, absolutely no wardrobe changes.`,
         `Expression baseline: ${expressionText}.`,
