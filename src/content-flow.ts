@@ -1489,29 +1489,31 @@ interface GenerateImageRequest {
 async function configureFlowSettings(orientation: string, outputCount: number): Promise<boolean> {
     LOG("=== ขั้น 0: ตั้งค่า Flow ===");
 
-    // Find the settings button — it shows current mode like "วิดีโอ □ x1" or "Nano Banana 2"
-    // NOTE: Google Flow may use <div>, <span>, or other elements — not just <button>
-    const allClickable = document.querySelectorAll<HTMLElement>("button, div, span, [role='button']");
+    // Find the settings button with retry — UI may still be loading after project open
     let settingsBtn: HTMLElement | null = null;
 
-    // Strategy 1: any element with known keywords at the bottom prompt bar area
-    for (const el of allClickable) {
-        const txt = (el.textContent || "").trim();
-        if (txt.length > 80) continue; // skip large containers
-        if (txt.includes("Nano Banana") || txt.includes("Imagen") || txt.includes("วิดีโอ") || txt.includes("รูปภาพ") || txt.includes("Image") || txt.includes("Video")) {
-            const rect = el.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight * 0.7 && rect.width > 30 && rect.height > 10) {
-                // Prefer the most specific (smallest) matching element
-                if (!settingsBtn || (el.textContent || "").length < (settingsBtn.textContent || "").length) {
-                    settingsBtn = el;
+    for (let retry = 0; retry < 10; retry++) {
+        // Find the settings button — it shows current mode like "วิดีโอ □ x1" or "Nano Banana 2"
+        // NOTE: Google Flow may use <div>, <span>, or other elements — not just <button>
+        const allClickable = document.querySelectorAll<HTMLElement>("button, div, span, [role='button']");
+
+        // Strategy 1: any element with known keywords at the bottom prompt bar area
+        for (const el of allClickable) {
+            const txt = (el.textContent || "").trim();
+            if (txt.length > 80) continue; // skip large containers
+            if (txt.includes("Nano Banana") || txt.includes("Imagen") || txt.includes("วิดีโอ") || txt.includes("รูปภาพ") || txt.includes("Image") || txt.includes("Video")) {
+                const rect = el.getBoundingClientRect();
+                if (rect.bottom > window.innerHeight * 0.7 && rect.width > 30 && rect.height > 10) {
+                    // Prefer the most specific (smallest) matching element
+                    if (!settingsBtn || (el.textContent || "").length < (settingsBtn.textContent || "").length) {
+                        settingsBtn = el;
+                    }
                 }
             }
         }
-    }
-    if (settingsBtn) LOG(`พบปุ่มตั้งค่าจากข้อความ: "${(settingsBtn.textContent || "").substring(0, 40).trim()}"`);
+        if (settingsBtn) { LOG(`พบปุ่มตั้งค่าจากข้อความ: "${(settingsBtn.textContent || "").substring(0, 40).trim()}"`); break; }
 
-    // Strategy 2: element with crop/aspect-ratio icon in bottom area
-    if (!settingsBtn) {
+        // Strategy 2: element with crop/aspect-ratio icon in bottom area
         const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons");
         for (const icon of icons) {
             const it = icon.textContent?.trim() || "";
@@ -1527,10 +1529,9 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
                 }
             }
         }
-    }
+        if (settingsBtn) break;
 
-    // Strategy 3: look for "x1"/"x2"/"x3"/"x4" text near the bottom (settings indicator)
-    if (!settingsBtn) {
+        // Strategy 3: look for "x1"/"x2"/"x3"/"x4" text near the bottom (settings indicator)
         for (const el of allClickable) {
             const txt = (el.textContent || "").trim();
             if (txt.length > 40) continue;
@@ -1543,10 +1544,14 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
                 }
             }
         }
+        if (settingsBtn) break;
+
+        LOG(`⏳ รอปุ่มตั้งค่า... (${retry + 1}/10)`);
+        await sleep(1000);
     }
 
     if (!settingsBtn) {
-        WARN("ไม่พบปุ่มตั้งค่า");
+        WARN("ไม่พบปุ่มตั้งค่า (หมด 10 รอบ)");
         return false;
     }
 
@@ -1562,7 +1567,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
     settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
     LOG("คลิกปุ่มตั้งค่าแล้ว");
-    await sleep(1500);
+    await sleep(2500);
 
     // ALWAYS select Image mode (switch from Video if needed)
     let selectedImage = false;
@@ -1983,11 +1988,12 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
             updateStep("new-project", "error");
             steps.push("⚠️ New Project");
         }
-        await sleep(1000);
+        await sleep(3000);
     } else {
         // Mark these steps as skipped if not using new project flow
         try { updateStep("open-flow", "skipped"); } catch (_) {}
         try { updateStep("new-project", "skipped"); } catch (_) {}
+        await sleep(3000);
     }
 
     // ── Step 0: Configure settings ──
@@ -4290,6 +4296,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 LOG("สคริปต์ Google Flow พร้อมแล้ว — รอคำสั่ง");
+
+// ★ Instant Overlay: Show overlay immediately if background stored a pre-show flag (before GENERATE_IMAGE arrives)
+(async () => {
+    try {
+        const data = await new Promise<any>((resolve) => {
+            chrome.storage.local.get("netflow_preshow_overlay", (res) => {
+                if (chrome.runtime.lastError) { resolve(null); return; }
+                resolve(res?.netflow_preshow_overlay || null);
+            });
+        });
+        if (data && data.timestamp && (Date.now() - data.timestamp) < 30000) {
+            LOG("⚡ Pre-show overlay — แสดง overlay ทันที");
+            try { setOverlayTheme(data.theme); } catch (_) {}
+            try { showOverlay(data.sceneCount || 1); } catch (e: any) { LOG(`⚠️ pre-show overlay error: ${e.message}`); }
+            // Clean up flag so it doesn't re-trigger on refresh
+            chrome.storage.local.remove("netflow_preshow_overlay");
+        }
+    } catch (_) {}
+})();
 
 // ★ Check for pending action from previous page (video card click caused navigation)
 checkAndRunPendingAction();

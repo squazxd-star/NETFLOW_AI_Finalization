@@ -698,6 +698,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 console.log(`[Netflow] OPEN_FLOW_AND_GENERATE: Opening ${flowUrl}`);
 
+                // Step 0: Store pre-show overlay flag so content script can show overlay INSTANTLY on load
+                await chrome.storage.local.set({
+                    netflow_preshow_overlay: {
+                        theme: message.theme || null,
+                        sceneCount: message.sceneCount || 1,
+                        timestamp: Date.now()
+                    }
+                });
+
                 // Step 1: Create new tab
                 const newTab = await chrome.tabs.create({ url: flowUrl, active: true });
                 console.log(`[Netflow] Created new tab ${newTab.id} for ${flowUrl}`);
