@@ -7440,15 +7440,16 @@ const buildVideoPrompt = (
         : '';
 
     const characterAnchor = [
-        `CHARACTER VISUAL DNA (MUST be IDENTICAL in every scene):`,
+        `CHARACTER VISUAL DNA (MUST be IDENTICAL in every scene — this is the SINGLE MOST IMPORTANT constraint):`,
         `Character '${persona.name}': ${genderText}, age ${persona.age}, ${persona.characterType}.`,
         aiAppearance,
         `Outfit: ${clothingDesc}${aiClothing ? ` (${aiClothing})` : ''} — same outfit in EVERY scene, absolutely no wardrobe changes.`,
         `Expression baseline: ${expressionText}.`,
         `${dynamics}. ${movementDesc}.`,
-        `STRICT FACE & HEAD LOCK: Preserve EXACT facial bone structure, face width, jawline shape, eye shape, nose shape, natural skin texture, EXACT skin tone/complexion, and EXACT hair styling/bangs from the reference image. The character's face MUST remain IDENTICAL to frame 1 across the entire video. Do NOT let the face morph, stretch, or change identity between shots.`,
-        `BODY LOCK: Same body type, same build, same posture style, same height proportion across all scenes.`,
-        `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture in every scene.`
+        `STRICT FACE & HEAD LOCK (HIGHEST PRIORITY): Preserve EXACT facial bone structure, face width-to-height ratio, jawline shape, cheekbone prominence, eye shape and spacing, nose bridge width and tip shape, lip shape and thickness, ear position, forehead height, natural skin texture and pores, EXACT skin tone/complexion, and EXACT hair styling/bangs. The character's face MUST remain pixel-level IDENTICAL to frame 1 across the entire video — treat the face as a FROZEN MASK that never changes. Do NOT let the face morph, age, de-age, stretch, slim, widen, smooth, or change identity between ANY frames or shots. FACE IS IMMUTABLE.`,
+        `FACE IDENTITY PERSISTENCE: This is the SAME SINGLE PERSON in every frame. If the face in any frame would look like a different person, REJECT that frame and re-render with the correct face from frame 1. Cross-reference every face against the frame-1 face template.`,
+        `BODY LOCK: Same body type, same build, same posture style, same height proportion, same shoulder width, same body fat percentage across all scenes.`,
+        `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture, same parting direction in every scene — hair is a FIXED attribute.`
     ].filter(Boolean).join(' ');
 
     // ── Brand Visual Signature — explicit logo/emblem directive for brands like Apple ──
@@ -7504,6 +7505,8 @@ const buildVideoPrompt = (
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
         // [7. STYLE/MOOD + REALISM]
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
+        // [7.5. SCENE 1 FACE TEMPLATE] — establishes the immutable face for all subsequent scenes
+        `SCENE 1 FACE TEMPLATE: This scene establishes the DEFINITIVE face identity for the entire video. Every facial feature rendered here becomes the IMMUTABLE reference — all subsequent scenes MUST reproduce this EXACT face. The face is now LOCKED and FROZEN.`,
         // [8. CONSTRAINTS] — policy + anti-addition + brand freeze + voice discipline
         `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`
     ].join(' '), veoSafeProductName);
@@ -7630,6 +7633,10 @@ export const buildSceneVideoPromptJSON = (
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
 
+        // [6.5. CROSS-SCENE FACE + PRODUCT CHECKPOINT]
+        `FACE CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): The character's face in this scene MUST be the EXACT SAME face as scene 1 — same bone structure, same eye shape, same nose, same jawline, same skin tone. This is the SAME PERSON, not a look-alike. If the face would differ from scene 1, regenerate until it matches. FACE IS IMMUTABLE ACROSS ALL SCENES.`,
+        !isTalkOnly ? `PRODUCT CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): The product MUST look EXACTLY the same as scene 1 — same shape, same color, same label, same packaging. Product is a FIXED VISUAL CONSTANT.` : '',
+
         // [7. CONSTRAINTS + LOCKS + ANTI-MORPH + VOICE DISCIPLINE] (FACE LOCK already in characterAnchor, not repeated)
         `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
     ].filter(Boolean).join(' '), productName);
@@ -7653,7 +7660,12 @@ export const buildSafeRetryPrompt = (originalPrompt: string): string => {
     // ── 1. Remove all LOCK / FREEZE / ANTI- directive blocks ──
     // These contain aggressive negative language that can trigger safety filters
     const heavyPatterns: RegExp[] = [
-        /STRICT FACE & HEAD LOCK:[^.]*\./gi,
+        /STRICT FACE & HEAD LOCK[^.]*\./gi,
+        /FACE IDENTITY PERSISTENCE:[^.]*\./gi,
+        /FACE CONTINUITY CHECKPOINT[^.]*\./gi,
+        /SCENE 1 FACE TEMPLATE:[^.]*\./gi,
+        /PRODUCT CONTINUITY CHECKPOINT[^.]*\./gi,
+        /FACE IS IMMUTABLE[^.]*\./gi,
         /BODY LOCK:[^.]*\./gi,
         /HAIR LOCK:[^.]*\./gi,
         /FACE LOCK[^.]*\./gi,
