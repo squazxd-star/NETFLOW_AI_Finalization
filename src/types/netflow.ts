@@ -57,7 +57,8 @@ export type VideoStyleOption =
     | "straight-review" | "transformation" | "stop-motion" | "split-screen" | "first-person"
     | "aesthetic" | "vintage" | "futuristic" | "nature" | "city"
     | "minimal" | "chaotic" | "satisfying" | "epic" | "cute"
-    | "mysterious" | "inspirational" | "urgent" | "relaxing";
+    | "mysterious" | "inspirational" | "urgent" | "relaxing"
+    | "anime" | "3d-cartoon" | "2d-cartoon";
 
 // Option arrays for select elements
 export const clipCountOptions: ClipCountOption[] = [5, 10, 25, 50, 100, "unlimited"];
@@ -124,6 +125,13 @@ export const sceneBackgroundOptions: { value: string; label: string; emoji: stri
     { value: "hospital", label: "คลินิก", emoji: "🏥", description: "สะอาด น่าเชื่อถือ เหมาะสินค้าสุขภาพ" },
     { value: "school", label: "ห้องเรียน", emoji: "🎓", description: "บรรยากาศการเรียน เหมาะคอร์สออนไลน์" },
     { value: "temple", label: "วัด/ศาสนา", emoji: "🛕", description: "สงบ ศักดิ์สิทธิ์ บรรยากาศจิตใจ" },
+    { value: "car-interior", label: "ในรถยนต์", emoji: "🚗", description: "ภายในรถยนต์หรู เหมาะกับแกดเจ็ต" },
+    { value: "camping", label: "แคมป์ปิ้ง", emoji: "⛺", description: "เต็นท์ กองไฟ บรรยากาศสายลุย" },
+    { value: "airport", label: "สนามบิน", emoji: "✈️", description: "เตรียมเดินทาง บรรยากาศท่องเที่ยว" },
+    { value: "supermarket", label: "ซูเปอร์มาร์เก็ต", emoji: "🛒", description: "ชั้นวางสินค้า ดูเข้าถึงง่าย" },
+    { value: "swimming-pool", label: "สระว่ายน้ำ", emoji: "🏊", description: "ริมสระแดดจัด บรรยากาศซัมเมอร์" },
+    { value: "cyberpunk-city", label: "เมืองไซเบอร์พังก์", emoji: "🌃", description: "เมืองอนาคต ไฟนีออน ล้ำสมัย" },
+    { value: "fantasy-forest", label: "ป่าเวทมนตร์", emoji: "🍄", description: "ป่าแฟนตาซี แสงละมุน มีประกายวิบวับ" },
     { value: "custom", label: "กำหนดเอง", emoji: "✏️", description: "พิมพ์ฉากที่ต้องการ" },
 ];
 
@@ -231,6 +239,9 @@ export const videoStyleOptions: { value: VideoStyleOption; label: string }[] = [
     { value: "inspirational", label: "บันดาลใจ" },
     { value: "urgent", label: "เร่งด่วน" },
     { value: "relaxing", label: "ผ่อนคลาย" },
+    { value: "anime", label: "อนิเมะ (Anime)" },
+    { value: "3d-cartoon", label: "3D การ์ตูน (Pixar)" },
+    { value: "2d-cartoon", label: "2D การ์ตูน (Comic)" },
 ];
 
 export const voiceToneOptions: { value: VoiceToneOption; label: string }[] = [

@@ -459,8 +459,8 @@ const CreateVideoTab = () => {
                                     movement: data.movement || "minimal",
                                     aspectRatio: data.orientation === "vertical" ? "9:16" : "16:9",
                                     clipDuration: (data.sceneCount || 1) * 8,
-                                    hookText: data.hookEnabled ? data.hookText : "",
-                                    ctaText: data.ctaEnabled ? data.ctaText : "",
+                                    hookText: data.useAiScript && data.hookEnabled ? data.hookText : "",
+                                    ctaText: data.useAiScript && data.ctaEnabled ? data.ctaText : "",
                                     mustUseKeywords: data.mustUseKeywords || "",
                                     avoidKeywords: data.avoidKeywords || "",
                                     userScript: data.sceneScriptsRaw || "",
@@ -468,6 +468,7 @@ const CreateVideoTab = () => {
                                     cachedProductInfo: data.cachedProductInfo || "",
                                     clothingStyles: data.clothingStyles || ["casual"],
                                     characterOutfit: data.characterOutfit || "original",
+                                    customOutfitPrompt: data.customOutfitPrompt || "",
                                     clothingHighlight: data.clothingHighlight || "",
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
                                     touchLevel: data.touchLevel || "light",
@@ -479,21 +480,19 @@ const CreateVideoTab = () => {
                                 // Show loading state
                                 setIsGeneratingPrompt(true);
                                 setGeneratedImagePrompt("⏳ กำลังสร้าง Prompt...");
-                                setGeneratedVideoPrompt("⏳ กำลังวิเคราะห์ด้วย AI...");
+                                setGeneratedVideoPrompt(data.useAiScript ? "⏳ กำลังวิเคราะห์ด้วย AI..." : "⏳ กำลังจัดบทที่คุณเขียนให้เข้ากับ Veo...");
 
                                 try {
                                     console.log("[Prompt Button] Importing veoPromptService...");
-                                    const { generatePrompts, generateQuickPrompts } = await import("@/services/veoPromptService");
+                                    const { generatePrompts } = await import("@/services/veoPromptService");
                                     console.log("[Prompt Button] Imported successfully");
-                                    
-                                    let prompts;
-                                    if (data.useAiScript && productImage) {
-                                        console.log("[Prompt Button] Using AI mode with vision...");
-                                        prompts = await generatePrompts(promptConfig);
-                                    } else {
-                                        console.log("[Prompt Button] Using quick mode...");
-                                        prompts = generateQuickPrompts(promptConfig);
-                                    }
+
+                                    console.log(
+                                        data.useAiScript
+                                            ? "[Prompt Button] Using AI script mode..."
+                                            : "[Prompt Button] Using manual dialogue mode with main Veo prompt builder..."
+                                    );
+                                    const prompts = await generatePrompts(promptConfig);
                                     console.log("[Prompt Button] Prompts generated:", prompts);
                                     
                                     setGeneratedImagePrompt(prompts.imagePrompt);
@@ -532,16 +531,6 @@ const CreateVideoTab = () => {
                                 } catch (err: any) {
                                     console.error("[Prompt Button] Prompt generation failed:", err);
                                     alert("สร้าง Prompt ไม่สำเร็จ: " + (err.message || "Unknown error"));
-                                    // Fallback to quick mode
-                                    try {
-                                        const { generateQuickPrompts } = await import("@/services/veoPromptService");
-                                        const prompts = generateQuickPrompts(promptConfig);
-                                        setGeneratedImagePrompt(prompts.imagePrompt);
-                                        setGeneratedVideoPrompt(prompts.videoPrompt);
-                                        setVideoScenePrompts([prompts.videoPrompt]);
-                                    } catch (fallbackErr) {
-                                        console.error("[Prompt Button] Fallback also failed:", fallbackErr);
-                                    }
                                 } finally {
                                     setIsGeneratingPrompt(false);
                                 }

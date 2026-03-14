@@ -50,7 +50,10 @@ const AiScriptSection = ({
         "vintage",
         "futuristic",
         "theater-drama",
-        "musical"
+        "musical",
+        "anime",
+        "3d-cartoon",
+        "2d-cartoon"
     ]);
 
     const motionEffectStyles = new Set([
@@ -200,6 +203,28 @@ const AiScriptSection = ({
                         </button>
                     </div>
 
+                    {!useAiScript && (
+                        <div
+                            className="rounded-xl border px-3 py-3"
+                            style={{
+                                borderColor: `rgba(${themeConfig.hexRgb}, 0.28)`,
+                                background: `linear-gradient(180deg, rgba(${themeConfig.hexRgb}, 0.08), rgba(${themeConfig.hexRgb}, 0.03))`,
+                            }}
+                        >
+                            <div className="flex items-start gap-2">
+                                <Pencil className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: themeConfig.hex }} />
+                                <div className="space-y-1">
+                                    <p className="text-[11px] font-semibold" style={{ color: themeConfig.hex }}>
+                                        โหมดเขียนเองสำหรับ Veo
+                                    </p>
+                                    <p className="text-[10px] leading-relaxed text-muted-foreground/80">
+                                        พิมพ์บทพูดของแต่ละฉากในส่วนตั้งค่าความยาวและสคริปต์ด้านล่าง ระบบจะคงบทของคุณไว้ แล้วช่วยจัด image/video prompt ให้เข้ากับสินค้า ตัวละคร และสไตล์ที่เลือก
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ═══ Row 2: Template + Language (side by side) ═══ */}
                     <div className="grid grid-cols-5 gap-3">
                         <div className="col-span-3">
@@ -283,41 +308,42 @@ const AiScriptSection = ({
                         )}
                     </div>
 
-                    {/* ═══ Row 4: Voice & Energy (compact row) ═══ */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
-                                <Mic className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
-                                น้ำเสียง & อารมณ์
-                            </label>
-                            <select
-                                {...register("voiceTone")}
-                                className="w-full neon-select text-xs"
-                            >
-                                {voiceToneOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                    {useAiScript && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
+                                    <Mic className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
+                                    น้ำเสียง & อารมณ์
+                                </label>
+                                <select
+                                    {...register("voiceTone")}
+                                    className="w-full neon-select text-xs"
+                                >
+                                    {voiceToneOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
+                                    <Sparkles className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
+                                    ระดับพลังงาน
+                                </label>
+                                <select
+                                    {...register("saleStyle")}
+                                    className="w-full neon-select text-xs"
+                                >
+                                    {saleStyleOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-[11px] mb-1.5 block font-medium flex items-center gap-1.5 text-muted-foreground">
-                                <Sparkles className="w-3.5 h-3.5" style={{ color: themeConfig.hex }} />
-                                ระดับพลังงาน
-                            </label>
-                            <select
-                                {...register("saleStyle")}
-                                className="w-full neon-select text-xs"
-                            >
-                                {saleStyleOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
+                    )}
 
                     {/* ═══ Row 5: Scene Background Picker ═══ */}
                     <div>
@@ -416,67 +442,68 @@ const AiScriptSection = ({
                         )}
                     </div>
 
-                    {/* ═══ Row 6: Hook & CTA (compact) ═══ */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <Controller
-                                    name="hookEnabled"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={field.value}
-                                                onChange={(e) => field.onChange(e.target.checked)}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-7 h-4 rounded-full bg-muted border border-border peer-checked:bg-primary/80 transition-colors after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-3" />
-                                        </label>
-                                    )}
+                    {useAiScript && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <Controller
+                                        name="hookEnabled"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={field.value}
+                                                    onChange={(e) => field.onChange(e.target.checked)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-7 h-4 rounded-full bg-muted border border-border peer-checked:bg-primary/80 transition-colors after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-3" />
+                                            </label>
+                                        )}
+                                    />
+                                    <label className="text-[11px] text-muted-foreground font-medium">
+                                        ประโยคเปิด (Hook)
+                                    </label>
+                                </div>
+                                <input
+                                    type="text"
+                                    {...register("hookText")}
+                                    placeholder="เช่น หยุดดูคลิปนี้ก่อน..."
+                                    disabled={!hookEnabled}
+                                    className={`w-full neon-input text-xs ${!hookEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                                 />
-                                <label className="text-[11px] text-muted-foreground font-medium">
-                                    ประโยคเปิด (Hook)
-                                </label>
                             </div>
-                            <input
-                                type="text"
-                                {...register("hookText")}
-                                placeholder="เช่น หยุดดูคลิปนี้ก่อน..."
-                                disabled={!hookEnabled}
-                                className={`w-full neon-input text-xs ${!hookEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                            />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <Controller
-                                    name="ctaEnabled"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={field.value}
-                                                onChange={(e) => field.onChange(e.target.checked)}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-7 h-4 rounded-full bg-muted border border-border peer-checked:bg-primary/80 transition-colors after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-3" />
-                                        </label>
-                                    )}
+                            <div>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <Controller
+                                        name="ctaEnabled"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={field.value}
+                                                    onChange={(e) => field.onChange(e.target.checked)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-7 h-4 rounded-full bg-muted border border-border peer-checked:bg-primary/80 transition-colors after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:after:translate-x-3" />
+                                            </label>
+                                        )}
+                                    />
+                                    <label className="text-[11px] text-muted-foreground font-medium">
+                                        ปุ่มกระตุ้น (CTA)
+                                    </label>
+                                </div>
+                                <input
+                                    type="text"
+                                    {...register("ctaText")}
+                                    placeholder="เช่น กดตะกร้าเลย..."
+                                    disabled={!ctaEnabled}
+                                    className={`w-full neon-input text-xs ${!ctaEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                                 />
-                                <label className="text-[11px] text-muted-foreground font-medium">
-                                    ปุ่มกระตุ้น (CTA)
-                                </label>
                             </div>
-                            <input
-                                type="text"
-                                {...register("ctaText")}
-                                placeholder="เช่น กดตะกร้าเลย..."
-                                disabled={!ctaEnabled}
-                                className={`w-full neon-input text-xs ${!ctaEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                            />
                         </div>
-                    </div>
+                    )}
 
                     {/* ═══ Row 7: Keywords (compact) ═══ */}
                     <div className="grid grid-cols-2 gap-3">

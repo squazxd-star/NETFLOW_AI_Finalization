@@ -446,7 +446,6 @@ const ProductDataSection = ({
                             )}
                         </div>
 
-<<<<<<< HEAD
                         {/* Clothing Highlight */}
                         <div>
                             <label className="flex items-center gap-2 text-[10px] text-muted-foreground mb-1.5">
@@ -463,7 +462,7 @@ const ProductDataSection = ({
                                 ระบุรายละเอียดเพิ่มเติมเพื่อเน้นจุดเด่นของเสื้อผ้าที่ต้องการให้ AI แสดงในคลิป
                             </p>
                         </div>
-=======
+
                         {/* Custom Outfit Prompt Textarea (shows only when 'custom' is selected) */}
                         {characterOutfit === "custom" && (
                             <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -484,7 +483,6 @@ const ProductDataSection = ({
                                 </div>
                             </div>
                         )}
->>>>>>> 49f681acae472624be685d31d6f90cb2f5162026
                     </div>
 
                     {/* Info Note */}
