@@ -143,6 +143,8 @@ const MAX_LOG_LINES = 4;
 
 function generateProcessSteps(scenes: number): ProcessStep[] {
     const steps: ProcessStep[] = [
+        { stepId: "open-flow", label: "เปิด Google Flow", status: "waiting" },
+        { stepId: "new-project", label: "สร้างโปรเจคใหม่", status: "waiting" },
         { stepId: "settings", label: "กำหนดค่าเริ่มต้น", status: "waiting" },
         { stepId: "upload-char", label: "อัปโหลดภาพตัวละคร", status: "waiting" },
         { stepId: "upload-prod", label: "อัปโหลดภาพสินค้า", status: "waiting" },
@@ -187,6 +189,8 @@ const modules: Module[] = [
         id: "ingest",
         title: "ASSET_INGEST",
         steps: [
+            { id: "open-flow", label: "เปิด Google Flow", status: "waiting" },
+            { id: "new-project", label: "สร้างโปรเจคใหม่", status: "waiting" },
             { id: "settings", label: "กำหนดค่าเริ่มต้น", status: "waiting" },
             { id: "upload-char", label: "อัปโหลดภาพตัวละคร", status: "waiting" },
             { id: "upload-prod", label: "อัปโหลดภาพสินค้า", status: "waiting" },

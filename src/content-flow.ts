@@ -1480,6 +1480,7 @@ interface GenerateImageRequest {
     outputCount?: 1 | 2 | 3 | 4;
     veoQuality?: "fast" | "quality";  // Veo 3.1 rendering quality
     theme?: string;                // UI theme key from sidepanel (e.g. "red", "blue", "green")
+    needsNewProject?: boolean;     // If true, click "New project" on Flow landing page first
 }
 
 /**
@@ -1906,10 +1907,88 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
 
     // ── Apply theme from sidepanel + Show Engine Overlay ──
     try { setOverlayTheme(req.theme); } catch (_) {}
-    try { showOverlay(); } catch (e) { console.warn("Overlay show error:", e); }
+    try { showOverlay(req.sceneCount || 1); } catch (e) { console.warn("Overlay show error:", e); }
 
     const steps: string[] = [];
     const errors: string[] = [];
+
+    // ── Step -1: New Project (if launched from side panel AUTOMATION button) ──
+    if (req.needsNewProject) {
+        try {
+            updateStep("open-flow", "done");
+            updateStep("new-project", "active");
+            LOG("=== สร้างโปรเจคใหม่ ===");
+
+            // Click "New project" button — look for text "New project" or "สร้างโปรเจคใหม่" or icon add_2
+            let newProjBtn: HTMLElement | null = null;
+            for (let attempt = 0; attempt < 15; attempt++) {
+                // Strategy 1: find button with text "New project" or Thai text
+                const allBtns = document.querySelectorAll<HTMLElement>("button, [role='button']");
+                for (const btn of allBtns) {
+                    const txt = (btn.textContent || "").trim().toLowerCase();
+                    if (txt.includes("new project") || txt.includes("สร้างโปรเจค") || txt.includes("โปรเจกต์ใหม่")) {
+                        newProjBtn = btn;
+                        break;
+                    }
+                }
+                // Strategy 2: find icon add_2 inside a button
+                if (!newProjBtn) {
+                    const icons = document.querySelectorAll<HTMLElement>("i.google-symbols, i[class*='google-symbols']");
+                    for (const icon of icons) {
+                        if ((icon.textContent || "").trim() === "add_2") {
+                            const parent = icon.closest("button") as HTMLElement | null;
+                            if (parent) { newProjBtn = parent; break; }
+                        }
+                    }
+                }
+                if (newProjBtn) break;
+                LOG(`⏳ รอปุ่ม New Project... (${attempt + 1}/15)`);
+                await sleep(1000);
+            }
+
+            if (newProjBtn) {
+                LOG(`✅ พบปุ่ม New Project: "${(newProjBtn.textContent || "").trim().substring(0, 30)}"`);
+                await robustClick(newProjBtn);
+                await sleep(500);
+                await robustClick(newProjBtn); // double-click for reliability
+                await sleep(2000);
+
+                // Wait for workspace to load — look for prompt input area or "Start creating" text
+                let workspaceReady = false;
+                for (let i = 0; i < 20; i++) {
+                    const body = document.body.innerText || "";
+                    // Check for workspace indicators
+                    if (body.includes("Start creating") || body.includes("เริ่มสร้าง") ||
+                        body.includes("What do you want to create") || body.includes("drop media") ||
+                        document.querySelector("textarea, input[placeholder]")) {
+                        workspaceReady = true;
+                        break;
+                    }
+                    await sleep(500);
+                }
+                if (workspaceReady) {
+                    LOG("✅ Workspace พร้อมแล้ว");
+                } else {
+                    LOG("⚠️ Workspace อาจยังไม่โหลดเสร็จ — ดำเนินการต่อ");
+                }
+                updateStep("new-project", "done");
+                steps.push("✅ New Project");
+            } else {
+                WARN("ไม่พบปุ่ม New Project — อาจอยู่ใน workspace แล้ว ดำเนินการต่อ");
+                updateStep("new-project", "skipped");
+                steps.push("⚠️ New Project (skipped)");
+            }
+        } catch (e: any) {
+            WARN(`New Project error: ${e.message}`);
+            updateStep("new-project", "error");
+            steps.push("⚠️ New Project");
+        }
+        await sleep(1000);
+    } else {
+        // Mark these steps as skipped if not using new project flow
+        try { updateStep("open-flow", "skipped"); } catch (_) {}
+        try { updateStep("new-project", "skipped"); } catch (_) {}
+    }
 
     // ── Step 0: Configure settings ──
     try {

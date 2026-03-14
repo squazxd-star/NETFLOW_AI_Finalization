@@ -686,6 +686,98 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    // ── OPEN_FLOW_AND_GENERATE: Open Google Flow → wait → New Project → forward GENERATE_IMAGE ──
+    if (message?.action === "OPEN_FLOW_AND_GENERATE") {
+        (async () => {
+            try {
+                const engine = message.videoEngine || "veo";
+                const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
+                const flowUrl = engine === "grok"
+                    ? "https://grok.com/imagine"
+                    : "https://labs.google/fx/tools/flow";
+
+                console.log(`[Netflow] OPEN_FLOW_AND_GENERATE: Opening ${flowUrl}`);
+
+                // Step 1: Create new tab
+                const newTab = await chrome.tabs.create({ url: flowUrl, active: true });
+                console.log(`[Netflow] Created new tab ${newTab.id} for ${flowUrl}`);
+
+                // Step 2: Wait for tab to fully load
+                await new Promise((resolve) => {
+                    let checks = 0;
+                    const maxChecks = 40; // 20 seconds max
+                    const checkLoaded = () => {
+                        checks++;
+                        chrome.tabs.get(newTab.id, (t) => {
+                            if (chrome.runtime.lastError || !t) { resolve(); return; }
+                            if (t.status === 'complete') { resolve(); return; }
+                            if (checks >= maxChecks) { resolve(); return; }
+                            setTimeout(checkLoaded, 500);
+                        });
+                    };
+                    setTimeout(checkLoaded, 1500);
+                    setTimeout(resolve, 20000); // safety timeout
+                });
+
+                // Step 3: Wait extra for content script to initialize
+                await new Promise(r => setTimeout(r, 2000));
+
+                // Step 4: Verify content script is ready (PING with retries)
+                let contentReady = false;
+                for (let attempt = 0; attempt < 8; attempt++) {
+                    try {
+                        const pingRes = await new Promise((resolve) => {
+                            chrome.tabs.sendMessage(newTab.id, { action: "PING" }, (res) => {
+                                if (chrome.runtime.lastError) { resolve(null); return; }
+                                resolve(res);
+                            });
+                        });
+                        if (pingRes && pingRes.status === "ready") {
+                            contentReady = true;
+                            break;
+                        }
+                    } catch (_) {}
+                    console.log(`[Netflow] PING attempt ${attempt + 1}/8 — not ready yet`);
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+
+                if (!contentReady) {
+                    sendResponse({ success: false, message: "Content script ไม่พร้อม — กรุณาลองใหม่" });
+                    return;
+                }
+
+                console.log(`[Netflow] Content script ready on tab ${newTab.id} — forwarding GENERATE_IMAGE`);
+
+                // Step 5: Forward as GENERATE_IMAGE with needsNewProject flag
+                const forwardMsg = { ...message, action: "GENERATE_IMAGE", needsNewProject: true };
+                delete forwardMsg.targetTabId; // don't pass stale target
+
+                const response = await new Promise((resolve) => {
+                    chrome.tabs.sendMessage(newTab.id, forwardMsg, (res) => {
+                        if (chrome.runtime.lastError) {
+                            resolve({ success: false, message: chrome.runtime.lastError.message });
+                        } else {
+                            resolve(res || { success: false, message: "No response" });
+                        }
+                    });
+                });
+
+                // Mark tab as busy
+                if (response?.success) {
+                    const ts = getTabState(newTab.id);
+                    ts.automationRunning = true;
+                    if (message.productName) ts.productName = message.productName;
+                }
+
+                sendResponse({ ...response, _routedTabId: newTab.id });
+            } catch (err) {
+                console.error("[Netflow] OPEN_FLOW_AND_GENERATE error:", err);
+                sendResponse({ success: false, message: "Error: " + (err.message || "unknown") });
+            }
+        })();
+        return true; // async
+    }
+
     if (message?.action === "GENERATE_IMAGE" || message?.action === "UPLOAD_IMAGES" ||
         message?.action === "PING" || message?.action === "STOP_AUTOMATION" || message?.action === "CLICK_FIRST_IMAGE") {
         (async () => {
@@ -893,8 +985,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const cachedCheck = senderTs ? senderTs.cachedVideoDataUrl : _cachedVideoDataUrl;
                 console.log('[Netflow BG] Full video cache done. Cached:', !!cachedCheck, cachedCheck ? (cachedCheck.length / 1024 / 1024).toFixed(1) + ' MB' : '');
 
-                // Open file in Chrome
+                // ── Check auto-open setting (default: true) ──
+                const autoOpenSetting = await new Promise((resolve) => {
+                    chrome.storage.local.get({ autoOpenVideo: true }, (result) => {
+                        resolve(result.autoOpenVideo !== false);
+                    });
+                });
+                console.log('[Netflow BG] Auto-open video setting:', autoOpenSetting);
+
+                // Open file in Chrome (conditional on setting)
                 const openFileInChrome = (filePath, label) => {
+                    if (!autoOpenSetting) {
+                        // Skip opening — still respond with success so automation continues
+                        const name = filePath.split(/[\\/]/).pop();
+                        console.log('[Netflow BG] Auto-open DISABLED — skipping chrome.tabs.create for:', name);
+                        sendResponse({ success: true, message: `ดาวน์โหลดเสร็จ (ไม่เปิดอัตโนมัติ): ${name}`, filename: filePath, downloadUrl: downloadUrl });
+                        return;
+                    }
                     const normalized = filePath.replace(/\\/g, "/");
                     const url = normalized.startsWith("/")
                         ? "file://" + normalized

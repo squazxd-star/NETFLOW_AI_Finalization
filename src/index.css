@@ -554,6 +554,34 @@
   background: transparent;
 }
 
+/* ── Generate Prompt Complete Animation ── */
+@keyframes prompt-complete-letter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.3) rotateX(90deg);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.15) rotateX(0deg);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+    filter: blur(0);
+  }
+}
+
+@keyframes prompt-complete-glow {
+  0% {
+    filter: brightness(1) drop-shadow(0 0 2px currentColor);
+  }
+  100% {
+    filter: brightness(1.4) drop-shadow(0 0 8px currentColor);
+  }
+}
+
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;

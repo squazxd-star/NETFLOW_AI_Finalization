@@ -1691,6 +1691,325 @@ const getProductSizeDirective = (category: ProductCategory): string => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MASTER PROMPT — Product-Centric Structure (4-Part System)
+// [Product Identity] + [Material & Physicality] + [Environment & Lighting]
+// + [Technical Camera Motion] + [Anti-Warping Keywords] + [Negative Prompt]
+//
+// Purpose: Force AI to maintain product accuracy, reduce warping/morphing,
+// and produce studio-grade product cinematography across all categories.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── PART 1: PRODUCT MATERIAL & PHYSICALITY ──
+// Per-category material descriptors to reduce AI "warping" of product surfaces.
+// Tells AI the EXACT physical material so it renders correct texture/reflection.
+const PRODUCT_MATERIAL_PHYSICALITY: Partial<Record<ProductCategory, string>> = {
+    // ── Food & Beverage ──
+    food: "Visible food grain texture, natural moisture sheen, realistic steam vapor, consistent condensation pattern on cold items. Static label on packaging — text never shifts. Rigid packaging structure maintained throughout.",
+    snack: "Crispy crunchy visible fracture texture on snack pieces, glossy printed foil packaging with fixed geometry, sealed bag with realistic air puff. Static label, rigid bag silhouette.",
+    bakery: "Soft sponge crumb interior visible at break, golden-brown crust with micro-crack detail, powdered sugar or glaze with uniform sheen. Structured form — bread/pastry holds shape.",
+    beverage: "Consistent condensation droplets on cold surface, translucent liquid with realistic caustics and light refraction, rigid glass/bottle geometry. Static label — text and logo never warp or shift. Cap/tab maintains fixed design.",
+    coffee: "Visible coffee bean oil sheen, crema foam micro-bubbles, ceramic cup with glossy glaze finish, rising steam with natural fluid dynamics. Rigid cup/bag structure.",
+    tea: "Translucent amber liquid with light refraction, delicate porcelain or ceramic cup surface, steam wisps rising naturally. Tea bag paper texture visible. Rigid vessel shape.",
+    alcohol: "Crystal-clear glass with ray-traced reflections, liquid with accurate color depth and viscosity, polished bottle surface with specular highlights. Cork/cap with precise geometry. Static label.",
+    organic: "Natural matte eco-packaging with visible paper fiber texture, earth-toned kraft paper finish, compostable material surface detail. Structured form.",
+    "frozen-food": "Frost crystal texture on frozen surfaces, ice sheen with realistic light scatter, rigid frozen structure. Packaging with matte cold-resistant finish. Static label.",
+    condiment: "Viscous liquid with realistic pour dynamics, glossy bottle/jar surface, squeeze-bottle deformation physics. Metal or plastic cap with fixed geometry. Static label.",
+
+    // ── Beauty & Personal Care ──
+    beauty: "Frosted glass or high-gloss acrylic packaging with visible light refraction, metallic cap with polished chrome or brushed gold finish, dewy surface texture. Rigid bottle/jar geometry.",
+    skincare: "Translucent gel or opaque cream texture with realistic viscosity, pump mechanism with precise mechanical parts, tube/bottle with matte or glossy medical-grade finish. Rigid container shape.",
+    makeup: "Fine-milled powder with micro-particle visibility, creamy pigment texture with realistic blend, compact/palette with magnetic closure precision, brush bristle detail. Rigid compact geometry.",
+    haircare: "Viscous shampoo/conditioner with realistic pour, squeeze-tube flexible polymer material, pump bottle with chrome/matte cap. Rigid bottle silhouette — no warping.",
+    fragrance: "Polished crystal-cut glass bottle with faceted light dispersion, metallic or decorative cap with intricate geometry, visible perfume liquid with amber/golden translucency. RIGID BOTTLE SHAPE — fixed geometry throughout, every facet angle preserved.",
+    sunscreen: "Opaque cream with SPF white-cast texture, squeeze-tube with flexible polymer body, twist-cap or flip-cap with precise mechanism. Rigid tube proportions.",
+    nail: "High-gloss lacquer with wet-look reflective finish, glass bottle with visible pigment suspension, precision brush applicator. Rigid small bottle geometry.",
+    soap: "Smooth bar soap with matte surface and embossed logo, liquid soap with transparent bottle showing gel viscosity, foaming pump mechanism detail. Rigid packaging shape.",
+    dental: "Opaque paste with minty swirl pattern, squeeze-tube with laminate packaging, precision nozzle tip. Toothbrush with molded bristle rows. Rigid tube structure.",
+    barbershop: "Brushed stainless steel clipper body with precision blade edges, matte rubber grip texture, ceramic/titanium blade with mirror finish. Rigid tool geometry.",
+
+    // ── Health & Wellness ──
+    health: "Medical-grade white polymer instrument body, LCD display with sharp pixel rendering, rubber grip pads, precision sensor surfaces. Rigid clinical device shape.",
+    supplement: "Matte HDPE or glossy PET bottle with crisp label printing, translucent capsule showing fill content, tablet with pressed-powder surface texture. Rigid bottle shape.",
+    vitamin: "Childproof cap with mechanical precision, gummy with translucent gelatin surface, effervescent tablet with compressed-powder texture. Rigid bottle geometry.",
+    protein: "Large HDPE tub with screw-lid, powder with visible protein granule texture, shaker bottle with BPA-free translucent body. Rigid tub/container shape.",
+    "weight-loss": "Clinical-grade blister pack with foil backing, sachet with metallic printed film, capsule with two-tone gelatin shell. Rigid packaging form.",
+    massage: "Smooth polished massage tool head, medical-grade silicone surface, stainless steel roller with mirror finish, textured grip handle. Rigid tool geometry.",
+    "essential-oil": "Dark amber glass dropper bottle with visible oil viscosity, rubber dropper bulb, precise glass pipette. Rigid small bottle geometry.",
+    elderly: "Large-print label packaging, easy-grip contoured handles, medical-grade polymer body, soft-touch rubber coating. Rigid assistive device shape.",
+    medicine: "Pharmaceutical blister pack with individual cell geometry, child-resistant cap mechanism, clinical white bottle with precise markings. Rigid container shape.",
+    "mental-health": "Calming matte-finish packaging, soft-touch journal cover, natural wood or bamboo diffuser base. Structured form with organic texture.",
+
+    // ── Fashion & Accessories ──
+    fashion: "Premium woven fabric with visible thread count, precision stitching with consistent stitch length, natural gravity-driven draping, structured form where applicable. Rigid hardware (buttons, zippers) maintains fixed geometry.",
+    underwear: "Elastic fabric with smooth stretch texture, soft cotton or microfiber weave visible, clean flat-lock seam detail. Structured elastic band.",
+    swimwear: "Quick-dry fabric with chlorine-resistant sheen, elastic stretch texture, reinforced seam detail, hardware (clasps/rings) with fixed geometry.",
+    sportswear: "Moisture-wicking mesh with visible micro-perforations, four-way stretch fabric texture, reflective tape detail, athletic cut structure.",
+    jewelry: "Brilliant gemstone with visible internal facet sparkle and light dispersion, polished precious metal with mirror-like surface, intricate micro-craftsmanship solder joints. RIGID FIXED GEOMETRY — every prong, every link, every clasp angle preserved.",
+    watch: "Sapphire crystal face with anti-reflective coating, brushed or polished case metal with precise chamfers, dial with printed markers and luminous indices. RIGID CASE GEOMETRY — bezel shape, crown position, lug angle all fixed.",
+    bag: "Premium leather grain or woven textile with visible stitch pattern, polished metal hardware (zippers, clasps, buckles) with reflective highlights, structured silhouette with reinforced panels. Rigid hardware geometry.",
+    shoe: "Detailed outsole tread pattern with rubber compound texture, premium upper material (leather grain, mesh weave, or knit structure), precise stitching, molded midsole with cushion technology visible. Rigid sole geometry.",
+    sunglasses: "Polished acetate or metal frame with precise hinge mechanism, optical-grade lens with UV coating sheen, nose pad with silicone texture. Rigid frame geometry — temple curve and lens shape fixed.",
+    hat: "Fabric crown with structured or unstructured form, stitched brim with edge binding, metal/plastic adjustment hardware. Rigid hardware geometry.",
+
+    // ── Tech & Gadgets ──
+    gadget: "Precision-machined surface with brushed aluminum or anodized metal finish, sharp chamfered edges, matte-gloss contrast surfaces. RIGID BODY — fixed geometry, symmetrical design, CAD-level detail.",
+    phone: "Gorilla Glass front with oleophobic coating sheen, brushed aluminum or glass back panel, precise camera module geometry with lens ring detail. RIGID BODY — identical components, industrial design accuracy.",
+    laptop: "Anodized aluminum unibody with CNC-machined precision, anti-glare display coating, backlit keyboard with individual key caps, precise hinge mechanism. RIGID CHASSIS — fixed geometry throughout.",
+    tablet: "Laminated display glass bonded to body, aluminum or polymer chassis with uniform thickness, chamfered edges with diamond-cut finish. RIGID BODY — symmetrical design.",
+    camera: "Magnesium alloy or polycarbonate body with weather-sealed texture, precision lens elements with multi-coating reflections, rubberized grip with cross-hatch pattern. RIGID BODY — lens mount, dial, button positions all fixed.",
+    audio: "Driver housing with acoustic mesh grille, silicone or memory-foam ear tips, charging case with magnetic hinge mechanism, LED indicator. RIGID BODY — capsule/stem shape fixed.",
+    gaming: "RGB-lit mechanical switches with visible keycap legends, textured polymer/aluminum frame, braided cable or wireless dongle, rubberized grip surfaces. RIGID BODY — button layout fixed.",
+    wearable: "Gorilla Glass or sapphire crystal display, aluminum or titanium case, silicone/leather band with precise buckle/clasp. RIGID CASE — crown, sensor array, band attachment points all fixed.",
+    drone: "Carbon fiber or engineering plastic airframe, brushed motor bells, foldable arm hinge mechanism, gimbal with 3-axis stabilization housing. RIGID AIRFRAME — arm angle and prop guard geometry fixed.",
+    charger: "Polycarbonate or aluminum body, USB-C/Lightning port with precise cavity, LED indicator array, heat-dissipation ventilation slots. RIGID BODY — port positions fixed.",
+
+    // ── Home & Living ──
+    home: "Premium household material with visible wood grain or fabric weave, clean industrial design lines, machined metal or molded polymer hardware. Rigid structural form.",
+    furniture: "Solid wood grain with natural variation, upholstery fabric with visible weave pattern, metal frame with welded/bolted joints, foam cushion with structured compression. Rigid frame geometry.",
+    bedding: "High thread-count cotton or linen with visible weave, elastic fitted corners, duvet with quilted stitch pattern, pillow with plush loft. Structured textile form.",
+    curtain: "Woven or sheer fabric with natural drape, metal or wood rod with machined finials, hook/ring hardware with fixed geometry. Fabric follows gravity physics.",
+    rug: "Dense pile with visible fiber texture (wool, synthetic, or natural fiber), bound edges with clean finishing, non-slip backing. Flat rigid surface when laid.",
+    "lighting-decor": "Glass or fabric shade with light-transmitting translucency, metal base with polished or brushed finish, ceramic or resin body with matte glaze. Rigid fixture geometry.",
+    storage: "Woven basket with natural fiber texture, plastic bin with matte or glossy injection-molded surface, metal wire frame with welded joints. Rigid container shape.",
+    mirror: "Float glass with silver backing, wood or metal frame with precise mitered corners, anti-fog coating on bathroom models. Rigid frame geometry.",
+    vase: "Ceramic glaze with glossy or matte finish, glass with transparent/translucent body, porcelain with smooth fired surface. Rigid vessel geometry.",
+    frame: "Wood or metal molding profile, glass or acrylic glazing, backing board with easel or hanging hardware. Rigid frame proportions.",
+
+    // ── Kitchen & Appliances ──
+    kitchen: "Food-grade stainless steel with brushed finish, heat-resistant polymer handles, non-stick coating with smooth surface. Rigid tool/utensil geometry.",
+    "rice-cooker": "Brushed stainless steel or glossy polymer outer body, non-stick inner pot with ceramic or Teflon coating, touch panel with LED indicators. Rigid appliance body.",
+    blender: "Borosilicate glass or Tritan plastic jar with measurement markings, stainless steel blade assembly, motor base with rubberized feet. Rigid jar and base geometry.",
+    "air-fryer": "Matte or glossy polymer body with touch/dial controls, non-stick removable basket with wire rack, stainless steel heating element. Rigid body shape.",
+    vacuum: "ABS plastic body with glossy/matte two-tone finish, transparent dust bin showing contents, HEPA filter with visible pleats, wheels with rubber tread. Rigid body structure.",
+    washer: "Enameled steel drum, tempered glass door with chrome ring, control panel with membrane buttons or dial. Rigid appliance body.",
+    fridge: "Stainless steel or white enamel exterior, tempered glass shelves, LED interior lighting, rubber door gasket. Rigid cabinet structure.",
+    "air-purifier": "Cylindrical or rectangular polymer body with air intake grille, HEPA filter visible through panel, LED air quality indicator ring. Rigid body shape.",
+    "water-filter": "BPA-free transparent pitcher with measurement markings, activated carbon filter cartridge, pour spout with flip lid. Rigid pitcher geometry.",
+    "smart-home": "Compact polymer or fabric-covered body, LED indicator ring or strip, microphone mesh grille, rubberized base. Rigid device geometry.",
+
+    // ── Auto & Transport ──
+    auto: "Automotive-grade ABS or carbon fiber with UV-resistant finish, chrome or matte black hardware, rubber gaskets and seals. Rigid component geometry.",
+    motorcycle: "Injection-molded ABS shell (helmets), ballistic nylon with CE armor (jackets), tempered visor with anti-scratch coating. Rigid structural components.",
+    bicycle: "6061 aluminum or chromoly steel frame with welded joints, rubber tire with tread pattern, cable-actuated brake/derailleur with precise adjustment. Rigid frame geometry.",
+    "car-accessory": "Suction cup with flexible polymer, adjustable arm with ball-joint mechanism, adhesive mounting pad with 3M backing. Rigid mount geometry.",
+    ev: "Industrial-grade connector with copper contacts, heavy-duty cable with TPE insulation, wall-mount bracket with powder-coated steel. Rigid connector geometry.",
+
+    // ── Family & Kids ──
+    baby: "BPA-free soft-touch silicone, food-grade polymer with rounded edges, cotton fabric with hypoallergenic finish. Rigid safety-certified construction.",
+    toy: "Vibrant ABS plastic with glossy injection-molded surface, safe rounded edges, printed decals with tampo-print detail. Rigid toy structure — no melting or morphing.",
+    "kids-education": "Durable laminated cardboard or EVA foam, bright non-toxic printed surfaces, rounded safety edges. Rigid educational toy/card structure.",
+    maternity: "Medical-grade elastic with breathable mesh, soft-touch cotton jersey, adjustable hook-and-loop closures. Structured support form.",
+    family: "Mixed materials — cardboard game boards with glossy print, wooden pieces with lacquer finish, plastic components with injection-molded precision. Rigid game piece geometry.",
+
+    // ── Sports & Outdoor ──
+    fitness: "Textured rubber grip with cross-knurl pattern, chrome-plated steel or cast iron weight, neoprene or nylon resistance band with elastic stretch. Rigid metal weight geometry.",
+    sports: "Synthetic leather or TPU ball with panel-bonded construction, carbon fiber or aluminum equipment frame, EVA foam padding. Rigid equipment geometry.",
+    outdoor: "Ripstop nylon or Cordura fabric with DWR coating, aircraft-grade aluminum poles, YKK zippers with corded pulls. Rigid frame/pole geometry.",
+    camping: "Silnylon or polyester tent fly with taped seams, titanium or aluminum cookware with heat-anodized finish, LED headlamp with polycarbonate lens. Rigid pole/frame structure.",
+    yoga: "Natural rubber or TPE mat with textured anti-slip surface, cork block with rounded edges, cotton strap with D-ring buckle. Rigid block geometry.",
+
+    // ── Office & Education ──
+    digital: "High-resolution UI on glossy or matte display, pixel-sharp typography, clean interface layout with precise alignment. Rigid device body housing the display.",
+    stationery: "Precision-machined metal pen body or injection-molded polymer barrel, smooth ballpoint or gel ink flow, paper with visible cellulose fiber texture. Rigid pen/pencil geometry.",
+    book: "High-GSM matte or glossy coated cover stock, perfect-bound or case-bound spine with visible spine text, cream or white interior paper with ink print. Rigid book structure.",
+    office: "Steel frame with powder-coated finish, mesh fabric with tensioned support, pneumatic cylinder with chrome piston. Rigid frame structure.",
+    course: "Laminated workbook cover, spiral or perfect binding, printed interior with crisp typography. Digital: UI with video player and progress bar. Rigid book form.",
+
+    // ── Cleaning & Home Care ──
+    cleaning: "HDPE or PET spray bottle with transparent body showing liquid level, trigger mechanism with spring-loaded pump, cap with child-safety lock. Rigid bottle geometry.",
+    detergent: "HDPE jug with ergonomic pour handle, measuring cap with gradation markings, pod with water-soluble PVA film casing. Rigid container shape.",
+    "air-freshener": "Aerosol can with steel body and plastic nozzle, plug-in device with translucent oil reservoir, reed diffuser with glass bottle and rattan sticks. Rigid container/device geometry.",
+    insect: "Pressurized aerosol can with steel body, electric plug-in with liquid reservoir, adhesive trap with flat rigid form. Rigid can geometry.",
+    garden: "Galvanized steel or powder-coated aluminum tools, ergonomic rubber-grip handles, stainless steel blade/tine edges. Rigid tool geometry.",
+
+    // ── Misc ──
+    pet: "Durable nylon or genuine leather collar/leash with metal hardware (D-ring, snap hook), BPA-free food-grade polymer bowl, plush toy with stitched seams. Rigid hardware geometry.",
+    craft: "Natural wood handles with varnish finish, carbon steel blade with ground edge, woven textile with visible fiber. Rigid tool geometry.",
+    gift: "Coated wrapping paper with metallic or matte print, satin ribbon with woven edge, rigid gift box with magnetic closure. Fixed box geometry.",
+    wedding: "Satin or organza fabric with sheer translucency, pearl or crystal accent with light dispersion, metallic (gold/silver) card stock with embossed print. Rigid accessory geometry.",
+    other: "High-quality material surface with visible texture detail, precise manufacturing finish, clean construction lines. RIGID BODY — fixed geometry, stable structure, no warping."
+};
+
+// ── PART 2: ANTI-WARPING KEYWORDS ──
+// Per-category keywords injected to force AI to maintain geometric accuracy.
+// Three tiers: structural integrity, temporal consistency, visual sharpness.
+const ANTI_WARPING_KEYWORDS: Partial<Record<ProductCategory, string>> = {
+    // ── Electronics (most warping-prone due to precise geometry) ──
+    gadget: "Fixed geometry, symmetrical design, CAD-level detail, identical components, industrial design accuracy. High temporal consistency, static product object, no morphing, stable texture, rigid body. Macro photography detail, ray-traced reflections, deep depth of field.",
+    phone: "Fixed geometry, symmetrical design, identical components, precise button/port placement. High temporal consistency, static product object, no morphing, stable glass texture, rigid body. Macro photography, ray-traced screen reflections.",
+    laptop: "Fixed geometry, symmetrical chassis, precise hinge angle, CAD-level keyboard detail, identical key spacing. High temporal consistency, no morphing, stable aluminum texture, rigid unibody. Macro photography, ray-traced screen and surface reflections.",
+    tablet: "Fixed geometry, symmetrical bezels, precise edge chamfers, identical port placement. High temporal consistency, no morphing, stable glass/metal texture, rigid body. Deep depth of field, ray-traced display reflections.",
+    camera: "Fixed geometry, precise dial/button placement, symmetrical lens mount, identical grip pattern. High temporal consistency, no morphing, stable magnesium/polycarbonate texture, rigid body. Macro photography, ray-traced lens element reflections.",
+    audio: "Fixed geometry, symmetrical driver housing, identical ear tip shape, precise charging case hinge. High temporal consistency, no morphing, stable surface texture, rigid capsule body.",
+    gaming: "Fixed geometry, precise key/button layout, symmetrical controller shape, identical RGB LED positions. High temporal consistency, no morphing, stable texture, rigid body.",
+    wearable: "Fixed geometry, precise crown/button placement, symmetrical case shape, identical band attachment. High temporal consistency, no morphing, stable crystal/metal texture, rigid case body.",
+    drone: "Fixed geometry, symmetrical arm spacing, precise propeller pitch, identical motor housing. High temporal consistency, no morphing, stable composite texture, rigid airframe.",
+    charger: "Fixed geometry, precise port cavity, symmetrical body design, identical LED positions. High temporal consistency, no morphing, stable surface texture, rigid body.",
+
+    // ── Fashion & Accessories (fabric + hardware balance) ──
+    fashion: "Structured form where applicable, consistent stitch detail, stable fabric texture. High temporal consistency, no morphing hardware, rigid buttons/zippers. Deep depth of field, precise stitching detail.",
+    jewelry: "Fixed geometry, symmetrical setting, identical prong angles, CAD-level facet detail. High temporal consistency, no morphing, stable precious metal reflections, rigid structure. Ray-traced gemstone light dispersion.",
+    watch: "Fixed geometry, symmetrical case, precise hand positions, CAD-level dial detail, identical lug angles. High temporal consistency, no morphing, stable crystal reflections, rigid case. Ray-traced bezel highlights.",
+    bag: "Fixed hardware geometry, structured silhouette, consistent stitch pattern, stable leather/fabric texture. High temporal consistency, no morphing zippers/clasps, rigid hardware. Deep depth of field.",
+    shoe: "Fixed sole geometry, symmetrical construction, precise stitch lines, stable material texture. High temporal consistency, no morphing outsole, rigid midsole structure. Macro stitching detail.",
+    sunglasses: "Fixed frame geometry, symmetrical lens shape, precise hinge mechanism, stable acetate/metal texture. High temporal consistency, no morphing, rigid frame. Ray-traced lens reflections.",
+
+    // ── Beauty & Personal Care (glass/liquid prone to warping) ──
+    beauty: "Fixed bottle/jar geometry, symmetrical packaging, stable glass/acrylic texture. High temporal consistency, no morphing, rigid container body. Ray-traced glass reflections, macro surface detail.",
+    skincare: "Fixed container geometry, precise pump mechanism, stable matte/glossy finish. High temporal consistency, no morphing, rigid tube/bottle body. Macro texture detail.",
+    makeup: "Fixed compact/palette geometry, precise hinge mechanism, stable powder/pigment texture. High temporal consistency, no morphing, rigid compact body. Macro pigment detail.",
+    fragrance: "Fixed crystal bottle geometry, EVERY FACET ANGLE preserved, symmetrical cap design, stable glass refraction. High temporal consistency, ZERO morphing, rigid bottle body. Ray-traced faceted light dispersion, macro glass detail.",
+    haircare: "Fixed bottle geometry, precise pump/cap mechanism, stable polymer texture. High temporal consistency, no morphing, rigid bottle silhouette.",
+    dental: "Fixed tube geometry, precise cap mechanism, stable laminate texture. High temporal consistency, no morphing, rigid tube body.",
+
+    // ── Food & Beverage (packaging + organic matter) ──
+    food: "Fixed packaging geometry, stable label text, consistent food texture. High temporal consistency, no packaging morphing, rigid container/bag structure. Static label — text never shifts.",
+    beverage: "Fixed bottle/can geometry, stable label text, consistent condensation pattern. High temporal consistency, no morphing, rigid glass/aluminum body. Static label, ray-traced liquid caustics.",
+    snack: "Fixed bag geometry, stable foil packaging texture, consistent crispy food texture. High temporal consistency, no morphing bag shape, rigid seal structure. Static label.",
+    bakery: "Structured baked form, stable crust texture, consistent crumb pattern. High temporal consistency, no dough morphing, stable baked shape.",
+    coffee: "Fixed bag/cup geometry, stable label, consistent bean/powder texture. High temporal consistency, no morphing packaging, rigid container.",
+    tea: "Fixed box/pouch geometry, stable label, consistent tea leaf/bag texture. High temporal consistency, no morphing packaging, rigid container.",
+    alcohol: "Fixed bottle geometry, stable label text, consistent glass reflections. High temporal consistency, no morphing, rigid glass body. Ray-traced liquid highlights.",
+
+    // ── Home & Kitchen ──
+    home: "Fixed product geometry, stable material texture, consistent construction detail. High temporal consistency, no morphing, rigid structure.",
+    furniture: "Fixed frame geometry, stable upholstery texture, consistent joint construction. High temporal consistency, no morphing frame, rigid structural members.",
+    kitchen: "Fixed utensil/appliance geometry, stable stainless steel/ceramic texture, consistent handle shape. High temporal consistency, no morphing, rigid body.",
+
+    // ── Health & Fitness ──
+    supplement: "Fixed bottle geometry, stable label text, consistent capsule/tablet shape. High temporal consistency, no morphing, rigid container. Static label.",
+    fitness: "Fixed equipment geometry, stable rubber/metal texture, consistent weight markings. High temporal consistency, no morphing, rigid iron/steel body.",
+
+    // ── Universal fallback ──
+    other: "Fixed geometry, symmetrical design where applicable, stable material texture. High temporal consistency, static product object, no morphing, rigid body. Deep depth of field, macro detail."
+};
+
+// ── PART 3: PRODUCT-CENTRIC CAMERA MOTION ──
+// Moves the CAMERA around the product instead of moving the product.
+// This dramatically reduces warping/distortion of product parts.
+const PRODUCT_CAMERA_MOTION: Partial<Record<ProductCategory, string>> = {
+    // ── Tech ──
+    gadget: "Slow dolly-in on product face, 180-degree orbital arc around device, macro pan across surface details, pull-back reveal shot. Camera moves — product stays static on surface.",
+    phone: "Slow dolly-in on screen face, gentle 90-degree orbital sweep showing side profile, macro slide across camera module, pull-back to show in-hand. Camera orbits — phone position stable.",
+    laptop: "Slow push-in on open screen, smooth 120-degree orbital arc showing keyboard and screen, macro pan across trackpad and ports, crane-up reveal of full setup. Camera orbits — laptop stays on desk.",
+    tablet: "Gentle dolly-in on display, 90-degree orbital showing profile thickness, macro slide across stylus interaction on screen. Camera moves — tablet stays propped.",
+    camera: "Slow orbital around camera body showing lens and grip, macro dolly across dial/button details, pull-back from viewfinder to full body. Camera orbits — camera stays on surface.",
+    audio: "Macro dolly-in on earbud/headphone driver, gentle arc around charging case showing LED, pull-back from ear-level wearing shot. Camera moves — audio product stays in position.",
+    gaming: "Slow dolly across RGB-lit keyboard/controller surface, 90-degree orbital showing grip ergonomics, macro push-in on switch/button detail. Camera glides — gear stays on desk.",
+    wearable: "Macro dolly-in on watch face, gentle orbital around wrist showing case profile, pull-back showing full lifestyle. Camera orbits — wearable stays on wrist.",
+    drone: "Slow 360-degree orbital around unfolded drone, macro pan across camera gimbal, dolly-out showing full wingspan. Camera orbits — drone stays on surface.",
+    charger: "Macro push-in on USB-C port and LED indicators, gentle orbital showing compact profile, pull-back to in-use context. Camera moves — charger stays plugged.",
+
+    // ── Fashion & Accessories ──
+    fashion: "Slow tracking shot following fabric drape, gentle arc showing fit from front to side, macro dolly on stitch/texture detail. Camera moves — garment stays on presenter.",
+    jewelry: "Ultra-slow macro orbital around gemstone catching light from multiple angles, dolly-in on clasp/setting detail, pull-back to wearing shot. Camera orbits — jewelry stays on body.",
+    watch: "Slow macro orbital around dial showing hour markers, dolly-in on crown and pushers, gentle pull-back from wrist shot. Camera orbits — watch stays on wrist.",
+    bag: "Slow dolly across zipper and hardware, 90-degree orbital from front to side showing depth, macro push-in on leather grain/stitch. Camera moves — bag stays in position.",
+    shoe: "Slow lateral dolly showing profile silhouette, macro push-in on outsole tread, gentle arc from toe to heel. Camera glides — shoe stays on surface.",
+    sunglasses: "Macro dolly across frame temple to lens, gentle orbital showing hinge detail, pull-back to wearing shot. Camera moves — sunglasses stay in position.",
+
+    // ── Beauty ──
+    beauty: "Slow dolly-in on product label, gentle orbital showing bottle curve and cap, macro push-in on texture/applicator. Camera orbits — product stays on vanity surface.",
+    skincare: "Macro push-in on pump/dropper mechanism, gentle arc showing bottle profile, dolly-out to application context. Camera moves — product stays on counter.",
+    makeup: "Macro dolly across palette/compact showing color range, gentle orbital showing product dimensions, push-in on brush/applicator tip. Camera glides — compact stays open on surface.",
+    fragrance: "Ultra-slow macro orbital around crystal bottle showing faceted light dispersion, dolly-in on cap detail, gentle pull-back. Camera orbits — bottle STAYS PERFECTLY STILL on surface.",
+    haircare: "Slow dolly along bottle shape, gentle orbital showing label and pump, macro push-in on texture. Camera moves — bottle stays on shelf.",
+
+    // ── Food & Beverage ──
+    food: "Slow macro push-in on food texture detail, gentle 45-degree orbital around plate, dolly across packaging label. Camera moves — food stays on surface.",
+    beverage: "Slow dolly up along bottle showing condensation, macro push-in on label, gentle orbital around glass showing liquid color. Camera moves — drink stays on surface.",
+    snack: "Macro push-in on crispy texture, gentle dolly across bag showing packaging art, pull-back to in-hand context. Camera moves — snack stays in position.",
+    bakery: "Slow macro push-in on golden crust texture, dolly across pastry showing interior crumb, gentle arc around display. Camera moves — baked goods stay on surface.",
+    coffee: "Macro dolly across bean texture or cup surface, gentle orbital around steaming cup, push-in on latte art or crema. Camera orbits — cup stays on table.",
+    alcohol: "Slow orbital around bottle showing label and liquid level, macro dolly-in on cork/cap, gentle pull-back to pour context. Camera orbits — bottle stays on bar.",
+
+    // ── Home & Kitchen ──
+    home: "Slow dolly across product surface showing material detail, gentle orbital in room context, push-in on craftsmanship. Camera moves — product stays placed.",
+    furniture: "Slow dolly along frame showing joinery, gentle arc from front to side, macro push-in on fabric/wood grain. Camera moves — furniture stays in position.",
+    kitchen: "Slow orbital around appliance showing controls, macro push-in on cooking surface, dolly-out to kitchen context. Camera orbits — appliance stays on counter.",
+
+    // ── Health & Fitness ──
+    supplement: "Macro push-in on label and capsule detail, gentle orbital around bottle, dolly-out to health context. Camera moves — bottle stays on surface.",
+    fitness: "Slow dolly across equipment surface, macro push-in on weight markings or texture grip, gentle arc showing ergonomics. Camera moves — equipment stays on floor.",
+    health: "Macro push-in on device display, gentle orbital showing sensor array, pull-back to usage context. Camera orbits — medical device stays in position.",
+
+    // ── Misc ──
+    pet: "Macro push-in on product detail, gentle dolly showing packaging, pull-back to pet interaction context. Camera moves — product stays in position.",
+    baby: "Gentle slow macro push-in on safety features, soft arc showing product from parent's perspective, pull-back to nursery context. Camera moves — baby product stays secure.",
+    outdoor: "Slow dolly across gear surface showing material durability, orbital in outdoor setting, macro push-in on hardware detail. Camera moves — gear stays on ground/pack.",
+    auto: "Slow orbital around automotive product showing finish, macro push-in on mounting hardware, pull-back to vehicle context. Camera orbits — product stays mounted.",
+    toy: "Gentle orbital showing toy from multiple play angles, macro push-in on colorful detail, pull-back to play context. Camera orbits — toy stays on surface.",
+    book: "Slow macro dolly across cover art, gentle orbital showing spine and thickness, push-in on page detail. Camera moves — book stays on surface.",
+    stationery: "Macro push-in on writing tip showing ink flow, gentle dolly along pen body, pull-back to desk context. Camera moves — stationery stays on desk.",
+    craft: "Macro push-in on tool edge/detail, gentle orbital showing craftsmanship, dolly-out to workshop context. Camera moves — craft supplies stay on workbench.",
+    cleaning: "Macro push-in on nozzle/dispenser mechanism, gentle dolly along bottle showing label, pull-back to cleaning context. Camera moves — product stays on counter.",
+    digital: "Macro push-in on UI element, gentle pull-back showing full screen interface, dolly-out to device in hand. Camera moves — device stays in position.",
+    other: "Slow dolly-in on product face, gentle 90-degree orbital showing profile, macro push-in on surface texture detail, pull-back to context. Camera moves — product stays static."
+};
+
+// ── PART 4: NEGATIVE PROMPT / ANTI-DISTORTION CONSTRAINTS ──
+// Per-category constraints telling AI what NOT to do.
+// Injected as hard constraints in the prompt to prevent common AI failures.
+const PRODUCT_ANTI_DISTORTION: Partial<Record<ProductCategory, string>> = {
+    // ── Electronics ──
+    gadget: "ANTI-DISTORTION: NO morphing, NO warping, NO melting, NO changing shape, NO extra ports/buttons, NO distorted logo, NO flickering screen, NO blurry edges, NO unstable lighting, NO liquid metal effect, NO disjointed components, NO deformed structure. Matte/Glossy finish preserved. Precise buttons/ports maintained.",
+    phone: "ANTI-DISTORTION: NO morphing, NO warping, NO extra cameras appearing, NO changing bezel width, NO distorted screen ratio, NO melting glass, NO flickering display, NO blurry edges, NO deformed buttons/ports. Matte/Glossy finish preserved.",
+    laptop: "ANTI-DISTORTION: NO morphing, NO warping, NO changing hinge angle spontaneously, NO extra keys appearing, NO keyboard layout shift, NO melting chassis, NO flickering screen, NO blurry edges, NO unstable screen content. Precise keyboard/ports maintained.",
+    tablet: "ANTI-DISTORTION: NO morphing, NO warping, NO changing bezel width, NO melting edges, NO flickering display, NO deformed buttons, NO blurry edges. Precise edge chamfers maintained.",
+    camera: "ANTI-DISTORTION: NO morphing, NO warping, NO extra dials/buttons appearing, NO changing lens shape, NO melting grip, NO flickering LCD, NO deformed structure. Precise controls maintained.",
+    audio: "ANTI-DISTORTION: NO morphing, NO warping, NO extra driver housings, NO changing stem shape, NO melting case, NO deformed ear tips, NO blurry edges. Precise capsule shape maintained.",
+    gaming: "ANTI-DISTORTION: NO morphing, NO warping, NO extra buttons appearing, NO changing grip shape, NO melting keys, NO flickering RGB, NO deformed structure. Precise button/key layout maintained.",
+    wearable: "ANTI-DISTORTION: NO morphing, NO warping, NO changing case shape, NO extra crowns/buttons, NO melting band, NO flickering display, NO deformed lugs. Precise watch geometry maintained.",
+
+    // ── Fashion ──
+    fashion: "ANTI-DISTORTION: NO morphing fabric into different material, NO warping hardware, NO changing garment structure, NO melting buttons/zippers, NO distorted stitching, NO blurry edges on hardware. Stitch detail and structured form preserved.",
+    jewelry: "ANTI-DISTORTION: NO morphing, NO warping, NO changing prong count, NO melting gemstone, NO extra stones appearing, NO distorted chain links, NO flickering sparkle, NO deformed setting. Identical facet geometry preserved.",
+    watch: "ANTI-DISTORTION: NO morphing, NO warping, NO changing dial layout, NO extra hands appearing, NO melting case, NO distorted crown, NO flickering indices. Identical case and dial geometry preserved.",
+    bag: "ANTI-DISTORTION: NO morphing, NO warping hardware, NO changing silhouette, NO melting zippers, NO extra buckles appearing, NO distorted stitching. Structured form preserved.",
+    shoe: "ANTI-DISTORTION: NO morphing, NO warping sole, NO changing profile, NO melting materials, NO extra eyelets appearing, NO distorted outsole tread. Rigid sole geometry preserved.",
+
+    // ── Beauty ──
+    beauty: "ANTI-DISTORTION: NO morphing, NO warping bottle shape, NO changing cap design, NO melting glass, NO distorted label, NO flickering, NO blurry edges. Rigid packaging geometry preserved.",
+    fragrance: "ANTI-DISTORTION: NO morphing, NO warping crystal facets, NO changing bottle shape, NO melting glass, NO distorted cap geometry, NO flickering reflections, NO blurry edges, NO liquid metal effect. EVERY FACET ANGLE PRESERVED — bottle is a RIGID CRYSTAL OBJECT.",
+    skincare: "ANTI-DISTORTION: NO morphing, NO warping tube/bottle, NO changing pump shape, NO melting container, NO distorted label, NO blurry edges. Rigid container preserved.",
+    makeup: "ANTI-DISTORTION: NO morphing, NO warping compact, NO changing palette layout, NO melting packaging, NO distorted hinge, NO blurry edges. Rigid compact geometry preserved.",
+
+    // ── Food & Beverage ──
+    food: "ANTI-DISTORTION: NO morphing packaging, NO warping bag/box shape, NO changing label text, NO melting packaging structure, NO blurry label, NO distorted logo. Static label, rigid packaging. Consistent condensation if cold.",
+    beverage: "ANTI-DISTORTION: NO morphing bottle/can, NO warping glass shape, NO changing label text, NO melting container, NO flickering condensation, NO distorted cap/tab. Static label, consistent condensation pattern, rigid container.",
+
+    // ── Home & Kitchen ──
+    home: "ANTI-DISTORTION: NO morphing, NO warping, NO changing structure, NO melting material, NO distorted hardware, NO blurry edges. Rigid construction maintained.",
+    kitchen: "ANTI-DISTORTION: NO morphing appliance body, NO warping handles, NO changing control layout, NO melting components, NO distorted display. Rigid appliance geometry maintained.",
+    furniture: "ANTI-DISTORTION: NO morphing frame, NO warping joints, NO changing proportions, NO melting upholstery, NO distorted legs/arms. Rigid structural frame maintained.",
+
+    // ── Health ──
+    supplement: "ANTI-DISTORTION: NO morphing bottle, NO warping label, NO changing cap design, NO melting capsules, NO distorted text, NO blurry printing. Rigid bottle, static label.",
+    health: "ANTI-DISTORTION: NO morphing device, NO warping display, NO changing button layout, NO melting sensor, NO distorted markings. Rigid medical device geometry maintained.",
+    fitness: "ANTI-DISTORTION: NO morphing equipment, NO warping weights, NO changing markings, NO melting rubber grips, NO distorted structure. Rigid iron/steel body maintained.",
+
+    // ── Fallback ──
+    other: "ANTI-DISTORTION: NO morphing, NO warping, NO melting, NO changing shape, NO extra parts, NO distorted logo, NO flickering, NO blurry edges, NO unstable lighting, NO liquid metal effect, NO disjointed components, NO deformed structure."
+};
+
+// ── MASTER PRODUCT DIRECTIVE BUILDER ──
+// Combines all 4 parts into a single injection string per category.
+// Format: [Material & Physicality] + [Anti-Warping] + [Camera Motion] + [Anti-Distortion]
+const getMasterProductDirective = (category: ProductCategory): string => {
+    const material = PRODUCT_MATERIAL_PHYSICALITY[category] || PRODUCT_MATERIAL_PHYSICALITY["other"] || "";
+    const antiWarp = ANTI_WARPING_KEYWORDS[category] || ANTI_WARPING_KEYWORDS["other"] || "";
+    const cameraMotion = PRODUCT_CAMERA_MOTION[category] || PRODUCT_CAMERA_MOTION["other"] || "";
+    const antiDistortion = PRODUCT_ANTI_DISTORTION[category] || PRODUCT_ANTI_DISTORTION["other"] || "";
+
+    return [
+        material ? `MATERIAL & PHYSICALITY: ${material}` : '',
+        antiWarp ? `STRUCTURAL INTEGRITY: ${antiWarp}` : '',
+        cameraMotion ? `PRODUCT CINEMATOGRAPHY: ${cameraMotion}` : '',
+        antiDistortion ? antiDistortion : ''
+    ].filter(Boolean).join(' ');
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PROP INTRODUCTION DIRECTIVE — prevents objects appearing without action
 // E.g. a bowl materializing out of nowhere without character picking it up
 // ═══════════════════════════════════════════════════════════════════════════
@@ -6419,6 +6738,7 @@ export interface VideoPromptMeta {
     talkOnlySceneIndex: number;    // 0-indexed scene that is "talk-only" (character speaks to camera, NO product shown)
     sceneActions: string[];        // PAIRED visual action per scene — matches script content (zero conflict)
     brandVisualSignature: string;  // Brand-specific logo/emblem directive (e.g. Apple fruit emblem on lid)
+    masterProductDirective: string; // Master Prompt: Material & Physicality + Anti-Warping + Camera Motion + Anti-Distortion
 }
 
 /**
@@ -7449,6 +7769,9 @@ const buildVideoPrompt = (
     // ── Product Usage Realism — prevents illogical actions (e.g. spraying with cap on) ──
     const productUsageRealism = PRODUCT_USAGE_REALISM[category] || "REALISTIC USAGE: If product has any cap, lid, seal, or wrapper, it must be removed/opened BEFORE use. Show logical step-by-step usage.";
 
+    // ── Master Product Directive — 4-part system: Material + Anti-Warping + Camera Motion + Anti-Distortion ──
+    const masterProductDirective = getMasterProductDirective(category);
+
     // ── CHARACTER VISUAL DNA ANCHOR — IDENTICAL text for Scene 1 AND Scene 2+ ──
     // Repeats FULL physical description in every scene for maximum consistency.
     // When characterAnalysis is available (AI Vision), include precise details from the actual reference image.
@@ -7523,6 +7846,8 @@ const buildVideoPrompt = (
         // [4.7. SIZE + PROP + ANTI-MORPH] — product size realism, prop introduction, brand identity freeze
         !isScene1TalkOnly ? getProductSizeDirective(category) : '',
         PROP_INTRODUCTION_DIRECTIVE,
+        // ★ [4.8. MASTER PRODUCT DIRECTIVE] — Material & Physicality + Anti-Warping + Camera Motion + Anti-Distortion
+        !isScene1TalkOnly ? masterProductDirective : '',
         // [5. ENVIRONMENT] — setting/background
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
@@ -7562,7 +7887,8 @@ const buildVideoPrompt = (
         category,
         talkOnlySceneIndex,
         sceneActions: pairedSceneActions,
-        brandVisualSignature
+        brandVisualSignature,
+        masterProductDirective
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -7650,6 +7976,8 @@ export const buildSceneVideoPromptJSON = (
         // [4.7. SIZE + PROP] — product size realism + prop introduction rule
         !isTalkOnly ? getProductSizeDirective(meta.category) : '',
         PROP_INTRODUCTION_DIRECTIVE,
+        // ★ [4.8. MASTER PRODUCT DIRECTIVE] — Material & Physicality + Anti-Warping + Camera Motion + Anti-Distortion
+        !isTalkOnly ? meta.masterProductDirective : '',
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,

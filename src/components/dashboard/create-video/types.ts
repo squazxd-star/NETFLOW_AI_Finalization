@@ -50,6 +50,7 @@ export interface GenerationSettingsSectionProps extends SectionProps {
     isOpen: boolean;
     onToggle: () => void;
     productImage: string | null;
+    onRegisterAiGenerate?: (fn: () => Promise<void>) => void;
 }
 
 export interface ResultSectionProps {

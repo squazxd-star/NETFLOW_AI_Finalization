@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Play, Loader2, ExternalLink, Wand2, Rocket, Eye, Zap, ArrowRight, ChevronLeft, ChevronRight, MousePointerClick, Sparkles } from "lucide-react";
+import { Play, Loader2, Wand2, Rocket, Eye, Zap, ArrowRight, ChevronLeft, ChevronRight, MousePointerClick, Sparkles, Repeat } from "lucide-react";
 import { createVideoSchema, CreateVideoFormData, createVideoDefaultValues } from "@/schemas";
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -109,12 +109,17 @@ const CreateVideoTab = () => {
     const [generatedVideoPrompt, setGeneratedVideoPrompt] = useState<string | null>(null);
     const [generatedImagePrompt, setGeneratedImagePrompt] = useState<string | null>(null);
     const [videoScenePrompts, setVideoScenePrompts] = useState<string[]>([]);
-    const [flowOpened, setFlowOpened] = useState(false);
-    const [flowConnected, setFlowConnected] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [promptPage, setPromptPage] = useState(0); // 0 = image, 1 = video
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+
+    // ─── Loop System ──────────────────────────────────────────────────────
+    const [loopCount, setLoopCount] = useState(1);
+    const [currentLoop, setCurrentLoop] = useState(0);
+    const [isLooping, setIsLooping] = useState(false);
+    const [promptCompleteAnim, setPromptCompleteAnim] = useState(false);
+    const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
     // ─── Multi-Tab Log Management ───────────────────────────────────────────
     const [tabLogs, setTabLogs] = useState<Record<number, string[]>>({});
     const [automationTabs, setAutomationTabs] = useState<{ tabId: number; title: string; running: boolean }[]>([]);
@@ -205,25 +210,80 @@ const CreateVideoTab = () => {
         return tabLogs[selectedConsoleTab] || [];
     }, [tabLogs, selectedConsoleTab]);
 
-    // Fix #3: Auto-PING content script to check connection
-    // Runs when prompt is generated or flowOpened changes
+    // ─── Loop System: Listen for VIDEO_GENERATION_COMPLETE to trigger next loop ──
     useEffect(() => {
-        if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
-        if (!generatedImagePrompt || !flowOpened) return;
-        const pingFlow = () => {
-            chrome.runtime.sendMessage({ action: "PING", windowId: myWindowId || undefined }, (res) => {
-                if (chrome.runtime.lastError) {
-                    setFlowConnected(false);
-                    return;
+        if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
+        const loopHandler = async (message: any) => {
+            if (message?.type !== "VIDEO_GENERATION_COMPLETE") return;
+            if (!isLooping || currentLoop >= loopCount) return;
+
+            const nextLoop = currentLoop + 1;
+            const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopCount} — เตรียมรอบถัดไป...`] }));
+
+            // Wait for tab to close
+            await new Promise(r => setTimeout(r, 4000));
+
+            if ((window as any).__NETFLOW_STOP_LOOP__) {
+                setIsLooping(false);
+                setCurrentLoop(0);
+                return;
+            }
+
+            // Step 1: Trigger AI script generation
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🤖 วิเคราะห์ด้วย AI (Loop ${nextLoop + 1})...`] }));
+            if (aiGenerateRef.current) {
+                try {
+                    await aiGenerateRef.current();
+                } catch (e: any) {
+                    console.warn("[Loop] AI generate error:", e);
                 }
-                setFlowConnected(res?.status === "ready");
-            });
+            }
+            await new Promise(r => setTimeout(r, 1500));
+
+            // Step 2: Trigger prompt generation
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 📝 สร้าง/อัปเดต Prompt (Loop ${nextLoop + 1})...`] }));
+            // Programmatically click the prompt button
+            const promptBtn = document.querySelector<HTMLButtonElement>('[data-prompt-generate-btn]');
+            if (promptBtn) {
+                promptBtn.click();
+            }
+
+            // Wait for prompt generation to finish (watch isGeneratingPrompt)
+            let waitAttempts = 0;
+            while (waitAttempts < 60) {
+                await new Promise(r => setTimeout(r, 1000));
+                waitAttempts++;
+                // Check if prompt is done (the button is re-enabled)
+                const btn = document.querySelector<HTMLButtonElement>('[data-prompt-generate-btn]');
+                if (btn && !btn.disabled) break;
+            }
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Show "Generate Prompt Complete" animation
+            setPromptCompleteAnim(true);
+            await new Promise(r => setTimeout(r, 3000));
+            setPromptCompleteAnim(false);
+
+            if ((window as any).__NETFLOW_STOP_LOOP__) {
+                setIsLooping(false);
+                setCurrentLoop(0);
+                return;
+            }
+
+            // Step 3: Start automation again
+            setCurrentLoop(nextLoop);
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopCount}...`] }));
+
+            // Trigger OPEN_FLOW_AND_GENERATE
+            const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
+            if (automationBtn) {
+                automationBtn.click();
+            }
         };
-        // Ping immediately + every 5s while panel is open
-        pingFlow();
-        const interval = setInterval(pingFlow, 5000);
-        return () => clearInterval(interval);
-    }, [generatedImagePrompt, flowOpened]);
+        chrome.runtime.onMessage.addListener(loopHandler);
+        return () => chrome.runtime.onMessage.removeListener(loopHandler);
+    }, [isLooping, currentLoop, loopCount]);
 
     // Append local workflow status to logs (use tabId=0 bucket for local messages)
     useEffect(() => {
@@ -320,6 +380,7 @@ const CreateVideoTab = () => {
                 isOpen={settingsOpen}
                 onToggle={() => setSettingsOpen(!settingsOpen)}
                 productImage={productImage}
+                onRegisterAiGenerate={(fn) => { aiGenerateRef.current = fn; }}
             />
 
             {/* Workflow Control Section */}
@@ -454,6 +515,7 @@ const CreateVideoTab = () => {
                                 }
                             }}
                             disabled={isGeneratingPrompt}
+                            data-prompt-generate-btn="true"
                             className={`text-[10px] px-3 py-1.5 rounded-lg transition-all duration-300 flex items-center gap-1.5 font-medium ${
                                 isGeneratingPrompt
                                     ? 'bg-neon-red/80 text-white cursor-wait'
@@ -470,7 +532,39 @@ const CreateVideoTab = () => {
                     </div>
 
                     {generatedImagePrompt && (
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-300 relative">
+                            {/* Generate Prompt Complete Animation Overlay */}
+                            {promptCompleteAnim && (
+                                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl overflow-hidden"
+                                    style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.8) 100%)' }}
+                                >
+                                    <div className="text-center space-y-3">
+                                        <div className="flex items-center justify-center gap-1">
+                                            {'✨ Generate Prompt Complete ✨'.split('').map((char, i) => (
+                                                <span
+                                                    key={i}
+                                                    className="inline-block text-sm font-bold"
+                                                    style={{
+                                                        color: char === ' ' ? 'transparent' : undefined,
+                                                        background: char !== ' ' ? `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff)` : undefined,
+                                                        WebkitBackgroundClip: char !== ' ' ? 'text' : undefined,
+                                                        WebkitTextFillColor: char !== ' ' ? 'transparent' : undefined,
+                                                        animation: `prompt-complete-letter 0.5s ease-out ${i * 0.04}s both, prompt-complete-glow 1.5s ease-in-out ${i * 0.04 + 0.5}s infinite alternate`,
+                                                        textShadow: `0 0 10px ${themeConfig.gradientFrom}`,
+                                                    }}
+                                                >
+                                                    {char === ' ' ? '\u00A0' : char}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-center gap-1 mt-2">
+                                            {[0, 1, 2].map(i => (
+                                                <span key={i} className="w-1.5 h-1.5 rounded-full bg-neon-red animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <div className={`p-3 rounded-xl border space-y-2 transition-all duration-500 ${
                                 isGeneratingPrompt
                                     ? 'bg-black/60 border-neon-red/40 ai-thinking-card animate-border-glow'
@@ -561,78 +655,69 @@ const CreateVideoTab = () => {
                     )}
                 </div>
 
-                {/* Step 2: Open Engine Page */}
-                <div className={`space-y-2 transition-opacity duration-200 ${!generatedImagePrompt ? 'opacity-40 pointer-events-none' : ''}`}>
+                {/* Step 2: Automation — Auto Open Flow + New Project + Generate */}
+                <div className={`space-y-3 transition-opacity duration-200 ${!generatedImagePrompt ? 'opacity-40 pointer-events-none' : ''}`}>
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
                         <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
-{(watch("videoEngine") || "veo") === "grok" ? "เปิดหน้างาน (Grok)" : "เปิดหน้างาน (Google Flow)"}
-                    </label>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const engine = getValues("videoEngine") || "veo";
-                            const url = engine === "grok"
-                                ? 'https://grok.com/imagine'
-                                : 'https://labs.google/fx/tools/flow';
-                            window.open(url, '_blank');
-                            setFlowOpened(true);
-                            // Auto-ping after a delay to check if content script loads
-                            setTimeout(() => {
-                                if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-                                    chrome.runtime.sendMessage({ action: "PING", videoEngine: engine, windowId: myWindowId || undefined }, (res) => {
-                                        if (!chrome.runtime.lastError && res?.status === "ready") {
-                                            setFlowConnected(true);
-                                        }
-                                    });
-                                }
-                            }, 3000);
-                        }}
-                        className={`w-full py-2.5 px-4 rounded-xl text-xs font-medium border transition-all flex items-center justify-center gap-2 ${
-                            flowConnected
-                                ? 'border-green-500/40 text-green-400 bg-green-500/10'
-                                : flowOpened
-                                    ? 'border-neon-red/40 text-neon-red bg-neon-red/10'
-                                    : 'border-border text-muted-foreground hover:border-neon-red/40 hover:text-neon-red hover:bg-neon-red/5'
-                        }`}
-                    >
-                        <ExternalLink className="w-3.5 h-3.5" />
-{(() => {
-                            const eng = watch("videoEngine") || "veo";
-                            const label = eng === "grok" ? "Grok" : "Google Flow";
-                            if (flowConnected) return `✓ เชื่อมต่อ ${label} แล้ว`;
-                            if (flowOpened) return `⏳ รอเชื่อมต่อ... (กรุณา refresh หน้า ${label})`;
-                            return `เปิด ${label}`;
-                        })()}
-                    </button>
-                </div>
-
-                {/* Step 3: Automation — Electric Glow */}
-                <div className={`space-y-3 transition-opacity duration-200 ${!generatedImagePrompt || !flowConnected ? 'opacity-40 pointer-events-none' : ''}`}>
-                    <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                        <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
                         เริ่มสร้างคลิป (Automation)
                     </label>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
                         <ArrowRight className="w-3 h-3 text-neon-red/50" />
-                        อัพโหลดรูป → ใส่ prompt → สร้างภาพ + วิดีโอ อัตโนมัติทั้งหมด
+                        เปิด Google Flow → สร้างโปรเจค → อัพโหลดรูป → ใส่ prompt → สร้างภาพ + วิดีโอ
                     </p>
 
+                    {/* Loop Count Selector */}
+                    <div className="flex items-center gap-2">
+                        <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground">จำนวนรอบ:</span>
+                        <div className="flex items-center gap-1">
+                            {[1, 2, 3, 5, 10].map((n) => (
+                                <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => setLoopCount(n)}
+                                    className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all ${
+                                        loopCount === n
+                                            ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
+                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                    }`}
+                                >
+                                    {n}
+                                </button>
+                            ))}
+                        </div>
+                        {isLooping && (
+                            <span className="text-[10px] text-neon-red font-medium ml-auto animate-pulse">
+                                🔄 Loop {currentLoop + 1}/{loopCount}
+                            </span>
+                        )}
+                    </div>
+
                     {/* Electric Lightning Border Button */}
-                    <div className={`electric-border-wrap ${isUploading ? 'is-active' : ''} ${!generatedImagePrompt || !flowConnected ? 'is-disabled' : ''}`}>
+                    <div className={`electric-border-wrap ${isUploading ? 'is-active' : ''} ${!generatedImagePrompt ? 'is-disabled' : ''}`}>
                         <button
                             type="button"
+                            data-automation-btn="true"
                             disabled={isUploading || !generatedImagePrompt}
                             onClick={async () => {
                                 if (!generatedImagePrompt) return;
                                 playAutomationSound();
                                 setIsUploading(true);
-                                setUploadStatus("⏳ กำลังอัพโหลดรูป + สร้างภาพ...");
+                                setUploadStatus("⏳ กำลังเปิด Google Flow + สร้างโปรเจค...");
+
+                                // Start loop tracking
+                                if (!isLooping && loopCount > 1) {
+                                    setIsLooping(true);
+                                    setCurrentLoop(0);
+                                    (window as any).__NETFLOW_STOP_LOOP__ = false;
+                                }
+
                                 try {
                                     const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
                                         const formData = getValues();
                                         chrome.runtime.sendMessage(
                                             {
-                                                action: "GENERATE_IMAGE",
+                                                action: "OPEN_FLOW_AND_GENERATE",
                                                 videoEngine: formData.videoEngine || "veo",
                                                 productName: formData.productName || '',
                                                 imagePrompt: generatedImagePrompt,
@@ -685,7 +770,7 @@ const CreateVideoTab = () => {
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                     <span className="tracking-wider uppercase text-sm" style={{ animation: 'electric-text-glow 1s ease-in-out infinite' }}>
-                                        AI กำลังทำงาน...
+                                        {isLooping ? `Loop ${currentLoop + 1}/${loopCount} — AI กำลังทำงาน...` : 'AI กำลังทำงาน...'}
                                     </span>
                                     <Sparkles className="w-4 h-4 animate-pulse" />
                                 </>
@@ -696,12 +781,28 @@ const CreateVideoTab = () => {
                                         AUTOMATION
                                     </span>
                                     <span className="text-[10px] font-normal opacity-70">
-                                        สร้างคลิปอัตโนมัติ
+                                        {loopCount > 1 ? `สร้างคลิปอัตโนมัติ x${loopCount}` : 'สร้างคลิปอัตโนมัติ'}
                                     </span>
                                 </>
                             )}
                         </button>
                     </div>
+
+                    {/* Stop Loop Button */}
+                    {isLooping && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                (window as any).__NETFLOW_STOP_LOOP__ = true;
+                                setIsLooping(false);
+                                setCurrentLoop(0);
+                                setUploadStatus("⛔ หยุดการลูปแล้ว");
+                            }}
+                            className="w-full py-2 px-4 rounded-xl text-xs font-medium border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
+                        >
+                            ⛔ หยุด Loop
+                        </button>
+                    )}
 
                     {uploadStatus && (
                         <p className="text-[10px] text-center text-muted-foreground">{uploadStatus}</p>

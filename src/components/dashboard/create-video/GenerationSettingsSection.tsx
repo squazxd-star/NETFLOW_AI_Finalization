@@ -94,7 +94,8 @@ const GenerationSettingsSection = ({
     watch,
     isOpen,
     onToggle,
-    productImage
+    productImage,
+    onRegisterAiGenerate
 }: GenerationSettingsSectionProps) => {
     const { config: themeConfig } = useTheme();
     const { toast } = useToast();
@@ -122,6 +123,13 @@ const GenerationSettingsSection = ({
     useEffect(() => {
         setSceneScripts(parseSceneScripts(sceneScriptsRaw, sceneCount));
     }, [sceneScriptsRaw, sceneCount]);
+
+    // Expose generateScriptsWithAI to parent for loop automation
+    useEffect(() => {
+        if (onRegisterAiGenerate) {
+            onRegisterAiGenerate(generateScriptsWithAI);
+        }
+    }, [productName, productImage, sceneCount, language, saleStyle, template, voiceTone]);
 
     const onChangeSceneScript = (index: number, value: string) => {
         setSceneScripts((prev) => {

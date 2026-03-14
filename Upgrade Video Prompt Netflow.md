@@ -250,3 +250,81 @@ When camera MUST move, product silhouette stays pixel-locked to reference.
 **สถานะ:** ✅ Fixed — commit `8f8a42d`  
 **ไฟล์ที่แก้:** `src/services/veoPromptService.ts`  
 **Build:** ✅ Zero TypeScript errors
+
+---
+
+## Master Prompt Upgrade — Product-Centric Structure (4-Part System)
+
+**วัตถุประสงค์:** ยกระดับ Video Prompt ทุกหมวดหมู่ให้สมบูรณ์ โดยเพิ่มโครงสร้าง Master Prompt 4 ส่วนหลัก  
+เพื่อลดการ warping/morphing ของสินค้า, เพิ่มความแม่นยำของพื้นผิว, และบังคับการเคลื่อนกล้องแทนการเคลื่อนสินค้า
+
+### โครงสร้าง Master Prompt (ลำดับความสำคัญ):
+
+```
+[Product Identity]          ← มีอยู่แล้วใน productAnchor + PRODUCT_HIGHLIGHT
+    +
+[Material & Physicality]    ← ใหม่: PRODUCT_MATERIAL_PHYSICALITY (100+ subcategories)
+    +
+[Environment & Lighting]   ← มีอยู่แล้วใน CATEGORY_LIGHTING + getSmartEnvironment
+    +
+[Technical Camera Motion]   ← ใหม่: PRODUCT_CAMERA_MOTION (per-category)
+    +
+[Anti-Warping Keywords]     ← ใหม่: ANTI_WARPING_KEYWORDS (per-category)
+    +
+[Negative Prompt]           ← ใหม่: PRODUCT_ANTI_DISTORTION (per-category)
+```
+
+### สิ่งที่เพิ่มใหม่ใน `veoPromptService.ts`:
+
+| # | ตำแหน่งใน code | สิ่งที่เพิ่ม | จำนวน categories |
+|---|---|---|---|
+| 1 | `PRODUCT_MATERIAL_PHYSICALITY` | วัสดุ/พื้นผิว per-category — บอก AI ว่าสินค้าทำจากอะไร เช่น "Gorilla Glass", "brushed aluminum", "crystal-cut glass" เพื่อลด surface warping | 100+ subcategories |
+| 2 | `ANTI_WARPING_KEYWORDS` | คีย์เวิร์ดบังคับความแม่นยำ 3 ระดับ: (1) Structural integrity — "Fixed geometry, CAD-level detail" (2) Temporal consistency — "No morphing, rigid body" (3) Visual sharpness — "Macro photography, ray-traced reflections" | 40+ categories |
+| 3 | `PRODUCT_CAMERA_MOTION` | เคลื่อน CAMERA รอบสินค้า แทนเคลื่อนสินค้า — ลด distortion ชิ้นส่วน เช่น "Slow dolly-in, 180-degree orbital arc, macro pan. Camera moves — product stays static." | 40+ categories |
+| 4 | `PRODUCT_ANTI_DISTORTION` | Negative Prompt per-category — สั่งห้ามตรงๆ เช่น "NO morphing, NO warping, NO melting, NO changing shape, NO extra parts, NO distorted logo, NO flickering" | 30+ categories |
+| 5 | `getMasterProductDirective()` | Function รวม 4 ส่วนเป็น string เดียว: `MATERIAL & PHYSICALITY` + `STRUCTURAL INTEGRITY` + `PRODUCT CINEMATOGRAPHY` + `ANTI-DISTORTION` | — |
+| 6 | `VideoPromptMeta.masterProductDirective` | Field ใหม่ส่งต่อ Master Directive ไป Scene 2+ | — |
+
+### จุด Inject ใน Prompt:
+
+| Scene | ตำแหน่ง | เงื่อนไข |
+|---|---|---|
+| Scene 1 (`buildVideoPrompt`) | `[4.8]` — หลัง SIZE + PROP + ANTI-MORPH | เฉพาะ scene ที่สินค้าปรากฏ (skip talk-only) |
+| Scene 2+ (`buildSceneVideoPromptJSON`) | `[4.8]` — หลัง SIZE + PROP | เฉพาะ scene ที่สินค้าปรากฏ (skip talk-only) |
+
+### เคล็ดลับเพิ่มเติมสำหรับสินค้าแต่ละประเภท (ฝังใน Material & Anti-Distortion):
+
+| ประเภทสินค้า | เคล็ดลับที่ฝัง |
+|---|---|
+| **Electronics** (gadget, phone, laptop, tablet) | "Matte/Glossy finish preserved", "Precise buttons/ports maintained", "CAD-level detail" |
+| **Fashion/Bag** (fashion, bag, shoe) | "Stitch detail preserved", "Structured form maintained", "Rigid hardware geometry" |
+| **Food/Beverage** (food, beverage, snack) | "Consistent condensation", "Static label — text never shifts", "Rigid packaging structure" |
+| **Beauty/Fragrance** (beauty, fragrance, skincare) | "EVERY FACET ANGLE preserved" (fragrance), "Rigid bottle/jar geometry", "Ray-traced glass reflections" |
+| **Watch/Jewelry** | "CAD-level facet detail", "Identical prong angles", "Ray-traced gemstone light dispersion" |
+
+### Anti-Warping Keywords ที่ใช้ (3 กลุ่ม):
+
+```
+เพื่อความแม่นยำของชิ้นส่วน:
+  "Fixed geometry", "Symmetrical design", "CAD-level detail", 
+  "Identical components", "Industrial design accuracy"
+
+เพื่อลดการวาร์ป/เปลี่ยนรูปร่าง:
+  "High temporal consistency", "Static product object", "No morphing", 
+  "Stable texture", "Rigid body"
+
+เพื่อความคมชัด:
+  "Macro photography", "Ray-traced reflections", "Deep depth of field"
+```
+
+### Negative Prompt ที่ใช้ (ดักทาง AI):
+
+```
+NO morphing, NO warping, NO melting, NO changing shape, NO extra parts, 
+NO distorted logo, NO flickering, NO blurry edges, NO unstable lighting, 
+NO liquid metal effect, NO disjointed components, NO deformed structure
+```
+
+**สถานะ:** ✅ Implemented  
+**ไฟล์ที่แก้:** `src/services/veoPromptService.ts`  
+**Build:** ✅ Zero TypeScript errors

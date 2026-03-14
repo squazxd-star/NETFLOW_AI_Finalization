@@ -16,7 +16,8 @@ import {
     Key,
     Link2,
     Check,
-    Sparkles
+    Sparkles,
+    Play
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { saveApiKey, getApiKey } from "../services/storageService";
@@ -31,6 +32,7 @@ interface SettingsDialogProps {
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     const [tiktokConnected, setTiktokConnected] = useState(true);
     const [watermarkEnabled, setWatermarkEnabled] = useState(false);
+    const [autoOpenVideo, setAutoOpenVideo] = useState(true);
     const [webhookUrl, setWebhookUrl] = useState("");
     const [apiKey, setApiKey] = useState("");
     const [openaiKey, setOpenaiKey] = useState("");
@@ -54,6 +56,13 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
         const openAi = await getApiKey('openai');
         if (openAi) setOpenaiKey(openAi);
+
+        // Load auto-open video setting from chrome.storage.local
+        try {
+            chrome.storage.local.get({ autoOpenVideo: true }, (result) => {
+                setAutoOpenVideo(result.autoOpenVideo !== false);
+            });
+        } catch (_) { /* not in extension context */ }
     };
 
     useEffect(() => {
@@ -514,17 +523,51 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     <div className="border-t border-white/[0.06]" />
 
                     {/* ═══════ Section 5: Misc ═══════ */}
-                    <section className="flex items-center justify-between py-1">
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.hex }} />
-                            <span className="text-xs font-medium text-white">ลายน้ำ (Watermark)</span>
+                    <section className="space-y-3">
+                        {/* Auto-open video after download */}
+                        <div className="flex items-center justify-between py-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: `rgba(${themeConfig.hexRgb}, 0.15)` }}>
+                                    <Play className="w-3 h-3" style={{ color: themeConfig.hex }} />
+                                </div>
+                                <div>
+                                    <span className="text-xs font-medium text-white">เปิดวิดีโออัตโนมัติ</span>
+                                    <p className="text-[9px] text-white/30">เปิดไฟล์วิดีโอใน Chrome หลังดาวน์โหลดเสร็จ</p>
+                                </div>
+                            </div>
+                            <Switch
+                                checked={autoOpenVideo}
+                                onCheckedChange={(checked) => {
+                                    setAutoOpenVideo(checked);
+                                    try {
+                                        chrome.storage.local.set({ autoOpenVideo: checked });
+                                    } catch (_) { /* not in extension context */ }
+                                    toast({
+                                        title: checked ? "เปิดวิดีโออัตโนมัติ ✅" : "ปิดเปิดวิดีโออัตโนมัติ",
+                                        description: checked
+                                            ? "ระบบจะเปิดวิดีโอใน Chrome หลังดาวน์โหลดเสร็จ"
+                                            : "ระบบจะดาวน์โหลดวิดีโอเท่านั้น ไม่เปิดอัตโนมัติ",
+                                        className: "toast-theme-bg"
+                                    });
+                                }}
+                                style={{ '--switch-checked-bg': themeConfig.hex } as React.CSSProperties}
+                                className="data-[state=checked]:!bg-[--switch-checked-bg]"
+                            />
                         </div>
-                        <Switch
-                            checked={watermarkEnabled}
-                            onCheckedChange={setWatermarkEnabled}
-                            style={{ '--switch-checked-bg': themeConfig.hex } as React.CSSProperties}
-                            className="data-[state=checked]:!bg-[--switch-checked-bg]"
-                        />
+
+                        {/* Watermark */}
+                        <div className="flex items-center justify-between py-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.hex }} />
+                                <span className="text-xs font-medium text-white">ลายน้ำ (Watermark)</span>
+                            </div>
+                            <Switch
+                                checked={watermarkEnabled}
+                                onCheckedChange={setWatermarkEnabled}
+                                style={{ '--switch-checked-bg': themeConfig.hex } as React.CSSProperties}
+                                className="data-[state=checked]:!bg-[--switch-checked-bg]"
+                            />
+                        </div>
                     </section>
 
                     {/* ═══════ Save Button ═══════ */}
