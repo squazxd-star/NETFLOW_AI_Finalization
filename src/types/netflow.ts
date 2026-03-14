@@ -259,18 +259,29 @@ export interface ScriptRequest {
     template?: string;      // product-review, etc.
     hookText?: string;
     ctaText?: string;
+    videoStyle?: string;
+    sceneScriptsRaw?: string;
+    cachedProductInfo?: string;
+    prompt?: string;
 
     // Character Settings
     gender?: string;
     ageRange?: string;
     personality?: string;
     background?: string;
+    characterDescription?: string;
+    clothingStyles?: string[];
+    characterOutfit?: string;
+    cameraAngles?: string[];
+    touchLevel?: string;
+    sceneBackground?: string;
 
     // Video Settings
     expression?: string;
     movement?: string;
     aspectRatio?: string;
     videoDuration?: string;
+    sceneCount?: number;
 
     // Legacy/Optional Compatibility
     targetAudience?: string;

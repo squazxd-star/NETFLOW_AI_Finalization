@@ -381,6 +381,7 @@ const CreateVideoTab = () => {
                 isOpen={aiScriptOpen}
                 onToggle={() => setAiScriptOpen(!aiScriptOpen)}
                 productImage={productImage}
+                characterImage={characterImage}
             />
 
             {/* 4. Production & Preview Section - การผลิตและพรีวิว */}
@@ -450,6 +451,7 @@ const CreateVideoTab = () => {
                                     voiceTone: data.voiceTone || "friendly",
                                     saleStyle: data.saleStyle || "storytelling",
                                     language: data.language || "th-central",
+                                    videoStyle: data.videoStyle || "ugc-review",
                                     characterDescription: data.characterDescription || "",
                                     gender: data.gender || "female",
                                     ageRange: data.ageRange || "young-adult",
@@ -462,6 +464,8 @@ const CreateVideoTab = () => {
                                     mustUseKeywords: data.mustUseKeywords || "",
                                     avoidKeywords: data.avoidKeywords || "",
                                     userScript: data.sceneScriptsRaw || "",
+                                    aiPrompt: data.aiPrompt || "",
+                                    cachedProductInfo: data.cachedProductInfo || "",
                                     clothingStyles: data.clothingStyles || ["casual"],
                                     characterOutfit: data.characterOutfit || "original",
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],

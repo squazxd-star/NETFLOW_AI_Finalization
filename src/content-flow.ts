@@ -640,7 +640,7 @@ function robustHover(el: HTMLElement) {
  */
 function findCardsByIcon(iconText: string): HTMLElement[] {
     const results: HTMLElement[] = [];
-    const icons = document.querySelectorAll<HTMLElement>("i");
+    const icons = document.querySelectorAll<HTMLElement>("i, span[class*='icon'], span[class*='material'], span[class*='google-symbols'], [data-icon]");
     for (const icon of icons) {
         const txt = (icon.textContent || "").trim();
         if (txt !== iconText) continue;
@@ -1863,8 +1863,8 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         }
         if (settingsBtn) { LOG(`พบปุ่มตั้งค่าจากข้อความ: "${(settingsBtn.textContent || "").substring(0, 40).trim()}"`); break; }
 
-        // Strategy 2: element with crop/aspect-ratio icon in bottom area
-        const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons");
+        // Strategy 2: element with crop/aspect-ratio icon in bottom area — broadened for Tahoe 26.2+
+        const icons = document.querySelectorAll("i.google-symbols, i[class*='google-symbols'], .material-symbols-outlined, .material-icons, .material-symbols-rounded, span[class*='material'], span[class*='icon'], i");
         for (const icon of icons) {
             const it = icon.textContent?.trim() || "";
             if (it.includes("crop") || it === "aspect_ratio" || it === "photo_size_select_large") {
@@ -2286,14 +2286,19 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         break;
                     }
                 }
-                // Strategy 2: find icon add_2 inside a button
+                // Strategy 2: find icon add_2 inside a button — broadened for Tahoe 26.2+
                 if (!newProjBtn) {
-                    const icons = document.querySelectorAll<HTMLElement>("i.google-symbols, i[class*='google-symbols']");
+                    const icons = document.querySelectorAll<HTMLElement>("i.google-symbols, i[class*='google-symbols'], i[class*='material'], span[class*='material'], span[class*='icon'], span[class*='google-symbols'], i");
                     for (const icon of icons) {
                         if ((icon.textContent || "").trim() === "add_2") {
                             const parent = icon.closest("button") as HTMLElement | null;
                             if (parent) { newProjBtn = parent; break; }
                         }
+                    }
+                    // Also try findAllButtonsByIcon as fallback
+                    if (!newProjBtn) {
+                        const btns = findAllButtonsByIcon("add_2");
+                        if (btns.length > 0) newProjBtn = btns[0];
                     }
                 }
                 if (newProjBtn) break;
@@ -2774,7 +2779,7 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                         btnRect.top >= imgRect.top - 10 && btnRect.top <= imgRect.top + 60 &&
                         btnRect.left >= imgRect.right - 80) {
                         // Check if it has 3-dots icon or "เพิ่มเติม" tooltip
-                        const icons = btn.querySelectorAll("i");
+                        const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
                         for (const icon of icons) {
                             const t = icon.textContent?.trim() || "";
                             if (t.includes("more")) {
@@ -3425,7 +3430,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
     await sleep(1500); // wait for video player to render
     const muteBtn = (() => {
         for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-            const icons = btn.querySelectorAll("i");
+            const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
             for (const icon of icons) {
                 const txt = (icon.textContent || "").trim();
                 if (txt === "volume_up" || txt === "volume_off" || txt === "volume_mute") {
@@ -3515,11 +3520,11 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
             for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 if ((btn as HTMLButtonElement).disabled) continue; // skip disabled buttons
-                const icons = btn.querySelectorAll("i");
+                const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material'], span[class*='google-symbols']");
                 let hasArrow = false;
                 for (const icon of icons) {
                     const txt = (icon.textContent || "").trim();
-                    if (txt === "arrow_forward") { hasArrow = true; break; }
+                    if (txt === "arrow_forward" || txt === "send" || txt === "arrow_upward") { hasArrow = true; break; }
                 }
                 if (!hasArrow) continue;
                 const r = btn.getBoundingClientRect();
@@ -3531,10 +3536,23 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                     sendBtn = btn;
                 }
             }
-            // Fallback: any visible arrow_forward button
+            // Fallback: use broadened findAllButtonsByIcon
+            if (!sendBtn) {
+                for (const iconName of ["arrow_forward", "send", "arrow_upward"]) {
+                    const btns = findAllButtonsByIcon(iconName);
+                    for (const btn of btns) {
+                        if (!(btn as HTMLButtonElement).disabled) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { sendBtn = btn; break; }
+                        }
+                    }
+                    if (sendBtn) break;
+                }
+            }
+            // Fallback 2: any visible arrow_forward button (broad icon search)
             if (!sendBtn) {
                 for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                    const icons = btn.querySelectorAll("i");
+                    const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
                     for (const icon of icons) {
                         if ((icon.textContent || "").trim() === "arrow_forward") {
                             const r = btn.getBoundingClientRect();
@@ -3650,15 +3668,31 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         await sleep(isMac ? 3000 : 2000);
         const downloadStartedAt2 = Date.now();
 
-        // Step 1: Click ดาวน์โหลด button (has <i>download</i> icon)
+        // Step 1: Click ดาวน์โหลด button — broadened for Tahoe 26.2+
         let dlBtn2: HTMLElement | null = null;
         const dlPoll2 = Date.now();
         while (!dlBtn2 && Date.now() - dlPoll2 < (isMac ? 15000 : 10000)) {
-            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                const icon = btn.querySelector("i");
-                if (icon && (icon.textContent || "").trim() === "download") {
-                    const r = btn.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+            // Strategy A: use broadened findAllButtonsByIcon
+            const dlBtns = findAllButtonsByIcon("download");
+            for (const btn of dlBtns) {
+                const r = btn.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+            }
+            // Strategy B: check <i>, <span> icon elements directly
+            if (!dlBtn2) {
+                for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                    const iconEl = btn.querySelector("i, span[class*='icon'], span[class*='material']");
+                    if (iconEl && (iconEl.textContent || "").trim() === "download") {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+                    }
+                    // Strategy C: aria-label or title
+                    const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                    const title = (btn.getAttribute("title") || "").toLowerCase();
+                    if (aria.includes("download") || aria.includes("ดาวน์โหลด") || title.includes("download") || title.includes("ดาวน์โหลด")) {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) { dlBtn2 = btn; break; }
+                    }
                 }
             }
             if (!dlBtn2) await sleep(1000);
@@ -3875,23 +3909,34 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         return null;
     };
 
-    // ── STEP 1: Find & click "ดาวน์โหลด" button (poll) ──
+    // ── STEP 1: Find & click "ดาวน์โหลด" button (poll) — broadened for Tahoe 26.2+ ──
     LOG("── ค้นหาปุ่มดาวน์โหลด ──");
     let dlBtn: HTMLElement | null = null;
     const dlPollStart = Date.now();
     while (!dlBtn && Date.now() - dlPollStart < (isMac ? 15000 : 10000)) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
-            const txt = (btn.textContent || "").trim();
-            const lower = txt.toLowerCase();
-            if ((lower.includes("download") || lower.includes("ดาวน์โหลด")) && txt.length < 80) {
-                const r = btn.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+        // Strategy A: icon-based (broadened findAllButtonsByIcon)
+        const dlBtns = findAllButtonsByIcon("download");
+        for (const btn of dlBtns) {
+            const r = btn.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+        }
+        // Strategy B: text content
+        if (!dlBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button, [role='button']")) {
+                const txt = (btn.textContent || "").trim();
+                const lower = txt.toLowerCase();
+                if ((lower.includes("download") || lower.includes("ดาวน์โหลด")) && txt.length < 80) {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+                }
             }
         }
+        // Strategy C: aria-label / title
         if (!dlBtn) {
             for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
-                if (aria.includes("download") || aria.includes("ดาวน์")) {
+                const title = (btn.getAttribute("title") || "").toLowerCase();
+                if (aria.includes("download") || aria.includes("ดาวน์") || title.includes("download") || title.includes("ดาวน์")) {
                     const r = btn.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
                 }
@@ -4056,13 +4101,18 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     await sleep(2000);
     const muteBtn = (() => {
         for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-            const icons = btn.querySelectorAll("i");
+            const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
             for (const icon of icons) {
                 const txt = (icon.textContent || "").trim();
                 if (txt === "volume_up" || txt === "volume_off" || txt === "volume_mute") {
                     const r = btn.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) return btn;
                 }
+            }
+            const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+            if (aria.includes("mute") || aria.includes("ปิดเสียง")) {
+                const r = btn.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) return btn;
             }
         }
         return null;
@@ -4183,24 +4233,40 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             try { updateStep(`scene${scene}-prompt`, "done"); updateStep(`scene${scene}-gen`, "active"); } catch (_) {}
             await sleep(1000);
 
-            // Find generate/send button nearest to editor
+            // Find generate/send button nearest to editor — broadened for Tahoe 26.2+
             const editorRect2 = slateEditor.getBoundingClientRect();
             let sendBtn2: HTMLElement | null = null;
             let bestDist2 = Infinity;
             for (const btn of document.querySelectorAll<HTMLElement>("button")) {
                 if ((btn as HTMLButtonElement).disabled) continue;
-                const icons = btn.querySelectorAll("i");
+                const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material'], span[class*='google-symbols']");
                 let hasArrow = false;
-                for (const icon of icons) { if ((icon.textContent || "").trim() === "arrow_forward") { hasArrow = true; break; } }
+                for (const icon of icons) {
+                    const txt = (icon.textContent || "").trim();
+                    if (txt === "arrow_forward" || txt === "send" || txt === "arrow_upward") { hasArrow = true; break; }
+                }
                 if (!hasArrow) continue;
                 const r = btn.getBoundingClientRect();
                 if (r.width <= 0 || r.height <= 0) continue;
                 const dist = Math.abs(r.top - editorRect2.top) + Math.abs(r.right - editorRect2.right);
                 if (dist < bestDist2) { bestDist2 = dist; sendBtn2 = btn; }
             }
+            // Fallback: use broadened findAllButtonsByIcon
+            if (!sendBtn2) {
+                for (const iconName of ["arrow_forward", "send", "arrow_upward"]) {
+                    const btns = findAllButtonsByIcon(iconName);
+                    for (const btn of btns) {
+                        if (!(btn as HTMLButtonElement).disabled) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) { sendBtn2 = btn; break; }
+                        }
+                    }
+                    if (sendBtn2) break;
+                }
+            }
             if (!sendBtn2) {
                 for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-                    const icons = btn.querySelectorAll("i");
+                    const icons = btn.querySelectorAll("i, span[class*='icon'], span[class*='material']");
                     for (const icon of icons) {
                         if ((icon.textContent || "").trim() === "arrow_forward") {
                             const r = btn.getBoundingClientRect();
@@ -4338,15 +4404,31 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
 
     const downloadStartedAt = Date.now();
 
-    // Step 1: Click ดาวน์โหลด button (has <i>download</i> icon)
+    // Step 1: Click ดาวน์โหลด button — broadened for Tahoe 26.2+
     let dlBtn: HTMLElement | null = null;
     const dlPoll = Date.now();
     while (!dlBtn && Date.now() - dlPoll < (isMac ? 15000 : 10000)) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button")) {
-            const icon = btn.querySelector("i");
-            if (icon && (icon.textContent || "").trim() === "download") {
-                const r = btn.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+        // Strategy A: use broadened findAllButtonsByIcon
+        const dlBtns = findAllButtonsByIcon("download");
+        for (const btn of dlBtns) {
+            const r = btn.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+        }
+        // Strategy B: check <i>, <span> icon elements directly
+        if (!dlBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+                const iconEl = btn.querySelector("i, span[class*='icon'], span[class*='material']");
+                if (iconEl && (iconEl.textContent || "").trim() === "download") {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+                }
+                // Strategy C: aria-label or title
+                const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+                const title = (btn.getAttribute("title") || "").toLowerCase();
+                if (aria.includes("download") || aria.includes("ดาวน์โหลด") || title.includes("download") || title.includes("ดาวน์โหลด")) {
+                    const r = btn.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { dlBtn = btn; break; }
+                }
             }
         }
         if (!dlBtn) await sleep(1000);

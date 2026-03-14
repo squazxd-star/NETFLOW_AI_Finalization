@@ -52,6 +52,16 @@ const buildFullPrompt = (data: ScriptRequest): string => {
         "storytelling": "Storytelling: เล่าเรื่องราวที่มีจุดเริ่มต้น จุดพีค และจุดจบ (สินค้าคือฮีโร่)"
     };
 
+    const languageDescriptions: Record<string, string> = {
+        "th-central": "Thai (Central) - Use modern, natural Thai slang where appropriate",
+        "th-north": "Thai (Northern dialect influence when appropriate)",
+        "th-south": "Thai (Southern dialect influence when appropriate)",
+        "th-isan": "Thai (Isan dialect influence when appropriate)"
+    };
+
+    const cameraSummary = data.cameraAngles?.length ? data.cameraAngles.join(", ") : "";
+    const clothingSummary = data.clothingStyles?.length ? data.clothingStyles.join(", ") : "";
+
     let prompt = `
 You are an expert TikTok/Reels script writer representing a world-class creative agency.
 Your goal is to write a script that feels "Premium", "Authentic", and "High-Class".
@@ -79,6 +89,7 @@ Your goal is to write a script that feels "Premium", "Authentic", and "High-Clas
 ## PRODUCT INFORMATION
 - Product Name: ${data.productName || "(Extract name from description below)"}
 ${data.productDescription ? `- Description / Visual Context from AI Brain: ${data.productDescription}` : ""}
+${data.cachedProductInfo ? `- External Product Facts / Search Context: ${data.cachedProductInfo}` : ""}
 ${data.mustUseKeywords ? `- Must Include Keywords: ${data.mustUseKeywords}` : ""}
 ${data.avoidKeywords ? `- Avoid These Words: ${data.avoidKeywords}` : ""}
 
@@ -86,7 +97,36 @@ ${data.avoidKeywords ? `- Avoid These Words: ${data.avoidKeywords}` : ""}
 - Template: ${data.template || "product-review"} (${templateDescriptions[data.template || "product-review"] || ""})
 - Sales Approach: ${data.style} (${styleDescriptions[data.style] || ""})
 - Voice Tone: ${data.tone} (${toneDescriptions[data.tone] || ""})
-- Language: ${data.language === "th-central" ? "Thai (Central) - Use modern, natural Thai slang where appropriate" : "English"}
+- Language: ${languageDescriptions[data.language || "th-central"] || data.language || "Thai"}
+${data.videoStyle ? `- Visual / Video Style Preset: ${data.videoStyle}` : ""}
+${data.sceneCount ? `- Scene Count Target: ${data.sceneCount} scenes` : ""}
+${data.videoDuration ? `- Total Duration Target: ${data.videoDuration}` : ""}
+${data.aspectRatio ? `- Aspect Ratio: ${data.aspectRatio}` : ""}
+
+## CHARACTER & VISUAL DIRECTION
+${data.characterDescription ? `- Character Description: ${data.characterDescription}` : ""}
+${data.gender ? `- Gender: ${data.gender}` : ""}
+${data.ageRange ? `- Age Range: ${data.ageRange}` : ""}
+${data.expression ? `- Expression / Mood: ${data.expression}` : ""}
+${data.movement ? `- Movement / Gesture Energy: ${data.movement}` : ""}
+${data.characterOutfit ? `- Character Outfit Preset: ${data.characterOutfit}` : ""}
+${clothingSummary ? `- Clothing Style Presets: ${clothingSummary}` : ""}
+${cameraSummary ? `- Preferred Camera Angles: ${cameraSummary}` : ""}
+${data.touchLevel ? `- Product Interaction Level: ${data.touchLevel}` : ""}
+${(data.sceneBackground || data.background) ? `- Scene Background Preset: ${data.sceneBackground || data.background}` : ""}
+
+## CREATIVE REQUIREMENTS
+${data.hookText ? `- Required Hook Direction: ${data.hookText}` : ""}
+${data.ctaText ? `- Required CTA Direction: ${data.ctaText}` : ""}
+${data.prompt ? `- Extra User Prompt / Special Direction: ${data.prompt}` : ""}
+${data.sceneScriptsRaw ? `- User Draft Scene Script / Notes: ${data.sceneScriptsRaw}` : ""}
+
+## HOW TO USE THE VISUAL PRESETS
+- The script must feel compatible with the selected visual style preset, outfit preset, camera angle presets, movement level, and background preset.
+- If character outfit or clothing styles are provided, make the spoken script naturally support that persona/look.
+- If touch level is low, write dialogue that works with light presentation and pointing. If touch level is high, allow more active hands-on demonstration in the script.
+- If custom hook/CTA text is provided, preserve its selling intent and wording as much as possible while making the spoken flow natural.
+- If draft scene notes are provided, keep the same meaning and ordering unless they conflict with safety or clarity.
 
 ## OUTPUT REQUIREMENTS
 Follow this structure in your head to write the script:
@@ -492,6 +532,9 @@ export const runFullWorkflow = async (data: ScriptRequest | AdvancedVideoRequest
         // Calculate total video duration based on clip count (1 clip = 8 seconds)
         const loopCount = typeof advData.loopCount === 'number' ? advData.loopCount : 1;
         const totalDuration = loopCount * 8;
+        advData.sceneCount = advData.sceneCount || loopCount;
+        advData.videoDuration = advData.videoDuration || `${totalDuration}s`;
+        advData.sceneBackground = advData.sceneBackground || advData.background;
         console.log(`📹 Video Duration: ${loopCount} clip(s) = ${totalDuration} seconds`);
 
         // 1. Vision Analysis (Brain 🧠)
@@ -500,7 +543,15 @@ export const runFullWorkflow = async (data: ScriptRequest | AdvancedVideoRequest
             console.log(`🧠 Starting Smart Vision Analysis (${aiProvider.toUpperCase()})...`);
             const apiKey = await getApiKey(aiProvider);
             if (apiKey) {
-                const visionRes = await generateVisualPrompt(apiKey, advData.userImage, advData.productName, advData.style, advData.characterImage, totalDuration, advData.characterDescription);
+                const visionRes = await generateVisualPrompt(
+                    apiKey,
+                    advData.userImage,
+                    advData.productName,
+                    advData.videoStyle || advData.style,
+                    advData.characterImage,
+                    totalDuration,
+                    advData.characterDescription
+                );
                 if (visionRes) {
                     console.log(`✅ Smart Vision found prompt: ${visionRes.substring(0, 50)}...`);
 

@@ -188,6 +188,67 @@ const VIDEO_STYLE_MAP: Record<string, string> = {
     "relaxing": "calm relaxing zen aesthetic, soft diffused lighting, slow gentle movements"
 };
 
+const HIGH_STYLIZATION_STYLE_KEYS = new Set([
+    "cgi-realistic",
+    "fantasy",
+    "scifi",
+    "stop-motion",
+    "cute",
+    "cute-dance",
+    "vintage",
+    "futuristic",
+    "theater-drama",
+    "musical"
+]);
+
+const MOTION_EFFECT_STYLE_KEYS = new Set([
+    "stop-motion",
+    "timelapse",
+    "split-screen",
+    "chaotic",
+    "musical",
+    "cute-dance",
+    "action"
+]);
+
+const resolveStyleGuide = (config: PromptGenerationConfig): {
+    imageStyle: string;
+    videoStyle: string;
+    guard: string;
+} => {
+    const selectedStyle = config.videoStyle || "ugc-review";
+    const baseStyle = VIDEO_STYLE_MAP[selectedStyle] || VIDEO_STYLE_MAP["ugc-review"];
+    const hasRealFaceReference = !!config.characterImage;
+    const preserveRealFace = hasRealFaceReference && HIGH_STYLIZATION_STYLE_KEYS.has(selectedStyle);
+    const hasMotionEffect = MOTION_EFFECT_STYLE_KEYS.has(selectedStyle);
+
+    const imageStyle = preserveRealFace
+        ? `${baseStyle}. Preserve exact real-human facial identity, natural skin texture, and realistic anatomy from the reference; apply the style mainly through lighting, color grading, environment design, wardrobe mood, and cinematic finish`
+        : baseStyle;
+
+    const videoStyle = preserveRealFace
+        ? `${baseStyle}. Preserve the exact real-human face from the reference with natural skin texture and human proportions; let the style influence lighting, color grade, environment, pacing, and camera mood only`
+        : baseStyle;
+
+    const guard = [
+        "TEMPLATE PRIORITY: The chosen template controls narrative structure, acting beats, dialogue intent, and scene blocking.",
+        "STYLE PRIORITY: The chosen visual style affects lighting, color palette, camera treatment, environment polish, edit energy, and overall mood — it must NOT rewrite the script concept or break action clarity.",
+        preserveRealFace
+            ? "REAL FACE REFERENCE PRIORITY: Keep the person recognizably the same real human from the reference. Do NOT turn the face into a cartoon, toy-like 3D model, waxy skin, plastic CGI, or exaggerated stylized proportions."
+            : "",
+        "PRODUCT PRIORITY: The chosen style must NEVER alter the product's physical design, silhouette, label layout, material identity, or packaging shape.",
+        hasMotionEffect
+            ? "MOTION SAFETY: If the selected style suggests a gimmick motion effect, keep it subtle. Never break lip-sync quality, face continuity, hand anatomy, or product shape consistency."
+            : ""
+    ].filter(Boolean).join(" ");
+
+    return {
+        imageStyle,
+        videoStyle,
+        guard
+    };
+};
+
 // Clothing style → descriptive English
 const CLOTHING_MAP: Record<string, string> = {
     casual: "casual everyday wear", formal: "elegant formal attire",
@@ -6929,6 +6990,8 @@ export interface PromptGenerationConfig {
     ctaText?: string;
     mustUseKeywords?: string;
     avoidKeywords?: string;
+    aiPrompt?: string;
+    cachedProductInfo?: string;
 
     // Character & Style
     characterDescription?: string; // Free text: "ผู้หญิง สาว สวยๆ เกาหลี"
@@ -6987,6 +7050,8 @@ export interface VideoPromptMeta {
     brandVisualSignature: string;  // Brand-specific logo/emblem directive (e.g. Apple fruit emblem on lid)
     masterProductDirective: string; // Master Prompt: Material & Physicality + Anti-Warping + Camera Motion + Anti-Distortion
     touchLevelDesc: string;         // Product contact level directive for Scene 2+
+    extraDirection?: string;        // Free-form user direction / AI prompt
+    productContext?: string;        // Search-derived or cached product context
 }
 
 /**
@@ -7830,7 +7895,8 @@ const buildImagePrompt = (
     const environment = getSmartEnvironment(template, category, ai.environment, config.sceneBackground);
     const lighting = getSmartLighting(config.voiceTone || 'friendly', category, ai.lighting);
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
-    const visualStyleDesc = VIDEO_STYLE_MAP[config.videoStyle || "ugc-review"] || VIDEO_STYLE_MAP["ugc-review"];
+    const styleGuide = resolveStyleGuide(config);
+    const visualStyleDesc = styleGuide.imageStyle;
 
     // ── Fitness/Supplement/Protein/Yoga/Sportswear body override ──
     const ATHLETIC_CATEGORIES = new Set(['supplement', 'fitness', 'protein', 'yoga', 'sportswear']);
@@ -7883,6 +7949,12 @@ const buildImagePrompt = (
     const imageInteraction = CATEGORY_IMAGE_INTERACTION[category] || CATEGORY_IMAGE_INTERACTION["other"] || '';
     const imageGripPhysics = buildContactPhysicsDirective(category);
     const imageUsageRealism = PRODUCT_USAGE_REALISM[category] || '';
+    const extraDirectionBlock = config.aiPrompt?.trim()
+        ? `USER CREATIVE DIRECTION: ${config.aiPrompt.trim()}`
+        : '';
+    const productContextBlock = config.cachedProductInfo?.trim()
+        ? `PRODUCT CONTEXT FROM SEARCH / CACHE: ${config.cachedProductInfo.trim()}`
+        : '';
 
     let referenceSection = "";
     if (hasCharImage && hasProductImage) {
@@ -7912,6 +7984,7 @@ ${charDescPrompt ? `\nCHARACTER NOTE: No character reference image provided. Gen
 [CAMERA] ${cameraDesc}. ${cinematic}.
 [SETTING] ${environment}.
 [LIGHTING] ${lighting}.
+[STYLE] ${visualStyleDesc}. ${styleGuide.guard}
 [QUALITY] ${aspectRatio} orientation, photorealistic, ultra-detailed textures, 4K quality. ${ANTI_TEXT_DIRECTIVE}
 
 COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character actively interacting with the product as described in [INTERACTION]. Both character and product must be clearly visible together.
@@ -7924,9 +7997,11 @@ ${CLOTHING_FIDELITY_DIRECTIVE}
 
 ${referenceSection}
 
+${productContextBlock}
+${extraDirectionBlock}
+
 ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}
-Style: ${visualStyleDesc}.
 `;
 
     return sanitizePromptForPolicy(prompt.trim(), imageSafeProductName);
@@ -8054,7 +8129,8 @@ const buildVideoPrompt = (
     const cinematic = ai.cinematic || CINEMATIC_SPECS[template] || CINEMATIC_SPECS["product-review"];
     const cameraMove = CAMERA_MOVEMENT[template] || CAMERA_MOVEMENT["product-review"];
     const transition = SCENE_TRANSITION[template] || SCENE_TRANSITION["product-review"];
-    const visualStyleDesc = VIDEO_STYLE_MAP[config.videoStyle || "ugc-review"] || VIDEO_STYLE_MAP["ugc-review"];
+    const styleGuide = resolveStyleGuide(config);
+    const visualStyleDesc = styleGuide.videoStyle;
 
     // ── Select persona ONCE — if character image was analyzed, pick by closest age match ──
     const persona = characterAnalysis
@@ -8078,7 +8154,13 @@ const buildVideoPrompt = (
         ? 'Aspect ratio: 9:16 vertical portrait framing.'
         : 'Aspect ratio: 16:9 horizontal landscape framing.';
 
-    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}, ${visualStyleDesc}`;
+    const styleDesc = `${templateConfig.style}, ${saleStyle.approach}, ${dynamics}, ${visualStyleDesc}. ${styleGuide.guard}`;
+    const extraDirectionBlock = config.aiPrompt?.trim()
+        ? `USER CREATIVE DIRECTION: ${config.aiPrompt.trim()}`
+        : '';
+    const productContextBlock = config.cachedProductInfo?.trim()
+        ? `PRODUCT CONTEXT FROM SEARCH / CACHE: ${config.cachedProductInfo.trim()}`
+        : '';
 
     // ── TALK-ONLY SCENE 1 — character talks to camera WITHOUT product, product appears from Scene 2+ ──
     // For multi-scene (2+), Scene 1 is ALWAYS talk-only (index 0). Product is introduced from Scene 2 onward.
@@ -8196,7 +8278,10 @@ const buildVideoPrompt = (
         `${environment}.`,
         // [6. CAMERA & LIGHTING]
         `Camera: ${cameraAngleDesc}. ${cinematic}. ${cameraMove}. ${lighting}.`,
+        productContextBlock,
+        extraDirectionBlock,
         // [7. STYLE/MOOD + REALISM]
+        `Style treatment: ${visualStyleDesc}. ${styleGuide.guard}`,
         `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
         // [7.5. SCENE 1 FACE TEMPLATE] — establishes the immutable face for all subsequent scenes
         `SCENE 1 FACE TEMPLATE: This scene establishes the DEFINITIVE face identity for the entire video. Every facial feature rendered here becomes the IMMUTABLE reference — all subsequent scenes MUST reproduce this EXACT face. The face is now LOCKED and FROZEN.`,
@@ -8236,7 +8321,9 @@ const buildVideoPrompt = (
         sceneActions: pairedSceneActions,
         brandVisualSignature,
         masterProductDirective,
-        touchLevelDesc: videoTouchDesc
+        touchLevelDesc: videoTouchDesc,
+        extraDirection: extraDirectionBlock,
+        productContext: productContextBlock
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -8329,6 +8416,9 @@ export const buildSceneVideoPromptJSON = (
 
         // [5. CAMERA & LIGHTING]
         `${meta.camera}. ${meta.lighting}.`,
+        meta.productContext || '',
+        meta.extraDirection || '',
+        `Style treatment: ${meta.style}.`,
 
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
