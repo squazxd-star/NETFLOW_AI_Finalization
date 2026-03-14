@@ -33,6 +33,14 @@ const CreateVideoTab = () => {
 
     const { register, control, watch, setValue, getValues } = form;
     const { theme, config: themeConfig } = useTheme();
+    const useAiScript = watch("useAiScript");
+    const sceneScriptsRaw = watch("sceneScriptsRaw") || "";
+    const sceneCount = (watch("sceneCount") || 2) as number;
+    const manualSceneScripts = sceneScriptsRaw
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    const isManualPromptReady = useAiScript || manualSceneScripts.length >= sceneCount;
 
     // TikTok ready state - true when products are synced
     const [isTikTokReady, setIsTikTokReady] = useState(false);
@@ -438,8 +446,16 @@ const CreateVideoTab = () => {
                                 }
 
                                 const data = getValues();
+                                const manualScripts = (data.sceneScriptsRaw || "")
+                                    .split(/\n{2,}/)
+                                    .map((part) => part.trim())
+                                    .filter(Boolean);
+                                if (!data.useAiScript && manualScripts.length < (data.sceneCount || 1)) {
+                                    alert(`โหมดเขียนเองต้องกรอกบทพูดให้ครบ ${data.sceneCount || 1} ฉากก่อนสร้าง Prompt`);
+                                    return;
+                                }
                                 console.log("[Prompt Button] Form data:", data);
-                                const { generatePrompts, generateQuickPrompts } = await import("@/services/veoPromptService");
+                                const { generatePrompts } = await import("@/services/veoPromptService");
 
                                 // Build config for AI prompt service — ALL form fields
                                 const promptConfig = {
@@ -535,13 +551,14 @@ const CreateVideoTab = () => {
                                     setIsGeneratingPrompt(false);
                                 }
                             }}
-                            disabled={isGeneratingPrompt}
+                            disabled={isGeneratingPrompt || !isManualPromptReady}
                             data-prompt-generate-btn="true"
                             className={`text-[10px] px-3 py-1.5 rounded-lg transition-all duration-300 flex items-center gap-1.5 font-medium ${
-                                isGeneratingPrompt
+                                isGeneratingPrompt || !isManualPromptReady
                                     ? 'bg-neon-red/80 text-white cursor-wait'
                                     : 'ai-btn-shimmer text-white hover:scale-105 active:scale-95 shadow-sm shadow-neon-red/20'
                             }`}
+                            title={!isManualPromptReady ? `กรอกสคริปต์ให้ครบ ${sceneCount} ฉากก่อนสร้าง Prompt` : undefined}
                         >
                             {isGeneratingPrompt ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -551,6 +568,12 @@ const CreateVideoTab = () => {
                             {isGeneratingPrompt ? 'AI กำลังสร้าง...' : 'สร้าง/อัปเดต Prompt'}
                         </button>
                     </div>
+
+                    {!isManualPromptReady && (
+                        <p className="text-[10px] text-amber-300/90">
+                            โหมดเขียนเอง: กรุณากรอกบทพูดให้ครบ {sceneCount} ฉากในส่วนสคริปต์ด้านล่างก่อนกดสร้าง Prompt
+                        </p>
+                    )}
 
                     {generatedImagePrompt && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300 relative">
