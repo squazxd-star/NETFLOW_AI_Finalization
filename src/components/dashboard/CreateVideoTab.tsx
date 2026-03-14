@@ -470,7 +470,9 @@ const CreateVideoTab = () => {
                                     characterOutfit: data.characterOutfit || "original",
                                     cameraAngles: data.cameraAngles || ["front", "close-up"],
                                     touchLevel: data.touchLevel || "light",
-                                    sceneBackground: data.sceneBackground || "studio",
+                                    sceneBackground: data.sceneBackground === "custom" && data.customSceneBackground 
+                                        ? data.customSceneBackground 
+                                        : data.sceneBackground || "studio",
                                 };
 
                                 // Show loading state

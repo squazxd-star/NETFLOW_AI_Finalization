@@ -407,9 +407,12 @@ export const useVideoGeneration = () => {
                 videoStyle: data.videoStyle || "ugc-review",
                 clothingStyles: data.clothingStyles || ["casual"],
                 characterOutfit: data.characterOutfit || "original",
+                customOutfitPrompt: data.customOutfitPrompt || "",
                 cameraAngles: data.cameraAngles || ["front", "close-up"],
                 touchLevel: data.touchLevel || "light",
-                sceneBackground: data.sceneBackground || "studio",
+                sceneBackground: data.sceneBackground === "custom" && data.customSceneBackground 
+                    ? data.customSceneBackground 
+                    : data.sceneBackground || "studio",
                 sceneScriptsRaw: data.sceneScriptsRaw || "",
                 cachedProductInfo: data.cachedProductInfo || "",
                 sceneCount: data.sceneCount || data.loopCount || 1

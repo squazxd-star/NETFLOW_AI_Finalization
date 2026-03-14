@@ -409,12 +409,9 @@ const AiScriptSection = ({
                         {sceneBackground === "custom" && (
                             <input
                                 type="text"
+                                {...register("customSceneBackground")}
                                 placeholder="พิมพ์ฉากที่ต้องการ เช่น ร้านขายยา, สระว่ายน้ำ..."
                                 className="w-full neon-input text-xs mt-2"
-                                onChange={(e) => {
-                                    const input = e.target as HTMLInputElement;
-                                    input.dataset.customBg = e.target.value;
-                                }}
                             />
                         )}
                     </div>

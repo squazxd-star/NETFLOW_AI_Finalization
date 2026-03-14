@@ -479,9 +479,10 @@ const OUTFIT_PROMPT_MAP: Record<string, string[]> = {
 };
 
 // Helper: pick random outfit prompt variant
-function getOutfitDescription(outfitKey?: string): string {
+function getOutfitDescription(outfitKey?: string, customOutfitPrompt?: string): string {
     if (!outfitKey) return "casual everyday wear";
     if (outfitKey === "original") return "EXACTLY the same clothing visible in the reference image — preserve every detail of the outfit including color, pattern, fabric, fit, and accessories. Do NOT change or replace any clothing item.";
+    if (outfitKey === "custom" && customOutfitPrompt) return customOutfitPrompt;
     const variants = OUTFIT_PROMPT_MAP[outfitKey];
     if (!variants || variants.length === 0) return "casual everyday wear";
     return variants[Math.floor(Math.random() * variants.length)];
@@ -7001,6 +7002,7 @@ export interface PromptGenerationConfig {
     movement?: string;          // static, minimal, active
     clothingStyles?: string[];  // casual, formal, sporty, fashion, uniform
     characterOutfit?: string;   // detailed outfit key from characterOutfitOptions
+    customOutfitPrompt?: string; // user-provided custom outfit text
     cameraAngles?: string[];    // front, side, close-up, full-body, dynamic
     touchLevel?: string;        // none, light, medium, heavy — how much character touches/interacts with product
 
@@ -7737,7 +7739,7 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
  * @param formAgeRange - age range from form ("child" | "teen" | "young-adult" | "adult" | "middle-age" | "senior")
  * @returns Rich English character portrait description string
  */
-const buildCharacterPortraitPrompt = (description: string, formGender: string, formAgeRange?: string, formOutfitKey?: string): string => {
+const buildCharacterPortraitPrompt = (description: string, formGender: string, formAgeRange?: string, formOutfitKey?: string, formCustomOutfitPrompt?: string): string => {
     const desc = description.toLowerCase().trim();
     if (!desc) return '';
 
@@ -7810,7 +7812,7 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
     const outfit = descHasClothing
         ? '' // Skip dropdown/profile — clothing from description flows through extraDesc
         : (formOutfitKey && formOutfitKey !== 'original')
-            ? getOutfitDescription(formOutfitKey)
+            ? getOutfitDescription(formOutfitKey, formCustomOutfitPrompt)
             : pickRandom(profile.outfits);
     const setting = pickRandom(profile.settings);
     const lighting = pickRandom(profile.lightings);
@@ -7913,7 +7915,7 @@ const buildImagePrompt = (
     // ── Character portrait from text description (when no character image) ──
     const hasCharImage = !!config.characterImage;
     const charDescPrompt = (!hasCharImage && config.characterDescription?.trim())
-        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female', config.ageRange, config.characterOutfit)
+        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female', config.ageRange, config.characterOutfit, config.customOutfitPrompt)
         : '';
 
     // Age descriptor for image prompt — ensures generated face matches selected age
@@ -8046,7 +8048,7 @@ const buildVideoPrompt = (
     const clothingDesc = vidDescHasClothing
         ? (config.characterDescription?.trim() || "casual everyday wear")
         : config.characterOutfit
-            ? getOutfitDescription(config.characterOutfit)
+            ? getOutfitDescription(config.characterOutfit, config.customOutfitPrompt)
             : (config.clothingStyles || ["casual"]).map(s => CLOTHING_MAP[s] || s).join(", ");
 
     // ── Camera angles ──

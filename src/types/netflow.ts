@@ -40,7 +40,8 @@ export type CharacterOutfitOption =
     | "uniform-nurse" | "uniform-office" | "uniform-school" | "uniform-chef"
     | "pajamas" | "beach-wear" | "luxury-brand"
     | "cardigan" | "trenchcoat" | "bomber-jacket"
-    | "linen-casual" | "ruffle-blouse" | "off-shoulder";
+    | "linen-casual" | "ruffle-blouse" | "off-shoulder"
+    | "custom";
 export type BackgroundOption = "studio" | "outdoor" | "home" | "office" | "abstract";
 export type VoiceSettingOption = "original" | "ai-generated" | "text-to-speech";
 export type ExpressionOption = "neutral" | "happy" | "excited" | "serious";

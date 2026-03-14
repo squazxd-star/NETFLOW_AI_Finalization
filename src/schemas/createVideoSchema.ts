@@ -26,8 +26,10 @@ export const createVideoSchema = z.object({
         "uniform-nurse", "uniform-office", "uniform-school", "uniform-chef",
         "pajamas", "beach-wear", "luxury-brand",
         "cardigan", "trenchcoat", "bomber-jacket",
-        "linen-casual", "ruffle-blouse", "off-shoulder"
+        "linen-casual", "ruffle-blouse", "off-shoulder",
+        "custom"
     ]).default("original"),
+    customOutfitPrompt: z.string().default(""),
     touchLevel: z.enum(["none", "light", "medium", "heavy"]).default("light"),
     cameraAngles: z.array(z.enum(["front", "side", "close-up", "full-body", "dynamic"])).default(["front", "close-up"]),
 
@@ -102,6 +104,7 @@ export const createVideoSchema = z.object({
 
     // Scene Background
     sceneBackground: z.string().default("studio"),
+    customSceneBackground: z.string().default(""),
 
     // Keywords
     mustUseKeywords: z.string().default(""),
