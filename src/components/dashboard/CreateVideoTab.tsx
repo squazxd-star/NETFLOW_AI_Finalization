@@ -120,6 +120,17 @@ const CreateVideoTab = () => {
     const [isLooping, setIsLooping] = useState(false);
     const [promptCompleteAnim, setPromptCompleteAnim] = useState(false);
     const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
+    const prevGeneratingRef = useRef(false);
+
+    // Detect prompt generation complete → show animation
+    useEffect(() => {
+        if (prevGeneratingRef.current && !isGeneratingPrompt && generatedImagePrompt) {
+            setPromptCompleteAnim(true);
+            const timer = setTimeout(() => setPromptCompleteAnim(false), 9000);
+            return () => clearTimeout(timer);
+        }
+        prevGeneratingRef.current = isGeneratingPrompt;
+    }, [isGeneratingPrompt, generatedImagePrompt]);
     // ─── Multi-Tab Log Management ───────────────────────────────────────────
     const [tabLogs, setTabLogs] = useState<Record<number, string[]>>({});
     const [automationTabs, setAutomationTabs] = useState<{ tabId: number; title: string; running: boolean }[]>([]);
@@ -533,38 +544,82 @@ const CreateVideoTab = () => {
 
                     {generatedImagePrompt && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300 relative">
-                            {/* Generate Prompt Complete Animation Overlay */}
-                            {promptCompleteAnim && (
-                                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl overflow-hidden"
-                                    style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.8) 100%)' }}
+                            {/* Generate Prompt Complete — Full Card Takeover Animation */}
+                            {promptCompleteAnim ? (
+                                <div
+                                    className="rounded-xl overflow-hidden flex flex-col items-center justify-center py-10 px-4"
+                                    style={{
+                                        background: `radial-gradient(ellipse at center, rgba(0,0,0,0.95) 0%, rgba(10,10,20,0.98) 60%, rgba(0,0,0,1) 100%)`,
+                                        border: `1px solid ${themeConfig.gradientFrom}40`,
+                                        boxShadow: `0 0 40px ${themeConfig.gradientFrom}15, inset 0 0 60px ${themeConfig.gradientFrom}08`,
+                                        minHeight: '160px',
+                                    }}
                                 >
-                                    <div className="text-center space-y-3">
-                                        <div className="flex items-center justify-center gap-1">
-                                            {'✨ Generate Prompt Complete ✨'.split('').map((char, i) => (
+                                    {/* Line 1: Generate Prompt */}
+                                    <div className="flex flex-wrap items-center justify-center">
+                                        {'Generate Prompt'.split('').map((char, i) => (
+                                            <span
+                                                key={`l1-${i}`}
+                                                className="inline-block font-black tracking-wide"
+                                                style={{
+                                                    fontSize: '1.6rem',
+                                                    lineHeight: 1.2,
+                                                    opacity: 0,
+                                                    background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff)`,
+                                                    WebkitBackgroundClip: 'text',
+                                                    WebkitTextFillColor: 'transparent',
+                                                    animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.2}s forwards`,
+                                                    filter: `drop-shadow(0 0 12px ${themeConfig.gradientFrom})`,
+                                                }}
+                                            >
+                                                {char === ' ' ? '\u00A0' : char}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    {/* Line 2: Complete!! */}
+                                    <div className="flex flex-wrap items-center justify-center mt-1">
+                                        {'Complete!!'.split('').map((char, i) => {
+                                            const delay = ('Generate Prompt'.length * 0.2) + (i * 0.2);
+                                            return (
                                                 <span
-                                                    key={i}
-                                                    className="inline-block text-sm font-bold"
+                                                    key={`l2-${i}`}
+                                                    className="inline-block font-black tracking-wide"
                                                     style={{
-                                                        color: char === ' ' ? 'transparent' : undefined,
-                                                        background: char !== ' ' ? `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff)` : undefined,
-                                                        WebkitBackgroundClip: char !== ' ' ? 'text' : undefined,
-                                                        WebkitTextFillColor: char !== ' ' ? 'transparent' : undefined,
-                                                        animation: `prompt-complete-letter 0.5s ease-out ${i * 0.04}s both, prompt-complete-glow 1.5s ease-in-out ${i * 0.04 + 0.5}s infinite alternate`,
-                                                        textShadow: `0 0 10px ${themeConfig.gradientFrom}`,
+                                                        fontSize: '1.6rem',
+                                                        lineHeight: 1.2,
+                                                        opacity: 0,
+                                                        background: `linear-gradient(135deg, #fff, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom})`,
+                                                        WebkitBackgroundClip: 'text',
+                                                        WebkitTextFillColor: 'transparent',
+                                                        animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}s forwards, prompt-complete-glow 1.2s ease-in-out ${delay + 0.6}s infinite alternate`,
+                                                        filter: `drop-shadow(0 0 14px ${themeConfig.gradientVia})`,
                                                     }}
                                                 >
-                                                    {char === ' ' ? '\u00A0' : char}
+                                                    {char}
                                                 </span>
-                                            ))}
-                                        </div>
-                                        <div className="flex justify-center gap-1 mt-2">
-                                            {[0, 1, 2].map(i => (
-                                                <span key={i} className="w-1.5 h-1.5 rounded-full bg-neon-red animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                                            ))}
-                                        </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {/* Sparkle dots */}
+                                    <div className="flex justify-center gap-2 mt-5">
+                                        {[0, 1, 2, 3, 4].map(i => (
+                                            <span
+                                                key={i}
+                                                className="rounded-full animate-bounce"
+                                                style={{
+                                                    width: '6px',
+                                                    height: '6px',
+                                                    background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})`,
+                                                    animationDelay: `${i * 0.12}s`,
+                                                    boxShadow: `0 0 8px ${themeConfig.gradientFrom}`,
+                                                    opacity: 0,
+                                                    animation: `prompt-complete-letter 0.4s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.3 + i * 0.1}s forwards, bounce 1s ease-in-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.8 + i * 0.1}s infinite`,
+                                                }}
+                                            />
+                                        ))}
                                     </div>
                                 </div>
-                            )}
+                            ) : (
                             <div className={`p-3 rounded-xl border space-y-2 transition-all duration-500 ${
                                 isGeneratingPrompt
                                     ? 'bg-black/60 border-neon-red/40 ai-thinking-card animate-border-glow'
@@ -651,6 +706,7 @@ const CreateVideoTab = () => {
                                     </div>
                                 )}
                             </div>
+                            )}
                         </div>
                     )}
                 </div>
