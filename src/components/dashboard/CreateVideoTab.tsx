@@ -115,10 +115,11 @@ const CreateVideoTab = () => {
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
     // ─── Loop System ──────────────────────────────────────────────────────
-    const [loopCount, setLoopCount] = useState(1);
+    const [loopCount, setLoopCount] = useState<number>(1);
     const [currentLoop, setCurrentLoop] = useState(0);
     const [isLooping, setIsLooping] = useState(false);
     const [promptCompleteAnim, setPromptCompleteAnim] = useState(false);
+    const [showCustomLoop, setShowCustomLoop] = useState(false);
     const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
     const prevGeneratingRef = useRef(false);
 
@@ -230,7 +231,8 @@ const CreateVideoTab = () => {
 
             const nextLoop = currentLoop + 1;
             const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopCount} — เตรียมรอบถัดไป...`] }));
+            const loopLabel = loopCount === Infinity ? '∞' : loopCount;
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopLabel} — เตรียมรอบถัดไป...`] }));
 
             // Wait for tab to close
             await new Promise(r => setTimeout(r, 4000));
@@ -284,7 +286,7 @@ const CreateVideoTab = () => {
 
             // Step 3: Start automation again
             setCurrentLoop(nextLoop);
-            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopCount}...`] }));
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopLabel}...`] }));
 
             // Trigger OPEN_FLOW_AND_GENERATE
             const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
@@ -544,79 +546,171 @@ const CreateVideoTab = () => {
 
                     {generatedImagePrompt && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300 relative">
-                            {/* Generate Prompt Complete — Full Card Takeover Animation */}
+                            {/* Generate Prompt Complete — Cyber Full Card Takeover */}
                             {promptCompleteAnim ? (
                                 <div
-                                    className="rounded-xl overflow-hidden flex flex-col items-center justify-center py-10 px-4"
+                                    className="rounded-xl overflow-hidden relative"
                                     style={{
-                                        background: `radial-gradient(ellipse at center, rgba(0,0,0,0.95) 0%, rgba(10,10,20,0.98) 60%, rgba(0,0,0,1) 100%)`,
-                                        border: `1px solid ${themeConfig.gradientFrom}40`,
-                                        boxShadow: `0 0 40px ${themeConfig.gradientFrom}15, inset 0 0 60px ${themeConfig.gradientFrom}08`,
-                                        minHeight: '160px',
+                                        background: `linear-gradient(180deg, rgba(0,0,0,0.98) 0%, rgba(5,5,15,0.99) 50%, rgba(0,0,0,0.98) 100%)`,
+                                        border: `1px solid ${themeConfig.gradientFrom}50`,
+                                        minHeight: '200px',
+                                        animation: `cyber-border-pulse 2s ease-in-out infinite`,
+                                        ['--cyber-glow' as string]: `${themeConfig.gradientFrom}30`,
                                     }}
                                 >
-                                    {/* Line 1: Generate Prompt */}
-                                    <div className="flex flex-wrap items-center justify-center">
-                                        {'Generate Prompt'.split('').map((char, i) => (
-                                            <span
-                                                key={`l1-${i}`}
-                                                className="inline-block font-black tracking-wide"
-                                                style={{
-                                                    fontSize: '1.6rem',
-                                                    lineHeight: 1.2,
-                                                    opacity: 0,
-                                                    background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff)`,
-                                                    WebkitBackgroundClip: 'text',
-                                                    WebkitTextFillColor: 'transparent',
-                                                    animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.2}s forwards`,
-                                                    filter: `drop-shadow(0 0 12px ${themeConfig.gradientFrom})`,
-                                                }}
-                                            >
-                                                {char === ' ' ? '\u00A0' : char}
-                                            </span>
-                                        ))}
+                                    {/* CRT Scanline overlay */}
+                                    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl" style={{ opacity: 0.06 }}>
+                                        <div className="absolute inset-0" style={{
+                                            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.08) 2px, rgba(255,255,255,0.08) 4px)',
+                                        }} />
+                                        <div className="absolute w-full" style={{
+                                            height: '40%',
+                                            background: `linear-gradient(180deg, transparent 0%, ${themeConfig.gradientFrom}15 50%, transparent 100%)`,
+                                            animation: 'cyber-scanline 3s linear infinite',
+                                        }} />
                                     </div>
-                                    {/* Line 2: Complete!! */}
-                                    <div className="flex flex-wrap items-center justify-center mt-1">
-                                        {'Complete!!'.split('').map((char, i) => {
-                                            const delay = ('Generate Prompt'.length * 0.2) + (i * 0.2);
-                                            return (
+
+                                    {/* Cyber grid background */}
+                                    <div className="absolute inset-0 pointer-events-none rounded-xl" style={{
+                                        opacity: 0.04,
+                                        backgroundImage: `linear-gradient(${themeConfig.gradientFrom}40 1px, transparent 1px), linear-gradient(90deg, ${themeConfig.gradientFrom}40 1px, transparent 1px)`,
+                                        backgroundSize: '20px 20px',
+                                    }} />
+
+                                    {/* Corner accents */}
+                                    {['top-0 left-0', 'top-0 right-0 -scale-x-100', 'bottom-0 left-0 -scale-y-100', 'bottom-0 right-0 -scale-x-100 -scale-y-100'].map((pos, idx) => (
+                                        <div key={idx} className={`absolute ${pos} w-6 h-6 pointer-events-none`} style={{
+                                            borderLeft: `2px solid ${themeConfig.gradientFrom}`,
+                                            borderTop: `2px solid ${themeConfig.gradientFrom}`,
+                                            opacity: 0,
+                                            animation: `prompt-complete-letter 0.4s ease-out ${0.3 + idx * 0.1}s forwards`,
+                                        }} />
+                                    ))}
+
+                                    {/* Top decorative bar */}
+                                    <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1" style={{ opacity: 0, animation: `prompt-complete-letter 0.5s ease-out 0.2s forwards` }}>
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.gradientFrom, boxShadow: `0 0 6px ${themeConfig.gradientFrom}` }} />
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.gradientVia, boxShadow: `0 0 6px ${themeConfig.gradientVia}`, opacity: 0.7 }} />
+                                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                                        <div className="h-px flex-1 ml-1" style={{ background: `linear-gradient(90deg, ${themeConfig.gradientFrom}50, transparent)` }} />
+                                        <span className="text-[7px] font-mono tracking-widest uppercase" style={{ color: `${themeConfig.gradientFrom}80` }}>NETFLOW://PROMPT.GEN</span>
+                                        <div className="h-px w-6" style={{ background: `linear-gradient(90deg, transparent, ${themeConfig.gradientFrom}50)` }} />
+                                    </div>
+
+                                    {/* Main content */}
+                                    <div className="flex flex-col items-center justify-center py-6 px-4 relative z-10">
+                                        {/* Horizontal neon bar — top */}
+                                        <div className="w-3/4 h-px mb-4" style={{
+                                            background: `linear-gradient(90deg, transparent, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom}, transparent)`,
+                                            boxShadow: `0 0 10px ${themeConfig.gradientFrom}60`,
+                                            opacity: 0,
+                                            transformOrigin: 'center',
+                                            animation: `cyber-hbar 0.8s ease-out 0.5s forwards`,
+                                        }} />
+
+                                        {/* Line 1: Generate Prompt */}
+                                        <div className="flex flex-wrap items-center justify-center" style={{ animation: 'cyber-flicker 3s ease-in-out 5s 1' }}>
+                                            {'Generate Prompt'.split('').map((char, i) => (
                                                 <span
-                                                    key={`l2-${i}`}
-                                                    className="inline-block font-black tracking-wide"
+                                                    key={`l1-${i}`}
+                                                    className="inline-block font-black tracking-wider uppercase"
                                                     style={{
-                                                        fontSize: '1.6rem',
+                                                        fontSize: '1.5rem',
                                                         lineHeight: 1.2,
+                                                        fontFamily: '"Prompt", system-ui, sans-serif',
+                                                        letterSpacing: '0.12em',
                                                         opacity: 0,
-                                                        background: `linear-gradient(135deg, #fff, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom})`,
+                                                        background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff, ${themeConfig.gradientVia})`,
                                                         WebkitBackgroundClip: 'text',
                                                         WebkitTextFillColor: 'transparent',
-                                                        animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}s forwards, prompt-complete-glow 1.2s ease-in-out ${delay + 0.6}s infinite alternate`,
-                                                        filter: `drop-shadow(0 0 14px ${themeConfig.gradientVia})`,
+                                                        animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.2}s forwards`,
+                                                        filter: `drop-shadow(0 0 12px ${themeConfig.gradientFrom}) drop-shadow(0 0 24px ${themeConfig.gradientFrom}40)`,
                                                     }}
                                                 >
-                                                    {char}
+                                                    {char === ' ' ? '\u00A0' : char}
                                                 </span>
-                                            );
-                                        })}
+                                            ))}
+                                        </div>
+                                        {/* Line 2: Complete!! */}
+                                        <div className="flex flex-wrap items-center justify-center mt-0.5" style={{ animation: 'cyber-glitch 0.3s ease-in-out 5.5s 2' }}>
+                                            {'Complete!!'.split('').map((char, i) => {
+                                                const delay = ('Generate Prompt'.length * 0.2) + (i * 0.2);
+                                                return (
+                                                    <span
+                                                        key={`l2-${i}`}
+                                                        className="inline-block font-black tracking-wider uppercase"
+                                                        style={{
+                                                            fontSize: '1.5rem',
+                                                            lineHeight: 1.2,
+                                                            fontFamily: '"Prompt", system-ui, sans-serif',
+                                                            letterSpacing: '0.12em',
+                                                            opacity: 0,
+                                                            background: `linear-gradient(135deg, #fff, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom})`,
+                                                            WebkitBackgroundClip: 'text',
+                                                            WebkitTextFillColor: 'transparent',
+                                                            animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}s forwards, prompt-complete-glow 1.5s ease-in-out ${delay + 0.8}s infinite`,
+                                                            filter: `drop-shadow(0 0 14px ${themeConfig.gradientVia}) drop-shadow(0 0 28px ${themeConfig.gradientVia}30)`,
+                                                        }}
+                                                    >
+                                                        {char}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Horizontal neon bar — bottom */}
+                                        <div className="w-3/4 h-px mt-4" style={{
+                                            background: `linear-gradient(90deg, transparent, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, transparent)`,
+                                            boxShadow: `0 0 10px ${themeConfig.gradientVia}60`,
+                                            opacity: 0,
+                                            transformOrigin: 'center',
+                                            animation: `cyber-hbar 0.8s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.3}s forwards`,
+                                        }} />
+
+                                        {/* Status text */}
+                                        <div className="mt-3 flex items-center gap-2" style={{
+                                            opacity: 0,
+                                            animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.6}s forwards`,
+                                        }}>
+                                            <span className="text-[8px] font-mono tracking-[0.2em] uppercase" style={{ color: `${themeConfig.gradientFrom}90` }}>
+                                                ■ STATUS: SUCCESS
+                                            </span>
+                                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{
+                                                background: themeConfig.gradientFrom,
+                                                boxShadow: `0 0 6px ${themeConfig.gradientFrom}`,
+                                                animation: 'pulse 1.5s ease-in-out infinite',
+                                            }} />
+                                            <span className="text-[8px] font-mono tracking-[0.2em] uppercase" style={{ color: `${themeConfig.gradientVia}70` }}>
+                                                READY
+                                            </span>
+                                        </div>
+
+                                        {/* Data stream bars */}
+                                        <div className="flex justify-center gap-1 mt-3">
+                                            {Array.from({ length: 12 }).map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="rounded-sm"
+                                                    style={{
+                                                        width: '3px',
+                                                        height: `${8 + Math.sin(i * 0.8) * 6}px`,
+                                                        background: `linear-gradient(180deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}80)`,
+                                                        boxShadow: `0 0 4px ${themeConfig.gradientFrom}40`,
+                                                        opacity: 0,
+                                                        animation: `prompt-complete-letter 0.3s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.5 + i * 0.05}s forwards, pulse 1.2s ease-in-out ${1 + i * 0.1}s infinite alternate`,
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
                                     </div>
-                                    {/* Sparkle dots */}
-                                    <div className="flex justify-center gap-2 mt-5">
-                                        {[0, 1, 2, 3, 4].map(i => (
-                                            <span
-                                                key={i}
-                                                className="rounded-full animate-bounce"
-                                                style={{
-                                                    width: '6px',
-                                                    height: '6px',
-                                                    background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})`,
-                                                    animationDelay: `${i * 0.12}s`,
-                                                    boxShadow: `0 0 8px ${themeConfig.gradientFrom}`,
-                                                    opacity: 0,
-                                                    animation: `prompt-complete-letter 0.4s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.3 + i * 0.1}s forwards, bounce 1s ease-in-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.8 + i * 0.1}s infinite`,
-                                                }}
-                                            />
-                                        ))}
+
+                                    {/* Bottom decorative bar */}
+                                    <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1" style={{ opacity: 0, animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.8}s forwards` }}>
+                                        <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${themeConfig.gradientFrom}40, transparent)` }} />
+                                        <span className="text-[7px] font-mono tracking-widest" style={{ color: `${themeConfig.gradientVia}50` }}>
+                                            {'//'.padEnd(20, '─')}
+                                        </span>
+                                        <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, transparent, ${themeConfig.gradientFrom}40)` }} />
                                     </div>
                                 </div>
                             ) : (
@@ -723,7 +817,7 @@ const CreateVideoTab = () => {
                     </p>
 
                     {/* Loop Count Selector */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
                         <span className="text-[10px] text-muted-foreground">จำนวนรอบ:</span>
                         <div className="flex items-center gap-1">
@@ -731,9 +825,9 @@ const CreateVideoTab = () => {
                                 <button
                                     key={n}
                                     type="button"
-                                    onClick={() => setLoopCount(n)}
+                                    onClick={() => { setLoopCount(n); setShowCustomLoop(false); }}
                                     className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all ${
-                                        loopCount === n
+                                        loopCount === n && !showCustomLoop
                                             ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
                                             : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                     }`}
@@ -741,10 +835,52 @@ const CreateVideoTab = () => {
                                     {n}
                                 </button>
                             ))}
+                            {/* Infinity */}
+                            <button
+                                type="button"
+                                onClick={() => { setLoopCount(Infinity); setShowCustomLoop(false); }}
+                                className={`w-7 h-7 rounded-lg text-[12px] font-bold transition-all ${
+                                    loopCount === Infinity
+                                        ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
+                                        : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                }`}
+                            >
+                                ∞
+                            </button>
+                            {/* Custom */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowCustomLoop(true);
+                                    if (![1,2,3,5,10].includes(loopCount) && loopCount !== Infinity) return;
+                                    setLoopCount(20);
+                                }}
+                                className={`h-7 px-2 rounded-lg text-[9px] font-bold transition-all ${
+                                    showCustomLoop
+                                        ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
+                                        : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                }`}
+                            >
+                                #
+                            </button>
+                            {showCustomLoop && (
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={9999}
+                                    value={loopCount === Infinity ? '' : loopCount}
+                                    onChange={(e) => {
+                                        const v = parseInt(e.target.value, 10);
+                                        if (!isNaN(v) && v >= 1) setLoopCount(v);
+                                    }}
+                                    className="w-14 h-7 rounded-lg text-[10px] font-bold text-center bg-muted/30 border border-neon-red/50 text-foreground focus:outline-none focus:ring-1 focus:ring-neon-red/50"
+                                    autoFocus
+                                />
+                            )}
                         </div>
                         {isLooping && (
                             <span className="text-[10px] text-neon-red font-medium ml-auto animate-pulse">
-                                🔄 Loop {currentLoop + 1}/{loopCount}
+                                🔄 Loop {currentLoop + 1}/{loopCount === Infinity ? '∞' : loopCount}
                             </span>
                         )}
                     </div>
@@ -837,7 +973,7 @@ const CreateVideoTab = () => {
                                         AUTOMATION
                                     </span>
                                     <span className="text-[10px] font-normal opacity-70">
-                                        {loopCount > 1 ? `สร้างคลิปอัตโนมัติ x${loopCount}` : 'สร้างคลิปอัตโนมัติ'}
+                                        {loopCount === Infinity ? 'สร้างคลิปอัตโนมัติ x∞' : loopCount > 1 ? `สร้างคลิปอัตโนมัติ x${loopCount}` : 'สร้างคลิปอัตโนมัติ'}
                                     </span>
                                 </>
                             )}
