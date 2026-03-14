@@ -1493,29 +1493,105 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
             female: "elderly lady voice — warm, wise, gentle with age, slower pace, kind grandmotherly softness"
         }
     };
+    const ageKey = ageRange || 'adult';
     const ageVoiceQuality = ageRange
         ? (AGE_VOICE_QUALITY[ageRange] || AGE_VOICE_QUALITY['adult'])[isMale ? 'male' : 'female']
         : '';
 
-    // Visual speaking behavior per tone (how the character LOOKS while speaking, not how they SOUND)
-    const speakingBehavior: Record<string, string> = {
-        "energetic": "animated expressive mouth movements, wide gestures, dynamic head movement, excited facial expressions",
-        "calm": "gentle steady mouth movements, minimal gestures, relaxed composed expression, slow deliberate delivery",
-        "friendly": "natural conversational mouth movements, warm smile between words, casual hand gestures, approachable expression",
-        "professional": "clear articulate mouth movements, controlled gestures, confident posture, authoritative expression",
-        "cute": "playful exaggerated mouth movements, bouncy head tilts, cheerful expressions, lively gestures"
+    // Visual speaking behavior per tone — AGE-AWARE (senior shouldn't "bounce", child shouldn't look "authoritative")
+    const AGE_SPEAKING_BEHAVIOR: Record<string, Record<string, string>> = {
+        "child": {
+            "energetic": "animated excited mouth movements, wide arm gestures, bouncy body, big facial expressions",
+            "calm": "gentle small mouth movements, hands close to body, soft shy expression, quiet composed posture",
+            "friendly": "natural chatty mouth movements, warm bright smile, small hand waves, open eager expression",
+            "professional": "clear careful mouth movements, hands still, focused composed expression for a child",
+            "cute": "adorable exaggerated mouth movements, head tilts, giggly expressions, fidgety playful gestures"
+        },
+        "teen": {
+            "energetic": "animated expressive mouth movements, wide gestures, dynamic head movement, excited teen expressions",
+            "calm": "relaxed steady mouth movements, minimal gestures, chill composed expression, laid-back posture",
+            "friendly": "natural conversational mouth movements, warm smile, casual hand gestures, approachable teen expression",
+            "professional": "clear articulate mouth movements, controlled gestures, confident upright posture, focused expression",
+            "cute": "playful mouth movements, bouncy head tilts, cheerful bright expressions, lively animated gestures"
+        },
+        "young-adult": {
+            "energetic": "animated expressive mouth movements, wide gestures, dynamic head movement, excited facial expressions",
+            "calm": "gentle steady mouth movements, minimal gestures, relaxed composed expression, slow deliberate delivery",
+            "friendly": "natural conversational mouth movements, warm smile between words, casual hand gestures, approachable expression",
+            "professional": "clear articulate mouth movements, controlled gestures, confident posture, authoritative expression",
+            "cute": "playful exaggerated mouth movements, bouncy head tilts, cheerful expressions, lively gestures"
+        },
+        "adult": {
+            "energetic": "dynamic expressive mouth movements, confident wide gestures, strong head movement, powerful expressions",
+            "calm": "measured steady mouth movements, controlled minimal gestures, composed serene expression, deliberate pacing",
+            "friendly": "natural warm mouth movements, genuine smile between words, open hand gestures, inviting expression",
+            "professional": "precise articulate mouth movements, controlled authoritative gestures, commanding posture, serious focused expression",
+            "cute": "unexpectedly playful mouth movements, slight head tilts, warm charming expressions, light gestures"
+        },
+        "middle-age": {
+            "energetic": "strong confident mouth movements, measured but powerful gestures, experienced dynamic expressions",
+            "calm": "slow deliberate mouth movements, minimal composed gestures, wise serene expression, grounded posture",
+            "friendly": "warm natural mouth movements, genuine experienced smile, open relaxed gestures, approachable presence",
+            "professional": "precise commanding mouth movements, authoritative controlled gestures, seasoned confident posture",
+            "cute": "warm gentle mouth movements, soft head nods, kind amused expression, endearing subtle gestures"
+        },
+        "senior": {
+            "energetic": "spirited mouth movements with natural elderly pace, gentle but enthusiastic gestures, lively warm expressions",
+            "calm": "slow gentle mouth movements, very minimal gestures, peaceful wise expression, still composed posture",
+            "friendly": "warm unhurried mouth movements, gentle kind smile, soft hand gestures, welcoming grandparent expression",
+            "professional": "deliberate measured mouth movements, dignified minimal gestures, wise authoritative expression, stately posture",
+            "cute": "gentle sweet mouth movements, soft slow head nods, kind warm smile, endearing elderly mannerisms"
+        }
     };
-    const behavior = speakingBehavior[voiceTone] || speakingBehavior["friendly"];
+    const behavior = AGE_SPEAKING_BEHAVIOR[ageKey]?.[voiceTone] || AGE_SPEAKING_BEHAVIOR['adult']?.[voiceTone] || AGE_SPEAKING_BEHAVIOR['adult']['friendly'];
 
-    // Voice tone description (safe: no Hz, no WPM — natural language only)
-    const voiceToneDesc: Record<string, string> = {
-        "energetic": "high-energy enthusiastic voice, fast lively delivery, bright and loud",
-        "calm": "soft soothing voice, slow deliberate delivery, warm and gentle",
-        "friendly": "warm conversational voice, natural relaxed delivery, approachable and sincere",
-        "professional": "confident authoritative voice, clear steady delivery, trustworthy and polished",
-        "cute": "cheerful high-pitched voice, bouncy playful delivery, sweet and youthful"
+    // Voice tone description — AGE-AWARE to avoid contradictions (e.g. senior + "high-pitched youthful")
+    // Each age group gets tone descriptors that COMPLEMENT (not contradict) the age voice quality above.
+    const AGE_TONE_VOICE: Record<string, Record<string, string>> = {
+        "child": {
+            "energetic": "excited fast-paced child voice, bursting with energy and joy, loud and animated",
+            "calm": "gentle quiet child voice, soft-spoken and a bit shy, innocent calm",
+            "friendly": "warm cheerful child voice, talkative and open, eager to share",
+            "professional": "clear articulate child voice, confident and composed for their age, focused delivery",
+            "cute": "adorable sweet child voice, giggly and playful, irresistibly charming"
+        },
+        "teen": {
+            "energetic": "lively excited teen voice, fast and enthusiastic, bursting with youthful energy",
+            "calm": "chill relaxed teen voice, soft-spoken, laid-back cool vibe",
+            "friendly": "warm friendly teen voice, approachable and chatty, natural ease",
+            "professional": "mature-sounding teen voice, articulate and focused, impressive poise",
+            "cute": "sweet bubbly teen voice, cheerful and animated, endearing charm"
+        },
+        "young-adult": {
+            "energetic": "high-energy enthusiastic voice, fast lively delivery, bright and vibrant",
+            "calm": "smooth soothing voice, relaxed unhurried delivery, warm and gentle",
+            "friendly": "warm conversational voice, natural relaxed delivery, approachable and sincere",
+            "professional": "confident clear voice, steady polished delivery, trustworthy presence",
+            "cute": "sweet playful voice, bouncy light delivery, naturally charming"
+        },
+        "adult": {
+            "energetic": "dynamic powerful voice, fast confident delivery, commanding energy and presence",
+            "calm": "deep soothing voice, measured deliberate delivery, composed and warm",
+            "friendly": "warm inviting voice, natural conversational delivery, genuine sincerity",
+            "professional": "authoritative polished voice, clear steady delivery, trustworthy and seasoned",
+            "cute": "youthful-sounding voice with light playful tone, charming despite mature age"
+        },
+        "middle-age": {
+            "energetic": "strong experienced voice with sustained energy, passionate confident delivery",
+            "calm": "deep composed voice, measured and deliberate, sage-like warmth and patience",
+            "friendly": "warm approachable voice, experienced but down-to-earth, genuine kindness",
+            "professional": "commanding seasoned voice, polished expert delivery, respected authority",
+            "cute": "surprisingly warm and playful voice, gentle humor, endearing personality"
+        },
+        "senior": {
+            "energetic": "spirited elderly voice, enthusiastic and lively despite age, warm with natural tremor of vitality",
+            "calm": "slow wise elderly voice, deliberate and measured, deep calm with aged warmth and patience",
+            "friendly": "warm grandparent voice, gentle and inviting, natural storytelling warmth",
+            "professional": "distinguished elderly voice, authoritative with decades of wisdom, measured and respected",
+            "cute": "gentle sweet elderly voice, warm and endearing, soft with occasional kind chuckle"
+        }
     };
-    const voiceDesc = voiceToneDesc[voiceTone] || voiceToneDesc["friendly"];
+    const voiceDesc = AGE_TONE_VOICE[ageKey]?.[voiceTone] || AGE_TONE_VOICE['adult']?.[voiceTone] || AGE_TONE_VOICE['adult']['friendly'];
 
     return [
         `Character '${persona.name}': ${roleLabel}, ${ageLabel}.`,
