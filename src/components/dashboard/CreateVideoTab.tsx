@@ -872,7 +872,7 @@ const CreateVideoTab = () => {
                                         : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                 }`}
                             >
-                                #
+                                กำหนดเอง
                             </button>
                             {showCustomLoop && (
                                 <input
