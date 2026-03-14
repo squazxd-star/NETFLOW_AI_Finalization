@@ -7068,9 +7068,10 @@ const STYLE_PROFILES: Record<string, CharacterStyleProfile> = {
  * 
  * @param description - Thai text like "สาวสวยเกาหลี", "สาวไทย", "หนุ่มญี่ปุ่น"
  * @param formGender - gender from form ("male" | "female")
+ * @param formAgeRange - age range from form ("child" | "teen" | "young-adult" | "adult" | "middle-age" | "senior")
  * @returns Rich English character portrait description string
  */
-const buildCharacterPortraitPrompt = (description: string, formGender: string): string => {
+const buildCharacterPortraitPrompt = (description: string, formGender: string, formAgeRange?: string): string => {
     const desc = description.toLowerCase().trim();
     if (!desc) return '';
 
@@ -7081,6 +7082,30 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string): 
     const isFemaleFromText = femaleKeywords.test(desc);
     const effectiveGender = isMaleFromText ? 'male' : (isFemaleFromText ? 'female' : formGender);
     const isMale = effectiveGender === 'male';
+
+    // ── Detect age from description text (override form ageRange if explicit) ──
+    const childKeywords = /เด็ก|child|kid|little/;
+    const teenKeywords = /วัยรุ่น|teen|teenager|adolescent/;
+    const elderKeywords = /แก่|คนแก่|ผู้สูงอายุ|ลุง|ป้า|ตา|ยาย|old|elderly|senior|grandpa|grandma/;
+    const youngAdultKeywords = /หนุ่มสาว|young.*adult|วัยทำงาน/;
+
+    let effectiveAge = formAgeRange || 'adult';
+    if (childKeywords.test(desc)) effectiveAge = 'child';
+    else if (teenKeywords.test(desc)) effectiveAge = 'teen';
+    else if (elderKeywords.test(desc)) effectiveAge = 'senior';
+    else if (youngAdultKeywords.test(desc)) effectiveAge = 'young-adult';
+
+    // ── Map age range to descriptive English phrases ──
+    const AGE_DESCRIPTORS: Record<string, { male: string; female: string }> = {
+        'child':       { male: 'young boy, approximately 8-10 years old, youthful and innocent', female: 'young girl, approximately 8-10 years old, youthful and innocent' },
+        'teen':        { male: 'teenage boy, approximately 15-17 years old, youthful and energetic', female: 'teenage girl, approximately 15-17 years old, youthful and fresh-faced' },
+        'young-adult': { male: 'young man in his early 20s, vibrant and confident', female: 'young woman in her early 20s, vibrant and radiant' },
+        'adult':       { male: 'man in his early 30s, mature and confident', female: 'woman in her early 30s, mature and graceful' },
+        'middle-age':  { male: 'distinguished man in his late 40s, experienced and charismatic', female: 'elegant woman in her late 40s, refined and sophisticated' },
+        'senior':      { male: 'elderly gentleman, 65+ years old, wise and dignified', female: 'elderly lady, 65+ years old, wise and graceful' },
+    };
+    const ageDesc = AGE_DESCRIPTORS[effectiveAge]?.[isMale ? 'male' : 'female']
+        || AGE_DESCRIPTORS['adult'][isMale ? 'male' : 'female'];
 
     // ── Detect nationality/style ──
     const isKorean = /เกาหลี|korean|k-?beauty|kpop|k-?pop|โคเรีย/.test(desc);
@@ -7124,11 +7149,11 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string): 
 
     // ── Append any remaining user-specific keywords that weren't matched ──
     // This allows "สาวเกาหลี ผมสั้น ชุดนักเรียน" to pass through extra details
-    const knownKeywords = /เกาหลี|ไทย|ญี่ปุ่น|จีน|ฝรั่ง|สาว|หนุ่ม|ผู้หญิง|ผู้ชาย|ชาย|หญิง|สวย|น่ารัก|สง่า|เซ็กซี่|korean|thai|japanese|chinese|western|male|female|beautiful|cute|sexy|elegant/gi;
+    const knownKeywords = /เกาหลี|ไทย|ญี่ปุ่น|จีน|ฝรั่ง|สาว|หนุ่ม|ผู้หญิง|ผู้ชาย|ชาย|หญิง|สวย|น่ารัก|สง่า|เซ็กซี่|เด็ก|วัยรุ่น|แก่|คนแก่|ผู้สูงอายุ|ลุง|ป้า|ตา|ยาย|หนุ่มสาว|korean|thai|japanese|chinese|western|male|female|beautiful|cute|sexy|elegant|child|teen|old|elderly|senior/gi;
     const extraDesc = desc.replace(knownKeywords, '').replace(/\s+/g, ' ').trim();
     const extraStr = extraDesc ? ` Additional details: ${extraDesc}.` : '';
 
-    return `${appearance}${traitStr}, ${hair}, ${outfit}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
+    return `${ageDesc}, ${appearance}${traitStr}, ${hair}, ${outfit}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
 };
 
 /**
@@ -7195,7 +7220,7 @@ const buildImagePrompt = (
     // ── Character portrait from text description (when no character image) ──
     const hasCharImage = !!config.characterImage;
     const charDescPrompt = (!hasCharImage && config.characterDescription?.trim())
-        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female')
+        ? buildCharacterPortraitPrompt(config.characterDescription, config.gender || 'female', config.ageRange)
         : '';
 
     let characterLine: string;
@@ -7402,7 +7427,7 @@ const buildVideoPrompt = (
     // When characterAnalysis is available (AI Vision), include precise details from the actual reference image.
     const userCharDesc = config.characterDescription?.trim() || '';
     const richCharPortrait = (!config.characterImage && userCharDesc)
-        ? buildCharacterPortraitPrompt(userCharDesc, config.gender || 'female')
+        ? buildCharacterPortraitPrompt(userCharDesc, config.gender || 'female', config.ageRange)
         : '';
     const aiAppearance = characterAnalysis
         ? `AI-observed appearance: ${characterAnalysis.overallLook}. Hair: ${characterAnalysis.hairstyle}. Build: ${characterAnalysis.build}. Skin tone: ${characterAnalysis.skinTone}. Estimated age: ${characterAnalysis.estimatedAge}.`
