@@ -123,12 +123,13 @@ const CreateVideoTab = () => {
     const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
     const prevGeneratingRef = useRef(false);
 
-    // Detect prompt generation complete → show animation
+    // Detect prompt generation complete → show animation (stays visible until next generate)
     useEffect(() => {
         if (prevGeneratingRef.current && !isGeneratingPrompt && generatedImagePrompt) {
             setPromptCompleteAnim(true);
-            const timer = setTimeout(() => setPromptCompleteAnim(false), 9000);
-            return () => clearTimeout(timer);
+        }
+        if (isGeneratingPrompt) {
+            setPromptCompleteAnim(false);
         }
         prevGeneratingRef.current = isGeneratingPrompt;
     }, [isGeneratingPrompt, generatedImagePrompt]);
@@ -623,7 +624,7 @@ const CreateVideoTab = () => {
                                                         background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff, ${themeConfig.gradientVia})`,
                                                         WebkitBackgroundClip: 'text',
                                                         WebkitTextFillColor: 'transparent',
-                                                        animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.2}s forwards`,
+                                                        animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.1}s forwards`,
                                                         filter: `drop-shadow(0 0 12px ${themeConfig.gradientFrom}) drop-shadow(0 0 24px ${themeConfig.gradientFrom}40)`,
                                                     }}
                                                 >
@@ -634,7 +635,7 @@ const CreateVideoTab = () => {
                                         {/* Line 2: Complete!! */}
                                         <div className="flex flex-wrap items-center justify-center mt-0.5" style={{ animation: 'cyber-glitch 0.3s ease-in-out 5.5s 2' }}>
                                             {'Complete!!'.split('').map((char, i) => {
-                                                const delay = ('Generate Prompt'.length * 0.2) + (i * 0.2);
+                                                const delay = ('Generate Prompt'.length * 0.1) + (i * 0.1);
                                                 return (
                                                     <span
                                                         key={`l2-${i}`}
@@ -664,13 +665,13 @@ const CreateVideoTab = () => {
                                             boxShadow: `0 0 10px ${themeConfig.gradientVia}60`,
                                             opacity: 0,
                                             transformOrigin: 'center',
-                                            animation: `cyber-hbar 0.8s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.3}s forwards`,
+                                            animation: `cyber-hbar 0.8s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.3}s forwards`,
                                         }} />
 
                                         {/* Status text */}
                                         <div className="mt-3 flex items-center gap-2" style={{
                                             opacity: 0,
-                                            animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.6}s forwards`,
+                                            animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.6}s forwards`,
                                         }}>
                                             <span className="text-[8px] font-mono tracking-[0.2em] uppercase" style={{ color: `${themeConfig.gradientFrom}90` }}>
                                                 ■ STATUS: SUCCESS
@@ -697,7 +698,7 @@ const CreateVideoTab = () => {
                                                         background: `linear-gradient(180deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}80)`,
                                                         boxShadow: `0 0 4px ${themeConfig.gradientFrom}40`,
                                                         opacity: 0,
-                                                        animation: `prompt-complete-letter 0.3s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.5 + i * 0.05}s forwards, pulse 1.2s ease-in-out ${1 + i * 0.1}s infinite alternate`,
+                                                        animation: `prompt-complete-letter 0.3s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.5 + i * 0.05}s forwards, pulse 1.2s ease-in-out ${1 + i * 0.1}s infinite alternate`,
                                                     }}
                                                 />
                                             ))}
@@ -705,7 +706,7 @@ const CreateVideoTab = () => {
                                     </div>
 
                                     {/* Bottom decorative bar */}
-                                    <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1" style={{ opacity: 0, animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.2 + 0.8}s forwards` }}>
+                                    <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1" style={{ opacity: 0, animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.8}s forwards` }}>
                                         <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${themeConfig.gradientFrom}40, transparent)` }} />
                                         <span className="text-[7px] font-mono tracking-widest" style={{ color: `${themeConfig.gradientVia}50` }}>
                                             {'//'.padEnd(20, '─')}
