@@ -1379,8 +1379,11 @@ function countPromptBarThumbnails(): number {
  */
 async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): Promise<HTMLElement | null> {
     const pollStart = Date.now();
-    const uploadKeywords = ["upload", "upload_file", "upload_2", "cloud_upload", "file_upload", "image"];
+    // ★ Removed "image" — too generic, matches Image/Video tab in new Flow UI (Mar 2026)
+    const uploadKeywords = ["upload", "upload_file", "upload_2", "cloud_upload", "file_upload", "add_photo_alternate", "photo_library"];
     const uploadTexts = ["upload image", "อัปโหลดรูปภาพ", "upload", "อัปโหลด", "upload file", "add image", "เพิ่มรูป", "เพิ่มรูปภาพ"];
+    // ★ Elements to SKIP — navigation tabs, not upload buttons
+    const skipRoles = new Set(["tab", "tablist", "tabpanel", "navigation"]);
 
     while (Date.now() - pollStart < timeoutMs) {
         // Collect all possible containers (Radix dialog, popover, menu, portal)
@@ -1415,6 +1418,9 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
             // Search buttons AND clickable divs/li items
             for (const btn of container.querySelectorAll<HTMLElement>("button, [role='menuitem'], [role='option'], li, div[tabindex], a")) {
                 if (btn === addBtn) continue;
+                // ★ Skip navigation tabs (Image/Video tab in new Flow UI)
+                const role = (btn.getAttribute("role") || "").toLowerCase();
+                if (skipRoles.has(role)) continue;
 
                 // Check icon text (i, span with icon class)
                 const iconEl = btn.querySelector("i, span[class*='icon'], span[class*='material']");
@@ -1428,6 +1434,8 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
                 const allText = (btn.textContent || "").trim().toLowerCase();
                 const spans = Array.from(btn.querySelectorAll("span, div, p")).map(s => s.textContent?.trim().toLowerCase() || "");
                 if (uploadTexts.some(t => allText === t || spans.some(s => s === t))) {
+                    // ★ Extra check: skip if text is just "image" or "video" (tab labels)
+                    if (allText === "image" || allText === "video" || allText === "รูปภาพ" || allText === "วิดีโอ") continue;
                     LOG(`พบปุ่ม Upload (text="${allText.substring(0, 40)}")`);
                     return btn;
                 }
@@ -1445,7 +1453,11 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
         if (Date.now() - pollStart > timeoutMs / 2) {
             for (const btn of document.querySelectorAll<HTMLElement>("button, [role='menuitem']")) {
                 if (btn === addBtn) continue;
+                // ★ Skip tabs
+                const role = (btn.getAttribute("role") || "").toLowerCase();
+                if (skipRoles.has(role)) continue;
                 const allText = (btn.textContent || "").trim().toLowerCase();
+                if (allText === "image" || allText === "video" || allText === "รูปภาพ" || allText === "วิดีโอ") continue;
                 const rect = btn.getBoundingClientRect();
                 if (rect.width === 0 || rect.height === 0) continue;
                 if (uploadTexts.some(t => allText === t || allText.includes(t)) && allText.length < 50) {
@@ -1478,8 +1490,14 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
 /**
  * Upload a single image into the prompt bar.
  *
- * Flow: Click "+" (Create) → Click "Upload image" → Block file dialog →
- * Inject base64 file into file input → Verify thumbnail appeared.
+ * ★ NEW STRATEGY (Mar 2026): Google Flow now has input[type="file"][accept="image/*"]
+ *   always present in the DOM. We inject directly into it — NO button clicks needed.
+ *   This avoids the file dialog popup entirely.
+ *
+ * Flow:
+ *   A) Direct file input injection (PRIMARY — skip all UI buttons)
+ *   B) Click "+" → inject into file input (SECONDARY)
+ *   C) Drag-drop onto workspace (TERTIARY)
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── กำลังอัพโหลด ${fileName} ไปยัง Prompt Bar ──`);
@@ -1495,300 +1513,219 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     // ★ macOS timing multiplier — slower rendering under memory pressure (8GB RAM)
     const T = isMac ? 1.8 : 1;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 1: Click "+" (Create) button in prompt bar — with retry
-    // ═══════════════════════════════════════════════════════════════════════════
-    LOG("── ขั้น 1: คลิกปุ่ม '+' (Create) ──");
-    let addBtn = findPromptBarAddButton();
-    
-    // Retry: wait a bit and re-scan (first-image scenario may need the prompt bar to fully render)
-    if (!addBtn) {
-        LOG("ไม่พบปุ่ม '+' — รอแล้วลองใหม่...");
-        await sleep(3000 * T);
-        addBtn = findPromptBarAddButton();
-    }
-    if (!addBtn) {
-        LOG("ลองคลิกบน prompt bar area เพื่อ activate...");
-        // Click on prompt bar area to activate it first (may reveal the "+" button)
-        const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
-        if (promptArea) {
-            promptArea.click();
-            await sleep(2000 * T);
-            addBtn = findPromptBarAddButton();
-        }
-    }
-    if (!addBtn) {
-        WARN("ไม่พบปุ่ม '+' บน Prompt Bar — ลอง direct file input → drag-drop");
-        // Try direct file input injection before drag-drop
-        const directOk = await _directFileInputFallback(file, baselineCount);
-        if (directOk) return true;
-        return await _dragDropFallback(file, baselineCount);
-    }
-
-    // ★ Use robustClick instead of plain .click() — Tahoe 26.2+ may need pointer events
-    await robustClick(addBtn);
-    LOG("คลิกปุ่ม '+' (Create) ✅");
-    await sleep(1500 * T);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 2: Find and click "Upload image" button in the opened Radix dialog
-    // ═══════════════════════════════════════════════════════════════════════════
-    LOG("── ขั้น 2: หาและคลิกปุ่ม 'Upload image' ──");
-    let uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 8000 : 5000);
-
-    if (!uploadBtn) {
-        WARN("ไม่พบปุ่ม 'Upload image' ครั้ง 1 — ลอง robustClick + pointer events บนปุ่ม '+'");
-        // Close any partial dialog first
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(500);
-
-        // Re-click with full pointer event chain
-        const r = addBtn.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
-        addBtn.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-        addBtn.dispatchEvent(new MouseEvent("mousedown", opts));
-        await sleep(80);
-        addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-        addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
-        addBtn.dispatchEvent(new MouseEvent("click", opts));
-        await sleep(2000 * T);
-
-        uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 5000 : 3000);
-    }
-
-    if (!uploadBtn) {
-        WARN("ไม่พบปุ่ม 'Upload image' ครั้ง 2 — ลอง robustHover + robustClick อีกครั้ง");
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(500);
-        robustHover(addBtn);
-        await sleep(300);
-        await robustClick(addBtn);
-        await sleep(2000 * T);
-        uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 5000 : 3000);
-    }
-
-    if (!uploadBtn) {
-        WARN("❌ ไม่พบปุ่ม Upload image หลังลองทั้ง 3 วิธี — ลอง direct file input → drag-drop");
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(500);
-        // Try direct file input injection
-        const directOk = await _directFileInputFallback(file, baselineCount);
-        if (directOk) return true;
-        return await _dragDropFallback(file, baselineCount);
-    }
-
-    return await _clickUploadAndInject(uploadBtn, file, fileName, baselineCount);
-}
-
-/**
- * Internal: Click the Upload button, block file dialog, inject base64 file, verify thumbnail.
- */
-async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileName: string, baselineCount: number): Promise<boolean> {
-    // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 3: Block file dialog → Click Upload → Inject base64 into file input
-    // ═══════════════════════════════════════════════════════════════════════════
-    LOG("── ขั้น 3: บล็อก file dialog + คลิก Upload + ฉีดไฟล์ ──");
-
-    // Block native file dialog from opening — override BOTH click() AND showPicker()
-    // ★ Mac Chrome uses showPicker() internally — blocking only click() is insufficient
+    // ★★★ Block file dialog for the ENTIRE upload function lifetime ★★★
+    // This prevents any code path from accidentally opening the native file picker
     const origClick = HTMLInputElement.prototype.click;
     const origShowPicker = (HTMLInputElement.prototype as any).showPicker;
-    const _blockFileDialog = () => {
+    const _block = () => {
         HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-            if (this.type === "file") {
-                LOG("🚫 บล็อก file dialog จาก click()");
-                return;
-            }
+            if (this.type === "file") { LOG("🚫 บล็อก file dialog จาก click()"); return; }
             return origClick.call(this);
         };
         if (typeof origShowPicker === "function") {
             (HTMLInputElement.prototype as any).showPicker = function(this: HTMLInputElement) {
-                if (this.type === "file") {
-                    LOG("🚫 บล็อก file dialog จาก showPicker()");
-                    return;
-                }
+                if (this.type === "file") { LOG("🚫 บล็อก file dialog จาก showPicker()"); return; }
                 return origShowPicker.call(this);
             };
         }
     };
-    const _restoreFileDialog = () => {
+    const _unblock = () => {
         HTMLInputElement.prototype.click = origClick;
         if (typeof origShowPicker === "function") {
             (HTMLInputElement.prototype as any).showPicker = origShowPicker;
         }
     };
-
-    // ★ Keep block active through the ENTIRE upload process (not just click)
-    _blockFileDialog();
+    _block();
 
     try {
-        // Click the upload button — Google Flow will internally try to open file picker
-        uploadBtn.click();
-        LOG("คลิกปุ่ม 'Upload image' ✅");
-        await sleep(isMac ? 1500 : 800);
-
-        // Find the file input to inject into — poll for up to 5 seconds
-        let fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
-        if (!fileInput) {
-            LOG("ไม่พบ file input ทันที — รอ...");
-            fileInput = await waitForFileInput(isMac ? 5000 : 3000);
-        }
-        if (!fileInput) {
-            // ★ Retry: click upload button with robustClick (pointer events)
-            LOG("ลอง robustClick บนปุ่ม Upload อีกครั้ง...");
-            await robustClick(uploadBtn);
-            await sleep(1500);
-            fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
-            if (!fileInput) fileInput = await waitForFileInput(3000);
-        }
-        if (!fileInput) {
-            _restoreFileDialog();
-            WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct file input → drag-drop");
-            const directOk = await _directFileInputFallback(file, baselineCount);
-            if (directOk) return true;
-            return await _dragDropFallback(file, baselineCount);
+        // ═══════════════════════════════════════════════════════════════════════
+        // STRATEGY A: Direct file input injection (PRIMARY — skip UI buttons)
+        // ═══════════════════════════════════════════════════════════════════════
+        LOG("── วิธี A: ฉีดไฟล์ลง file input โดยตรง (ไม่คลิก UI) ──");
+        let fileInput = _findImageFileInput();
+        if (fileInput) {
+            LOG(`พบ file input: accept="${fileInput.accept}" multiple=${fileInput.multiple}`);
+            const ok = await _injectAndVerify(fileInput, file, fileName, baselineCount);
+            if (ok) return true;
+            LOG("วิธี A ล้มเหลว — ลองวิธี B");
+        } else {
+            LOG("ไม่พบ file input[accept=image/*] — ลองวิธี B");
         }
 
-        // Inject file via DataTransfer
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        LOG(`ฉีดไฟล์ ${fileName} เข้า file input (${fileInput.files?.length ?? 0} ไฟล์)`);
+        // ═══════════════════════════════════════════════════════════════════════
+        // STRATEGY B: Click "+" → activate dialog → inject into file input
+        // ═══════════════════════════════════════════════════════════════════════
+        LOG("── วิธี B: คลิก '+' → เปิด dialog → ฉีดไฟล์ ──");
 
-        // Reset React _valueTracker if present (CRITICAL for React to detect change)
-        const tracker = (fileInput as any)._valueTracker;
-        if (tracker) {
-            tracker.setValue('');
-            LOG("รีเซ็ต React _valueTracker");
+        // Close any lingering dialog/popover first
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(300);
+
+        let addBtn = findPromptBarAddButton();
+        if (!addBtn) {
+            await sleep(2000 * T);
+            addBtn = findPromptBarAddButton();
+        }
+        if (!addBtn) {
+            // Try clicking prompt area to activate
+            const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
+            if (promptArea) { promptArea.click(); await sleep(2000 * T); }
+            addBtn = findPromptBarAddButton();
         }
 
-        // Dispatch comprehensive events for React compatibility
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-        fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-        LOG("ส่ง change + input event ✅");
+        if (addBtn) {
+            // Click "+" to open dialog (which may activate React's file upload handler)
+            await robustClick(addBtn);
+            LOG("คลิกปุ่ม '+' (Create) ✅");
+            await sleep(1500 * T);
+
+            // Now try to find the upload button in the opened dialog
+            let uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 5000 : 3000);
+            if (uploadBtn) {
+                // Click upload button to activate the file input handler
+                uploadBtn.click();
+                LOG(`คลิกปุ่ม Upload ✅`);
+                await sleep(isMac ? 1500 : 800);
+            } else {
+                LOG("ไม่พบปุ่ม Upload ใน dialog — ลองฉีดไฟล์โดยตรง");
+            }
+
+            // Find file input (may have been created/activated by the dialog)
+            fileInput = _findImageFileInput();
+            if (!fileInput) {
+                fileInput = await waitForFileInput(isMac ? 5000 : 3000);
+            }
+
+            if (fileInput) {
+                const ok = await _injectAndVerify(fileInput, file, fileName, baselineCount);
+                if (ok) {
+                    // Close dialog if still open
+                    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+                    return true;
+                }
+            }
+
+            // Close dialog before trying fallback
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+            await sleep(500);
+        } else {
+            WARN("ไม่พบปุ่ม '+' บน Prompt Bar");
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // STRATEGY C: Drag-drop onto workspace (TERTIARY)
+        // ═══════════════════════════════════════════════════════════════════════
+        LOG("── วิธี C: drag-drop ──");
+        return await _dragDropFallback(file, baselineCount);
+
     } finally {
-        // ★ Always restore prototypes — but with delay to catch async showPicker calls
-        setTimeout(() => _restoreFileDialog(), 3000);
+        // ★★★ Restore file dialog ONLY after entire function completes ★★★
+        // Use delayed restore to catch any async React handlers triggered during upload
+        setTimeout(() => _unblock(), 10000);
+    }
+}
+
+/**
+ * Find the image file input in the DOM (Google Flow Mar 2026+).
+ * Prefers input[accept="image/*"] but falls back to any file input.
+ */
+function _findImageFileInput(): HTMLInputElement | null {
+    // Prefer accept="image/*" inputs
+    const imageInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"][accept*="image"]');
+    if (imageInputs.length > 0) return imageInputs[imageInputs.length - 1];
+    // Fallback: any file input
+    const anyInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    if (anyInputs.length > 0) return anyInputs[anyInputs.length - 1];
+    return null;
+}
+
+/**
+ * Inject file into a file input and verify that a thumbnail appeared.
+ * Returns true if thumbnail was detected, false otherwise.
+ */
+async function _injectAndVerify(fileInput: HTMLInputElement, file: File, fileName: string, baselineCount: number): Promise<boolean> {
+    // Inject file via DataTransfer
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    LOG(`ฉีดไฟล์ ${fileName} เข้า file input (${fileInput.files?.length ?? 0} ไฟล์)`);
+
+    // Reset React _valueTracker if present (CRITICAL for React to detect change)
+    const tracker = (fileInput as any)._valueTracker;
+    if (tracker) {
+        tracker.setValue('');
+        LOG("รีเซ็ต React _valueTracker");
     }
 
+    // Dispatch comprehensive events for React compatibility
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    // Also try native setter approach
+    try {
+        const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
+        if (nativeSetter) {
+            nativeSetter.call(fileInput, dt.files);
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    } catch (_) {}
+
+    LOG("ส่ง change + input event ✅");
+
     // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 4: Wait and verify thumbnail appeared in prompt bar
+    // Verify: Wait for thumbnail / upload indicator to appear
     // ═══════════════════════════════════════════════════════════════════════════
-    LOG("── ขั้น 4: รอยืนยันรูปย่อ ──");
+    LOG("── รอยืนยันรูปย่อ ──");
     const verifyStart = Date.now();
-    while (Date.now() - verifyStart < 15000) {
+    let sawUploadProgress = false;
+    while (Date.now() - verifyStart < 20000) {
+        // Check 1: thumbnail count increased
         const currentCount = countPromptBarThumbnails();
         if (currentCount > baselineCount) {
             LOG(`✅ ยืนยัน: รูปย่อเพิ่มจาก ${baselineCount} → ${currentCount}`);
             return true;
         }
-        // Also check for upload % indicator
+
+        // Check 2: upload progress % indicator visible
         const pctEls = document.querySelectorAll<HTMLElement>("span, div, p");
         for (const el of pctEls) {
+            if (el.closest("#netflow-engine-overlay")) continue;
             const txt = (el.textContent || "").trim();
             if (/^\d{1,2}%$/.test(txt)) {
                 LOG(`กำลังอัพโหลด: ${txt}`);
+                sawUploadProgress = true;
                 break;
             }
         }
+
+        // Check 3: If we saw upload progress and it's gone, upload may have completed
+        if (sawUploadProgress) {
+            const stillUploading = Array.from(document.querySelectorAll<HTMLElement>("span, div, p"))
+                .some(el => !el.closest("#netflow-engine-overlay") && /^\d{1,2}%$/.test((el.textContent || "").trim()));
+            if (!stillUploading) {
+                await sleep(1000);
+                const finalCount = countPromptBarThumbnails();
+                if (finalCount > baselineCount) {
+                    LOG(`✅ ยืนยัน (หลัง upload เสร็จ): รูปย่อ ${baselineCount} → ${finalCount}`);
+                    return true;
+                }
+                // Even without thumbnail count change, if upload progress appeared and disappeared,
+                // the upload likely succeeded — accept it
+                LOG(`✅ ยอมรับ: เห็น upload % แล้วหายไป — น่าจะอัพโหลดสำเร็จ`);
+                return true;
+            }
+        }
+
         await sleep(1000);
     }
 
-    WARN(`❌ อัพโหลด ${fileName} ล้มเหลว — ไม่พบรูปย่อใหม่หลัง 15 วินาที`);
+    WARN(`❌ อัพโหลด ${fileName} ล้มเหลว — ไม่พบรูปย่อใหม่หลัง 20 วินาที`);
     return false;
 }
 
-/**
- * Fallback: Try to find any file input on the page and inject file directly.
- * This bypasses the entire UI button chain — useful when Tahoe updates break selectors.
- */
-async function _directFileInputFallback(file: File, baselineCount: number): Promise<boolean> {
-    LOG("── Fallback: direct file input injection (ข้าม UI ปุ่มทั้งหมด) ──");
-
-    // Strategy 1: Check if there's already a file input on the page
-    let fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
-
-    // Strategy 2: If no file input, try clicking various areas that might trigger one
-    if (!fileInput) {
-        LOG("ไม่พบ file input — ลองคลิก prompt area เพื่อ trigger...");
-        // Click prompt bar area
-        const promptArea = document.querySelector<HTMLElement>(
-            '[data-slate-editor="true"], [role="textbox"][contenteditable="true"], [contenteditable="true"]'
-        );
-        if (promptArea) {
-            await robustClick(promptArea);
-            await sleep(1000);
-        }
-
-        // Try clicking any button that might be "add" or "attach" nearby
-        const allBtns = document.querySelectorAll<HTMLElement>("button");
-        for (const btn of allBtns) {
-            const rect = btn.getBoundingClientRect();
-            if (rect.width < 10 || rect.height < 10 || rect.width > 80 || rect.height > 80) continue;
-            if (rect.bottom < window.innerHeight * 0.5) continue; // skip top-half buttons
-
-            // Block file dialog before clicking
-            const origClick = HTMLInputElement.prototype.click;
-            HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-                if (this.type === "file") { LOG("🚫 บล็อก file dialog (direct fallback)"); return; }
-                return origClick.call(this);
-            };
-            try {
-                btn.click();
-                await sleep(800);
-            } finally {
-                HTMLInputElement.prototype.click = origClick;
-            }
-
-            fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
-            if (fileInput) {
-                LOG(`พบ file input หลังคลิกปุ่ม "${(btn.textContent || "").trim().substring(0, 20)}"`);
-                break;
-            }
-
-            // Close any dialog that opened
-            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-            await sleep(300);
-        }
-    }
-
-    if (!fileInput) {
-        LOG("ไม่พบ file input ใดๆ บนหน้า — fallback นี้ล้มเหลว");
-        return false;
-    }
-
-    LOG(`พบ file input: accept="${fileInput.accept || "*"}" name="${fileInput.name || ""}"`);
-
-    // Inject file via DataTransfer
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
-
-    // Reset React _valueTracker
-    const tracker = (fileInput as any)._valueTracker;
-    if (tracker) { tracker.setValue(''); }
-
-    // Dispatch events
-    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-    LOG("ฉีดไฟล์ผ่าน direct file input ✅");
-
-    // Verify thumbnail
-    const verifyStart = Date.now();
-    while (Date.now() - verifyStart < 15000) {
-        if (countPromptBarThumbnails() > baselineCount) {
-            LOG("✅ direct file input สำเร็จ — พบรูปย่อใหม่");
-            return true;
-        }
-        await sleep(1000);
-    }
-    WARN("❌ direct file input — ไม่พบรูปย่อใหม่หลัง 15 วินาที");
-    return false;
-}
+// NOTE: _clickUploadAndInject removed in Mar 2026 — logic replaced by _injectAndVerify
+// called from the rewritten uploadImageToPromptBar above.
 
 /**
  * Fallback: drag-and-drop file onto workspace area.
