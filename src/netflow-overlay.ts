@@ -100,7 +100,7 @@ function resolveThemeColors(): OverlayTheme {
 // ── State ──────────────────────────────────────────────────────────────────
 
 // Parsed primary RGB components for JS dynamic color (matrix rain, particles, etc.)
-let _themeR = 0, _themeG = 255, _themeB = 65;
+let _themeR = 43, _themeG = 125, _themeB = 233; // blue default (was 0,255,65 green)
 function updateThemeComponents() {
     const m = currentTheme.hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
     if (m) { _themeR = parseInt(m[1], 16); _themeG = parseInt(m[2], 16); _themeB = parseInt(m[3], 16); }
