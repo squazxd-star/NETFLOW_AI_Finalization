@@ -399,15 +399,39 @@ const getVideoMimeAndExt = (blob: Blob): { mime: string; ext: string } => {
   return { mime: 'video/mp4', ext: 'mp4' };
 };
 
-/** Check if TikTok is showing an upload error dialog */
+/** Check if TikTok is showing an upload error dialog.
+ * ★ STRICT: Only match visible elements in modal/dialog areas.
+ * ★ Also check for SUCCESS indicators first — if upload succeeded, no error.
+ */
 const detectUploadError = (): Element | null => {
-  const errorPatterns = ['ไม่สามารถอัปโหลด', 'อัปโหลดไม่สำเร็จ', 'เกิดข้อผิดพลาด', 'upload failed', 'unable to upload', 'cannot upload'];
-  const allEls = document.querySelectorAll('div, span, p, h2, h3');
-  for (const el of allEls) {
+  // ★ First check for SUCCESS indicators — if found, there's no error
+  const successPatterns = ['อัปโหลดแล้ว', 'อัพโหลดแล้ว', 'uploaded', 'processing', 'ประมวลผล'];
+  const allTextEls = document.querySelectorAll('div, span, p');
+  for (const el of allTextEls) {
     const text = (el.textContent || '').trim().toLowerCase();
     if (text.length > 200 || text.length < 3) continue;
+    for (const sp of successPatterns) {
+      if (text.includes(sp.toLowerCase())) {
+        // Upload succeeded — no error
+        return null;
+      }
+    }
+  }
+
+  const errorPatterns = ['ไม่สามารถอัปโหลด', 'อัปโหลดไม่สำเร็จ', 'upload failed', 'unable to upload', 'cannot upload'];
+  // ★ Only check visible elements in likely error containers
+  const errorContainers = document.querySelectorAll('[role="dialog"], [role="alertdialog"], [class*="modal"], [class*="Modal"], [class*="error"], [class*="Error"], [class*="toast"], [class*="Toast"]');
+  for (const container of errorContainers) {
+    const text = (container.textContent || '').trim().toLowerCase();
+    if (text.length > 500 || text.length < 3) continue;
     for (const pat of errorPatterns) {
-      if (text.includes(pat.toLowerCase())) return el;
+      if (text.includes(pat.toLowerCase())) {
+        // Verify the container is actually visible
+        const rect = (container as HTMLElement).getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          return container;
+        }
+      }
     }
   }
   return null;
@@ -1064,68 +1088,35 @@ const runUploadFlow = async (payload: UploadPayload): Promise<{ success: boolean
     sendProgress(3, T, 'รอ TikTok ประมวลผลวิดีโอ...');
     await delay(5000);
 
-    // Check for upload error — TikTok may reject the file
-    let uploadRetries = 0;
-    const MAX_UPLOAD_RETRIES = 3;
-    while (uploadRetries < MAX_UPLOAD_RETRIES) {
-      const errorEl = detectUploadError();
-      if (errorEl) {
-        uploadRetries++;
-        const errorText = (errorEl.textContent || '').trim().substring(0, 80);
-        warn(`Upload error detected (attempt ${uploadRetries}/${MAX_UPLOAD_RETRIES}): ${errorText}`);
-        sendProgress(3, T, `อัปโหลดล้มเหลว — ลองใหม่ครั้งที่ ${uploadRetries}...`);
-
-        // Try clicking retry button
-        const retried = await clickRetryButton();
-        if (retried) {
-          // After retry, need to re-upload the video
-          await delay(3000);
-          const reuploadOk = await uploadVideoFile(payload.videoUrl, true);
-          if (!reuploadOk) {
-            warn('Re-upload also failed');
-          }
-          await delay(8000); // Wait for TikTok to process again
-          continue;
-        } else {
-          // No retry button found — try dismissing dialog
-          const closeBtn = document.querySelector('[class*="modal"] button[class*="close"], [class*="dialog"] button') as HTMLElement;
-          if (closeBtn) { closeBtn.click(); await delay(2000); }
-          break;
-        }
-      } else {
-        break; // No error — upload is processing
-      }
-    }
-
-    if (uploadRetries >= MAX_UPLOAD_RETRIES) {
-      sendProgress(3, T, `อัปโหลดล้มเหลว ${MAX_UPLOAD_RETRIES} ครั้ง`, 'error');
-      return { success: false, error: 'TikTok ปฏิเสธวิดีโอ — ลองอัปโหลดใหม่' };
-    }
-
-    // Wait for editor to appear (sign that video was accepted)
+    // ★ Wait for editor to appear — this is the REAL sign that upload succeeded.
+    // ★ Skip aggressive error detection — it causes false positives (Images 5-7).
+    // ★ User request: "เอาแค่รอบเดียวแล้วปล่อยผ่านไปเลย" (just try once and move on)
     const editorReady = await waitForElement(
       () => document.querySelector('[contenteditable="true"], textarea, div[role="textbox"]'),
-      45000
+      60000 // ★ Longer timeout — TikTok processing can be slow
     );
     if (!editorReady) {
-      // One final error check
-      const finalError = detectUploadError();
-      if (finalError) {
+      // Only check for errors if editor never appeared
+      const errorEl = detectUploadError();
+      if (errorEl) {
+        const errorText = (errorEl.textContent || '').trim().substring(0, 80);
+        warn(`Upload error after waiting for editor: ${errorText}`);
         sendProgress(3, T, 'TikTok ปฏิเสธวิดีโอ', 'error');
-        return { success: false, error: 'TikTok ไม่สามารถประมวลผลวิดีโอได้' };
+        return { success: false, error: 'TikTok ปฏิเสธวิดีโอ — ลองอัปโหลดใหม่' };
       }
-      sendProgress(3, T, 'TikTok ประมวลผลวิดีโอล้มเหลว', 'error');
-      return { success: false, error: 'หน้าอัปโหลดไม่ตอบสนองหลังจากอัปโหลดวิดีโอ' };
+      // No error found but editor didn't appear — could be slow processing
+      // ★ Try one more time with a shorter wait
+      log('Editor not found after 60s — trying one more wait...');
+      const editorRetry = await waitForElement(
+        () => document.querySelector('[contenteditable="true"], textarea, div[role="textbox"]'),
+        30000
+      );
+      if (!editorRetry) {
+        sendProgress(3, T, 'TikTok ประมวลผลวิดีโอช้า — ไม่พบ editor', 'error');
+        return { success: false, error: 'หน้าอัปโหลดไม่ตอบสนองหลังจากอัปโหลดวิดีโอ' };
+      }
     }
     await delay(2000);
-
-    // Double-check: make sure no error appeared during processing
-    const postProcessError = detectUploadError();
-    if (postProcessError) {
-      sendProgress(3, T, 'วิดีโอถูกปฏิเสธหลังประมวลผล', 'error');
-      await clickRetryButton();
-      return { success: false, error: 'TikTok ปฏิเสธวิดีโอหลังประมวลผล' };
-    }
 
     sendProgress(3, T, 'รอ TikTok ประมวลผลวิดีโอ', 'done');
 

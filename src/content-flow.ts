@@ -1540,20 +1540,29 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     try {
         // ═══════════════════════════════════════════════════════════════════════
         // STRATEGY A: Direct file input injection (PRIMARY — skip UI buttons)
+        // ★ CRITICAL: If file input found and file injected, TRUST it and return true.
+        // ★ Do NOT fall through to Strategy B — that causes DUPLICATE uploads.
         // ═══════════════════════════════════════════════════════════════════════
         LOG("── วิธี A: ฉีดไฟล์ลง file input โดยตรง (ไม่คลิก UI) ──");
         let fileInput = _findImageFileInput();
         if (fileInput) {
             LOG(`พบ file input: accept="${fileInput.accept}" multiple=${fileInput.multiple}`);
-            const ok = await _injectAndVerify(fileInput, file, fileName, baselineCount);
-            if (ok) return true;
-            LOG("วิธี A ล้มเหลว — ลองวิธี B");
-        } else {
-            LOG("ไม่พบ file input[accept=image/*] — ลองวิธี B");
+            _injectFile(fileInput, file, fileName);
+            // ★ Trust the injection — wait briefly for any sign, then return true
+            await sleep(3000);
+            const thumbsNow = countPromptBarThumbnails();
+            if (thumbsNow > baselineCount) {
+                LOG(`✅ วิธี A สำเร็จ — รูปย่อเพิ่ม ${baselineCount} → ${thumbsNow}`);
+            } else {
+                LOG(`✅ วิธี A — ฉีดไฟล์แล้ว (ถือว่าสำเร็จ ไม่ลองซ้ำ)`);
+            }
+            return true; // ★ ALWAYS return true if injection was performed
         }
+        LOG("ไม่พบ file input[accept=image/*] — ลองวิธี B");
 
         // ═══════════════════════════════════════════════════════════════════════
         // STRATEGY B: Click "+" → activate dialog → inject into file input
+        // (Only reached if NO file input exists in DOM at all)
         // ═══════════════════════════════════════════════════════════════════════
         LOG("── วิธี B: คลิก '+' → เปิด dialog → ฉีดไฟล์ ──");
 
@@ -1567,42 +1576,29 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
             addBtn = findPromptBarAddButton();
         }
         if (!addBtn) {
-            // Try clicking prompt area to activate
             const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
             if (promptArea) { promptArea.click(); await sleep(2000 * T); }
             addBtn = findPromptBarAddButton();
         }
 
         if (addBtn) {
-            // Click "+" to open dialog (which may activate React's file upload handler)
             await robustClick(addBtn);
             LOG("คลิกปุ่ม '+' (Create) ✅");
             await sleep(1500 * T);
 
-            // Now try to find the upload button in the opened dialog
-            let uploadBtn = await findUploadButtonInDialog(addBtn, isMac ? 5000 : 3000);
-            if (uploadBtn) {
-                // Click upload button to activate the file input handler
-                uploadBtn.click();
-                LOG(`คลิกปุ่ม Upload ✅`);
-                await sleep(isMac ? 1500 : 800);
-            } else {
-                LOG("ไม่พบปุ่ม Upload ใน dialog — ลองฉีดไฟล์โดยตรง");
-            }
-
-            // Find file input (may have been created/activated by the dialog)
+            // Find file input (may have been created by the dialog)
             fileInput = _findImageFileInput();
             if (!fileInput) {
                 fileInput = await waitForFileInput(isMac ? 5000 : 3000);
             }
 
             if (fileInput) {
-                const ok = await _injectAndVerify(fileInput, file, fileName, baselineCount);
-                if (ok) {
-                    // Close dialog if still open
-                    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-                    return true;
-                }
+                _injectFile(fileInput, file, fileName);
+                // Close dialog
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+                await sleep(2000);
+                LOG(`✅ วิธี B — ฉีดไฟล์แล้ว`);
+                return true; // ★ Trust the injection
             }
 
             // Close dialog before trying fallback
@@ -1640,11 +1636,11 @@ function _findImageFileInput(): HTMLInputElement | null {
 }
 
 /**
- * Inject file into a file input and verify that a thumbnail appeared.
- * Returns true if thumbnail was detected, false otherwise.
+ * Inject file into a file input (no long verification wait).
+ * ★ We TRUST the injection — do not retry or fall through to other strategies.
+ * This prevents duplicate reference image uploads.
  */
-async function _injectAndVerify(fileInput: HTMLInputElement, file: File, fileName: string, baselineCount: number): Promise<boolean> {
-    // Inject file via DataTransfer
+function _injectFile(fileInput: HTMLInputElement, file: File, fileName: string): void {
     const dt = new DataTransfer();
     dt.items.add(file);
     fileInput.files = dt.files;
@@ -1672,56 +1668,6 @@ async function _injectAndVerify(fileInput: HTMLInputElement, file: File, fileNam
     } catch (_) {}
 
     LOG("ส่ง change + input event ✅");
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Verify: Wait for thumbnail / upload indicator to appear
-    // ═══════════════════════════════════════════════════════════════════════════
-    LOG("── รอยืนยันรูปย่อ ──");
-    const verifyStart = Date.now();
-    let sawUploadProgress = false;
-    while (Date.now() - verifyStart < 20000) {
-        // Check 1: thumbnail count increased
-        const currentCount = countPromptBarThumbnails();
-        if (currentCount > baselineCount) {
-            LOG(`✅ ยืนยัน: รูปย่อเพิ่มจาก ${baselineCount} → ${currentCount}`);
-            return true;
-        }
-
-        // Check 2: upload progress % indicator visible
-        const pctEls = document.querySelectorAll<HTMLElement>("span, div, p");
-        for (const el of pctEls) {
-            if (el.closest("#netflow-engine-overlay")) continue;
-            const txt = (el.textContent || "").trim();
-            if (/^\d{1,2}%$/.test(txt)) {
-                LOG(`กำลังอัพโหลด: ${txt}`);
-                sawUploadProgress = true;
-                break;
-            }
-        }
-
-        // Check 3: If we saw upload progress and it's gone, upload may have completed
-        if (sawUploadProgress) {
-            const stillUploading = Array.from(document.querySelectorAll<HTMLElement>("span, div, p"))
-                .some(el => !el.closest("#netflow-engine-overlay") && /^\d{1,2}%$/.test((el.textContent || "").trim()));
-            if (!stillUploading) {
-                await sleep(1000);
-                const finalCount = countPromptBarThumbnails();
-                if (finalCount > baselineCount) {
-                    LOG(`✅ ยืนยัน (หลัง upload เสร็จ): รูปย่อ ${baselineCount} → ${finalCount}`);
-                    return true;
-                }
-                // Even without thumbnail count change, if upload progress appeared and disappeared,
-                // the upload likely succeeded — accept it
-                LOG(`✅ ยอมรับ: เห็น upload % แล้วหายไป — น่าจะอัพโหลดสำเร็จ`);
-                return true;
-            }
-        }
-
-        await sleep(1000);
-    }
-
-    WARN(`❌ อัพโหลด ${fileName} ล้มเหลว — ไม่พบรูปย่อใหม่หลัง 20 วินาที`);
-    return false;
 }
 
 // NOTE: _clickUploadAndInject removed in Mar 2026 — logic replaced by _injectAndVerify
@@ -1860,65 +1806,102 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         return false;
     }
 
-    // Click settings button with full mouse sequence
-    const sRect = settingsBtn.getBoundingClientRect();
-    const sCx = sRect.left + sRect.width / 2;
-    const sCy = sRect.top + sRect.height / 2;
-    const sOpts = { bubbles: true, cancelable: true, clientX: sCx, clientY: sCy, button: 0 };
-    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-    settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
-    await sleep(80);
-    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-    settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
-    settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
-    LOG("คลิกปุ่มตั้งค่าแล้ว");
-    await sleep(2500);
+    // ★ Walk up to closest <button> if we matched a child span/div
+    // Radix UI checks event.target — clicking a child might not trigger the popover
+    const actualBtn = settingsBtn.closest("button") as HTMLElement || settingsBtn;
+    if (actualBtn !== settingsBtn) {
+        LOG(`ปุ่มตั้งค่า: ใช้ parent button แทน ${settingsBtn.tagName}`);
+    }
+
+    // ★ Use robustClick for reliable Radix/React click
+    await robustClick(actualBtn);
+    LOG("คลิกปุ่มตั้งค่าแล้ว (robustClick)");
+    await sleep(3500); // ★ Extra wait for popover to render (slow on Mac 8GB)
 
     // ALWAYS select Image mode (switch from Video if needed)
+    // ★ Retry the Image tab search — popover may need extra time on slow machines
     let selectedImage = false;
     let imageTabBtn: HTMLElement | null = null;
 
-    // Strategy 1: Radix tab with class flow_tab_slider_trigger + aria-controls containing IMAGE
-    const tabTriggers = document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"]');
-    for (const btn of tabTriggers) {
-        const ariaControls = btn.getAttribute("aria-controls") || "";
-        const btnId = btn.id || "";
-        if (ariaControls.toUpperCase().includes("IMAGE") || btnId.toUpperCase().includes("IMAGE")) {
-            imageTabBtn = btn;
-            LOG(`พบแท็บ Image ผ่าน flow_tab_slider_trigger (aria-controls: ${ariaControls})`);
-            break;
+    for (let tabRetry = 0; tabRetry < 3 && !imageTabBtn; tabRetry++) {
+        if (tabRetry > 0) {
+            LOG(`⏳ ลองหาแท็บ Image อีกครั้ง (${tabRetry + 1}/3)...`);
+            // Re-click settings button — popover may have closed or not opened
+            await robustClick(actualBtn);
+            await sleep(2000);
         }
-    }
 
-    // Strategy 2: role=tab with id containing trigger-IMAGE
-    if (!imageTabBtn) {
-        for (const btn of document.querySelectorAll<HTMLElement>('[role="tab"]')) {
+        // Strategy 1: Radix tab with class flow_tab_slider_trigger + aria-controls/id containing IMAGE
+        const tabTriggers = document.querySelectorAll<HTMLElement>('.flow_tab_slider_trigger[role="tab"], [class*="tab_slider_trigger"][role="tab"]');
+        for (const btn of tabTriggers) {
+            const ariaControls = btn.getAttribute("aria-controls") || "";
             const btnId = btn.id || "";
-            if (btnId.toUpperCase().includes("TRIGGER-IMAGE")) {
+            if (ariaControls.toUpperCase().includes("IMAGE") || btnId.toUpperCase().includes("IMAGE")) {
                 imageTabBtn = btn;
-                LOG(`พบแท็บ Image ผ่าน id: ${btnId}`);
+                LOG(`พบแท็บ Image ผ่าน flow_tab_slider_trigger (aria-controls: ${ariaControls})`);
                 break;
             }
         }
-    }
 
-    // Strategy 3: fuzzy text match — textContent ends with "Image" or contains Thai equivalents
-    if (!imageTabBtn) {
-        for (const btn of document.querySelectorAll<HTMLElement>("button, div, span, [role='menuitem'], [role='option'], [role='tab'], [role='button']")) {
-            const txt = (btn.textContent || "").trim();
-            if (txt.length > 30) continue;
-            if (txt === "Image" || txt.endsWith("Image") || txt === "รูปภาพ" || txt === "ภาพ" || txt.includes("รูปภาพ")) {
-                // Exclude elements that also contain "Video" text
-                if (!txt.includes("Video") && !txt.includes("วิดีโอ")) {
-                    const rect = btn.getBoundingClientRect();
-                    if (rect.width > 0 && rect.height > 0) {
-                        imageTabBtn = btn;
-                        LOG(`พบแท็บ Image ผ่านข้อความ: "${txt}"`);
-                        break;
+        // Strategy 2: role=tab with id containing IMAGE (any format)
+        if (!imageTabBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>('[role="tab"]')) {
+                const btnId = btn.id || "";
+                if (btnId.toUpperCase().includes("IMAGE")) {
+                    imageTabBtn = btn;
+                    LOG(`พบแท็บ Image ผ่าน id: ${btnId}`);
+                    break;
+                }
+            }
+        }
+
+        // Strategy 3: any role=tab whose accessible name contains "image" (from Image 8: name="image Image")
+        if (!imageTabBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>('[role="tab"]')) {
+                const name = btn.getAttribute("aria-label") || btn.textContent?.trim() || "";
+                if (name.toLowerCase().includes("image") || name.includes("รูปภาพ")) {
+                    imageTabBtn = btn;
+                    LOG(`พบแท็บ Image ผ่าน accessible name: "${name.substring(0, 30)}"`);
+                    break;
+                }
+            }
+        }
+
+        // Strategy 4: fuzzy text match — textContent ends with "Image" or contains Thai equivalents
+        if (!imageTabBtn) {
+            for (const btn of document.querySelectorAll<HTMLElement>("button, div, span, [role='menuitem'], [role='option'], [role='tab'], [role='button']")) {
+                const txt = (btn.textContent || "").trim();
+                if (txt.length > 30) continue;
+                if (txt === "Image" || txt.endsWith("Image") || txt === "รูปภาพ" || txt === "ภาพ" || txt.includes("รูปภาพ")) {
+                    // Exclude elements that also contain "Video" text
+                    if (!txt.includes("Video") && !txt.includes("วิดีโอ")) {
+                        const rect = btn.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            imageTabBtn = btn;
+                            LOG(`พบแท็บ Image ผ่านข้อความ: "${txt}"`);
+                            break;
+                        }
                     }
                 }
             }
         }
+
+        // Strategy 5: search inside Radix portals/popovers specifically
+        if (!imageTabBtn) {
+            for (const portal of document.querySelectorAll('[data-radix-portal], [data-radix-popper-content-wrapper], [role="dialog"], [role="menu"]')) {
+                for (const btn of portal.querySelectorAll<HTMLElement>('button, [role="tab"]')) {
+                    const txt = (btn.textContent || "").trim().toLowerCase();
+                    if ((txt === "image" || txt.includes("image")) && !txt.includes("video")) {
+                        imageTabBtn = btn;
+                        LOG(`พบแท็บ Image ใน Radix portal: "${txt}"`);
+                        break;
+                    }
+                }
+                if (imageTabBtn) break;
+            }
+        }
+
+        if (!imageTabBtn) await sleep(1000);
     }
 
     if (imageTabBtn) {
@@ -1929,20 +1912,13 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             selectedImage = true;
             LOG("แท็บ Image เปิดอยู่แล้ว — ไม่ต้องคลิก");
         } else {
-            const bRect = imageTabBtn.getBoundingClientRect();
-            const bOpts = { bubbles: true, cancelable: true, clientX: bRect.left + bRect.width / 2, clientY: bRect.top + bRect.height / 2, button: 0 };
-            imageTabBtn.dispatchEvent(new PointerEvent("pointerdown", { ...bOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            imageTabBtn.dispatchEvent(new MouseEvent("mousedown", bOpts));
-            await sleep(80);
-            imageTabBtn.dispatchEvent(new PointerEvent("pointerup", { ...bOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-            imageTabBtn.dispatchEvent(new MouseEvent("mouseup", bOpts));
-            imageTabBtn.dispatchEvent(new MouseEvent("click", bOpts));
+            await robustClick(imageTabBtn);
             selectedImage = true;
             LOG("✅ คลิกแท็บ Image — สลับเป็นโหมดรูปภาพแล้ว");
             await sleep(400);
         }
     }
-    if (!selectedImage) LOG("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว");
+    if (!selectedImage) WARN("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว");
 
     // Select orientation
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";
@@ -1990,12 +1966,7 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
     await sleep(300);
     // Also try clicking the settings button again to toggle it closed
-    settingsBtn.dispatchEvent(new PointerEvent("pointerdown", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-    settingsBtn.dispatchEvent(new MouseEvent("mousedown", sOpts));
-    await sleep(80);
-    settingsBtn.dispatchEvent(new PointerEvent("pointerup", { ...sOpts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
-    settingsBtn.dispatchEvent(new MouseEvent("mouseup", sOpts));
-    settingsBtn.dispatchEvent(new MouseEvent("click", sOpts));
+    await robustClick(actualBtn);
     LOG("ปิดหน้าตั้งค่าแล้ว");
     await sleep(600);
 
