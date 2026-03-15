@@ -2127,7 +2127,7 @@ const CATEGORY_IMAGE_INTERACTION: Partial<Record<ProductCategory, string>> = {
 };
 
 // Anti-Floating Hands — prevents unrealistic hand/product physics
-const ANTI_FLOATING_HANDS = "HAND REALISM: Arms and hands MUST connect naturally to the character's body. NO floating hands, NO disembodied limbs entering from off-screen, NO third hands. Hands must firmly grasp the product with visible physical connection and realistic weight distribution. If holding a laptop/device, both hands must support it naturally from the bottom/sides.";
+const ANTI_FLOATING_HANDS = "HAND REALISM: The character has exactly two arms and two hands connected naturally to their shoulders. Hands must firmly and naturally grasp the product with realistic weight distribution and physical connection. If holding a device, support it naturally from the bottom or sides.";
 
 // Dynamic Interaction Directive — prevents static single-angle product holding
 const DYNAMIC_INTERACTION_DIRECTIVE = "DYNAMIC PRODUCT INTERACTION (CRITICAL): Character MUST NOT hold the product in one static pose or single angle throughout the scene. Character must CONTINUOUSLY shift interaction: rotate product to show different angles, tilt to reveal side profile then back to front, switch grip between one hand and two hands, lift product higher then bring it closer to camera, point at specific features, flip or turn the product naturally. At least 2-3 distinct pose/angle transitions within each scene. Smooth natural transitions between each interaction — never freeze in one position. STATIC SINGLE-ANGLE HOLDING IS STRICTLY FORBIDDEN.";
