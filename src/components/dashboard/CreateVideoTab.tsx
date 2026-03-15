@@ -246,7 +246,17 @@ const CreateVideoTab = () => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
         const loopHandler = async (message: any) => {
             if (message?.type !== "VIDEO_GENERATION_COMPLETE") return;
-            if (!isLooping || currentLoop >= loopCount - 1) return;
+            if (!isLooping) return;
+            
+            // ถ้าทำงานครบตามจำนวนรอบที่กำหนดแล้ว ให้หยุดและรีเซ็ตค่า
+            if (currentLoop >= loopCount - 1) {
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานครบ ${loopCount} รอบแล้ว!`] }));
+                setIsLooping(false);
+                setCurrentLoop(0);
+                (window as any).__NETFLOW_STOP_LOOP__ = true;
+                return;
+            }
 
             const nextLoop = currentLoop + 1;
             const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -885,11 +895,14 @@ const CreateVideoTab = () => {
                                 <button
                                     key={n}
                                     type="button"
+                                    disabled={isLooping}
                                     onClick={() => { setLoopCount(n); setShowCustomLoop(false); }}
                                     className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all ${
                                         loopCount === n && !showCustomLoop
                                             ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
-                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                            : isLooping 
+                                                ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed border border-border/20'
+                                                : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                     }`}
                                 >
                                     {n}
@@ -898,11 +911,14 @@ const CreateVideoTab = () => {
                             {/* Infinity */}
                             <button
                                 type="button"
+                                disabled={isLooping}
                                 onClick={() => { setLoopCount(Infinity); setShowCustomLoop(false); }}
                                 className={`w-7 h-7 rounded-lg text-[12px] font-bold transition-all ${
                                     loopCount === Infinity
                                         ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
-                                        : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                        : isLooping 
+                                            ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed border border-border/20'
+                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                 }`}
                             >
                                 ∞
@@ -910,6 +926,7 @@ const CreateVideoTab = () => {
                             {/* Custom */}
                             <button
                                 type="button"
+                                disabled={isLooping}
                                 onClick={() => {
                                     setShowCustomLoop(true);
                                     if (![1,2,3,5,10].includes(loopCount) && loopCount !== Infinity) return;
@@ -918,7 +935,9 @@ const CreateVideoTab = () => {
                                 className={`h-7 px-2 rounded-lg text-[9px] font-bold transition-all ${
                                     showCustomLoop
                                         ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
-                                        : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                        : isLooping 
+                                            ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed border border-border/20'
+                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                 }`}
                             >
                                 กำหนดเอง
@@ -928,12 +947,13 @@ const CreateVideoTab = () => {
                                     type="number"
                                     min={1}
                                     max={9999}
+                                    disabled={isLooping}
                                     value={loopCount === Infinity ? '' : loopCount}
                                     onChange={(e) => {
                                         const v = parseInt(e.target.value, 10);
                                         if (!isNaN(v) && v >= 1) setLoopCount(v);
                                     }}
-                                    className="w-14 h-7 rounded-lg text-[10px] font-bold text-center bg-muted/30 border border-neon-red/50 text-foreground focus:outline-none focus:ring-1 focus:ring-neon-red/50"
+                                    className="w-14 h-7 rounded-lg text-[10px] font-bold text-center bg-muted/30 border border-neon-red/50 text-foreground focus:outline-none focus:ring-1 focus:ring-neon-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     autoFocus
                                 />
                             )}
