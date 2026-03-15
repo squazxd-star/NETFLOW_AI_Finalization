@@ -133,6 +133,7 @@ chrome.runtime.onConnect.addListener((port) => {
 // ─── Per-Tab State Management (Multi-Tab Automation) ─────────────────────────
 // Each tab gets its own isolated state: video cache, download info, automation status
 const _tabStates = {};
+const _flowOpenLocks = {};
 
 function getTabState(tabId) {
     if (!tabId) return null;
@@ -757,9 +758,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // ── OPEN_FLOW_AND_GENERATE: Open Google Flow → wait → New Project → forward GENERATE_IMAGE ──
     if (message?.action === "OPEN_FLOW_AND_GENERATE") {
         (async () => {
+            let openKey = null;
             try {
                 const engine = message.videoEngine || "veo";
                 const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
+                openKey = `${message.windowId || 'global'}:${engine}`;
+                const existingLock = _flowOpenLocks[openKey];
+                if (existingLock && (existingLock.inFlight || (Date.now() - existingLock.lastStartedAt < 15000))) {
+                    sendResponse({ success: true, message: "Google Flow is already opening — continuing current automation", deduped: true });
+                    return;
+                }
+                _flowOpenLocks[openKey] = {
+                    inFlight: true,
+                    lastStartedAt: Date.now()
+                };
                 const flowUrl = engine === "grok"
                     ? "https://grok.com/imagine"
                     : "https://labs.google/fx/tools/flow";
@@ -850,6 +862,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } catch (err) {
                 console.error("[Netflow] OPEN_FLOW_AND_GENERATE error:", err);
                 sendResponse({ success: false, message: "Error: " + (err.message || "unknown") });
+            } finally {
+                if (openKey) {
+                    const lock = _flowOpenLocks[openKey];
+                    if (lock) {
+                        lock.inFlight = false;
+                        setTimeout(() => {
+                            const latestLock = _flowOpenLocks[openKey];
+                            if (latestLock && !latestLock.inFlight && (Date.now() - latestLock.lastStartedAt >= 15000)) {
+                                delete _flowOpenLocks[openKey];
+                            }
+                        }, 16000);
+                    }
+                }
             }
         })();
         return true; // async

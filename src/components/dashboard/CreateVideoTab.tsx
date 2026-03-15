@@ -118,9 +118,15 @@ const CreateVideoTab = () => {
     const [showSummary, setShowSummary] = useState(false);
     const [automationStats, setAutomationStats] = useState({
         products: 0,
+        plannedClips: 0,
         images: 0,
         videos: 0,
+        tiktokQueued: 0,
         tiktokPosts: 0,
+        tiktokFailed: 0,
+        youtubeQueued: 0,
+        youtubeUploads: 0,
+        youtubeFailed: 0,
         success: 0,
         failed: 0
     });
@@ -145,6 +151,12 @@ const CreateVideoTab = () => {
     const [autoOpenVideo, setAutoOpenVideo] = useState(true);
     const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
     const prevGeneratingRef = useRef(false);
+    const loopAdvanceInFlightRef = useRef(false);
+    const lastLoopCompletionRef = useRef<{ tabId: number | null; videoUrl: string | null; at: number }>({
+        tabId: null,
+        videoUrl: null,
+        at: 0
+    });
 
     // Automation Refs for Event Listeners
     const isLoopingRef = useRef(false);
@@ -157,6 +169,18 @@ const CreateVideoTab = () => {
     useEffect(() => { loopCountRef.current = loopCount; }, [loopCount]);
     useEffect(() => { currentLoopRef.current = currentLoop; }, [currentLoop]);
     useEffect(() => { automationStartTimeRef.current = automationStartTime; }, [automationStartTime]);
+
+    const finalizeAutomationRun = useCallback(() => {
+        if (automationStartTimeRef.current) {
+            const endTime = Date.now();
+            const diffMs = endTime - automationStartTimeRef.current;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffSecs = Math.floor((diffMs % 60000) / 1000);
+            setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
+            automationStartTimeRef.current = null;
+        }
+        setShowSummary(true);
+    }, []);
 
     // ─── Prompt Generation Logic ──────────────────────────────────────────
     const handleGeneratePrompt = async () => {
@@ -353,22 +377,57 @@ const CreateVideoTab = () => {
                 setIsUploading(false);
                 setUploadStatus("⛔ หยุดการทำงานแล้ว");
                 
-                // คำนวณระยะเวลาและแสดงหน้าสรุป (ถูกบังคับหยุดกลางคัน)
-                if (automationStartTimeRef.current) {
-                    const endTime = Date.now();
-                    const diffMs = endTime - automationStartTimeRef.current;
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                    setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
-                    automationStartTimeRef.current = null; // ป้องกันการเรียกซ้ำ
-                    setShowSummary(true);
-                }
                 setIsLooping(false);
+                finalizeAutomationRun();
+            }
+            if (message?.type === "TIKTOK_CAPTION_PREVIEW") {
+                setAutomationStats(prev => ({
+                    ...prev,
+                    tiktokQueued: prev.tiktokQueued + 1
+                }));
+            }
+            if (message?.type === "TIKTOK_UPLOAD_COMPLETE" || message?.type === "TIKTOK_POST_SUCCESS") {
+                setAutomationStats(prev => ({
+                    ...prev,
+                    tiktokQueued: Math.max(0, prev.tiktokQueued - 1),
+                    tiktokPosts: prev.tiktokPosts + 1
+                }));
+            }
+            if (message?.type === "TIKTOK_UPLOAD_ERROR" || message?.type === "TIKTOK_POST_FAILED") {
+                setAutomationStats(prev => ({
+                    ...(message._fromHook && prev.tiktokQueued > 0 ? prev : {
+                        ...prev,
+                        tiktokQueued: Math.max(0, prev.tiktokQueued - 1),
+                        tiktokFailed: prev.tiktokFailed + 1,
+                        failed: prev.failed + 1
+                    })
+                }));
+            }
+            if (message?.type === "YOUTUBE_UPLOAD_STARTED") {
+                setAutomationStats(prev => ({
+                    ...prev,
+                    youtubeQueued: prev.youtubeQueued + 1
+                }));
+            }
+            if (message?.type === "YOUTUBE_UPLOAD_COMPLETE") {
+                setAutomationStats(prev => ({
+                    ...prev,
+                    youtubeQueued: Math.max(0, prev.youtubeQueued - 1),
+                    youtubeUploads: prev.youtubeUploads + 1
+                }));
+            }
+            if (message?.type === "YOUTUBE_UPLOAD_FAILED") {
+                setAutomationStats(prev => ({
+                    ...prev,
+                    youtubeQueued: Math.max(0, prev.youtubeQueued - 1),
+                    youtubeFailed: prev.youtubeFailed + 1,
+                    failed: prev.failed + 1
+                }));
             }
         };
         chrome.runtime.onMessage.addListener(handler);
         return () => chrome.runtime.onMessage.removeListener(handler);
-    }, [myWindowId]);
+    }, [finalizeAutomationRun, myWindowId]);
 
     // Compute displayed logs based on selected tab
     const flowLogs = useMemo(() => {
@@ -395,92 +454,105 @@ const CreateVideoTab = () => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
         const loopHandler = async (message: any) => {
             if (message?.type !== "VIDEO_GENERATION_COMPLETE") return;
-            
-            const isCurrentlyLooping = isLoopingRef.current;
-            const currentLoopValue = currentLoopRef.current;
-            const currentLoopCount = loopCountRef.current;
 
-            // ถ้าไม่ได้อยู่ในโหมดลูป (เช่น ตั้งใจทำคลิปเดียว หรือถูกปรับให้เหลือ 1 คลิปกลางทาง)
-            if (!isCurrentlyLooping || currentLoopValue >= currentLoopCount - 1) {
+            const now = Date.now();
+            const eventTabId = typeof message.tabId === "number" ? message.tabId : null;
+            const eventVideoUrl = typeof message.videoUrl === "string" ? message.videoUrl : null;
+            const lastCompletion = lastLoopCompletionRef.current;
+            const isDuplicateCompletion =
+                loopAdvanceInFlightRef.current ||
+                (
+                    now - lastCompletion.at < 10000 &&
+                    (
+                        (eventTabId !== null && lastCompletion.tabId === eventTabId) ||
+                        (!!eventVideoUrl && lastCompletion.videoUrl === eventVideoUrl)
+                    )
+                );
+
+            if (isDuplicateCompletion) {
+                return;
+            }
+
+            loopAdvanceInFlightRef.current = true;
+            lastLoopCompletionRef.current = {
+                tabId: eventTabId,
+                videoUrl: eventVideoUrl,
+                at: now
+            };
+
+            try {
+                setAutomationStats(prev => ({
+                    ...prev,
+                    images: prev.images + 1,
+                    videos: prev.videos + 1,
+                    success: prev.success + 1
+                }));
+
+                const isCurrentlyLooping = isLoopingRef.current;
+                const currentLoopValue = currentLoopRef.current;
+                const currentLoopCount = loopCountRef.current;
+
+                if (!isCurrentlyLooping || currentLoopValue >= currentLoopCount - 1) {
+                    const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                    setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์!`] }));
+                    setIsLooping(false);
+                    setCurrentLoop(0);
+                    setIsUploading(false);
+                    (window as any).__NETFLOW_STOP_LOOP__ = true;
+                    finalizeAutomationRun();
+                    return;
+                }
+
+                const nextLoop = currentLoopValue + 1;
                 const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์!`] }));
-                setIsLooping(false);
-                setCurrentLoop(0);
-                setIsUploading(false);
-                (window as any).__NETFLOW_STOP_LOOP__ = true;
-                
-                // คำนวณระยะเวลาและแสดงหน้าสรุป (ถ้ามีการตั้งค่าไว้)
-                if (automationStartTimeRef.current) {
-                    const endTime = Date.now();
-                    const diffMs = endTime - automationStartTimeRef.current;
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                    setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
-                    automationStartTimeRef.current = null; // ป้องกันการเรียกซ้ำ
-                    setShowSummary(true);
+                const loopLabel = currentLoopCount === Infinity ? '∞' : currentLoopCount;
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopLabel} — เตรียมรอบถัดไป...`] }));
+
+                await new Promise(r => setTimeout(r, 4000));
+
+                if ((window as any).__NETFLOW_STOP_LOOP__) {
+                    setIsLooping(false);
+                    setCurrentLoop(0);
+                    setIsUploading(false);
+                    return;
                 }
-                return;
-            }
 
-            const nextLoop = currentLoopValue + 1;
-            const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-            const loopLabel = currentLoopCount === Infinity ? '∞' : currentLoopCount;
-            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopLabel} — เตรียมรอบถัดไป...`] }));
-            
-            // อัพเดตสถิติระหว่างลูป
-            setAutomationStats(prev => ({
-                ...prev,
-                success: prev.success + 1,
-                videos: prev.videos + 1,
-                images: prev.images + 1,
-            }));
-
-            // Wait for tab to close
-            await new Promise(r => setTimeout(r, 4000));
-
-            if ((window as any).__NETFLOW_STOP_LOOP__) {
-                setIsLooping(false);
-                setCurrentLoop(0);
-                setIsUploading(false);
-                return;
-            }
-
-            // Step 1: Trigger AI script generation (if using AI)
-            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🤖 วิเคราะห์ด้วย AI (Loop ${nextLoop + 1})...`] }));
-            if (aiGenerateRef.current) {
-                try {
-                    await aiGenerateRef.current();
-                } catch (e: any) {
-                    console.warn("[Loop] AI generate error:", e);
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🤖 วิเคราะห์ด้วย AI (Loop ${nextLoop + 1})...`] }));
+                if (aiGenerateRef.current) {
+                    try {
+                        await aiGenerateRef.current();
+                    } catch (e: any) {
+                        console.warn("[Loop] AI generate error:", e);
+                    }
                 }
-            }
-            // Add a small delay to let form state update
-            await new Promise(r => setTimeout(r, 1500));
 
-            if ((window as any).__NETFLOW_STOP_LOOP__) {
-                setIsLooping(false);
-                setCurrentLoop(0);
-                setIsUploading(false);
-                return;
-            }
+                await new Promise(r => setTimeout(r, 1500));
 
-            // Step 2: Trigger the Automation button directly (which will generate prompt + start flow)
-            setCurrentLoop(nextLoop);
-            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopLabel}...`] }));
+                if ((window as any).__NETFLOW_STOP_LOOP__) {
+                    setIsLooping(false);
+                    setCurrentLoop(0);
+                    setIsUploading(false);
+                    return;
+                }
 
-            const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
-            if (automationBtn) {
-                // Clear previously generated prompt so the automation button regenerates it for the new loop
-                setGeneratedImagePrompt(null);
-                setGeneratedVideoPrompt(null);
-                setIsUploading(false);
-                await new Promise(r => setTimeout(r, 50));
-                automationBtn.click();
+                setCurrentLoop(nextLoop);
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopLabel}...`] }));
+
+                const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
+                if (automationBtn) {
+                    setGeneratedImagePrompt(null);
+                    setGeneratedVideoPrompt(null);
+                    setIsUploading(false);
+                    await new Promise(r => setTimeout(r, 50));
+                    automationBtn.click();
+                }
+            } finally {
+                loopAdvanceInFlightRef.current = false;
             }
         };
         chrome.runtime.onMessage.addListener(loopHandler);
         return () => chrome.runtime.onMessage.removeListener(loopHandler);
-    }, []);
+    }, [finalizeAutomationRun]);
 
     // Append local workflow status to logs (use tabId=0 bucket for local messages)
     useEffect(() => {
@@ -752,9 +824,15 @@ const CreateVideoTab = () => {
                                 setAutomationStartTime(Date.now());
                                 setAutomationStats({
                                     products: 1, // Start with 1 product
+                                    plannedClips: Number.isFinite(loopCount) ? loopCount : -1,
                                     images: 0,
                                     videos: 0,
-                                    tiktokPosts: form.getValues("autoPostTikTok") ? 1 : 0,
+                                    tiktokQueued: 0,
+                                    tiktokPosts: 0,
+                                    tiktokFailed: 0,
+                                    youtubeQueued: 0,
+                                    youtubeUploads: 0,
+                                    youtubeFailed: 0,
                                     success: 0,
                                     failed: 0
                                 });
@@ -845,16 +923,7 @@ const CreateVideoTab = () => {
                                 setCurrentLoop(0);
                                 setUploadStatus("⛔ หยุดการลูปแล้ว");
                                 
-                                // คำนวณระยะเวลาและแสดงหน้าสรุป
-                                if (automationStartTimeRef.current) {
-                                    const endTime = Date.now();
-                                    const diffMs = endTime - automationStartTimeRef.current;
-                                    const diffMins = Math.floor(diffMs / 60000);
-                                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                                    setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
-                                    automationStartTimeRef.current = null;
-                                    setShowSummary(true);
-                                }
+                                finalizeAutomationRun();
                             }}
                             className="w-full py-2 px-4 rounded-xl text-xs font-medium border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
                         >

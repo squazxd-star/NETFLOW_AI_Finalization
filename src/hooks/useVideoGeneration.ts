@@ -39,6 +39,12 @@ export const useVideoGeneration = () => {
     const [lastCompletedProductName, setLastCompletedProductName] = useState<string | null>(null);
     const { toast } = useToast();
 
+    const emitRuntimeEvent = (message: Record<string, any>) => {
+        try {
+            chrome.runtime.sendMessage(message);
+        } catch (_) {}
+    };
+
     // Helper: fetch cached video data URL from background for preview playback
     const fetchCachedVideoDataUrl = (tabId?: number): Promise<string | null> => {
         if (!isExtension) return Promise.resolve(null);
@@ -67,9 +73,11 @@ export const useVideoGeneration = () => {
             const config = await getYouTubeConfig();
             if (!config) {
                 console.log("[useVideoGeneration] No YouTube config found");
+                emitRuntimeEvent({ type: "YOUTUBE_UPLOAD_FAILED", error: "ไม่พบการตั้งค่า YouTube", _fromHook: true });
                 return;
             }
 
+            emitRuntimeEvent({ type: "YOUTUBE_UPLOAD_STARTED", _fromHook: true });
             toast({
                 title: "📤 กำลังอัพโหลดไป YouTube Shorts...",
                 description: `Title: "${config.title || 'Netflow AI Video'}"`,
@@ -84,6 +92,7 @@ export const useVideoGeneration = () => {
                     className: "bg-green-600 text-white"
                 });
             } else {
+                emitRuntimeEvent({ type: "YOUTUBE_UPLOAD_FAILED", error: uploadResult.error || "เกิดข้อผิดพลาด", _fromHook: true });
                 toast({
                     title: "❌ YouTube Upload ไม่สำเร็จ",
                     description: uploadResult.error || "เกิดข้อผิดพลาด",
@@ -92,6 +101,11 @@ export const useVideoGeneration = () => {
             }
         } catch (error) {
             console.error("[useVideoGeneration] YouTube auto-post error:", error);
+            emitRuntimeEvent({
+                type: "YOUTUBE_UPLOAD_FAILED",
+                error: error instanceof Error ? error.message : "YouTube auto-post error",
+                _fromHook: true
+            });
         }
     };
 
@@ -115,6 +129,7 @@ export const useVideoGeneration = () => {
             const product = await getActiveProduct();
             if (!product) {
                 setTiktokPostStatus(prev => ({ ...prev, status: 'error', label: 'ไม่มีสินค้าที่เลือก' }));
+                emitRuntimeEvent({ type: "TIKTOK_UPLOAD_ERROR", error: "ไม่มีสินค้าที่เลือก", _fromHook: true });
                 toast({
                     title: "ℹ️ ไม่มีสินค้าที่เลือก",
                     description: "กรุณาเลือกสินค้าในหน้าตั้งค่า TikTok ก่อนโพสต์",
@@ -152,6 +167,7 @@ export const useVideoGeneration = () => {
                     className: "bg-green-600 text-white"
                 });
             } else {
+                emitRuntimeEvent({ type: "TIKTOK_UPLOAD_ERROR", error: uploadResult.error || "เกิดข้อผิดพลาดในการโพสต์ไป TikTok", _fromHook: true });
                 setTiktokPostStatus(prev => {
                     addPostHistory({
                         productName: prev.productName || product.name,
@@ -172,6 +188,11 @@ export const useVideoGeneration = () => {
         } catch (error) {
             console.error("[useVideoGeneration] TikTok auto-post error:", error);
             setTiktokPostStatus(prev => ({ ...prev, status: 'error', label: 'เกิดข้อผิดพลาด' }));
+            emitRuntimeEvent({
+                type: "TIKTOK_UPLOAD_ERROR",
+                error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+                _fromHook: true
+            });
         }
     };
 
@@ -349,7 +370,7 @@ export const useVideoGeneration = () => {
             }
 
             // Handle TikTok post results
-            if (message.type === "TIKTOK_POST_SUCCESS") {
+            if (message.type === "TIKTOK_POST_SUCCESS" || message.type === "TIKTOK_UPLOAD_COMPLETE") {
                 setTiktokPostStatus(prev => ({ ...prev, status: 'done', label: '✅ โพสต์สำเร็จ!' }));
                 toast({
                     title: "✅ โพสต์ TikTok สำเร็จ!",
@@ -358,11 +379,29 @@ export const useVideoGeneration = () => {
                 });
             }
 
-            if (message.type === "TIKTOK_POST_FAILED") {
+            if (message.type === "TIKTOK_POST_FAILED" || message.type === "TIKTOK_UPLOAD_ERROR") {
+                if (message._fromHook) return;
                 setTiktokPostStatus(prev => ({ ...prev, status: 'error', label: message.error || 'ล้มเหลว' }));
                 toast({
                     title: "⚠️ โพสต์ TikTok ไม่สำเร็จ",
                     description: message.error || "เกิดข้อผิดพลาดในการโพสต์",
+                    variant: "destructive"
+                });
+            }
+
+            if (message.type === "YOUTUBE_UPLOAD_COMPLETE") {
+                toast({
+                    title: "✅ YouTube Upload สำเร็จ!",
+                    description: "อัปโหลด YouTube Shorts เรียบร้อยแล้ว",
+                    className: "bg-green-600 text-white"
+                });
+            }
+
+            if (message.type === "YOUTUBE_UPLOAD_FAILED") {
+                if (message._fromHook) return;
+                toast({
+                    title: "❌ YouTube Upload ไม่สำเร็จ",
+                    description: message.error || "เกิดข้อผิดพลาดในการอัปโหลด YouTube",
                     variant: "destructive"
                 });
             }

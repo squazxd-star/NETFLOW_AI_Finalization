@@ -1351,29 +1351,26 @@ async function setPromptText(el: HTMLElement, text: string) {
  * Count how many reference thumbnails are in the prompt bar area.
  */
 function countPromptBarThumbnails(): number {
-    let count = 0;
-    const images = document.querySelectorAll<HTMLImageElement>("img");
-    for (const img of images) {
-        if (img.closest("#netflow-engine-overlay")) continue;
-        if (!img.src) continue;
-        if (_hidden()) { count++; continue; }
-        const rect = img.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
-            && rect.height > 20 && rect.height < 200 && img.offsetParent !== null) {
-            count++;
+    const thumbs = new Set<Element>();
+    const candidates = document.querySelectorAll<HTMLElement>(
+        'img, canvas, video, [role="img"], [style*="background-image"], [class*="thumb"], [class*="preview"], [class*="upload"], [class*="attachment"]'
+    );
+    for (const el of candidates) {
+        if (el.closest("#netflow-engine-overlay")) continue;
+        if ((el instanceof HTMLImageElement || el instanceof HTMLVideoElement) && !el.src) continue;
+        if (_hidden()) {
+            thumbs.add(el);
+            continue;
+        }
+        const rect = el.getBoundingClientRect();
+        const looksLikeThumb = rect.width > 20 && rect.width < 220 && rect.height > 20 && rect.height < 220;
+        const nearPromptBar = rect.bottom > window.innerHeight * 0.55;
+        const visible = el.offsetParent !== null || getComputedStyle(el).position === "fixed";
+        if (looksLikeThumb && nearPromptBar && visible) {
+            thumbs.add(el);
         }
     }
-    const thumbDivs = document.querySelectorAll<HTMLElement>('[style*="background-image"], [class*="thumb"], [class*="preview"]');
-    for (const div of thumbDivs) {
-        if (div.closest("#netflow-engine-overlay")) continue;
-        if (_hidden()) { count++; continue; }
-        const rect = div.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight * 0.6 && rect.width > 20 && rect.width < 200
-            && rect.height > 20 && rect.height < 200 && div.offsetParent !== null) {
-            count++;
-        }
-    }
-    return count;
+    return thumbs.size;
 }
 
 /**
@@ -1778,6 +1775,7 @@ async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileNam
     // ═══════════════════════════════════════════════════════════════════════
     LOG("── ขั้นตอน 4: รอยืนยันรูปย่อ ──");
     const verifyStart = Date.now();
+    let sawUploadProgress = false;
     while (Date.now() - verifyStart < 15000) {
         const currentCount = countPromptBarThumbnails();
         if (currentCount > baselineCount) {
@@ -1788,12 +1786,18 @@ async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileNam
         const pctEls = document.querySelectorAll<HTMLElement>("span, div, p");
         for (const el of pctEls) {
             const txt = (el.textContent || "").trim();
-            if (/^\d{1,2}%$/.test(txt)) {
+            if (/^\d{1,3}%$/.test(txt)) {
+                sawUploadProgress = true;
                 LOG(`กำลังอัพโหลด: ${txt}`);
                 break;
             }
         }
         await sleep(1000);
+    }
+
+    if (sawUploadProgress) {
+        LOG(`✅ ตรวจพบการอัพโหลด ${fileName} แล้ว แม้ยังนับรูปย่อใหม่ไม่ชัด — ดำเนินการต่อ`);
+        return true;
     }
 
     WARN(`❌ อัพโหลด ${fileName} ไม่สำเร็จ — ไม่พบรูปย่อภายใน 15 วินาที`);

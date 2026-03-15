@@ -1184,6 +1184,12 @@ async function runYouTubeUpload(config: YouTubeUploadConfig): Promise<{ success:
     } catch (err: any) {
         warn(`Upload error: ${err.message}`);
         hudRemove(8000);
+        try {
+            chrome.runtime.sendMessage({
+                type: 'YOUTUBE_UPLOAD_FAILED',
+                error: err.message || 'YouTube upload failed'
+            });
+        } catch (_) {}
         return { success: false, error: err.message };
     }
 }
