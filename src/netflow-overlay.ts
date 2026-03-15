@@ -2356,33 +2356,9 @@ function buildBrainSVG(): SVGSVGElement {
     // ═══ THINKING STREAKS — Bright animated dashes racing along sulci ═══
     const streakGrp = document.createElementNS(ns, "g");
     streakGrp.setAttribute("filter", "url(#nfStreakGlow)");
+    streakGrp.setAttribute("display", "none");
 
-    const streaks = [
-        // Major sulci streaks (bright, wide)
-        { d: "M 198 30 C 196 48, 192 68, 188 92 C 184 118, 182 142, 186 162 C 190 180, 198 200, 208 224", dur: 3.0, dl: 0, w: 2.8, rev: false },
-        { d: "M 100 196 C 124 184, 154 172, 190 164 C 226 156, 262 152, 296 160", dur: 3.4, dl: 1.2, w: 2.5, rev: false },
-        { d: "M 132 36 C 126 56, 118 82, 112 110 C 106 136, 100 162, 96 188", dur: 2.8, dl: 0.6, w: 2.5, rev: true },
-        { d: "M 252 32 C 262 52, 274 78, 282 108 C 288 134, 290 158, 286 180", dur: 3.2, dl: 2.0, w: 2.5, rev: false },
-        // Secondary sulci streaks (medium)
-        { d: "M 220 28 C 222 48, 224 74, 220 102 C 216 130, 218 156, 226 180", dur: 2.6, dl: 0.8, w: 2, rev: true },
-        { d: "M 176 28 C 170 50, 164 78, 162 108 C 160 136, 166 162, 174 188", dur: 3.0, dl: 1.8, w: 2, rev: false },
-        { d: "M 274 44 C 286 64, 296 92, 302 122 C 306 148, 304 170, 296 192", dur: 2.4, dl: 2.8, w: 2, rev: true },
-        { d: "M 114 210 C 148 200, 188 192, 228 188 C 262 184, 288 186, 306 194", dur: 3.6, dl: 0.4, w: 2, rev: false },
-        // Cross-connection streaks (short, fast)
-        { d: "M 162 108 C 180 104, 198 106, 216 114", dur: 1.6, dl: 0.3, w: 1.8, rev: false },
-        { d: "M 156 134 C 176 130, 196 132, 216 140", dur: 1.4, dl: 2.2, w: 1.8, rev: true },
-        { d: "M 112 172 C 140 164, 170 158, 200 156", dur: 1.8, dl: 1.0, w: 1.8, rev: false },
-        { d: "M 200 156 C 230 154, 260 158, 284 166", dur: 1.8, dl: 3.0, w: 1.8, rev: true },
-        { d: "M 242 104 C 258 100, 276 104, 292 112", dur: 1.4, dl: 1.6, w: 1.6, rev: false },
-        { d: "M 108 152 C 130 146, 156 142, 184 140", dur: 1.6, dl: 3.4, w: 1.6, rev: true },
-        { d: "M 184 140 C 212 138, 242 142, 268 150", dur: 1.6, dl: 2.6, w: 1.6, rev: false },
-        // Occipital area streaks
-        { d: "M 80 114 C 86 98, 94 82, 106 70", dur: 1.2, dl: 0.9, w: 1.8, rev: true },
-        { d: "M 72 164 C 76 148, 82 130, 90 116", dur: 1.4, dl: 2.4, w: 1.6, rev: false },
-        // Cerebellum streak
-        { d: "M 102 234 C 118 230, 134 234, 148 240", dur: 1.0, dl: 3.8, w: 1.5, rev: false },
-        { d: "M 100 226 C 114 222, 130 226, 142 232", dur: 1.0, dl: 1.4, w: 1.5, rev: true },
-    ];
+    const streaks: Array<{ d: string; dur: number; dl: number; w: number; rev: boolean }> = [];
 
     streaks.forEach(({ d, dur, dl, w, rev }) => {
         const p = mkPath(d, `rgba(${cP},0.90)`, w);
@@ -2400,37 +2376,17 @@ function buildBrainSVG(): SVGSVGElement {
     synGrp.setAttribute("filter", "url(#nfSynGlow)");
 
     const hotSpots = [
-        // Major sulci intersections
+        // Major sulci intersections only (reduced from 26 to 10 for performance)
         { x: 190, y: 164, r: 4.5, dl: 0 },     // Central × Lateral
         { x: 112, y: 110, r: 3.8, dl: 0.6 },    // Parieto-occipital mid
         { x: 282, y: 108, r: 3.8, dl: 1.2 },    // Superior frontal mid
         { x: 188, y: 92, r: 3.2, dl: 1.8 },     // Central sulcus upper
         { x: 220, y: 102, r: 3.2, dl: 2.4 },    // Pre-central mid
-        { x: 162, y: 108, r: 3.0, dl: 0.3 },    // Post-central mid
-        { x: 302, y: 122, r: 2.8, dl: 3.0 },    // Inf. frontal mid
         { x: 228, y: 188, r: 3.2, dl: 1.5 },    // Sup. temporal mid
-        { x: 132, y: 108, r: 2.8, dl: 2.0 },    // Intraparietal mid
-        // Cortex top junction highlights
-        { x: 198, y: 30, r: 2.5, dl: 0.4 },
-        { x: 252, y: 32, r: 2.5, dl: 0.8 },
-        { x: 132, y: 36, r: 2.5, dl: 1.2 },
-        { x: 170, y: 27, r: 2.2, dl: 1.6 },
-        { x: 226, y: 26, r: 2.2, dl: 2.0 },
-        // Cross-connection intersection highlights
-        { x: 200, y: 156, r: 3.0, dl: 2.8 },
-        { x: 184, y: 140, r: 2.5, dl: 3.4 },
-        { x: 268, y: 150, r: 2.5, dl: 0.2 },
-        { x: 108, y: 152, r: 2.5, dl: 1.0 },
-        // Brain edge highlights
-        { x: 96, y: 188, r: 2.8, dl: 3.6 },
-        { x: 286, y: 180, r: 2.8, dl: 0.7 },
-        { x: 296, y: 160, r: 2.2, dl: 2.6 },
-        { x: 208, y: 224, r: 2.8, dl: 3.2 },
-        // Deeper cortex highlights
-        { x: 260, y: 76, r: 2.0, dl: 1.9 },
-        { x: 150, y: 68, r: 2.0, dl: 3.8 },
-        { x: 296, y: 140, r: 2.0, dl: 0.5 },
-        { x: 106, y: 148, r: 2.0, dl: 2.2 },
+        { x: 200, y: 156, r: 3.0, dl: 2.8 },    // Cross-connection
+        { x: 96, y: 188, r: 2.8, dl: 3.6 },     // Brain edge
+        { x: 286, y: 180, r: 2.8, dl: 0.7 },    // Brain edge
+        { x: 208, y: 224, r: 2.8, dl: 3.2 },    // Brain edge
     ];
 
     hotSpots.forEach(({ x, y, r, dl }) => {
@@ -2967,13 +2923,15 @@ function initMatrixRain() {
     let _bgGrad: CanvasGradient | null = null;
     let _bgW = 0, _bgH = 0;
 
-    let _skipFrame = false;
+    let _skipFrame = 0;
     function drawPlexus() {
         if (!matrixCtx || !matrixCanvas) { matrixAnimFrame = null; return; }
         matrixAnimFrame = requestAnimationFrame(drawPlexus);
-        // Throttle to ~30fps — background layer, visually identical
-        _skipFrame = !_skipFrame;
-        if (_skipFrame) return;
+        // Track FPS (count every rAF call)
+        fpsFrames++;
+        // Throttle to ~20fps — background layer, visually identical, saves significant CPU
+        _skipFrame++;
+        if (_skipFrame % 3 !== 0) return;
 
         const ctx = matrixCtx;
         const w = matrixCanvas.width;
@@ -3191,23 +3149,28 @@ function animateEngineCoreWaves() {
 
 function startVisualizer() {
     wavePhase = 0;
+    fpsFrames = 0;
+    fpsLastTime = performance.now();
     animateEngineCoreWaves();
     initMatrixRain();
-    statsInterval = setInterval(() => {
-        const f = document.getElementById("nf-stat-freq");
-        const l1 = document.getElementById("nf-stat-lat1");
-        const l2 = document.getElementById("nf-stat-lat2");
-        const b = document.getElementById("nf-stat-buf");
-        if (f) f.textContent = `${(4.5 + Math.random() * 0.5).toFixed(1)} GHz`;
-        if (l1) l1.textContent = `${Math.floor(12 + Math.random() * 10)}ms`;
-        if (l2) l2.textContent = `${Math.floor(12 + Math.random() * 10)}ms`;
-        if (b) b.textContent = `${Math.floor(90 + Math.random() * 9)}%`;
-    }, 2000);
+    // FPS counter — update display every second
+    fpsInterval = setInterval(() => {
+        const now = performance.now();
+        const delta = (now - fpsLastTime) / 1000;
+        if (delta > 0) {
+            fpsValue = Math.round(fpsFrames / delta);
+            const fpsEl = document.getElementById("nf-stat-fps");
+            if (fpsEl) fpsEl.textContent = `${fpsValue}`;
+        }
+        fpsFrames = 0;
+        fpsLastTime = now;
+    }, 1000);
 }
 
 function stopVisualizer() {
     if (waveAnimFrame !== null) { cancelAnimationFrame(waveAnimFrame); waveAnimFrame = null; }
     if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+    if (fpsInterval) { clearInterval(fpsInterval); fpsInterval = null; }
     _wavePaths = null;
     stopMatrixRain();
 }
@@ -3312,6 +3275,9 @@ function toggleOverlayVisibility(): void {
         overlayRoot.style.pointerEvents = 'none';
         if (toggleBtn) toggleBtn.innerHTML = NF_ICON_BOLT;
         overlayHidden = true;
+        // ★ Pause all canvas animations to save CPU/GPU while hidden
+        if (matrixAnimFrame !== null) { cancelAnimationFrame(matrixAnimFrame); matrixAnimFrame = null; }
+        if (waveAnimFrame !== null) { cancelAnimationFrame(waveAnimFrame); waveAnimFrame = null; }
     } else {
         // Show overlay (toggle button stays visible)
         overlayRoot.classList.remove("nf-hidden");
@@ -3321,6 +3287,9 @@ function toggleOverlayVisibility(): void {
         overlayRoot.style.pointerEvents = 'auto';
         if (toggleBtn) toggleBtn.innerHTML = NF_ICON_CLOSE;
         overlayHidden = false;
+        // ★ Resume canvas animations
+        if (matrixCtx && matrixCanvas && matrixAnimFrame === null) { initMatrixRain(); }
+        if (waveAnimFrame === null) { animateEngineCoreWaves(); }
     }
 }
 

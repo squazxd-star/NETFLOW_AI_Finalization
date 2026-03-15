@@ -473,6 +473,8 @@ const CreateVideoTab = () => {
                 // Clear previously generated prompt so the automation button regenerates it for the new loop
                 setGeneratedImagePrompt(null);
                 setGeneratedVideoPrompt(null);
+                setIsUploading(false);
+                await new Promise(r => setTimeout(r, 50));
                 automationBtn.click();
             }
         };
@@ -789,10 +791,14 @@ const CreateVideoTab = () => {
                                             }
                                         );
                                     });
-                                    setUploadStatus(response.success ? `✅ ${response.message}` : `❌ ${response.message}`);
+                                    if (response.success) {
+                                        setUploadStatus(response.message);
+                                    } else {
+                                        setUploadStatus(`❌ ${response.message}`);
+                                        setIsUploading(false);
+                                    }
                                 } catch (err: any) {
                                     setUploadStatus(`❌ ${err.message}`);
-                                } finally {
                                     setIsUploading(false);
                                 }
                             }}

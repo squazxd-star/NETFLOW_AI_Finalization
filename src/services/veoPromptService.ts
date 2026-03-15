@@ -186,7 +186,7 @@ const VIDEO_STYLE_MAP: Record<string, string> = {
     "inspirational": "uplifting inspirational mood, golden hour lighting, hopeful atmosphere",
     "urgent": "urgent flash-sale style, high-tension energy, immediate action required vibe",
     "relaxing": "calm relaxing zen aesthetic, soft diffused lighting, slow gentle movements",
-    "anime": "Japanese 2D anime cel-shaded style inspired by Studio Ghibli and Makoto Shinkai, vibrant saturated color palette, clean precise ink line art with uniform stroke weight, large expressive detailed eyes with specular highlights, dramatic volumetric god-ray lighting, hand-painted watercolor background textures with depth-of-field bokeh, cinematic widescreen anime composition, smooth limited-animation keyframe movement",
+    "anime": "Japanese 2D anime cel-shaded style inspired by Studio Ghibli and Makoto Shinkai, vibrant saturated color palette, clean precise ink line art with uniform stroke weight, large expressive detailed eyes with specular highlights, soft cinematic sky lighting, hand-painted watercolor background textures with depth-of-field bokeh, cinematic widescreen anime composition, smooth limited-animation keyframe movement",
     "3d-cartoon": "Pixar and Disney-quality 3D animation render, soft subsurface scattering skin shader with warm translucency, physically-based global illumination with bounced fill light, stylized rounded character proportions with appealing big-eye design, smooth high-polygon surfaces with subtle ambient occlusion, rich candy-like color palette, studio-grade rim lighting and soft depth-of-field, Octane-level render clarity",
     "2d-cartoon": "Western 2D cartoon flat-color style, bold clean vector outlines with consistent stroke width, graphic-novel comic aesthetic with dynamic panel-like composition, flat cel-shaded coloring with sharp geometric shadow edges, exaggerated squash-and-stretch poses, pop-art vibrant high-contrast color palette, crisp anti-aliased edges, Saturday-morning-cartoon energy with snappy timing"
 };
@@ -217,6 +217,8 @@ const MOTION_EFFECT_STYLE_KEYS = new Set([
     "action"
 ]);
 
+const ANTI_STREAK_VISUAL_DIRECTIVE = "VISUAL CLEANLINESS: No white streak lines, no speed lines, no comic action streaks, no radial zoom rays, no dramatic light beams, no god rays, no stylized light shafts, no lens streak artifacts, no motion-trail streaks, and no artificial blur rays anywhere in frame.";
+
 const resolveStyleGuide = (config: PromptGenerationConfig): {
     imageStyle: string;
     videoStyle: string;
@@ -243,6 +245,7 @@ const resolveStyleGuide = (config: PromptGenerationConfig): {
             ? "REAL FACE REFERENCE PRIORITY: Keep the person recognizably the same real human from the reference. Do NOT turn the face into a cartoon, toy-like 3D model, waxy skin, plastic CGI, or exaggerated stylized proportions."
             : "",
         "PRODUCT PRIORITY: The chosen style must NEVER alter the product's physical design, silhouette, label layout, material identity, or packaging shape.",
+        ANTI_STREAK_VISUAL_DIRECTIVE,
         hasMotionEffect
             ? "MOTION SAFETY: If the selected style suggests a gimmick motion effect, keep it subtle. Never break lip-sync quality, face continuity, hand anatomy, or product shape consistency."
             : ""
@@ -864,7 +867,7 @@ const USER_BACKGROUND_MAPPING: Record<string, string[]> = {
         "warm sunset gradient from coral to deep purple, dreamy ethereal atmosphere, soft bokeh light particles floating",
         "cool blue-to-teal gradient with subtle geometric shapes, modern tech aesthetic, clean futuristic backdrop",
         "soft pink-to-lavender gradient with gentle lens flare, feminine elegant atmosphere, beauty brand aesthetic",
-        "bold orange-to-magenta gradient with dynamic diagonal light streaks, energetic vibrant modern backdrop",
+        "bold orange-to-magenta gradient with dynamic diagonal color accents, energetic vibrant modern backdrop",
         "deep navy-to-black gradient with gold dust particles, luxury premium atmosphere, high-end brand backdrop",
         "mint green-to-white gradient with soft cloud wisps, fresh clean healthy aesthetic, wellness brand feel",
         "warm peach-to-cream gradient with soft circular bokeh, gentle romantic mood, skincare beauty backdrop",
@@ -1230,7 +1233,7 @@ const USER_BACKGROUND_MAPPING: Record<string, string[]> = {
         "magical forest pond with lotus flowers glowing, koi fish with luminous scales, mirror-still reflection, meditative fantasy beauty",
         "forest of cherry blossoms with petals perpetually falling, pink magical mist, Japanese fantasy dreamscape",
         "haunted forest with will-o-wisps floating, twisted branches, eerie beautiful atmosphere, gothic fantasy mood",
-        "magical forest sunrise with golden light rays and rainbow prisms through dewdrops, awakening wonder, hope and beauty",
+        "magical forest sunrise with soft sunrise glow through dewdrops, awakening wonder, hope and beauty",
         "elven forest with elegant organic architecture, spiral wooden towers, soft golden lanterns, ethereal civilization harmony",
     ],
 };
@@ -1391,7 +1394,7 @@ const CAMERA_MOVEMENT: Record<string, string> = {
     "unboxing": "Overhead bird's-eye slowly descending, dynamic 3D rotation, reveal pan from box to product",
     "comparison": "Smooth horizontal slide between two products, dynamic split-focus shifts, controlled sweeping pan",
     "testimonial": "Slow cinematic dolly-in, subtle breathing movement, gentle drift closer during emotional moment",
-    "flash-sale": "Fast snap-zoom burst, energetic whip pan to product, dynamic Dutch angle switches with motion blur",
+    "flash-sale": "Fast snap-zoom burst, energetic whip pan to product, dynamic Dutch angle switches with crisp subject clarity",
     "tutorial": "Dynamic crane shot descending to eye-level, smooth tracking on hands, engaging cinematic flow",
     "lifestyle": "Floating steadicam follow shot, natural handheld movement, cinematic parallax tracking",
     "trending": "Vertical smartphone POV, trendy snap-zoom, dynamic whip pans matching viral format rhythm",
@@ -1411,7 +1414,7 @@ const CINEMATIC_CAMERA_POOL: string[] = [
     "Macro slider glide with rack focus transition",
     "Low-angle hero shot tilting up dramatically",
     "Overhead bird's-eye slowly descending",
-    "Whip pan with motion blur to new angle",
+    "Whip pan to new angle with crisp subject clarity",
     "Steady dolly-out revealing full scene",
     "Dutch-angle tilt with dynamic energy",
     "Smooth 180-degree arc around subject",
@@ -8161,6 +8164,7 @@ ${charDescPrompt ? `\nCHARACTER NOTE: No character reference image provided. Gen
 [QUALITY] ${aspectRatio} orientation, photorealistic, ultra-detailed textures, 4K quality. ${ANTI_TEXT_DIRECTIVE}
 
 COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character actively interacting with the product as described in [INTERACTION]. Both character and product must be clearly visible together.
+${ANTI_STREAK_VISUAL_DIRECTIVE}
 ${FRONT_FACING_DIRECTIVE}
 ${PRODUCT_MATCH_DIRECTIVE}
 ${ANTI_DISTORTION_DIRECTIVE}
@@ -8455,11 +8459,11 @@ const buildVideoPrompt = (
         extraDirectionBlock,
         // [7. STYLE/MOOD + REALISM]
         `Style treatment: ${visualStyleDesc}. ${styleGuide.guard}`,
-        `${durationConfig.pacing}. Fluid motion, cinematic motion blur, high frame rate. ${realismDirective}`,
+        `${durationConfig.pacing}. Fluid natural motion, crisp subject clarity, high frame rate. ${realismDirective}`,
         // [7.5. SCENE 1 FACE TEMPLATE] — establishes the immutable face for all subsequent scenes
         `SCENE 1 FACE TEMPLATE: This scene establishes the DEFINITIVE face identity for the entire video. Every facial feature rendered here becomes the IMMUTABLE reference — all subsequent scenes MUST reproduce this EXACT face. The face is now LOCKED and FROZEN.`,
         // [8. CONSTRAINTS] — policy + anti-addition + brand freeze + voice discipline
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
         // [9. USER KEYWORDS] — must-include and avoid keywords
         config.mustUseKeywords ? `MUST INCLUDE these elements: ${config.mustUseKeywords}` : '',
         config.avoidKeywords ? `MUST AVOID these elements: ${config.avoidKeywords}` : ''
@@ -8601,7 +8605,7 @@ export const buildSceneVideoPromptJSON = (
         !isTalkOnly ? `PRODUCT CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): The product MUST look EXACTLY the same as scene 1 — same shape, same color, same label, same packaging. Product is a FIXED VISUAL CONSTANT.` : '',
 
         // [7. CONSTRAINTS + LOCKS + ANTI-MORPH + VOICE DISCIPLINE] (FACE LOCK already in characterAnchor, not repeated)
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
     ].filter(Boolean).join(' '), productName);
 
     return prompt;
