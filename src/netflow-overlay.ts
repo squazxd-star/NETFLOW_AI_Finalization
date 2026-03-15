@@ -129,6 +129,10 @@ let matrixCtx: CanvasRenderingContext2D | null = null;
 let matrixAnimFrame: number | null = null;
 let matrixColumns: number[] = [];
 let hexGridAnimFrame: number | null = null;
+let fpsFrames = 0;
+let fpsLastTime = performance.now();
+let fpsValue = 0;
+let fpsInterval: ReturnType<typeof setInterval> | null = null;
 
 // ── Process Steps (Dynamic Center Terminal) ────────────────────────────────
 
@@ -820,8 +824,6 @@ function buildCss(t: OverlayTheme): string {
         inset 0 0 40px rgba(${P},0.03);
     animation: nf-core-breathe 4s ease-in-out infinite;
     z-index: 10;
-    backdrop-filter: blur(20px) saturate(1.5);
-    -webkit-backdrop-filter: blur(20px) saturate(1.5);
 }
 
 @keyframes nf-core-breathe {
@@ -1298,8 +1300,6 @@ function buildCss(t: OverlayTheme): string {
     border: none;
     border-radius: 12px;
     padding: 14px 17px;
-    backdrop-filter: blur(16px) saturate(1.3);
-    -webkit-backdrop-filter: blur(16px) saturate(1.3);
     overflow: hidden;
     animation: nf-module-in 0.5s ease-out both;
     transition: box-shadow 0.4s;
@@ -2621,92 +2621,31 @@ function buildOverlay(): HTMLDivElement {
     matrixCanvas.id = "nf-matrix-canvas";
     root.appendChild(matrixCanvas);
 
-    // ═══ ANIMATED BACKGROUND PATTERNS (full set — 3x density) ═══
+    // ═══ ANIMATED BACKGROUND PATTERNS (optimized — reduced layers for performance) ═══
 
     // Plasma blobs (screen blend, soft morphing)
     const plasma = document.createElement("div");
     plasma.className = "nf-pat-plasma";
     root.appendChild(plasma);
 
-    // 8 Ambient orbs (drifting glow spheres)
-    for (let i = 1; i <= 5; i++) {
+    // 2 Ambient orbs (drifting glow spheres) — reduced from 5
+    for (let i = 1; i <= 2; i++) {
         const orb = document.createElement("div");
         orb.className = `nf-ambient-orb nf-orb-${i}`;
         root.appendChild(orb);
     }
 
-    // Data stream columns (scrolling up)
-    const dataPat = document.createElement("div");
-    dataPat.className = "nf-pat-data";
-    root.appendChild(dataPat);
-
-    // Diagonal traces A & B
+    // Diagonal traces A only (removed B for perf)
     const diagA = document.createElement("div");
     diagA.className = "nf-pat-diag-a";
     root.appendChild(diagA);
-    const diagB = document.createElement("div");
-    diagB.className = "nf-pat-diag-b";
-    root.appendChild(diagB);
 
-    // Circuit board traces
-    const circuit = document.createElement("div");
-    circuit.className = "nf-pat-circuit";
-    root.appendChild(circuit);
-
-    // Honeycomb hex
-    const honeycomb = document.createElement("div");
-    honeycomb.className = "nf-pat-honeycomb";
-    root.appendChild(honeycomb);
-
-    // Binary dots
-    const binary = document.createElement("div");
-    binary.className = "nf-pat-binary";
-    root.appendChild(binary);
-
-    // Crosshatch fine lines
-    const crosshatch = document.createElement("div");
-    crosshatch.className = "nf-pat-crosshatch";
-    root.appendChild(crosshatch);
-
-    // Diamond tiles
-    const diamond = document.createElement("div");
-    diamond.className = "nf-pat-diamond";
-    root.appendChild(diamond);
-
-    // Horizontal wave lines
-    const waveH = document.createElement("div");
-    waveH.className = "nf-pat-wave-h";
-    root.appendChild(waveH);
-
-    // Radar sweep
-    const radar = document.createElement("div");
-    radar.className = "nf-pat-radar";
-    root.appendChild(radar);
-
-    // Concentric ripples (2 sources)
-    const ripple1 = document.createElement("div");
-    ripple1.className = "nf-pat-ripple-1";
-    root.appendChild(ripple1);
-    const ripple2 = document.createElement("div");
-    ripple2.className = "nf-pat-ripple-2";
-    root.appendChild(ripple2);
-
-    // Tech scan band
-    const techscan = document.createElement("div");
-    techscan.className = "nf-pat-techscan";
-    root.appendChild(techscan);
-
-    // Center glow pulse
-    const centerGlow = document.createElement("div");
-    centerGlow.className = "nf-center-glow";
-    root.appendChild(centerGlow);
-
-    // Noise grain texture
+    // Noise grain texture (static — cheap)
     const noise = document.createElement("div");
     noise.className = "nf-pat-noise";
     root.appendChild(noise);
 
-    // CRT scanlines
+    // CRT scanlines (static — cheap)
     const crt = document.createElement("div");
     crt.className = "nf-crt-scanlines";
     root.appendChild(crt);
@@ -2716,8 +2655,8 @@ function buildOverlay(): HTMLDivElement {
     vignette.className = "nf-vignette";
     root.appendChild(vignette);
 
-    // ═══ PULSE RINGS (expanding from center) ═══
-    for (let i = 0; i < 3; i++) {
+    // ═══ PULSE RINGS (expanding from center) — reduced from 3 to 2 ═══
+    for (let i = 0; i < 2; i++) {
         const ring = document.createElement("div");
         ring.className = "nf-pulse-ring";
         root.appendChild(ring);
@@ -2839,6 +2778,7 @@ function buildOverlay(): HTMLDivElement {
         ["STEP", "nf-stat-step", "0/0"],
         ["STATUS", "nf-stat-status", "READY"],
         ["PROGRESS", "nf-stat-progress", "—"],
+        ["FPS", "nf-stat-fps", "--"],
     ].map(([label, id, val]) =>
         `<div class="nf-stat-item"><span class="nf-stat-label">${label}</span><span class="nf-stat-val" id="${id}">${val}</span></div>`
     ).join("");
@@ -2859,8 +2799,8 @@ function buildOverlay(): HTMLDivElement {
 
     root.appendChild(layout);
 
-    // Floating particles (green matrix style)
-    for (let i = 0; i < 30; i++) {
+    // Floating particles (green matrix style) — reduced from 30 to 10
+    for (let i = 0; i < 10; i++) {
         const p = document.createElement("div");
         p.className = "nf-particle";
         p.style.left = `${5 + Math.random() * 90}%`;
@@ -2963,8 +2903,8 @@ interface PlexusNode {
     oSpeed: number; // angular speed (rad/frame)
 }
 
-const PLEXUS_COUNT = 120;
-const PLEXUS_LINK_DIST = 160;
+const PLEXUS_COUNT = 50;
+const PLEXUS_LINK_DIST = 120;
 const PLEXUS_SPEED = 0.4;
 let _glowSprite: HTMLCanvasElement | null = null;
 let _glowSpriteR = 0; let _glowSpriteG = 0; let _glowSpriteB = 0;

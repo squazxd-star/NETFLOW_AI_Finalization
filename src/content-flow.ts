@@ -3941,18 +3941,35 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         const findRadixMenuItem = (text: string, timeout: number): Promise<HTMLElement | null> => {
             return new Promise(async (resolve) => {
                 const start = Date.now();
+                const textLower = text.toLowerCase();
+                const altPatterns = [textLower, "full video", "entire video", "complete video", "download video"];
                 while (Date.now() - start < timeout) {
                     // Broad selector: role=menuitem, data-radix-collection-item, or items inside radix menu content
-                    const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] div, [data-radix-dropdown-menu-content] div";
+                    const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] div, [data-radix-dropdown-menu-content] div, [role='menu'] div, [role='listbox'] div, [role='option']";
                     for (const mi of document.querySelectorAll<HTMLElement>(selectors)) {
                         const t = (mi.textContent || "").trim();
-                        if (t.includes(text) && t.length < 100) {
-                            const r = mi.getBoundingClientRect();
-                            if (r.width > 0 && r.height > 0) { resolve(mi); return; }
+                        const tLower = t.toLowerCase();
+                        if (t.length < 100 && t.length > 0) {
+                            for (const pat of altPatterns) {
+                                if (tLower.includes(pat)) {
+                                    const r = mi.getBoundingClientRect();
+                                    if (r.width > 0 && r.height > 0) { LOG(`🔍 พบเมนู: "${t}" (matched "${pat}")`); resolve(mi); return; }
+                                }
+                            }
                         }
                     }
                     await sleep(500);
                 }
+                // ★ Diagnostic: log all visible menu items on failure
+                const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] *, [data-radix-dropdown-menu-content] *, [role='menu'] *, [role='listbox'] *";
+                const items: string[] = [];
+                for (const mi of document.querySelectorAll<HTMLElement>(selectors)) {
+                    const t = (mi.textContent || "").trim();
+                    const r = mi.getBoundingClientRect();
+                    if (t.length > 0 && t.length < 100 && r.width > 0 && r.height > 0 && !items.includes(t)) items.push(t);
+                }
+                if (items.length > 0) LOG(`🔍 เมนูที่เห็น: [${items.join(" | ")}]`);
+                else LOG(`🔍 ไม่พบเมนูใดๆ ใน dropdown (อาจปิดไปแล้ว)`);
                 resolve(null);
             });
         };
@@ -3989,7 +4006,7 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
 
         // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
         let res720: HTMLElement | null = null;
-        for (let attempt = 0; attempt < (isMac ? 5 : 3) && !res720; attempt++) {
+        for (let attempt = 0; attempt < (isMac ? 5 : 4) && !res720; attempt++) {
             if (attempt > 0) {
                 LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
                 // ★ Re-click download button to reopen Radix dropdown (it auto-closes)
@@ -4000,7 +4017,11 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
                 }
             }
 
-            const fullVideoBtn = await findRadixMenuItem("Full Video", isMac ? 10000 : 5000);
+            // ★ Fallback: look for 720p directly in the main dropdown (Google may have flattened the menu)
+            const direct720 = await find720pButton(2000, null);
+            if (direct720) { LOG("🎯 พบ 720p โดยตรงใน dropdown (ไม่ต้องผ่าน Full Video)"); res720 = direct720; break; }
+
+            const fullVideoBtn = await findRadixMenuItem("Full Video", isMac ? 10000 : 7000);
             if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
             // Hover using robustHover (PointerEvent + MouseEvent) then click to expand submenu
@@ -4015,12 +4036,24 @@ async function standaloneMuteAndDownload(sceneCount: number, scenePrompts: strin
         }
         
         if (!res720) {
-            WARN("ไม่พบ 720p");
-            if (needsDownloadUnfocus) try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
-            return;
+            WARN("ไม่พบ 720p — ลอง fallback คลิก Full Video โดยตรง");
+            // ★ Last resort: click any "Full Video" / "video" menu item directly as download
+            if (dlBtn2.isConnected) {
+                await robustClick(dlBtn2);
+                await sleep(2000);
+            }
+            const anyVideoItem = await findRadixMenuItem("video", 5000);
+            if (anyVideoItem) {
+                await robustClick(anyVideoItem);
+                LOG("🔄 คลิก video menu item โดยตรงเป็น fallback");
+            } else {
+                if (needsDownloadUnfocus) try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
+                return;
+            }
+        } else {
+            await robustClick(res720);
+            LOG("คลิก 720p ✅");
         }
-        await robustClick(res720);
-        LOG("คลิก 720p ✅");
 
         if (needsDownloadUnfocus) {
             try { chrome.runtime.sendMessage({ type: 'UNFOCUS_TAB' }); } catch (_) {}
@@ -4673,17 +4706,34 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
     const findRadixMenuItemNav = (text: string, timeout: number): Promise<HTMLElement | null> => {
         return new Promise(async (resolve) => {
             const start = Date.now();
+            const textLower = text.toLowerCase();
+            const altPatterns = [textLower, "full video", "entire video", "complete video", "download video"];
             while (Date.now() - start < timeout) {
-                const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] div, [data-radix-dropdown-menu-content] div";
+                const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] div, [data-radix-dropdown-menu-content] div, [role='menu'] div, [role='listbox'] div, [role='option']";
                 for (const mi of document.querySelectorAll<HTMLElement>(selectors)) {
                     const t = (mi.textContent || "").trim();
-                    if (t.includes(text) && t.length < 100) {
-                        const r = mi.getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) { resolve(mi); return; }
+                    const tLower = t.toLowerCase();
+                    if (t.length < 100 && t.length > 0) {
+                        for (const pat of altPatterns) {
+                            if (tLower.includes(pat)) {
+                                const r = mi.getBoundingClientRect();
+                                if (r.width > 0 && r.height > 0) { LOG(`🔍 พบเมนู: "${t}" (matched "${pat}")`); resolve(mi); return; }
+                            }
+                        }
                     }
                 }
                 await sleep(500);
             }
+            // ★ Diagnostic: log all visible menu items on failure
+            const selectors = "[role='menuitem'], [data-radix-collection-item], [data-radix-menu-content] *, [data-radix-dropdown-menu-content] *, [role='menu'] *, [role='listbox'] *";
+            const items: string[] = [];
+            for (const mi of document.querySelectorAll<HTMLElement>(selectors)) {
+                const t = (mi.textContent || "").trim();
+                const r = mi.getBoundingClientRect();
+                if (t.length > 0 && t.length < 100 && r.width > 0 && r.height > 0 && !items.includes(t)) items.push(t);
+            }
+            if (items.length > 0) LOG(`🔍 เมนูที่เห็น: [${items.join(" | ")}]`);
+            else LOG(`🔍 ไม่พบเมนูใดๆ ใน dropdown (อาจปิดไปแล้ว)`);
             resolve(null);
         });
     };
@@ -4717,7 +4767,7 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
 
     // Step 2: Click "Full Video" [role=menuitem] + hover to expand submenu
     let res720: HTMLElement | null = null;
-    for (let attempt = 0; attempt < (isMac ? 5 : 3) && !res720; attempt++) {
+    for (let attempt = 0; attempt < (isMac ? 5 : 4) && !res720; attempt++) {
         if (attempt > 0) {
             LOG(`🔄 ลองหา 720p ครั้งที่ ${attempt + 1}...`);
             // ★ Re-click download button to reopen Radix dropdown (it auto-closes)
@@ -4728,7 +4778,11 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
             }
         }
 
-        const fullVideoBtn = await findRadixMenuItemNav("Full Video", isMac ? 10000 : 5000);
+        // ★ Fallback: look for 720p directly in the main dropdown (Google may have flattened the menu)
+        const direct720 = await find720pButtonNav(2000, null);
+        if (direct720) { LOG("🎯 พบ 720p โดยตรงใน dropdown (ไม่ต้องผ่าน Full Video)"); res720 = direct720; break; }
+
+        const fullVideoBtn = await findRadixMenuItemNav("Full Video", isMac ? 10000 : 7000);
         if (!fullVideoBtn) { WARN("ไม่พบ Full Video"); continue; }
 
         // Hover using robustHover (PointerEvent + MouseEvent) then click to expand submenu
@@ -4741,9 +4795,22 @@ async function waitForSceneGenAndDownload(sceneCount: number = 2, currentScene: 
         // Step 3: Find "720p" button in expanded submenu
         res720 = await find720pButtonNav(isMac ? 12000 : 8000, fullVideoBtn);
     }
-    if (!res720) { WARN("ไม่พบ 720p"); return; }
-    await robustClick(res720);
-    LOG("คลิก 720p ✅");
+    if (!res720) {
+        WARN("ไม่พบ 720p — ลอง fallback คลิก Full Video โดยตรง");
+        // ★ Last resort: click any "video" menu item directly as download
+        if (dlBtn.isConnected) {
+            await robustClick(dlBtn);
+            await sleep(2000);
+        }
+        const anyVideoItem = await findRadixMenuItemNav("video", 5000);
+        if (anyVideoItem) {
+            await robustClick(anyVideoItem);
+            LOG("🔄 คลิก video menu item โดยตรงเป็น fallback");
+        } else { return; }
+    } else {
+        await robustClick(res720);
+        LOG("คลิก 720p ✅");
+    }
 
     // Step 4: Wait for toast "Downloading your extended video." → "Download complete!"
     LOG("⏳ รอระบบเตรียมไฟล์ Full Video (Rendering)...");
