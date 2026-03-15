@@ -72,7 +72,7 @@ const OVERLAY_THEMES: Record<string, OverlayTheme> = {
     },
 };
 
-let currentTheme: OverlayTheme = OVERLAY_THEMES.green;
+let currentTheme: OverlayTheme = OVERLAY_THEMES.blue;
 let _themeKeyOverride: string | null = null;
 
 /** Called from content script with theme key received from sidepanel message */
@@ -94,7 +94,7 @@ function resolveThemeColors(): OverlayTheme {
         const key = localStorage.getItem("netflow_app_theme");
         if (key && OVERLAY_THEMES[key]) return OVERLAY_THEMES[key];
     } catch {}
-    return OVERLAY_THEMES.green;
+    return OVERLAY_THEMES.blue;
 }
 
 // ── State ──────────────────────────────────────────────────────────────────

@@ -103,8 +103,8 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "red",
-  config: THEMES.red,
+  theme: "blue",
+  config: THEMES.blue,
   setTheme: () => {},
 });
 
@@ -129,7 +129,7 @@ function loadStoredTheme(): ThemeKey {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && stored in THEMES) return stored as ThemeKey;
   } catch {}
-  return "red";
+  return "blue";
 }
 
 function saveTheme(theme: ThemeKey) {
