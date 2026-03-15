@@ -221,6 +221,7 @@ const CreateVideoTab = () => {
             expression: data.expression || "happy",
             movement: data.movement || "minimal",
             aspectRatio: data.orientation === "vertical" ? "9:16" : "16:9",
+            sceneCount: data.sceneCount || 1,
             clipDuration: (data.sceneCount || 1) * 8,
             hookText: data.useAiScript && data.hookEnabled ? data.hookText : "",
             ctaText: data.useAiScript && data.ctaEnabled ? data.ctaText : "",

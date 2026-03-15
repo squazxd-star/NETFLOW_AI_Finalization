@@ -5,6 +5,8 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getApiKey } from "./storageService";
+import { applyPromptCompatibility, buildPromptCompatibilityProfile, evaluatePromptSet } from "./promptOptimizationService";
+import type { PromptQaReport } from "./promptOptimizationService";
 import { TemplateOption } from "../types/netflow";
 import { ProductCategory, CATEGORY_ENVIRONMENTS } from "../data/categoryEnvironments";
 
@@ -207,6 +209,26 @@ const HIGH_STYLIZATION_STYLE_KEYS = new Set([
     "2d-cartoon"
 ]);
 
+const NON_PHOTOREAL_STYLE_KEYS = new Set([
+    "anime",
+    "3d-cartoon",
+    "2d-cartoon",
+    "stop-motion"
+]);
+
+const isExplicitlyStylizedVisualPreset = (videoStyle?: string): boolean =>
+    NON_PHOTOREAL_STYLE_KEYS.has(videoStyle || "ugc-review");
+
+const getImageQualityDirective = (videoStyle?: string): string =>
+    isExplicitlyStylizedVisualPreset(videoStyle)
+        ? "high-detail stylized rendering, clean edges, stable design language, polished final-frame quality"
+        : "photorealistic, ultra-detailed textures, 4K quality";
+
+const getVideoMediumDirective = (videoStyle?: string): string =>
+    isExplicitlyStylizedVisualPreset(videoStyle)
+        ? "Honor the selected stylized or animated medium consistently across the full video while preserving character identity, product shape, and motion clarity."
+        : "Photorealistic only.";
+
 const MOTION_EFFECT_STYLE_KEYS = new Set([
     "stop-motion",
     "timelapse",
@@ -229,20 +251,27 @@ const resolveStyleGuide = (config: PromptGenerationConfig): {
     const hasRealFaceReference = !!config.characterImage;
     const preserveRealFace = hasRealFaceReference && HIGH_STYLIZATION_STYLE_KEYS.has(selectedStyle);
     const hasMotionEffect = MOTION_EFFECT_STYLE_KEYS.has(selectedStyle);
+    const isNonPhotorealStyle = isExplicitlyStylizedVisualPreset(selectedStyle);
 
     const imageStyle = preserveRealFace
-        ? `${baseStyle}. Preserve exact real-human facial identity, natural skin texture, and realistic anatomy from the reference; apply the style mainly through lighting, color grading, environment design, wardrobe mood, and cinematic finish`
+        ? (isNonPhotorealStyle
+            ? `${baseStyle}. Preserve the same recognizable identity, hairstyle, age cues, facial proportions, and outfit silhouette from the reference while translating the subject into the selected stylized visual medium`
+            : `${baseStyle}. Preserve exact real-human facial identity, natural skin texture, and realistic anatomy from the reference; apply the style mainly through lighting, color grading, environment design, wardrobe mood, and cinematic finish`)
         : baseStyle;
 
     const videoStyle = preserveRealFace
-        ? `${baseStyle}. Preserve the exact real-human face from the reference with natural skin texture and human proportions; let the style influence lighting, color grade, environment, pacing, and camera mood only`
+        ? (isNonPhotorealStyle
+            ? `${baseStyle}. Preserve the same recognizable identity, hairstyle, age cues, facial proportions, and outfit silhouette from the reference while translating the character into the selected stylized video medium`
+            : `${baseStyle}. Preserve the exact real-human face from the reference with natural skin texture and human proportions; let the style influence lighting, color grade, environment, pacing, and camera mood only`)
         : baseStyle;
 
     const guard = [
         "TEMPLATE PRIORITY: The chosen template controls narrative structure, acting beats, dialogue intent, and scene blocking.",
         "STYLE PRIORITY: The chosen visual style affects lighting, color palette, camera treatment, environment polish, edit energy, and overall mood — it must NOT rewrite the script concept or break action clarity.",
         preserveRealFace
-            ? "REAL FACE REFERENCE PRIORITY: Keep the person recognizably the same real human from the reference. Do NOT turn the face into a cartoon, toy-like 3D model, waxy skin, plastic CGI, or exaggerated stylized proportions."
+            ? (isNonPhotorealStyle
+                ? "REFERENCE IDENTITY PRIORITY: Keep the character recognizably the same person from the reference even in a stylized medium — preserve facial proportions, hairstyle, age cues, and outfit identity."
+                : "REAL FACE REFERENCE PRIORITY: Keep the person recognizably the same real human from the reference. Do NOT turn the face into a cartoon, toy-like 3D model, waxy skin, plastic CGI, or exaggerated stylized proportions.")
             : "",
         "PRODUCT PRIORITY: The chosen style must NEVER alter the product's physical design, silhouette, label layout, material identity, or packaging shape.",
         ANTI_STREAK_VISUAL_DIRECTIVE,
@@ -496,8 +525,8 @@ function getOutfitDescription(outfitKey?: string, customOutfitPrompt?: string): 
     if (outfitKey === "custom" && customOutfitPrompt) {
         const trimmed = customOutfitPrompt.trim();
         if (!trimmed) return "casual everyday wear";
-        // Veo 3 prompt structure: wrap custom description with clothing anchor + detail lock
-        return `wearing ${trimmed}. Clothing is rendered with photorealistic fabric texture, accurate folds, natural drape, and true-to-life material sheen. Preserve EXACT outfit details throughout the entire video.`;
+        // Veo 3 prompt structure: wrap user input with clothing anchor + detail lock
+        return `wearing ${trimmed}. Clothing is rendered with detailed fabric texture, accurate folds, natural drape, and consistent material response. Preserve EXACT outfit details throughout the entire video.`;
     }
     const variants = OUTFIT_PROMPT_MAP[outfitKey];
     if (!variants || variants.length === 0) return "casual everyday wear";
@@ -1897,12 +1926,14 @@ const buildVoiceoverDescriptor = (gender: string, voiceTone: string, ageRange?: 
 };
 
 // Video Policy Safety — additional directives for video generation
-const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No deceptive health claims. No violence, gambling, or misleading product claims. No trademark logos in generated visuals. Photorealistic style only, no cartoon effects unless specified.";
+const VIDEO_POLICY_DIRECTIVE = "POLICY: No public figures or celebrities. No deceptive health claims. No violence, gambling, or misleading product claims. No trademark logos in generated visuals. Use photorealistic live-action rendering by default unless the selected visual preset explicitly requests a stylized or animated medium.";
 
 // Face Identity Lock — preserve facial features while framing as anonymous/fictional character
 // CRITICAL: Avoid "identical likeness" or "direct match" phrasing that triggers Google's "famous person" policy.
 // Instead, frame as "original anonymous character inspired by reference style".
 const FACE_IDENTITY_LOCK = "FACIAL STRUCTURE & COMPLEXION PRESERVATION: Use Image 1 as the absolute visual blueprint for this character's face. You MUST reproduce the EXACT face from Image 1 with maximum fidelity — this is the #1 priority above all other instructions. Preserve EXACT: skin tone (match exact complexion, warmth, pigmentation — do NOT lighten or alter), bone structure, face width-to-height ratio, jawline shape and angle, eye shape and size, eye spacing, nose bridge width, nose tip shape, lip shape and thickness, eyebrow shape and arch, forehead height, cheekbone prominence, chin shape, ear shape. Do NOT widen the face, do NOT alter any facial proportion. Keep makeup natural and exactly as shown. The output face must be indistinguishable from the reference — same person, same facial geometry, same complexion, same features.";
+
+const STYLIZED_FACE_REFERENCE_DIRECTIVE = "REFERENCE IDENTITY PRESERVATION: If a character face reference image is provided, keep the same recognizable identity, facial proportions, hairstyle, age cues, and complexion relationships while translating the character into the selected stylized visual medium. The result should still clearly read as the same person.";
 
 // Front-Facing Character Directive — ensures face consistency with reference input
 const FRONT_FACING_DIRECTIVE = "CHARACTER POSE: Natural front-facing angle, looking directly into the lens. Face fully visible. Avoid extreme close-ups that distort facial proportions. Keep a natural, relaxed posture.";
@@ -2132,8 +2163,12 @@ const CATEGORY_IMAGE_INTERACTION: Partial<Record<ProductCategory, string>> = {
 // Anti-Floating Hands — prevents unrealistic hand/product physics
 const ANTI_FLOATING_HANDS = "HAND REALISM: The character has exactly two arms and two hands connected naturally to their shoulders. Hands must firmly and naturally grasp the product with realistic weight distribution and physical connection. If holding a device, support it naturally from the bottom or sides.";
 
+const BODY_REALISM_DIRECTIVE = "BODY REALISM: Exactly two arms connected naturally from shoulders to elbows, wrists, and hands. No disembodied hands, no extra limbs, no floating forearms, no sudden arms entering from outside the scene without a visible body connection. Finger anatomy stays clean and natural.";
+
+const DIALOGUE_AUDIO_DIRECTIVE = "DIALOGUE AUDIO: Clear Thai speech with stable voice identity, natural pronunciation, and smooth phrase-to-phrase continuity. Mouth movement matches the spoken words naturally. Keep room tone and ambience subtle and supportive so the speaking voice stays easy to understand. No abrupt audio cuts between scenes.";
+
 // Dynamic Interaction Directive — prevents static single-angle product holding
-const DYNAMIC_INTERACTION_DIRECTIVE = "DYNAMIC PRODUCT INTERACTION (CRITICAL): Character MUST NOT hold the product in one static pose or single angle throughout the scene. Character must CONTINUOUSLY shift interaction: rotate product to show different angles, tilt to reveal side profile then back to front, switch grip between one hand and two hands, lift product higher then bring it closer to camera, point at specific features, flip or turn the product naturally. At least 2-3 distinct pose/angle transitions within each scene. Smooth natural transitions between each interaction — never freeze in one position. STATIC SINGLE-ANGLE HOLDING IS STRICTLY FORBIDDEN.";
+const DYNAMIC_INTERACTION_DIRECTIVE = "DYNAMIC PRODUCT INTERACTION: Avoid a frozen single-angle hold for the entire scene. Use 1-2 deliberate presentation beats such as a gentle rotate, a controlled tilt, a closer feature reveal, or a natural handoff between hands. Keep motions smooth, motivated, and realistic so product shape, label layout, and hand anatomy stay stable.";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PRODUCT SIZE REALISM — prevents AI from distorting product dimensions
@@ -2490,9 +2525,9 @@ const PROP_INTRODUCTION_DIRECTIVE = "PROP CONTINUITY (CRITICAL): Every new objec
 // Prevents product PHYSICAL SHAPE from morphing between scenes
 // E.g. Versace Bright Crystal hexagonal bottle becoming rectangular in Scene 2
 // ═══════════════════════════════════════════════════════════════════════════
-const SCENE_PRODUCT_SHAPE_CONTINUITY = "PRODUCT SHAPE CONTINUITY (CRITICAL — Scene 2+): The product in THIS scene is the EXACT SAME physical object from the previous scene — NOT a new product, NOT a re-creation. Do NOT re-imagine, re-design, or re-generate the product's 3D shape. TRACE the product's outline from the reference frame and LOCK it: same silhouette, same height-to-width ratio, same body curvature, same cap/closure geometric shape (every facet, every angle), same base shape, same proportions. If the reference shows a hexagonal bottle, it MUST stay hexagonal — not rectangular, not round. If the reference shows a diamond-cut faceted cap, that cap MUST keep the EXACT same facet count and angles. ZERO shape drift. The product is a RIGID PHYSICAL OBJECT — it cannot morph, stretch, shrink, or change geometric form between scenes.";
+const SCENE_PRODUCT_SHAPE_CONTINUITY = "PRODUCT SHAPE CONTINUITY: This scene shows the same hero product established earlier in the video. Match the same silhouette, height-to-width ratio, body curvature, cap or closure geometry, base shape, and overall proportions. If the reference product is hexagonal, keep it hexagonal. If it has a faceted cap, preserve the same facet design. Keep product geometry stable across cuts and camera changes.";
 
-const PRODUCT_ANTI_MORPH_DIRECTIVE = "BRAND IDENTITY FREEZE (HIGHEST PRIORITY): The product's brand name, logo design, packaging layout, color scheme, and typography MUST remain ABSOLUTELY IDENTICAL across ALL scenes — zero deviation. The product brand MUST NOT morph, transform, evolve, or change into a different brand at any point. If Scene 1 shows brand X, Scene 2/3/4 MUST show the EXACT SAME brand X with IDENTICAL logo, IDENTICAL text layout, IDENTICAL color bands, IDENTICAL packaging design. BRAND MORPHING IS THE #1 FORBIDDEN ERROR. If the AI is uncertain about brand details in later scenes, show the product with the label slightly angled or partially visible rather than inventing wrong branding. NEVER replace the original brand with any other brand name or logo design.";
+const PRODUCT_ANTI_MORPH_DIRECTIVE = "BRAND CONTINUITY: Keep the same product branding, packaging layout, color scheme, and typography across all scenes. If label details become uncertain at distance or motion, keep the label soft, angled, or partially visible rather than inventing new text or replacing the brand identity.";
 
 /** Build category-specific contact + physics directive (full — for image prompts) */
 const buildContactPhysicsDirective = (category: ProductCategory): string => {
@@ -5213,6 +5248,32 @@ const sanitizePromptForPolicy = (text: string, productName?: string): string => 
     return result.replace(/\s{2,}/g, ' ').trim();
 };
 
+const softenVideoDirectiveLanguage = (text: string): string => {
+    let result = text;
+    const replacements: Array<[RegExp, string]> = [
+        [/FROZEN MASK that never changes/gi, "stable identity reference"],
+        [/FACE IS IMMUTABLE(?: ACROSS ALL SCENES)?/gi, "face remains consistent"],
+        [/REJECT that frame and re-render with the correct face from frame 1/gi, "prioritize the original reference face"],
+        [/Cross-reference every face against the frame-1 face template/gi, "match the frame-1 facial identity"],
+        [/all IDENTICAL across every scene/gi, "consistent across every scene"],
+        [/Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes\./gi, "Product appearance stays consistent between scenes with the same shape, distinctive features, and proportions."],
+        [/ANTI-DUPLICATION: Only ONE copy of the product exists — NEVER show two or more copies of the same product simultaneously\./gi, "Show one hero product as the main object in frame."],
+        [/PRODUCT EVERY FRAME: The product MUST be clearly visible and recognizable in EVERY single frame of this scene — never disappear, never be hidden behind hands or props, never exit the frame\./gi, "Keep the hero product recognizable throughout the scene, including during close-ups and gestures."],
+        [/TRANSITION STABILITY: During ANY camera movement, zoom, pan, cut, or transition — the product MUST maintain its EXACT same shape, silhouette, proportions, cap\/closure design, and label text\./gi, "During camera moves and cuts, keep the same product geometry, cap design, and label layout."],
+        [/Product shape is LOCKED and IMMUTABLE regardless of camera angle changes\./gi, "Keep product geometry stable from every camera angle."],
+        [/TRACE the product's outline from the reference frame and LOCK it/gi, "Match the product outline from the reference frame"],
+        [/ZERO shape drift/gi, "avoid shape drift"],
+        [/BRAND IDENTITY FREEZE \(HIGHEST PRIORITY\):/gi, "BRAND CONTINUITY:"],
+        [/ABSOLUTELY IDENTICAL across ALL scenes — zero deviation/gi, "consistent across all scenes"],
+        [/BRAND MORPHING IS THE #1 FORBIDDEN ERROR\./gi, "Avoid brand drift."],
+        [/ZERO INVENTION: Do NOT add accessories not in reference\./gi, "Only use supporting props that logically fit the action and do not overpower the product."],
+    ];
+    for (const [pattern, replacement] of replacements) {
+        result = result.replace(pattern, replacement);
+    }
+    return result.replace(/\s{2,}/g, ' ').trim();
+};
+
 // ProductCategory now imported from @/data/categoryEnvironments (100 categories)
 
 // Randomized Hook variations per template (many options!)
@@ -5999,16 +6060,34 @@ const ensureMentionsProductName = (text: string, productName: string): string =>
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
-const getStoryboardSceneCount = (clipDuration: number): number => {
-    // Our automation supports these stable durations only.
-    if (clipDuration === 8) return 1;
-    if (clipDuration === 16) return 2;
-    if (clipDuration === 24) return 3;
-    return clamp(Math.round((clipDuration || 16) / 8), 1, 3);
+const resolveSceneCount = (config: Pick<PromptGenerationConfig, "sceneCount" | "clipDuration">): number => {
+    if (typeof config.sceneCount === "number" && Number.isFinite(config.sceneCount)) {
+        return clamp(Math.round(config.sceneCount), 1, 10);
+    }
+    const derivedDuration = typeof config.clipDuration === "number" && Number.isFinite(config.clipDuration)
+        ? config.clipDuration
+        : 16;
+    return clamp(Math.round(derivedDuration / 8), 1, 10);
+};
+
+const resolveDurationConfig = (config: Pick<PromptGenerationConfig, "sceneCount" | "clipDuration">): { description: string; pacing: string } => {
+    const sceneCount = resolveSceneCount(config);
+    const totalSeconds = sceneCount * 8;
+
+    if (sceneCount === 1) {
+        return { description: `${totalSeconds}-second quick clip`, pacing: "Fast-paced, single key moment, punchy" };
+    }
+    if (sceneCount <= 3) {
+        return { description: `${totalSeconds}-second short multi-scene clip`, pacing: "Moderate pace, clear hook, demo, and payoff across a few focused beats" };
+    }
+    if (sceneCount <= 6) {
+        return { description: `${totalSeconds}-second extended multi-scene clip`, pacing: "Measured pacing with progressive reveals, varied demo beats, and strong continuity across several scenes" };
+    }
+    return { description: `${totalSeconds}-second long-form multi-scene clip`, pacing: "Disciplined pacing across many short scenes, each scene carrying one clear beat while preserving strong continuity and clean transitions" };
 };
 
 const buildStoryboardSection = (config: PromptGenerationConfig, category: ProductCategory): string => {
-    const sceneCount = getStoryboardSceneCount(config.clipDuration ?? 16);
+    const sceneCount = resolveSceneCount(config);
     const productName = config.productName;
     const rawHook = (config.hookText || "").trim()
         ? config.hookText!
@@ -6048,24 +6127,39 @@ const buildStoryboardSection = (config: PromptGenerationConfig, category: Produc
         other: "เดโมการใช้งานจริง/จุดเด่น 1-2 ข้อ + ผลลัพธ์ที่จับต้องได้"
     };
 
-    const scene1Text = `0-8s: HOOK (หยุดนิ้ว)\n- Visual: Close-up + reveal\n- Voice: "${hook}"`;
+    const middleSceneIdeas = [
+        "เจาะ feature เด่น 1 ข้อให้ชัดด้วยภาพและคำพูดที่สอดกัน",
+        "โชว์การใช้งานจริงในชีวิตประจำวันหรือสถานการณ์จริง",
+        "ซูมดีเทลวัสดุ/ผิวสัมผัส/ความพรีเมียมของสินค้า",
+        "โชว์ผลลัพธ์หรือประโยชน์หลังใช้งานแบบเห็นภาพ",
+        "ตอบคำถามหรือข้อสงสัยที่ลูกค้ามักลังเลก่อนซื้อ",
+        "เปรียบเทียบความต่างหรือจุดได้เปรียบแบบเข้าใจง่าย"
+    ];
 
-    const scene2Text = sceneCount >= 2
-        ? `8-16s: DEMO / KEY MESSAGE\n- Visual: ${scene2CoreByCategory[category] || scene2CoreByCategory["other"]}\n- Key message: (ต้องมีชื่อสินค้า ${productName} + ประโยชน์หลัก 1 ข้อ)`
-        : "";
-
-    const scene3Text = sceneCount >= 3
-        ? `16-24s: PROOF + CTA\n- Visual: สรุปผล/ความต่าง/รีวิวสั้นๆ\n- Voice: "${cta}"`
-        : "";
-
-    return [
+    const lines = [
         "🧾 STORYBOARD (1 Scene = 8s)",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-        scene1Text,
-        scene2Text,
-        scene3Text,
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    ].filter(Boolean).join("\n");
+        `0-8s: HOOK\n- Visual: Close-up + reveal\n- Voice: "${hook}"`
+    ];
+
+    if (sceneCount >= 2) {
+        lines.push(`8-16s: DEMO / KEY MESSAGE\n- Visual: ${scene2CoreByCategory[category] || scene2CoreByCategory["other"]}\n- Key message: (ต้องมีชื่อสินค้า ${productName} + ประโยชน์หลัก 1 ข้อ)`);
+    }
+
+    for (let sceneNumber = 3; sceneNumber <= sceneCount - 1; sceneNumber++) {
+        const start = (sceneNumber - 1) * 8;
+        const end = sceneNumber * 8;
+        lines.push(`${start}-${end}s: SCENE ${sceneNumber}\n- Visual: ${middleSceneIdeas[(sceneNumber - 3) % middleSceneIdeas.length]}\n- Key message: เดินเรื่องต่อจากฉากก่อนและคง product/face continuity`);
+    }
+
+    if (sceneCount >= 2) {
+        const start = (sceneCount - 1) * 8;
+        const end = sceneCount * 8;
+        lines.push(`${start}-${end}s: CTA / PAYOFF\n- Visual: สรุปผลลัพธ์ ความต่าง หรือ final hero shot\n- Voice: "${cta}"`);
+    }
+
+    lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    return lines.join("\n");
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7029,14 +7123,14 @@ const generateThaiScript = (
     saleStyle: string,
     hookText: string,
     ctaText: string,
-    clipDuration: number,
+    sceneCount: number,
     category: ProductCategory
 ): ScriptWithActions => {
     const benefit = pickRandom(CATEGORY_BENEFITS[category] || CATEGORY_BENEFITS.other || ["คุ้มค่า"]);
     const urgency = pickRandom(CATEGORY_URGENCY[category] || CATEGORY_URGENCY.other || ["รีบเลย!"]);
 
     // Generate exactly 1 short script per scene (~8 seconds each, slow comfortable pace)
-    const sceneCount = Math.max(1, Math.floor(clipDuration / 8));
+    const resolvedSceneCount = clamp(sceneCount, 1, 10);
     let scriptParts: string[] = [];
     let sceneTexts: string[] = [];
     let sceneActions: string[] = [];
@@ -7090,12 +7184,12 @@ const generateThaiScript = (
 
     // ── SHORT SCRIPTS — 1 short sentence per scene (~8s at comfortable pace) ──
     // Middle scenes use CATEGORY_SCENE_PAIRS for PAIRED script+action (zero conflict)
-    if (sceneCount === 1) {
+    if (resolvedSceneCount === 1) {
         const text = `${intro} ${productName} กัน!`;
         scriptParts.push(`🎬 ฉาก1: "${text}"`);
         sceneTexts.push(text);
         sceneActions.push(introAction);
-    } else if (sceneCount === 2) {
+    } else if (resolvedSceneCount === 2) {
         // Scene 1: intro
         const text1 = `${intro} ${productName} กัน!`;
         scriptParts.push(`🎬 ฉาก1: "${text1}"`);
@@ -7116,7 +7210,7 @@ const generateThaiScript = (
 
         // Middle scenes: use PAIRED script+action — script and action ALWAYS match
         const usedPairIndices: number[] = [];
-        for (let i = 1; i < sceneCount - 1; i++) {
+        for (let i = 1; i < resolvedSceneCount - 1; i++) {
             const pair = pickScriptActionPair(category, productName, usedPairIndices);
             usedPairIndices.push(pair.pairIndex);
             scriptParts.push(`🎬 ฉาก${i + 1}: "${pair.script}"`);
@@ -7125,7 +7219,7 @@ const generateThaiScript = (
         }
 
         // Last scene: CTA only (short)
-        scriptParts.push(`🎬 ฉาก${sceneCount}: "${closingCTA}"`);
+        scriptParts.push(`🎬 ฉาก${resolvedSceneCount}: "${closingCTA}"`);
         sceneTexts.push(closingCTA);
         sceneActions.push(ctaAction);
     }
@@ -7180,6 +7274,7 @@ export interface PromptGenerationConfig {
     // Video Settings
     clipDuration?: number;
     aspectRatio?: string;       // 9:16, 16:9
+    sceneCount?: number;
 
     // User-provided script
     userScript?: string;
@@ -7194,11 +7289,17 @@ export interface GeneratedPrompts {
     productAnalysis?: string;
     sceneScripts?: string[];   // Individual scene scripts for multi-scene automation
     videoPromptMeta?: VideoPromptMeta; // Metadata for building Scene 2+ JSON prompts
+    qaReport?: PromptQaReport;
 }
 
 export interface VideoPromptMeta {
     style: string;
+    templateKey: TemplateOption;
+    videoStyleKey: string;
     aspectRatio: string;
+    sceneCount: number;
+    hasCharacterImage: boolean;
+    hasProductImage: boolean;
     gender: string;
     genderVoice: string;
     expression: string;
@@ -7219,6 +7320,7 @@ export interface VideoPromptMeta {
     productUsageRealism: string;   // Category-specific usage realism (e.g. open cap before spray)
     category: ProductCategory;     // Product category for per-scene presentation guide lookup
     talkOnlySceneIndex: number;    // 0-indexed scene that is "talk-only" (character speaks to camera, NO product shown)
+    firstProductSceneNumber: number;
     sceneActions: string[];        // PAIRED visual action per scene — matches script content (zero conflict)
     brandVisualSignature: string;  // Brand-specific logo/emblem directive (e.g. Apple fruit emblem on lid)
     masterProductDirective: string; // Master Prompt: Material & Physicality + Anti-Warping + Camera Motion + Anti-Distortion
@@ -7531,7 +7633,7 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
 
     // Step 2: Get template config
     const templateConfig = TEMPLATE_CONFIGS[config.template] || TEMPLATE_CONFIGS["product-review"];
-    const durationConfig = DURATION_CONFIGS[config.clipDuration ?? 16] || DURATION_CONFIGS[16];
+    const durationConfig = resolveDurationConfig(config);
 
     // Step 3: Build Image Prompt (for Google Labs ImageFX)
     const imagePrompt = buildImagePrompt(config, templateConfig, productAnalysis, characterAnalysis);
@@ -7539,13 +7641,33 @@ export const generatePrompts = async (config: PromptGenerationConfig): Promise<G
     // Step 4: Build Video Prompt (for Google Labs VideoFX)
     // Pass characterAnalysis so persona selection matches the actual character's age/appearance
     const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, productAnalysis, characterAnalysis);
+    const scenePromptSet = videoResult.sceneScripts
+        .slice(1)
+        .map((sceneScript, index) => buildSceneVideoPromptJSON(videoResult.meta, sceneScript, index + 2));
+    const qaReport = evaluatePromptSet({
+        compatibility: buildPromptCompatibilityProfile({
+            template: config.template,
+            videoStyle: config.videoStyle,
+            sceneCount: resolveSceneCount(config),
+            aspectRatio: config.aspectRatio || "9:16",
+            hasCharacterImage: !!config.characterImage,
+            hasProductImage: !!config.productImage,
+            hasUserScript: !!config.userScript?.trim()
+        }),
+        imagePrompt,
+        videoPrompt: videoResult.prompt,
+        scenePrompts: scenePromptSet,
+        sceneCount: resolveSceneCount(config),
+        hasCharacterImage: !!config.characterImage
+    });
 
     return {
         imagePrompt,
         videoPrompt: videoResult.prompt,
         productAnalysis,
         sceneScripts: videoResult.sceneScripts,
-        videoPromptMeta: videoResult.meta
+        videoPromptMeta: videoResult.meta,
+        qaReport
     };
 };
 
@@ -8005,7 +8127,7 @@ const buildCharacterPortraitPrompt = (description: string, formGender: string, f
 
     const hairPart = hair ? `, ${hair}` : '';
     const outfitPart = outfit ? `, ${outfit}` : '';
-    return `${ageDesc}, ${appearance}${traitStr}${hairPart}${outfitPart}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. Photorealistic, 8K resolution, highly detailed, masterpiece quality portrait.${extraStr}`;
+    return `${ageDesc}, ${appearance}${traitStr}${hairPart}${outfitPart}. FRONT-FACING PORTRAIT: character must face directly toward the camera, eyes looking straight at the viewer, head-on symmetrical composition. ${setting}, ${lighting}. High-detail portrait-quality character design with clean anatomy and consistent identity cues.${extraStr}`;
 };
 
 /**
@@ -8023,6 +8145,16 @@ const buildImagePrompt = (
     const template = config.template || 'product-review';
     const aspectRatio = config.aspectRatio || '9:16';
     const hasProductImage = !!config.productImage;
+    const sceneCount = resolveSceneCount(config);
+    const compatibilityProfile = buildPromptCompatibilityProfile({
+        template: config.template,
+        videoStyle: config.videoStyle,
+        sceneCount,
+        aspectRatio,
+        hasCharacterImage: !!config.characterImage,
+        hasProductImage,
+        hasUserScript: !!config.userScript?.trim()
+    });
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
     const imgDescHasClothing = descriptionHasExplicitClothing(config.characterDescription || '');
@@ -8125,6 +8257,9 @@ const buildImagePrompt = (
     const imageInteraction = CATEGORY_IMAGE_INTERACTION[category] || CATEGORY_IMAGE_INTERACTION["other"] || '';
     const imageGripPhysics = buildContactPhysicsDirective(category);
     const imageUsageRealism = PRODUCT_USAGE_REALISM[category] || '';
+    const imageFaceDirective = hasCharImage
+        ? (isExplicitlyStylizedVisualPreset(config.videoStyle) ? STYLIZED_FACE_REFERENCE_DIRECTIVE : FACE_IDENTITY_LOCK)
+        : '';
     const extraDirectionBlock = config.aiPrompt?.trim()
         ? `USER CREATIVE DIRECTION: ${config.aiPrompt.trim()}`
         : '';
@@ -8161,14 +8296,14 @@ ${charDescPrompt ? `\nCHARACTER NOTE: No character reference image provided. Gen
 [SETTING] ${environment}.
 [LIGHTING] ${lighting}.
 [STYLE] ${visualStyleDesc}. ${styleGuide.guard}
-[QUALITY] ${aspectRatio} orientation, photorealistic, ultra-detailed textures, 4K quality. ${ANTI_TEXT_DIRECTIVE}
+[QUALITY] ${aspectRatio} orientation, ${getImageQualityDirective(config.videoStyle)}. ${ANTI_TEXT_DIRECTIVE}
 
 COMPOSITION: Single continuous scene — NO split screen, NO collage, NO side-by-side panels, NO divided frames. One unified photograph with character actively interacting with the product as described in [INTERACTION]. Both character and product must be clearly visible together.
 ${ANTI_STREAK_VISUAL_DIRECTIVE}
 ${FRONT_FACING_DIRECTIVE}
 ${PRODUCT_MATCH_DIRECTIVE}
 ${ANTI_DISTORTION_DIRECTIVE}
-${FACE_IDENTITY_LOCK}
+${imageFaceDirective}
 ${ANTI_ADDITION_DIRECTIVE}
 ${CLOTHING_FIDELITY_DIRECTIVE}
 
@@ -8181,7 +8316,8 @@ ${config.mustUseKeywords ? `Must include: ${config.mustUseKeywords}` : ''}
 ${config.avoidKeywords ? `Avoid: ${config.avoidKeywords}` : ''}
 `;
 
-    return sanitizePromptForPolicy(prompt.trim(), imageSafeProductName);
+    const compatiblePrompt = applyPromptCompatibility(prompt.trim(), compatibilityProfile, "image").prompt;
+    return sanitizePromptForPolicy(compatiblePrompt, imageSafeProductName);
 };
 
 /**
@@ -8217,6 +8353,17 @@ const buildVideoPrompt = (
     const template = config.template || 'product-review';
     const aspectRatio = config.aspectRatio || '9:16';
     const voiceTone = config.voiceTone || 'friendly';
+    const videoStyleKey = config.videoStyle || 'ugc-review';
+    const sceneCount = resolveSceneCount(config);
+    const compatibilityProfile = buildPromptCompatibilityProfile({
+        template: config.template,
+        videoStyle: config.videoStyle,
+        sceneCount,
+        aspectRatio,
+        hasCharacterImage: !!config.characterImage,
+        hasProductImage: !!config.productImage,
+        hasUserScript: !!config.userScript?.trim()
+    });
 
     const expressionText = EXPRESSION_MAP[config.expression || 'happy'] || 'subtle natural smile';
     const vidDescHasClothing = descriptionHasExplicitClothing(config.characterDescription || '');
@@ -8264,9 +8411,12 @@ const buildVideoPrompt = (
     let pairedSceneActions: string[] = [];
 
     if (config.userScript && config.userScript.trim()) {
-        sceneTexts = config.userScript.split(/\n{2,}/).filter(s => s.trim()).map(s => s.trim());
+        sceneTexts = config.userScript
+            .split(/\n{2,}/)
+            .filter(s => s.trim())
+            .map(s => s.trim())
+            .slice(0, sceneCount);
         // User-provided scripts: generate matching actions from CATEGORY_SCENE_PAIRS
-        const sceneCount = Math.max(1, Math.floor((config.clipDuration ?? 16) / 8));
         const usedIndices: number[] = [];
         for (let i = 0; i < sceneTexts.length; i++) {
             const pair = pickScriptActionPair(category, config.productName, usedIndices);
@@ -8282,7 +8432,7 @@ const buildVideoPrompt = (
             config.saleStyle,
             config.hookText || "",
             config.ctaText || "",
-            config.clipDuration ?? 16,
+            resolveSceneCount(config),
             category
         );
 
@@ -8342,8 +8492,8 @@ const buildVideoPrompt = (
     // ── TALK-ONLY SCENE 1 — character talks to camera WITHOUT product, product appears from Scene 2+ ──
     // For multi-scene (2+), Scene 1 is ALWAYS talk-only (index 0). Product is introduced from Scene 2 onward.
     // For 1-scene, always show product (talkOnlySceneIndex = -1 means none).
-    const sceneCount = Math.max(1, Math.floor((config.clipDuration ?? 16) / 8));
-    const talkOnlySceneIndex = sceneCount >= 2 ? 0 : -1;
+    const talkOnlySceneIndex = compatibilityProfile.scene1TalkOnly && sceneCount >= 2 ? 0 : -1;
+    const firstProductSceneNumber = talkOnlySceneIndex === 0 ? 2 : 1;
     const isScene1TalkOnly = talkOnlySceneIndex === 0;
     console.log(`🎬 Talk-only scene: ${talkOnlySceneIndex === -1 ? 'NONE (1 scene)' : 'Scene 1 (ALWAYS)'} | Product from: ${sceneCount >= 2 ? 'Scene 2+' : 'Scene 1'} | Total scenes: ${sceneCount}`);
 
@@ -8388,7 +8538,7 @@ const buildVideoPrompt = (
     };
     const ageAnchorText = config.ageRange ? (AGE_ANCHOR_LABEL[config.ageRange] || '') : '';
 
-    const characterAnchor = [
+    const characterAnchor = softenVideoDirectiveLanguage([
         `CHARACTER VISUAL DNA (MUST be IDENTICAL in every scene — this is the SINGLE MOST IMPORTANT constraint):`,
         `Character '${persona.name}': ${genderText}.`,
         ageAnchorText ? `AGE (CRITICAL — HIGHEST PRIORITY): ${ageAnchorText}. The character MUST visually appear this age — face, body, skin texture, and overall appearance MUST match this age range. Do NOT generate an older or younger looking person.` : '',
@@ -8400,7 +8550,7 @@ const buildVideoPrompt = (
         `FACE IDENTITY PERSISTENCE: This is the SAME SINGLE PERSON in every frame. If the face in any frame would look like a different person, REJECT that frame and re-render with the correct face from frame 1. Cross-reference every face against the frame-1 face template.`,
         `BODY LOCK: Same body type, same build, same posture style, same height proportion, same shoulder width, same body fat percentage across all scenes.`,
         `HAIR LOCK: Same hairstyle, same hair color, same hair length, same hair texture, same parting direction in every scene — hair is a FIXED attribute.`
-    ].filter(Boolean).join(' ');
+    ].filter(Boolean).join(' '));
 
     // ── Brand Visual Signature — explicit logo/emblem directive for brands like Apple ──
     const brandVisualSignature = getBrandVisualSignature(config.productName, category, productAnalysis);
@@ -8408,10 +8558,23 @@ const buildVideoPrompt = (
 
     // ── Unified Product Anchor — IDENTICAL text for Scene 1 AND Scene 2+ (Anchor Prompt technique) ──
     // Same material-level description copy-pasted everywhere so AI produces visually consistent product across all scenes.
-    const productAnchor = `The ${veoSafeProductName} product is the HERO — always visible, prominent, centered. Product visual identity: ${fullProductHighlight}. ${videoProductAnatomy} Render with extreme surface detail: visible material texture, realistic light interaction (specular on glossy, diffusion on matte, caustics and refraction on glass/transparent, light dispersion on faceted surfaces). PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap/closure distinctive design, color palette — all IDENTICAL across every scene. High-fidelity visual detail — preserve exact visual branding from reference. Product is a FIXED visual constant — never morph, never simplify, never change shape, never alter any distinctive feature between scenes. Product lit with soft rim light defining silhouette, featured in every frame. ANTI-DUPLICATION: Only ONE copy of the product exists — NEVER show two or more copies of the same product simultaneously. LABEL LOCK: Do NOT generate, invent, or hallucinate any text, logos, or labels on the product — preserve EXACT branding from the reference image only. Any text on packaging must match the reference precisely — if unclear, show the label area slightly out of focus rather than inventing wrong text. PROPS vs PRODUCT: Any accessories (toothbrush, brush, applicator, spoon, glass, etc.) are secondary PROPS — the product itself must ALWAYS be the most prominent, largest, and most visible item in frame. Props must never obscure, replace, or visually dominate the product. PRODUCT EVERY FRAME: The product MUST be clearly visible and recognizable in EVERY single frame of this scene — never disappear, never be hidden behind hands or props, never exit the frame. TRANSITION STABILITY: During ANY camera movement, zoom, pan, cut, or transition — the product MUST maintain its EXACT same shape, silhouette, proportions, cap/closure design, and label text. Product shape is LOCKED and IMMUTABLE regardless of camera angle changes. If the product has a distinctive cap/closure (e.g. decorative perfume cap, flip-top, screw cap), it must remain the EXACT same shape and size ratio throughout — caps do NOT spontaneously disappear, morph, shrink, or change design. CAMERA STABILITY: Prefer STABLE fixed-angle shots over orbit/rotation/tracking movements. When camera MUST move, product silhouette stays pixel-locked to reference. ${productUsageRealism}`;
+    const productAnchor = softenVideoDirectiveLanguage([
+        `The ${veoSafeProductName} product is the hero object for this commercial.`,
+        `Product visual identity: ${fullProductHighlight}.`,
+        videoProductAnatomy,
+        `Render with extreme surface detail: visible material texture, realistic light interaction, and correct material response.`,
+        `PRODUCT IDENTITY LOCK: exact packaging silhouette, proportions, cap or closure design, and color palette — all IDENTICAL across every scene.`,
+        `LABEL FIDELITY: Preserve branding from the reference image. If small label details become unclear in motion, keep them soft or partially turned instead of inventing new text.`,
+        `Show one hero product as the main object in frame. Supporting props may appear only when the action logically needs them and they must stay secondary to the product.`,
+        `During camera moves and cuts, keep the same product geometry, silhouette, cap design, and label layout.`,
+        PRODUCT_ANTI_MORPH_DIRECTIVE,
+        brandVisualSignature || '',
+        masterProductDirective,
+        productUsageRealism
+    ].filter(Boolean).join(' '));
 
     // ── REALISM DIRECTIVE — ensures all actions look natural and believable ──
-    const realismDirective = `REALISM: All character actions must look natural, authentic, and believable — real human movement, real physical interaction. No exaggerated or theatrical gestures. Photorealistic rendering only. Every motion grounded in reality.`;
+    const realismDirective = `REALISM: All character actions must look natural, authentic, and believable — real human movement, real physical interaction. No exaggerated or theatrical gestures. ${getVideoMediumDirective(config.videoStyle)} Every motion grounded in reality.`;
 
     // ── Scene 1 prompt varies based on whether it's a TALK-ONLY scene or PRODUCT scene ──
     const scene1ProductBlock = isScene1TalkOnly
@@ -8419,7 +8582,7 @@ const buildVideoPrompt = (
         : `${templateConfig.englishName} commercial video. ${productAnchor}`;
 
     // Use lighter hand directive for video (usage realism already in productAnchor — avoid duplication)
-    const videoHandDirective = `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS}`;
+    const videoHandDirective = `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS} ${BODY_REALISM_DIRECTIVE}`;
     const scene1ActionBlock = isScene1TalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
         : `${videoHandDirective} PRODUCT CONTACT LEVEL: ${videoTouchDesc}. ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
@@ -8436,6 +8599,7 @@ const buildVideoPrompt = (
         // ★ [2. VOICE PERSONA + SCRIPT] — voice persona + dialogue
         `${voiceoverDescriptor}`,
         `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${veoSafeProductName} กัน!`}"`,
+        DIALOGUE_AUDIO_DIRECTIVE,
         // ★ [3. PRODUCT IDENTITY or TALK-ONLY] — depends on random assignment
         scene1ProductBlock,
         // [3.5. BRAND VISUAL SIGNATURE — explicit logo/emblem directive]
@@ -8463,18 +8627,25 @@ const buildVideoPrompt = (
         // [7.5. SCENE 1 FACE TEMPLATE] — establishes the immutable face for all subsequent scenes
         `SCENE 1 FACE TEMPLATE: This scene establishes the DEFINITIVE face identity for the entire video. Every facial feature rendered here becomes the IMMUTABLE reference — all subsequent scenes MUST reproduce this EXACT face. The face is now LOCKED and FROZEN.`,
         // [8. CONSTRAINTS] — policy + anti-addition + brand freeze + voice discipline
-        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Character speaks from first frame. Product frontal, centered. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
+        `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} Only use supporting props that logically fit the action and do not overpower the product. Single product only. Character speaks from first frame. Product frontal, centered. ${getVideoMediumDirective(config.videoStyle)} ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
         // [9. USER KEYWORDS] — must-include and avoid keywords
         config.mustUseKeywords ? `MUST INCLUDE these elements: ${config.mustUseKeywords}` : '',
         config.avoidKeywords ? `MUST AVOID these elements: ${config.avoidKeywords}` : ''
     ].join(' '), veoSafeProductName);
+    prompt = applyPromptCompatibility(prompt, compatibilityProfile, "video").prompt;
+    prompt = softenVideoDirectiveLanguage(prompt);
 
 
 
     // ── Meta for Scene 2+ — carries ALL context for consistency ──
     const meta: VideoPromptMeta = {
         style: styleDesc,
+        templateKey: config.template,
+        videoStyleKey,
         aspectRatio,
+        sceneCount,
+        hasCharacterImage: !!config.characterImage,
+        hasProductImage: !!config.productImage,
         gender: genderText,
         genderVoice: `${genderVoice} ${voiceLanguage} voice speaking`,
         expression: expressionText,
@@ -8495,6 +8666,7 @@ const buildVideoPrompt = (
         productUsageRealism,
         category,
         talkOnlySceneIndex,
+        firstProductSceneNumber,
         sceneActions: pairedSceneActions,
         brandVisualSignature,
         masterProductDirective,
@@ -8526,6 +8698,15 @@ export const buildSceneVideoPromptJSON = (
     sceneNumber: number,
     sceneVideoAction?: string
 ): string => {
+    const compatibilityProfile = buildPromptCompatibilityProfile({
+        template: meta.templateKey,
+        videoStyle: meta.videoStyleKey,
+        sceneCount: meta.sceneCount,
+        aspectRatio: meta.aspectRatio,
+        hasCharacterImage: meta.hasCharacterImage,
+        hasProductImage: meta.hasProductImage,
+        hasUserScript: true
+    });
     // Inject pronunciation hints for brand/tech terms in scene script
     const cleanScript = injectPronunciation(sceneScript.trim().replace(/^"+|"+$/g, '').trim());
     const aspectDirective = meta.aspectRatio === '9:16'
@@ -8536,13 +8717,14 @@ export const buildSceneVideoPromptJSON = (
     const speakingDirective = `Character speaks to camera, mouth naturally matching spoken words.`;
 
     // ── SEAMLESS TRANSITION ──
-    const transitionDirective = `Seamless continuous flow from scene ${sceneNumber - 1}, one unbroken take.`;
+    const transitionDirective = `${meta.sceneTransition}. Continue the same action, screen direction, and eyeline from scene ${sceneNumber - 1} with a clean editorial transition rather than a morphing blend.`;
 
     // ── Determine if this scene is TALK-ONLY (no product shown) ──
     const isTalkOnly = meta.talkOnlySceneIndex === (sceneNumber - 1);
     console.log(`🎬 Scene ${sceneNumber}: ${isTalkOnly ? 'TALK-ONLY (no product)' : 'PRODUCT REVIEW'}`);
 
     const productName = meta.product?.split(',')[0]?.trim() || 'the product';
+    const isFirstProductScene = !isTalkOnly && sceneNumber === meta.firstProductSceneNumber;
 
     // ── PRODUCT or TALK-ONLY block ──
     const productBlock = isTalkOnly
@@ -8552,7 +8734,7 @@ export const buildSceneVideoPromptJSON = (
     // ── ACTION block (includes hand anatomy + usage realism for non-talk scenes) ──
     const actionBlock = isTalkOnly
         ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `Anatomically correct hands, five fingers each. PRODUCT CONTACT LEVEL: ${meta.touchLevelDesc}. Character holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
+        : `Anatomically correct hands, five fingers each. ${BODY_REALISM_DIRECTIVE} PRODUCT CONTACT LEVEL: ${meta.touchLevelDesc}. Character holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
 
     // ── PRESENTATION block — use PAIRED action from meta (matches script content) ──
     // Priority: meta.sceneActions[sceneNumber-1] > sceneVideoAction > getScenePresentationDirective
@@ -8565,7 +8747,7 @@ export const buildSceneVideoPromptJSON = (
                 ? `${sceneVideoAction.trim()}. ${getScenePresentationDirective(meta.category, sceneNumber)}`
                 : getScenePresentationDirective(meta.category, sceneNumber)));
 
-    const prompt = sanitizePromptForPolicy([
+    let prompt = sanitizePromptForPolicy([
         // [1. CHARACTER VISUAL DNA] — full anchor for face/body consistency
         meta.characterAnchor,
 
@@ -8579,6 +8761,7 @@ export const buildSceneVideoPromptJSON = (
         // [3. VOICE + SCRIPT] — voiceoverDescriptor already contains voice lock
         meta.voiceoverDescriptor,
         `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — not rendered on screen): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
+        DIALOGUE_AUDIO_DIRECTIVE,
 
         // [4. ACTION] — talk-only or product interaction + PAIRED visual action
         actionBlock,
@@ -8598,15 +8781,20 @@ export const buildSceneVideoPromptJSON = (
         `Style treatment: ${meta.style}.`,
 
         // [6. CONTINUITY + REALISM]
-        `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. Photorealistic only.`,
+        `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. ${getVideoMediumDirective(meta.videoStyleKey)}`,
 
         // [6.5. CROSS-SCENE FACE + PRODUCT CHECKPOINT]
-        `FACE CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): The character's face in this scene MUST be the EXACT SAME face as scene 1 — same bone structure, same eye shape, same nose, same jawline, same skin tone. This is the SAME PERSON, not a look-alike. If the face would differ from scene 1, regenerate until it matches. FACE IS IMMUTABLE ACROSS ALL SCENES.`,
-        !isTalkOnly ? `PRODUCT CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): The product MUST look EXACTLY the same as scene 1 — same shape, same color, same label, same packaging. Product is a FIXED VISUAL CONSTANT.` : '',
+        `FACE CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): Match the same face established in scene 1 — same bone structure, same eye shape, same nose, same jawline, same skin tone, same hairline, and same overall identity.`,
+        !isTalkOnly ? (isFirstProductScene
+            ? `PRODUCT REFERENCE ESTABLISHMENT (SCENE ${sceneNumber}): This scene defines the product look for later scenes — preserve this exact shape, color palette, cap design, and packaging layout for the rest of the video.`
+            : `PRODUCT CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): Match the same product established in scene ${meta.firstProductSceneNumber} — same shape, same color palette, same label layout, same packaging design.`) : '',
 
         // [7. CONSTRAINTS + LOCKS + ANTI-MORPH + VOICE DISCIPLINE] (FACE LOCK already in characterAnchor, not repeated)
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} ZERO INVENTION: Do NOT add accessories not in reference. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment. Photorealistic only. ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} Only use supporting props that logically fit the action and do not overpower the product. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment family and lighting continuity. ${getVideoMediumDirective(meta.videoStyleKey)} ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
     ].filter(Boolean).join(' '), productName);
+
+    prompt = applyPromptCompatibility(prompt, compatibilityProfile, "scene").prompt;
+    prompt = softenVideoDirectiveLanguage(prompt);
 
     return prompt;
 };
@@ -8715,13 +8903,34 @@ export const buildSafeRetryPrompt = (originalPrompt: string): string => {
  */
 export const generateQuickPrompts = (config: PromptGenerationConfig): GeneratedPrompts => {
     const templateConfig = TEMPLATE_CONFIGS[config.template] || TEMPLATE_CONFIGS["product-review"];
-    const durationConfig = DURATION_CONFIGS[config.clipDuration ?? 16] || DURATION_CONFIGS[16];
+    const durationConfig = resolveDurationConfig(config);
     const videoResult = buildVideoPrompt(config, templateConfig, durationConfig, "");
+    const imagePrompt = buildImagePrompt(config, templateConfig, "");
+    const scenePromptSet = videoResult.sceneScripts
+        .slice(1)
+        .map((sceneScript, index) => buildSceneVideoPromptJSON(videoResult.meta, sceneScript, index + 2));
+    const qaReport = evaluatePromptSet({
+        compatibility: buildPromptCompatibilityProfile({
+            template: config.template,
+            videoStyle: config.videoStyle,
+            sceneCount: resolveSceneCount(config),
+            aspectRatio: config.aspectRatio || "9:16",
+            hasCharacterImage: !!config.characterImage,
+            hasProductImage: !!config.productImage,
+            hasUserScript: !!config.userScript?.trim()
+        }),
+        imagePrompt,
+        videoPrompt: videoResult.prompt,
+        scenePrompts: scenePromptSet,
+        sceneCount: resolveSceneCount(config),
+        hasCharacterImage: !!config.characterImage
+    });
 
     return {
-        imagePrompt: buildImagePrompt(config, templateConfig, ""),
+        imagePrompt,
         videoPrompt: videoResult.prompt,
         sceneScripts: videoResult.sceneScripts,
-        videoPromptMeta: videoResult.meta
+        videoPromptMeta: videoResult.meta,
+        qaReport
     };
 };

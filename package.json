@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && npm run build:content-flow && npm run build:content-grok && npm run build:content-tiktok && npm run build:content-tiktok-upload && npm run build:content-youtube-upload",
+    "benchmark:prompts": "node ./scripts/generate-prompt-benchmark.mjs",
     "build:content-flow": "vite build -c vite.content-flow.config.ts",
     "build:content-grok": "vite build -c vite.content-grok.config.ts",
     "build:content-tiktok": "vite build -c vite.content-tiktok.config.ts",
