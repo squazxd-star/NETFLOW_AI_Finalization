@@ -212,6 +212,44 @@ const sendProgress = (step: number, total: number, label: string, status: 'activ
   } catch (_) { /* silent */ }
 };
 
+// ── File Dialog Blocker ──────────────────────────────────────────
+// Block native file dialog from opening when we programmatically set files.
+// On Mac Chrome, TikTok's JS may call showPicker() or click() on file inputs,
+// which opens an unwanted file picker that blocks the automation.
+let _fileDialogBlocked = false;
+const _origInputClick = HTMLInputElement.prototype.click;
+const _origShowPicker = (HTMLInputElement.prototype as any).showPicker;
+
+const blockFileDialog = () => {
+  if (_fileDialogBlocked) return;
+  _fileDialogBlocked = true;
+  HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
+    if (this.type === 'file') {
+      log('🚫 Blocked file dialog from click()');
+      return;
+    }
+    return _origInputClick.call(this);
+  };
+  if (typeof _origShowPicker === 'function') {
+    (HTMLInputElement.prototype as any).showPicker = function(this: HTMLInputElement) {
+      if (this.type === 'file') {
+        log('🚫 Blocked file dialog from showPicker()');
+        return;
+      }
+      return _origShowPicker.call(this);
+    };
+  }
+};
+
+const unblockFileDialog = () => {
+  if (!_fileDialogBlocked) return;
+  _fileDialogBlocked = false;
+  HTMLInputElement.prototype.click = _origInputClick;
+  if (typeof _origShowPicker === 'function') {
+    (HTMLInputElement.prototype as any).showPicker = _origShowPicker;
+  }
+};
+
 // ── Step 1: Upload Video File ────────────────────────────────────
 
 /** Convert base64 data URL to Blob */
@@ -310,37 +348,45 @@ const uploadVideoFile = async (videoUrl: string, useCache = false): Promise<bool
   _localVideoBlob = videoBlob;
 
   // ── Find file input and set video ──
-  const fileInput = await waitForElement(
-    () => {
-      const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
-      return inputs.find(inp => {
-        const accept = inp.getAttribute('accept') || '';
-        return accept.includes('video') || accept.includes('mp4') || accept === '*/*' || !accept;
-      }) || inputs[0] || null;
-    },
-    15000,
-    500
-  ) as HTMLInputElement | null;
+  // ★ Block file dialog BEFORE touching any file inputs
+  blockFileDialog();
 
-  if (!fileInput) {
-    // Try clicking upload button to reveal hidden file input
-    const addBtn = findByText('เพิ่มวิดีโอ') || findByText('เลือกวิดีโอ') || findByText('Select video');
-    if (addBtn) {
-      log('Clicking upload button to reveal file input...');
-      clickElement(addBtn);
-      await delay(2000);
+  try {
+    const fileInput = await waitForElement(
+      () => {
+        const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
+        return inputs.find(inp => {
+          const accept = inp.getAttribute('accept') || '';
+          return accept.includes('video') || accept.includes('mp4') || accept === '*/*' || !accept;
+        }) || inputs[0] || null;
+      },
+      15000,
+      500
+    ) as HTMLInputElement | null;
+
+    if (!fileInput) {
+      // Try clicking upload button to reveal hidden file input
+      const addBtn = findByText('เพิ่มวิดีโอ') || findByText('เลือกวิดีโอ') || findByText('Select video');
+      if (addBtn) {
+        log('Clicking upload button to reveal file input...');
+        clickElement(addBtn);
+        await delay(2000);
+      }
+
+      const fileInput2 = document.querySelector('input[type="file"]') as HTMLInputElement | null;
+      if (!fileInput2) {
+        warn('No file input found on page — trying drag-drop fallback');
+        return tryDragDrop(videoBlob);
+      }
+
+      return setFileInput(fileInput2, videoBlob);
     }
 
-    const fileInput2 = document.querySelector('input[type="file"]') as HTMLInputElement | null;
-    if (!fileInput2) {
-      warn('No file input found on page — trying drag-drop fallback');
-      return tryDragDrop(videoBlob);
-    }
-
-    return setFileInput(fileInput2, videoBlob);
+    return setFileInput(fileInput, videoBlob);
+  } finally {
+    // ★ Restore after a delay to catch async calls from TikTok's React
+    setTimeout(() => unblockFileDialog(), 5000);
   }
-
-  return setFileInput(fileInput, videoBlob);
 };
 
 /** Determine correct file extension and MIME type from blob */
@@ -369,11 +415,14 @@ const detectUploadError = (): Element | null => {
 
 /** Click retry button in TikTok error dialog */
 const clickRetryButton = async (): Promise<boolean> => {
+  // ★ Block file dialog — retry/change buttons may trigger native file picker
+  blockFileDialog();
   const retryBtn = findByText('ลองใหม่', 'button') || findByText('ลองอีกครั้ง', 'button') || findByText('Try again', 'button') || findByText('Retry', 'button');
   if (retryBtn) {
     log('Clicking retry button...');
     clickElement(retryBtn);
     await delay(2000);
+    setTimeout(() => unblockFileDialog(), 5000);
     return true;
   }
   // Also try clicking "เปลี่ยน" (Change) to re-upload
@@ -382,12 +431,16 @@ const clickRetryButton = async (): Promise<boolean> => {
     log('Clicking change button to re-upload...');
     clickElement(changeBtn);
     await delay(2000);
+    setTimeout(() => unblockFileDialog(), 5000);
     return true;
   }
+  unblockFileDialog();
   return false;
 };
 
 const setFileInput = (input: HTMLInputElement, blob: Blob): boolean => {
+  // ★ Ensure file dialog is blocked while we inject file
+  blockFileDialog();
   try {
     // Log actual blob type for debugging
     const detected = getVideoMimeAndExt(blob);
@@ -410,9 +463,12 @@ const setFileInput = (input: HTMLInputElement, blob: Blob): boolean => {
     }
 
     log(`File set on input: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+    // ★ Keep blocking for a bit — TikTok's React may async-trigger file dialog
+    setTimeout(() => unblockFileDialog(), 8000);
     return true;
   } catch (e) {
     warn('setFileInput failed: ' + (e as Error).message);
+    setTimeout(() => unblockFileDialog(), 1000);
     return tryDragDrop(blob);
   }
 };

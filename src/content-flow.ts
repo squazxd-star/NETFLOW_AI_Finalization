@@ -1591,70 +1591,88 @@ async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileNam
     // ═══════════════════════════════════════════════════════════════════════════
     LOG("── ขั้น 3: บล็อก file dialog + คลิก Upload + ฉีดไฟล์ ──");
 
-    // Block native file dialog from opening (override prototype.click for file inputs)
+    // Block native file dialog from opening — override BOTH click() AND showPicker()
+    // ★ Mac Chrome uses showPicker() internally — blocking only click() is insufficient
     const origClick = HTMLInputElement.prototype.click;
-    HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-        if (this.type === "file") {
-            LOG("🚫 บล็อก file dialog จาก click()");
-            return;
+    const origShowPicker = (HTMLInputElement.prototype as any).showPicker;
+    const _blockFileDialog = () => {
+        HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
+            if (this.type === "file") {
+                LOG("🚫 บล็อก file dialog จาก click()");
+                return;
+            }
+            return origClick.call(this);
+        };
+        if (typeof origShowPicker === "function") {
+            (HTMLInputElement.prototype as any).showPicker = function(this: HTMLInputElement) {
+                if (this.type === "file") {
+                    LOG("🚫 บล็อก file dialog จาก showPicker()");
+                    return;
+                }
+                return origShowPicker.call(this);
+            };
         }
-        return origClick.call(this);
     };
+    const _restoreFileDialog = () => {
+        HTMLInputElement.prototype.click = origClick;
+        if (typeof origShowPicker === "function") {
+            (HTMLInputElement.prototype as any).showPicker = origShowPicker;
+        }
+    };
+
+    // ★ Keep block active through the ENTIRE upload process (not just click)
+    _blockFileDialog();
 
     try {
         // Click the upload button — Google Flow will internally try to open file picker
-        // ★ Use both .click() and robustClick for Tahoe 26.2 compatibility
         uploadBtn.click();
         LOG("คลิกปุ่ม 'Upload image' ✅");
         await sleep(isMac ? 1500 : 800);
+
+        // Find the file input to inject into — poll for up to 5 seconds
+        let fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!fileInput) {
+            LOG("ไม่พบ file input ทันที — รอ...");
+            fileInput = await waitForFileInput(isMac ? 5000 : 3000);
+        }
+        if (!fileInput) {
+            // ★ Retry: click upload button with robustClick (pointer events)
+            LOG("ลอง robustClick บนปุ่ม Upload อีกครั้ง...");
+            await robustClick(uploadBtn);
+            await sleep(1500);
+            fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+            if (!fileInput) fileInput = await waitForFileInput(3000);
+        }
+        if (!fileInput) {
+            _restoreFileDialog();
+            WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct file input → drag-drop");
+            const directOk = await _directFileInputFallback(file, baselineCount);
+            if (directOk) return true;
+            return await _dragDropFallback(file, baselineCount);
+        }
+
+        // Inject file via DataTransfer
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        LOG(`ฉีดไฟล์ ${fileName} เข้า file input (${fileInput.files?.length ?? 0} ไฟล์)`);
+
+        // Reset React _valueTracker if present (CRITICAL for React to detect change)
+        const tracker = (fileInput as any)._valueTracker;
+        if (tracker) {
+            tracker.setValue('');
+            LOG("รีเซ็ต React _valueTracker");
+        }
+
+        // Dispatch comprehensive events for React compatibility
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+        fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+        LOG("ส่ง change + input event ✅");
     } finally {
-        // Always restore click prototype
-        HTMLInputElement.prototype.click = origClick;
+        // ★ Always restore prototypes — but with delay to catch async showPicker calls
+        setTimeout(() => _restoreFileDialog(), 3000);
     }
-
-    // Find the file input to inject into — poll for up to 3 seconds (Tahoe 26.2 may create it lazily)
-    let fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
-    if (!fileInput) {
-        LOG("ไม่พบ file input ทันที — รอ...");
-        fileInput = await waitForFileInput(isMac ? 5000 : 3000);
-    }
-    if (!fileInput) {
-        // ★ Retry: click upload button with robustClick (pointer events)
-        LOG("ลอง robustClick บนปุ่ม Upload อีกครั้ง...");
-        const origClick2 = HTMLInputElement.prototype.click;
-        HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-            if (this.type === "file") return;
-            return origClick2.call(this);
-        };
-        try { await robustClick(uploadBtn); await sleep(1500); } finally { HTMLInputElement.prototype.click = origClick2; }
-        fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
-        if (!fileInput) fileInput = await waitForFileInput(3000);
-    }
-    if (!fileInput) {
-        WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct file input → drag-drop");
-        const directOk = await _directFileInputFallback(file, baselineCount);
-        if (directOk) return true;
-        return await _dragDropFallback(file, baselineCount);
-    }
-
-    // Inject file via DataTransfer
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
-    LOG(`ฉีดไฟล์ ${fileName} เข้า file input (${fileInput.files?.length ?? 0} ไฟล์)`);
-
-    // Reset React _valueTracker if present (CRITICAL for React to detect change)
-    const tracker = (fileInput as any)._valueTracker;
-    if (tracker) {
-        tracker.setValue('');
-        LOG("รีเซ็ต React _valueTracker");
-    }
-
-    // Dispatch comprehensive events for React compatibility
-    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-    LOG("ส่ง change + input event ✅");
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 4: Wait and verify thumbnail appeared in prompt bar
