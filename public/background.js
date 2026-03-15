@@ -441,6 +441,74 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    // ── BLOCK_FILE_DIALOG: Intercept file input clicks in MAIN world ──
+    // Content scripts run in isolated world — prototype overrides have no effect
+    // on page JS. We use chrome.scripting.executeScript with world:'MAIN' to
+    // override HTMLInputElement.prototype.click in the page's actual JS context.
+    if (message?.type === 'BLOCK_FILE_DIALOG') {
+        const tabId = sender?.tab?.id;
+        if (!tabId) { sendResponse({ ok: false }); return true; }
+        chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            func: () => {
+                if (window.__nfBlocked) return;
+                window.__nfBlocked = true;
+                window.__nfOrigClick = HTMLInputElement.prototype.click;
+                window.__nfOrigShowPicker = HTMLInputElement.prototype.showPicker;
+                HTMLInputElement.prototype.click = function () {
+                    if (this.type === 'file') {
+                        this.setAttribute('data-netflow-captured', '1');
+                        console.log('[Netflow] Captured file input via click() in MAIN world');
+                        return;
+                    }
+                    return window.__nfOrigClick.call(this);
+                };
+                if (typeof window.__nfOrigShowPicker === 'function') {
+                    HTMLInputElement.prototype.showPicker = function () {
+                        if (this.type === 'file') {
+                            this.setAttribute('data-netflow-captured', '1');
+                            console.log('[Netflow] Captured file input via showPicker() in MAIN world');
+                            return;
+                        }
+                        return window.__nfOrigShowPicker.call(this);
+                    };
+                }
+                document.documentElement.setAttribute('data-nf-block-active', '1');
+            }
+        }).then(() => {
+            console.log('[Netflow BG] BLOCK_FILE_DIALOG: injected into tab', tabId);
+            sendResponse({ ok: true });
+        }).catch(e => {
+            console.warn('[Netflow BG] BLOCK_FILE_DIALOG error:', e);
+            sendResponse({ ok: false });
+        });
+        return true;
+    }
+
+    // ── UNBLOCK_FILE_DIALOG: Restore original file input behavior ──
+    if (message?.type === 'UNBLOCK_FILE_DIALOG') {
+        const tabId = sender?.tab?.id;
+        if (!tabId) { sendResponse({ ok: false }); return true; }
+        chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            func: () => {
+                if (!window.__nfBlocked) return;
+                HTMLInputElement.prototype.click = window.__nfOrigClick;
+                if (typeof window.__nfOrigShowPicker === 'function') {
+                    HTMLInputElement.prototype.showPicker = window.__nfOrigShowPicker;
+                }
+                delete window.__nfBlocked;
+                delete window.__nfOrigClick;
+                delete window.__nfOrigShowPicker;
+                document.documentElement.removeAttribute('data-nf-block-active');
+            }
+        }).then(() => sendResponse({ ok: true }))
+          .catch(() => sendResponse({ ok: false }));
+        return true;
+    }
+
     // ── TIMER_DELAY: Anti-throttle timer relay via sendMessage ──
     // Content script sends { type: 'TIMER_DELAY', ms } → SW waits ms → sendResponse
     // Response callbacks are NOT subject to Chrome's background tab throttling.

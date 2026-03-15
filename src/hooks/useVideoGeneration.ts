@@ -397,12 +397,12 @@ export const useVideoGeneration = () => {
                 expression: data.expression || "happy",
                 movement: data.movement || "minimal",
                 aspectRatio: data.orientation === "horizontal" ? "16:9" : (data.aspectRatio || "9:16"),
-                videoDuration: data.videoDuration || `${(data.sceneCount || data.loopCount || 1) * 8}s`,
+                videoDuration: data.videoDuration || `${(data.sceneCount || 1) * 8}s`,
                 userImage: data.userImage || data.productImage || undefined,
                 characterImage: data.characterImage || undefined,
                 characterDescription: data.characterDescription || "",
                 prompt: data.aiPrompt || "",
-                loopCount: data.sceneCount || data.loopCount || 1,
+                loopCount: data.loopCount || 1,
                 concatenate: data.concatenate || false,
                 videoStyle: data.videoStyle || "ugc-review",
                 clothingStyles: data.clothingStyles || ["casual"],
@@ -415,7 +415,7 @@ export const useVideoGeneration = () => {
                     : data.sceneBackground || "studio",
                 sceneScriptsRaw: data.sceneScriptsRaw || "",
                 cachedProductInfo: data.cachedProductInfo || "",
-                sceneCount: data.sceneCount || data.loopCount || 1
+                sceneCount: data.sceneCount || 1
             };
 
             console.log("📤 Sending payload to workflow:", payload);

@@ -529,13 +529,14 @@ export const runFullWorkflow = async (data: ScriptRequest | AdvancedVideoRequest
         // Cast to AdvancedVideoRequest safely
         let advData = data as any;
 
-        // Calculate total video duration based on clip count (1 clip = 8 seconds)
-        const loopCount = typeof advData.loopCount === 'number' ? advData.loopCount : 1;
-        const totalDuration = loopCount * 8;
-        advData.sceneCount = advData.sceneCount || loopCount;
+        // Calculate total video duration based on scene/clip count (1 clip = 8 seconds)
+        // ★ sceneCount = จำนวนฉาก/clips ในวิดีโอ (ไม่เกี่ยวกับ loopCount ซึ่งเป็นจำนวนรอบวนซ้ำ)
+        const sceneCount = typeof advData.sceneCount === 'number' ? advData.sceneCount : 1;
+        const totalDuration = sceneCount * 8;
+        advData.sceneCount = sceneCount;
         advData.videoDuration = advData.videoDuration || `${totalDuration}s`;
         advData.sceneBackground = advData.sceneBackground || advData.background;
-        console.log(`📹 Video Duration: ${loopCount} clip(s) = ${totalDuration} seconds`);
+        console.log(`📹 Video Duration: ${sceneCount} scene(s) = ${totalDuration} seconds`);
 
         // 1. Vision Analysis (Brain 🧠)
         if (advData.userImage) {

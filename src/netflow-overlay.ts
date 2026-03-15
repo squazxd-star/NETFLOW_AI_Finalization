@@ -81,6 +81,9 @@ export function setOverlayTheme(key?: string): void {
         _themeKeyOverride = key;
         currentTheme = OVERLAY_THEMES[key];
         updateThemeComponents();
+        // Re-inject styles with the new theme colors
+        if (styleEl) { styleEl.remove(); styleEl = null; }
+        injectStyles();
         // Update bg if overlay already visible
         requestAnimationFrame(() => applyCoreBg());
     }

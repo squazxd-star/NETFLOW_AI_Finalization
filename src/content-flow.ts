@@ -957,12 +957,15 @@ function findPromptBarAddButton(): HTMLElement | null {
     }
 
     if (addButtons.length > 0) {
-        // Pick the one closest to the bottom of the viewport
+        // Pick the one closest to the bottom of the viewport AND actually in the bottom half
         let bestBtn: HTMLElement | null = null;
         let bestY = 0;
         for (const btn of addButtons) {
             const rect = btn.getBoundingClientRect();
-            if (rect.y > bestY) { bestY = rect.y; bestBtn = btn; }
+            if (rect.bottom > window.innerHeight * 0.6 && rect.y > bestY) { 
+                bestY = rect.y; 
+                bestBtn = btn; 
+            }
         }
         if (bestBtn) {
             LOG(`พบปุ่ม "+" ของ Prompt Bar (icon) ที่ y=${bestY.toFixed(0)}`);
@@ -1386,6 +1389,25 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
     const skipRoles = new Set(["tab", "tablist", "tabpanel", "navigation"]);
 
     while (Date.now() - pollStart < timeoutMs) {
+        // ★★★ PRIORITY: Direct global search for upload button with google-symbols icon ★★★
+        // Google Flow (Mar 2026+) uses <i class="google-symbols">upload</i> inside a Radix portal.
+        // This search finds it immediately without needing container detection.
+        for (const btn of document.querySelectorAll<HTMLElement>("button")) {
+            if (btn === addBtn) continue;
+            const icon = btn.querySelector<HTMLElement>("i");
+            if (!icon) continue;
+            const iconText = (icon.textContent || "").trim().toLowerCase();
+            if (iconText === "upload" || iconText === "upload_file" || iconText === "cloud_upload") {
+                const rect = btn.getBoundingClientRect();
+                // STRICTLY ensure it's not the top-header "Upload media" button.
+                // The prompt bar dialog opens near the bottom.
+                if (rect.width > 0 && rect.height > 0 && rect.y > window.innerHeight * 0.4) {
+                    LOG(`🎯 พบปุ่ม Upload โดยตรง (icon="${iconText}" y=${rect.y.toFixed(0)})`);
+                    return btn;
+                }
+            }
+        }
+
         // Collect all possible containers (Radix dialog, popover, menu, portal)
         const containers: Element[] = [];
 
@@ -1411,6 +1433,10 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
             '[class*="menu-content"]', '[class*="dialog"]',
         ]) {
             for (const el of document.querySelectorAll(sel)) containers.push(el);
+        }
+        // ★ Also detect Radix portals by ID pattern (e.g. #radix-:r24:)
+        for (const el of document.querySelectorAll<HTMLElement>('[id]')) {
+            if ((el.id || '').match(/^radix-/)) containers.push(el);
         }
 
         // Search each container for upload button
@@ -1459,7 +1485,7 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
                 const allText = (btn.textContent || "").trim().toLowerCase();
                 if (allText === "image" || allText === "video" || allText === "รูปภาพ" || allText === "วิดีโอ") continue;
                 const rect = btn.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) continue;
+                if (rect.width === 0 || rect.height === 0 || rect.y < window.innerHeight * 0.4) continue;
                 if (uploadTexts.some(t => allText === t || allText.includes(t)) && allText.length < 50) {
                     LOG(`พบปุ่ม Upload (global search, text="${allText.substring(0, 40)}")`);
                     return btn;
@@ -1487,17 +1513,117 @@ async function findUploadButtonInDialog(addBtn: HTMLElement, timeoutMs = 5000): 
     return null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ★★★ MAIN-WORLD file dialog blocking ★★★
+// Content scripts run in an ISOLATED JavaScript world — they share the DOM with
+// the page but have SEPARATE JS contexts. Overriding HTMLInputElement.prototype
+// in the content script has ZERO effect on the page's JavaScript (Google Flow).
+// We MUST inject a <script> element so the code runs in the page's MAIN world.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function _blockFileDialogMainWorld(): Promise<void> {
+    // Remove any stale captured markers
+    document.querySelectorAll('[data-netflow-captured]').forEach(el => el.removeAttribute('data-netflow-captured'));
+    document.documentElement.removeAttribute('data-nf-block-active');
+
+    // ── Try 1: Inline <script> injection (synchronous, fast) ──
+    const script = document.createElement('script');
+    script.textContent = `(function(){
+        if(window.__nfBlocked) return;
+        window.__nfBlocked = true;
+        window.__nfOrigClick = HTMLInputElement.prototype.click;
+        window.__nfOrigShowPicker = HTMLInputElement.prototype.showPicker;
+        HTMLInputElement.prototype.click = function(){
+            if(this.type==='file'){
+                this.setAttribute('data-netflow-captured','1');
+                console.log('[Netflow] Captured file input via click() in MAIN world');
+                return;
+            }
+            return window.__nfOrigClick.call(this);
+        };
+        if(typeof window.__nfOrigShowPicker==='function'){
+            HTMLInputElement.prototype.showPicker=function(){
+                if(this.type==='file'){
+                    this.setAttribute('data-netflow-captured','1');
+                    console.log('[Netflow] Captured file input via showPicker() in MAIN world');
+                    return;
+                }
+                return window.__nfOrigShowPicker.call(this);
+            };
+        }
+        document.documentElement.setAttribute('data-nf-block-active','1');
+    })();`;
+    document.documentElement.appendChild(script);
+    script.remove();
+
+    // Verify inline injection worked (CSP may have blocked it)
+    if (document.documentElement.hasAttribute('data-nf-block-active')) {
+        LOG("🛡️ File dialog blocked in MAIN WORLD (inline script)");
+        return;
+    }
+
+    // ── Try 2: chrome.scripting via background script (CSP-proof) ──
+    WARN("⚠️ Inline script blocked by CSP — using chrome.scripting fallback");
+    try {
+        await new Promise<void>((resolve, reject) => {
+            chrome.runtime.sendMessage({ type: 'BLOCK_FILE_DIALOG' }, (resp) => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                    resolve();
+                }
+            });
+        });
+        await sleep(200); // Wait for execution to complete
+        if (document.documentElement.hasAttribute('data-nf-block-active')) {
+            LOG("🛡️ File dialog blocked in MAIN WORLD (chrome.scripting fallback)");
+        } else {
+            WARN("❌ Failed to block file dialog — both methods failed");
+        }
+    } catch (e: any) {
+        WARN(`❌ chrome.scripting fallback failed: ${e.message}`);
+    }
+}
+
+function _unblockFileDialogMainWorld(): void {
+    // ── Try 1: Inline script ──
+    const script = document.createElement('script');
+    script.textContent = `(function(){
+        if(!window.__nfBlocked) return;
+        HTMLInputElement.prototype.click = window.__nfOrigClick;
+        if(typeof window.__nfOrigShowPicker==='function'){
+            HTMLInputElement.prototype.showPicker = window.__nfOrigShowPicker;
+        }
+        delete window.__nfBlocked;
+        delete window.__nfOrigClick;
+        delete window.__nfOrigShowPicker;
+        document.documentElement.removeAttribute('data-nf-block-active');
+    })();`;
+    document.documentElement.appendChild(script);
+    script.remove();
+
+    // ── Try 2: chrome.scripting fallback (if inline was blocked) ──
+    if (document.documentElement.hasAttribute('data-nf-block-active')) {
+        chrome.runtime.sendMessage({ type: 'UNBLOCK_FILE_DIALOG' }, () => {});
+    }
+
+    // Clean up markers
+    document.querySelectorAll('[data-netflow-captured]').forEach(el => el.removeAttribute('data-netflow-captured'));
+    LOG("🛡️ File dialog UNBLOCKED in MAIN WORLD");
+}
+
 /**
- * Upload a single image into the prompt bar.
+ * Upload a single image into the prompt bar as a REFERENCE image.
  *
- * ★ NEW STRATEGY (Mar 2026): Google Flow now has input[type="file"][accept="image/*"]
- *   always present in the DOM. We inject directly into it — NO button clicks needed.
- *   This avoids the file dialog popup entirely.
+ * ★ Based on God Version (commit 315b704) — clean 4-step approach:
+ *   Step 1: คลิกปุ่ม "+" (Create) ใน prompt bar
+ *   Step 2: หาและคลิกปุ่ม "Upload image" ใน Radix dialog
+ *   Step 3: Block native file dialog (MAIN WORLD) → inject base64 file ผ่าน DataTransfer
+ *   Step 4: รอยืนยัน thumbnail ขึ้นจริง (15s timeout)
  *
- * Flow:
- *   A) Direct file input injection (PRIMARY — skip all UI buttons)
- *   B) Click "+" → inject into file input (SECONDARY)
- *   C) Drag-drop onto workspace (TERTIARY)
+ * ★ Fixes vs original God Version:
+ *   - File dialog blocking now runs in MAIN WORLD (not isolated world)
+ *   - Single change event (not 3) to prevent duplicate uploads
  */
 async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promise<boolean> {
     LOG(`── กำลังอัพโหลด ${fileName} ไปยัง Prompt Bar ──`);
@@ -1510,115 +1636,168 @@ async function uploadImageToPromptBar(dataUrl: string, fileName: string): Promis
     const baselineCount = countPromptBarThumbnails();
     LOG(`รูปย่อปัจจุบันใน Prompt Bar: ${baselineCount} รูป`);
 
-    // ★ macOS timing multiplier — slower rendering under memory pressure (8GB RAM)
-    const T = isMac ? 1.8 : 1;
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 1: Click "+" (Create) button in prompt bar
+    // ═══════════════════════════════════════════════════════════════════════
+    LOG("── ขั้นตอน 1: คลิกปุ่ม '+' (Create) ──");
 
-    // ★★★ Block file dialog for the ENTIRE upload function lifetime ★★★
-    // This prevents any code path from accidentally opening the native file picker
-    const origClick = HTMLInputElement.prototype.click;
-    const origShowPicker = (HTMLInputElement.prototype as any).showPicker;
-    const _block = () => {
-        HTMLInputElement.prototype.click = function(this: HTMLInputElement) {
-            if (this.type === "file") { LOG("🚫 บล็อก file dialog จาก click()"); return; }
-            return origClick.call(this);
-        };
-        if (typeof origShowPicker === "function") {
-            (HTMLInputElement.prototype as any).showPicker = function(this: HTMLInputElement) {
-                if (this.type === "file") { LOG("🚫 บล็อก file dialog จาก showPicker()"); return; }
-                return origShowPicker.call(this);
-            };
+    // ★ Ensure tab is visible to prevent Radix popovers and clicks from failing
+    await ensureTabVisible();
+
+    // ★ Focus prompt input first — '+' button sometimes only appears when active
+    const promptInput = findPromptTextInput();
+    if (promptInput) {
+        promptInput.focus();
+        await sleep(500);
+    }
+
+    let addBtn: HTMLElement | null = null;
+    for (let i = 0; i < 15; i++) {
+        addBtn = findPromptBarAddButton();
+        if (addBtn) break;
+        await sleep(1000);
+        
+        // Re-attempt focus during retry
+        if (i % 3 === 0) {
+            const retryInput = findPromptTextInput();
+            if (retryInput) retryInput.focus();
         }
-    };
-    const _unblock = () => {
-        HTMLInputElement.prototype.click = origClick;
-        if (typeof origShowPicker === "function") {
-            (HTMLInputElement.prototype as any).showPicker = origShowPicker;
+        
+        LOG(`⏳ รอปุ่ม '+' บน Prompt Bar... (${i + 1}/15)`);
+    }
+
+    if (!addBtn) {
+        WARN("ไม่พบปุ่ม '+' บน Prompt Bar");
+        return false;
+    }
+
+    addBtn.click();
+    LOG("คลิกปุ่ม '+' (Create) ✅");
+    await sleep(1500);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 2: Find and click "Upload image" button in the opened Radix dialog
+    // ═══════════════════════════════════════════════════════════════════════
+    LOG("── ขั้นตอน 2: หาและคลิกปุ่ม 'Upload image' ──");
+    const uploadBtn = await findUploadButtonInDialog(addBtn, 5000);
+    if (!uploadBtn) {
+        WARN("ไม่พบปุ่ม 'Upload image' ใน Dialog — ลอง pointer events สำหรับปุ่ม '+'");
+        // Try pointer events on "+" if .click() didn't open the dialog
+        const r = addBtn.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const opts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
+        addBtn.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+        addBtn.dispatchEvent(new MouseEvent("mousedown", opts));
+        await sleep(80);
+        addBtn.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerId: 1, isPrimary: true, pointerType: "mouse" }));
+        addBtn.dispatchEvent(new MouseEvent("mouseup", opts));
+        addBtn.dispatchEvent(new MouseEvent("click", opts));
+        await sleep(1500);
+
+        const retryUploadBtn = await findUploadButtonInDialog(addBtn, 3000);
+        if (!retryUploadBtn) {
+            WARN("❌ ไม่พบปุ่ม Upload image หลังจากลองทั้ง 2 วิธี");
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+            return false;
         }
-    };
-    _block();
+        // Use the retry button
+        return await _clickUploadAndInject(retryUploadBtn, file, fileName, baselineCount);
+    }
+
+    return await _clickUploadAndInject(uploadBtn, file, fileName, baselineCount);
+}
+
+/**
+ * Step 3-4 of God Version upload flow:
+ * Block file dialog (MAIN WORLD) → click Upload → inject file → verify thumbnail.
+ *
+ * ★ MAIN WORLD fix: Content scripts run in isolated JS world — prototype
+ *   overrides have NO effect on page JS. We inject into the page's main world.
+ * ★ Single event fix: Only ONE change event to prevent duplicate uploads.
+ */
+async function _clickUploadAndInject(uploadBtn: HTMLElement, file: File, fileName: string, baselineCount: number): Promise<boolean> {
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 3: Block file dialog → Click Upload → Inject base64 into file input
+    // ═══════════════════════════════════════════════════════════════════════
+    LOG("── ขั้นตอน 3: บล็อค file dialog + คลิก Upload + ฉีดไฟล์ ──");
+
+    // Block native file dialog in MAIN WORLD (not isolated world!)
+    await _blockFileDialogMainWorld();
 
     try {
-        // ═══════════════════════════════════════════════════════════════════════
-        // STRATEGY A: Direct file input injection (PRIMARY — skip UI buttons)
-        // ★ CRITICAL: If file input found and file injected, TRUST it and return true.
-        // ★ Do NOT fall through to Strategy B — that causes DUPLICATE uploads.
-        // ═══════════════════════════════════════════════════════════════════════
-        LOG("── วิธี A: ฉีดไฟล์ลง file input โดยตรง (ไม่คลิก UI) ──");
-        let fileInput = _findImageFileInput();
-        if (fileInput) {
-            LOG(`พบ file input: accept="${fileInput.accept}" multiple=${fileInput.multiple}`);
-            _injectFile(fileInput, file, fileName);
-            // ★ Trust the injection — wait briefly for any sign, then return true
-            await sleep(3000);
-            const thumbsNow = countPromptBarThumbnails();
-            if (thumbsNow > baselineCount) {
-                LOG(`✅ วิธี A สำเร็จ — รูปย่อเพิ่ม ${baselineCount} → ${thumbsNow}`);
-            } else {
-                LOG(`✅ วิธี A — ฉีดไฟล์แล้ว (ถือว่าสำเร็จ ไม่ลองซ้ำ)`);
-            }
-            return true; // ★ ALWAYS return true if injection was performed
-        }
-        LOG("ไม่พบ file input[accept=image/*] — ลองวิธี B");
+        // Clear capture markers before clicking
+        document.querySelectorAll('[data-netflow-captured]').forEach(el => el.removeAttribute('data-netflow-captured'));
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // STRATEGY B: Click "+" → activate dialog → inject into file input
-        // (Only reached if NO file input exists in DOM at all)
-        // ═══════════════════════════════════════════════════════════════════════
-        LOG("── วิธี B: คลิก '+' → เปิด dialog → ฉีดไฟล์ ──");
-
-        // Close any lingering dialog/popover first
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-        await sleep(300);
-
-        let addBtn = findPromptBarAddButton();
-        if (!addBtn) {
-            await sleep(2000 * T);
-            addBtn = findPromptBarAddButton();
-        }
-        if (!addBtn) {
-            const promptArea = document.querySelector<HTMLElement>('[data-slate-editor="true"], [role="textbox"][contenteditable="true"]');
-            if (promptArea) { promptArea.click(); await sleep(2000 * T); }
-            addBtn = findPromptBarAddButton();
-        }
-
-        if (addBtn) {
-            await robustClick(addBtn);
-            LOG("คลิกปุ่ม '+' (Create) ✅");
-            await sleep(1500 * T);
-
-            // Find file input (may have been created by the dialog)
-            fileInput = _findImageFileInput();
-            if (!fileInput) {
-                fileInput = await waitForFileInput(isMac ? 5000 : 3000);
-            }
-
-            if (fileInput) {
-                _injectFile(fileInput, file, fileName);
-                // Close dialog
-                document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-                await sleep(2000);
-                LOG(`✅ วิธี B — ฉีดไฟล์แล้ว`);
-                return true; // ★ Trust the injection
-            }
-
-            // Close dialog before trying fallback
-            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
-            await sleep(500);
-        } else {
-            WARN("ไม่พบปุ่ม '+' บน Prompt Bar");
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // STRATEGY C: Drag-drop onto workspace (TERTIARY)
-        // ═══════════════════════════════════════════════════════════════════════
-        LOG("── วิธี C: drag-drop ──");
-        return await _dragDropFallback(file, baselineCount);
-
+        // Click the upload button → Google Flow will internally try to open file picker
+        uploadBtn.click();
+        LOG("คลิกปุ่ม 'Upload image' ✅");
+        await sleep(800);
     } finally {
-        // ★★★ Restore file dialog ONLY after entire function completes ★★★
-        // Use delayed restore to catch any async React handlers triggered during upload
-        setTimeout(() => _unblock(), 10000);
+        // Always restore click prototype
+        _unblockFileDialogMainWorld();
     }
+
+    // Find the captured file input (marked by main-world script with data-netflow-captured)
+    let fileInput = document.querySelector<HTMLInputElement>('input[type="file"][data-netflow-captured]');
+    if (fileInput) {
+        LOG(`🎯 พบ captured file input จาก main world: accept="${fileInput.accept}"`);
+    }
+
+    // Fallback: use _findImageFileInput() which prioritizes accept="image/*" and the last input in DOM
+    if (!fileInput) {
+        fileInput = _findImageFileInput() || document.querySelector<HTMLInputElement>('input[type="file"]');
+    }
+
+    if (!fileInput) {
+        WARN("ไม่พบ file input หลังคลิก Upload — ลอง direct drag-drop");
+        // Fallback: drag-drop onto workspace
+        return await _dragDropFallback(file, baselineCount);
+    }
+
+    // Inject file via DataTransfer
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    LOG(`ฉีดไฟล์ ${fileName} เข้า file input (${fileInput.files?.length ?? 0} ไฟล์)`);
+
+    // Reset React _valueTracker if present (CRITICAL for React to detect change)
+    const tracker = (fileInput as any)._valueTracker;
+    if (tracker) {
+        tracker.setValue('');
+        LOG("รีเซ็ต React _valueTracker");
+    }
+
+    // ★ Dispatch ONLY ONE change event — multiple events cause Google Flow
+    //   to process the same file multiple times → duplicate uploads
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    LOG("ส่ง change event ✅ (single event เพื่อป้องกันรูปซ้ำ)");
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 4: Wait and verify thumbnail appeared in prompt bar (15s timeout)
+    // ═══════════════════════════════════════════════════════════════════════
+    LOG("── ขั้นตอน 4: รอยืนยันรูปย่อ ──");
+    const verifyStart = Date.now();
+    while (Date.now() - verifyStart < 15000) {
+        const currentCount = countPromptBarThumbnails();
+        if (currentCount > baselineCount) {
+            LOG(`✅ สำเร็จ: รูปย่อเพิ่มจาก ${baselineCount} → ${currentCount}`);
+            return true;
+        }
+        // Also check for upload % indicator
+        const pctEls = document.querySelectorAll<HTMLElement>("span, div, p");
+        for (const el of pctEls) {
+            const txt = (el.textContent || "").trim();
+            if (/^\d{1,2}%$/.test(txt)) {
+                LOG(`กำลังอัพโหลด: ${txt}`);
+                break;
+            }
+        }
+        await sleep(1000);
+    }
+
+    WARN(`❌ อัพโหลด ${fileName} ไม่สำเร็จ — ไม่พบรูปย่อภายใน 15 วินาที`);
+    return false;
 }
 
 /**
@@ -1653,25 +1832,13 @@ function _injectFile(fileInput: HTMLInputElement, file: File, fileName: string):
         LOG("รีเซ็ต React _valueTracker");
     }
 
-    // Dispatch comprehensive events for React compatibility
+    // ★ Dispatch ONLY ONE change event — multiple events cause Google Flow
+    //   to process the same file multiple times → duplicate uploads
     fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
-    // Also try native setter approach
-    try {
-        const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
-        if (nativeSetter) {
-            nativeSetter.call(fileInput, dt.files);
-            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-    } catch (_) {}
-
-    LOG("ส่ง change + input event ✅");
+    LOG("ส่ง change event ✅ (single event เพื่อป้องกันรูปซ้ำ)");
 }
 
-// NOTE: _clickUploadAndInject removed in Mar 2026 — logic replaced by _injectAndVerify
-// called from the rewritten uploadImageToPromptBar above.
 
 /**
  * Fallback: drag-and-drop file onto workspace area.
@@ -2367,14 +2534,23 @@ async function handleGenerateImage(req: GenerateImageRequest): Promise<{ success
                 await robustClick(newProjBtn); // double-click for reliability
                 await sleep(2000);
 
-                // Wait for workspace to load — look for prompt input area or "Start creating" text
+                // Wait for workspace to load — look for prompt input area or URL change
                 let workspaceReady = false;
-                for (let i = 0; i < 20; i++) {
-                    const body = document.body.innerText || "";
-                    // Check for workspace indicators
-                    if (body.includes("Start creating") || body.includes("เริ่มสร้าง") ||
-                        body.includes("What do you want to create") || body.includes("drop media") ||
-                        document.querySelector("textarea, input[placeholder]")) {
+                for (let i = 0; i < 30; i++) {
+                    const isProjectUrl = window.location.pathname.includes('/project/');
+                    const hasSlateEditor = !!document.querySelector('[data-slate-editor="true"]');
+                    
+                    // We must be on the project page, OR have the actual Slate editor loaded
+                    if (isProjectUrl && hasSlateEditor) {
+                        LOG("✅ ตรวจพบหน้า Workspace (Project URL + Slate Editor)");
+                        await sleep(2000); // Give UI time to fully render
+                        workspaceReady = true;
+                        break;
+                    }
+                    // Fallback in case URL scheme changes
+                    else if (hasSlateEditor && !window.location.pathname.endsWith('/')) {
+                        LOG("✅ ตรวจพบหน้า Workspace (Slate Editor)");
+                        await sleep(2000);
                         workspaceReady = true;
                         break;
                     }
