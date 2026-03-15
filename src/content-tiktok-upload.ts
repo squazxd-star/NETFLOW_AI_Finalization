@@ -761,47 +761,76 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   await delay(3000);
 
   // ══════════════════════════════════════════════════════════════════
-  // 2. Wait for product table to appear (DO NOT click ถัดไป yet!)
-  //    From screenshots: table has class jsx-*product-table*
-  //    and rows have TUXRadioStandalone radio buttons
+  // 2. Handle "ประเภทของลิงก์" (Link Type) dialog
+  //    Image 1: After clicking "+ เพิ่ม", a dialog appears with:
+  //      - "ประเภทของลิงก์" title
+  //      - Dropdown with "สินค้า" (Product) pre-selected
+  //      - "ยกเลิก" + "ถัดไป" buttons (TUXButton--primary)
+  //    Image 3: ถัดไป = button.TUXButton--primary, Name="ถัดไป"
+  //    We need to click "ถัดไป" to proceed to product selection.
   // ══════════════════════════════════════════════════════════════════
-  // Try up to 2 attempts to open the product dialog
+  log('Waiting for link type dialog (ประเภทของลิงก์)...');
+  const linkTypeNextBtn = await waitForElement(
+    () => {
+      // Look for "ถัดไป" TUXButton--primary inside the link-type dialog
+      const primaryBtns = document.querySelectorAll<HTMLElement>('button[class*="TUXButton--primary"]');
+      for (const btn of primaryBtns) {
+        const txt = (btn.textContent || '').trim();
+        if (txt === 'ถัดไป' || txt === 'Next') {
+          if (!btn.hasAttribute('disabled') && btn.getAttribute('aria-disabled') !== 'true') {
+            return btn;
+          }
+        }
+      }
+      // Fallback: any button with text "ถัดไป"
+      return findByText('ถัดไป', 'button') as HTMLElement | null;
+    },
+    8000
+  );
+
+  if (linkTypeNextBtn) {
+    clickElement(linkTypeNextBtn);
+    log('Clicked ถัดไป on link type dialog (ประเภทของลิงก์ → สินค้า)');
+    await delay(3000);
+  } else {
+    log('No link type dialog found — may go directly to product selection');
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 3. Wait for product table to appear
+  //    Image 2: "เพิ่มลิงก์สินค้า" dialog with product table
+  //    Image 4: table class="jsx-* product-table", tr class="jsx-* product-tb-row"
+  //             cell: div class="jsx-* product-tb-cell"
+  //    Image 5: radio: input.TUXRadioStandalone-input
+  //    Image 6: dialog: div.TUXModel.product-selector-modal[role="dialog"]
+  // ══════════════════════════════════════════════════════════════════
   let tableReady: Element | null = null;
   for (let dialogAttempt = 0; dialogAttempt < 2 && !tableReady; dialogAttempt++) {
     if (dialogAttempt > 0) {
-      log('Product dialog not open, retrying click...');
-      // Try clicking the button again
-      if (addLinkBtn) {
-        clickElement(addLinkBtn);
-        await delay(3000);
-      }
+      log('Product table not found, retrying...');
+      await delay(2000);
     }
 
     tableReady = await waitForElement(
       () => {
-        // Look for product table or radio buttons (sign dialog is loaded)
-        const table = document.querySelector('table[class*="product"], [class*="product-table"]');
-        if (table) return table;
-        const radio = document.querySelector('input[type="radio"][class*="TUXRadio"], input.TUXRadioStandalone-input, [class*="TUXRadioStandalone"]');
+        // Best: exact class from Image 4
+        const pt = document.querySelector('[class*="product-table"], table[class*="product"]');
+        if (pt) return pt;
+        // Dialog with product-selector-modal class from Image 6
+        const modal = document.querySelector('[class*="product-selector-modal"], [role="dialog"][title*="สินค้า"]');
+        if (modal) return modal;
+        // Radio buttons (sign product table is loaded) from Image 5
+        const radio = document.querySelector('input.TUXRadioStandalone-input, [class*="TUXRadioStandalone"]');
         if (radio) return radio;
-        // Look for dialog with "นำเสนอสินค้า" or "เพิ่มลิงก์สินค้า" title
-        const dialogTitle = findByText('นำเสนอสินค้า') || findByText('เพิ่มลิงก์สินค้า');
-        if (dialogTitle) return dialogTitle;
-        // Fallback: any table inside dialog-like area
-        const dialog = document.querySelector('[class*="modal"], [role="dialog"]');
-        if (dialog) {
-          const tbl = dialog.querySelector('table');
-          if (tbl) return tbl;
-        }
-        // Look for search bar "ค้นหาสินค้า" as sign dialog is open
-        const searchBar = document.querySelector('input[placeholder*="ค้นหาสินค้า"], input[placeholder*="ค้นหา"]') as HTMLElement;
-        if (searchBar) {
-          const rect = searchBar.getBoundingClientRect();
-          if (rect.width > 80) return searchBar;
-        }
+        // Search bar "ค้นหาสินค้า" from Image 2
+        const search = document.querySelector('input[placeholder*="ค้นหาสินค้า"]') as HTMLElement;
+        if (search) return search;
+        // Generic: any table inside a dialog
+        const dlg = document.querySelector('[role="dialog"], [class*="modal"], [class*="Modal"]');
+        if (dlg) { const t = dlg.querySelector('table'); if (t) return t; }
         return null;
       },
-      dialogAttempt === 0 ? 10000 : 8000
+      dialogAttempt === 0 ? 12000 : 8000
     );
   }
 
@@ -810,13 +839,18 @@ const addProductLink = async (productId: string): Promise<boolean> => {
     return false;
   }
   log('Product table/dialog loaded');
-  await delay(1000);
+  await delay(1500);
 
   // ══════════════════════════════════════════════════════════════════
-  // 3. Try search (optional — may not filter on all TikTok versions)
+  // 4. Find and select the product row
+  //    Image 4: rows = tr[class*="product-tb-row"]
+  //             ID cell = div[class*="product-tb-cell"] containing the numeric ID
+  //    Image 5: radio = input.TUXRadioStandalone-input (24×24, inside row)
+  //    Try search first if available, then find by ID in table
   // ══════════════════════════════════════════════════════════════════
+  // Try search (optional)
   const searchInput = document.querySelector(
-    'input[placeholder*="ค้นหา"], input[placeholder*="search"], input[placeholder*="Search"], input[placeholder*="Find"]'
+    'input[placeholder*="ค้นหาสินค้า"], input[placeholder*="ค้นหา"], input[placeholder*="search"]'
   ) as HTMLInputElement | null;
 
   if (searchInput) {
@@ -825,118 +859,107 @@ const addProductLink = async (productId: string): Promise<boolean> => {
     await delay(200);
     searchInput.select();
     await delay(100);
-
     const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     if (nativeSetter) { nativeSetter.call(searchInput, productId); }
     else { searchInput.value = productId; }
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
     await delay(300);
-
-    // Click the search icon (🔍 button next to input)
-    const searchIcon = searchInput.parentElement?.querySelector('svg, [class*="icon"], [class*="search"]') as HTMLElement
-      || searchInput.nextElementSibling as HTMLElement;
-    if (searchIcon) {
-      clickElement(searchIcon);
-      log('Clicked search icon');
-    }
-    // Also press Enter
+    // Click search icon
+    const searchIcon = searchInput.parentElement?.querySelector('svg, [class*="icon"], [class*="search"]') as HTMLElement;
+    if (searchIcon) { clickElement(searchIcon); log('Clicked search icon'); }
     searchInput.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', code: 'Enter' }));
     await delay(3000);
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // 4. Find and select the product row (with pagination support)
-  //    Product ID is a 16-20 digit number visible in the row
-  //    Radio: <input type="radio" class="TUXRadioStandalone*">
-  // ══════════════════════════════════════════════════════════════════
   let productSelected = false;
-
-  // Helper: try to click the radio/row for a product
-  const trySelectRow = async (container: Element): Promise<boolean> => {
-    // Strategy A: Find radio input and click it + its wrapper
-    const radioSelectors = 'input[type="radio"], [class*="TUXRadio"], [class*="Radio"]';
-    const radio = container.querySelector(radioSelectors) as HTMLElement;
-    if (radio) {
-      // Click the wrapper (label, div wrapping the radio) — React needs wrapper click
-      const wrapper = radio.closest('label, [class*="TUXRadio"], [class*="Radio"]') || radio;
-      clickElement(wrapper);
-      await delay(200);
-      // Also click the radio itself
-      clickElement(radio);
-      await delay(200);
-      // Force checked state via native setter
-      const inp = radio.tagName === 'INPUT' ? radio as HTMLInputElement
-        : container.querySelector('input[type="radio"]') as HTMLInputElement;
-      if (inp) {
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
-        if (setter) setter.call(inp, true);
-        inp.dispatchEvent(new Event('change', { bubbles: true }));
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.dispatchEvent(new Event('click', { bubbles: true }));
-      }
-      log('Selected via radio');
-      return true;
-    }
-    // Strategy B: Click the row itself (simulating click on leftmost area)
-    const el = container as HTMLElement;
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      // Click at leftmost area where radio column usually is
-      const clickX = rect.left + 25;
-      const clickY = rect.top + rect.height / 2;
-      const opts = { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, button: 0 };
-      el.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
-      el.dispatchEvent(new MouseEvent('mousedown', opts));
-      el.dispatchEvent(new PointerEvent('pointerup', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
-      el.dispatchEvent(new MouseEvent('mouseup', opts));
-      el.dispatchEvent(new MouseEvent('click', opts));
-      log('Selected via row click');
-      return true;
-    }
-    return false;
-  };
 
   // Try up to 5 pages
   for (let page = 0; page < 5 && !productSelected; page++) {
     if (page > 0) {
-      log(`Product not on page ${page}, trying page ${page + 1}...`);
-      const nextPageBtn = document.querySelector('button[aria-label="next"], [class*="next"]') as HTMLElement;
-      const pageLinks = Array.from(document.querySelectorAll('button, a, li')).filter(el => {
+      log(`Trying page ${page + 1}...`);
+      const pgBtns = Array.from(document.querySelectorAll('button, a, li')).filter(el => {
         const t = (el.textContent || '').trim();
         return t === String(page + 1) || t === '>' || t === '›';
       });
-      const pgBtn = nextPageBtn || pageLinks[0] as HTMLElement;
-      if (!pgBtn) { log('No more pages'); break; }
-      clickElement(pgBtn);
+      if (pgBtns.length === 0) { log('No more pages'); break; }
+      clickElement(pgBtns[0]);
       await delay(2000);
     }
 
-    // ★ Search for product ID in ALL visible text elements (not just table rows)
-    // TikTok may use divs, spans, or other non-table structures
-    const allElements = Array.from(document.querySelectorAll('tr, [class*="product"], [class*="row"], div, td'));
-    const matchingContainers: Element[] = [];
+    // Strategy A (BEST): Use exact DOM classes from Image 4
+    // Find rows: tr[class*="product-tb-row"]
+    const rows = document.querySelectorAll<HTMLElement>('tr[class*="product-tb-row"]');
+    log(`Found ${rows.length} product-tb-row rows on page ${page + 1}`);
 
-    for (const el of allElements) {
-      const txt = (el.textContent || '');
-      if (!txt.includes(productId)) continue;
-      // Skip very large containers (whole dialog/page)
-      if (txt.length > 2000) continue;
-      matchingContainers.push(el);
-    }
-    // Sort by text length (smallest first = most specific)
-    matchingContainers.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+    for (const row of rows) {
+      const rowText = (row.textContent || '');
+      if (!rowText.includes(productId)) continue;
+      log(`Found row with product ID ${productId}`);
 
-    log(`Found ${matchingContainers.length} elements with product ID on page ${page + 1}`);
-
-    for (const container of matchingContainers) {
-      // Walk up to find the row-level container (tr or row-like div)
-      const row = container.closest('tr') || container.closest('[class*="product-tr"]') || container.closest('[class*="row"]') || container;
-      const result = await trySelectRow(row);
-      if (result) {
+      // Image 5: radio = input.TUXRadioStandalone-input inside the row
+      const radio = row.querySelector('input.TUXRadioStandalone-input, input[type="radio"]') as HTMLInputElement;
+      if (radio) {
+        // Click the TUXRadioStandalone wrapper div (React needs wrapper click)
+        const wrapper = radio.closest('[class*="TUXRadioStandalone"]') as HTMLElement;
+        if (wrapper) {
+          clickElement(wrapper);
+          log('Clicked TUXRadioStandalone wrapper');
+          await delay(300);
+        }
+        // Also click the radio input itself
+        clickElement(radio);
+        await delay(200);
+        // Force checked state
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+        if (setter) { setter.call(radio, true); }
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        radio.dispatchEvent(new Event('input', { bubbles: true }));
         productSelected = true;
-        log('Product selected successfully');
+        log('✅ Product radio selected');
         break;
+      }
+
+      // Fallback: click the row itself at leftmost position (radio column)
+      const rect = row.getBoundingClientRect();
+      if (rect.width > 0) {
+        const opts = { bubbles: true, cancelable: true, clientX: rect.left + 20, clientY: rect.top + rect.height / 2, button: 0 };
+        row.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+        row.dispatchEvent(new MouseEvent('mousedown', opts));
+        row.dispatchEvent(new PointerEvent('pointerup', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+        row.dispatchEvent(new MouseEvent('mouseup', opts));
+        row.dispatchEvent(new MouseEvent('click', opts));
+        productSelected = true;
+        log('Selected via row left-click');
+        break;
+      }
+    }
+
+    // Strategy B: Fallback — search ALL elements for product ID
+    if (!productSelected) {
+      const idCells = Array.from(document.querySelectorAll('[class*="product-tb-cell"], td, div, span')).filter(el => {
+        const t = (el.textContent || '').trim();
+        return t === productId || (t.includes(productId) && t.length < 100);
+      });
+      idCells.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+      log(`Fallback: found ${idCells.length} ID cells`);
+
+      for (const cell of idCells) {
+        const tr = cell.closest('tr') || cell.closest('[class*="product-tb-row"]');
+        if (!tr) continue;
+        const radio = tr.querySelector('input.TUXRadioStandalone-input, input[type="radio"]') as HTMLInputElement;
+        if (radio) {
+          const wrapper = radio.closest('[class*="TUXRadioStandalone"]') as HTMLElement;
+          if (wrapper) clickElement(wrapper);
+          await delay(200);
+          clickElement(radio);
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+          if (setter) { setter.call(radio, true); }
+          radio.dispatchEvent(new Event('change', { bubbles: true }));
+          productSelected = true;
+          log('✅ Product selected via fallback ID cell');
+          break;
+        }
       }
     }
   }
@@ -949,79 +972,110 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   await delay(1500);
 
   // ══════════════════════════════════════════════════════════════════
-  // 5. Click "ถัดไป" (Next) — NOW after product is selected
-  //    TUXButton--primary with text "ถัดไป" / "Next"
-  //    RETRY: button might need time to become enabled after selection
+  // 5. Click "ถัดไป" (Next) on product selection dialog
+  //    Image 6: button.TUXButton--primary inside div.common-modal-footer
+  //    Name="ถัดไป", Role=button, 108×40
   // ══════════════════════════════════════════════════════════════════
-  let nextClicked = false;
-  for (let attempt = 0; attempt < 3 && !nextClicked; attempt++) {
-    if (attempt > 0) { log(`Retry ถัดไป (${attempt + 1}/3)...`); await delay(1500); }
+  let productNextClicked = false;
+  for (let attempt = 0; attempt < 5 && !productNextClicked; attempt++) {
+    if (attempt > 0) { log(`Retry ถัดไป product (${attempt + 1}/5)...`); await delay(1500); }
 
-    // Try multiple selectors for "ถัดไป" / "Next" button
-    const nextBtn = findByText('ถัดไป', 'button, [role="button"], div, span')
-      || findByText('Next', 'button, [role="button"], div, span')
-      || document.querySelector('button[class*="TUXButton--primary"]:not([disabled])') as HTMLElement;
-
-    if (nextBtn) {
-      const btnText = (nextBtn.textContent || '').trim();
-      // Make sure it's not a disabled button
-      if ((nextBtn as HTMLButtonElement).disabled) {
-        log(`ถัดไป button found but disabled — product may not be selected properly`);
-        // Try re-clicking the first matching container's radio
-        continue;
-      }
-      clickElement(nextBtn);
-      nextClicked = true;
-      log(`Clicked ถัดไป: "${btnText.substring(0, 20)}"`);
-      await delay(3000);
-    } else {
-      log('No ถัดไป button found yet...');
-    }
-  }
-  if (!nextClicked) {
-    log('ถัดไป not found after 3 attempts — trying to continue anyway');
-  }
-
-  // ══════════════════════════════════════════════════════════════════
-  // 6. Click "เพิ่ม" (Add) in confirmation dialog
-  //    From Image 10: button.TUXButton--primary with text "เพิ่ม"
-  //    Dialog title: "เพิ่มสินค้า" with product name
-  // ══════════════════════════════════════════════════════════════════
-  // Wait for confirmation dialog to appear
-  const confirmReady = await waitForElement(
-    () => {
-      // Look for "เพิ่ม" button that's in a confirmation context
-      // The confirmation dialog shows "มีสินค้า" or "เพิ่มสินค้า" text
-      const btns = findAllByText('เพิ่ม', 'button');
-      for (const btn of btns) {
-        const btnText = (btn.textContent || '').trim();
-        // Must be a short primary button, not the initial "+ เพิ่ม"
-        if (btnText.length <= 10 && !btnText.includes('+')) {
-          const rect = (btn as HTMLElement).getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) return btn;
+    // Best: TUXButton--primary inside modal footer
+    const footerBtns = document.querySelectorAll<HTMLElement>('[class*="common-modal-footer"] button[class*="TUXButton--primary"]');
+    for (const btn of footerBtns) {
+      const txt = (btn.textContent || '').trim();
+      if (txt === 'ถัดไป' || txt === 'Next') {
+        if (!btn.hasAttribute('disabled') && btn.getAttribute('aria-disabled') !== 'true') {
+          clickElement(btn);
+          productNextClicked = true;
+          log(`Clicked ถัดไป (product footer): "${txt}"`);
+          await delay(3000);
+          break;
+        } else {
+          log('ถัดไป found but disabled — re-clicking radio...');
         }
       }
-      // Also try English
-      const addBtn = findByText('Add', 'button');
-      if (addBtn) {
-        const t = (addBtn.textContent || '').trim();
-        if (t.length <= 10) return addBtn;
+    }
+    if (productNextClicked) break;
+
+    // Fallback: any TUXButton--primary with "ถัดไป" text
+    const primaryBtns = document.querySelectorAll<HTMLElement>('button[class*="TUXButton--primary"]');
+    for (const btn of primaryBtns) {
+      const txt = (btn.textContent || '').trim();
+      if (txt === 'ถัดไป' || txt === 'Next') {
+        if (btn.getAttribute('aria-disabled') !== 'true') {
+          clickElement(btn);
+          productNextClicked = true;
+          log(`Clicked ถัดไป (primary btn): "${txt}"`);
+          await delay(3000);
+          break;
+        }
+      }
+    }
+    if (productNextClicked) break;
+
+    // Last resort: findByText
+    const nextBtn = findByText('ถัดไป', 'button') || findByText('Next', 'button');
+    if (nextBtn && !(nextBtn as HTMLButtonElement).disabled) {
+      clickElement(nextBtn);
+      productNextClicked = true;
+      log('Clicked ถัดไป (findByText)');
+      await delay(3000);
+    }
+  }
+  if (!productNextClicked) {
+    warn('Could not click ถัดไป on product selection — continuing anyway');
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 6. Click "เพิ่มลิงก์สินค้า" / "เพิ่ม" confirm button
+  //    Image 7: Confirmation dialog with product name + "เพิ่มลิงก์สินค้า" button
+  //    button.TUXButton--primary, Name="เพิ่ม", text may be "เพิ่มลิงก์สินค้า"
+  //    Inside common-modal-footer
+  // ══════════════════════════════════════════════════════════════════
+  const confirmReady = await waitForElement(
+    () => {
+      // Look for "เพิ่มลิงก์สินค้า" or "เพิ่ม" primary button (NOT "+ เพิ่ม")
+      const primaryBtns = document.querySelectorAll<HTMLElement>('button[class*="TUXButton--primary"]');
+      for (const btn of primaryBtns) {
+        const txt = (btn.textContent || '').trim();
+        // Image 7: button text is "เพิ่มลิงก์สินค้า" or just "เพิ่ม"
+        if (txt.includes('เพิ่ม') && !txt.includes('+') && !txt.includes('ถัดไป')) {
+          if (btn.getAttribute('aria-disabled') !== 'true') {
+            return btn;
+          }
+        }
+      }
+      // Also check modal footer
+      const footerBtns = document.querySelectorAll<HTMLElement>('[class*="common-modal-footer"] button[class*="TUXButton--primary"]');
+      for (const btn of footerBtns) {
+        const txt = (btn.textContent || '').trim();
+        if (txt.includes('เพิ่ม') && !txt.includes('+')) return btn;
       }
       return null;
     },
-    8000
+    10000
   );
 
   if (confirmReady) {
     clickElement(confirmReady);
-    log('Clicked เพิ่ม (confirm)');
+    const confirmText = (confirmReady.textContent || '').trim();
+    log(`Clicked confirm: "${confirmText.substring(0, 30)}"`);
     await delay(2000);
   } else {
     // Fallback: try any confirm-like button
-    const fallbackTexts = ['ยืนยัน', 'Confirm', 'Done', 'เสร็จ', 'ตกลง', 'OK'];
+    const fallbackTexts = ['เพิ่มลิงก์สินค้า', 'เพิ่ม', 'ยืนยัน', 'Confirm', 'Add', 'Done', 'OK'];
     for (const txt of fallbackTexts) {
       const btn = findByText(txt, 'button');
-      if (btn) { clickElement(btn); log('Clicked fallback confirm: ' + txt); await delay(1500); break; }
+      if (btn) {
+        const btnT = (btn.textContent || '').trim();
+        if (!btnT.includes('+')) {
+          clickElement(btn);
+          log('Clicked fallback confirm: ' + txt);
+          await delay(1500);
+          break;
+        }
+      }
     }
   }
 
@@ -1029,14 +1083,14 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   // 7. Verify: check if product tag appeared on upload page
   // ══════════════════════════════════════════════════════════════════
   await delay(2000);
-  const productTag = document.querySelector('[class*="anchor"], [class*="product-tag"], [class*="product-link"]');
+  const productTag = document.querySelector('[data-e2e="anchor_container"] [class*="product"], [class*="anchor"] [class*="tag"], [class*="product-link"]');
   if (productTag) {
     log('✅ Product tag verified on page');
   } else {
     log('Product tag not detected (may still be added)');
   }
 
-  log('Product link flow completed');
+  log('✅ Product link flow completed');
   return true;
 };
 
