@@ -8726,10 +8726,25 @@ export const buildSceneVideoPromptJSON = (
     const productName = meta.product?.split(',')[0]?.trim() || 'the product';
     const isFirstProductScene = !isTalkOnly && sceneNumber === meta.firstProductSceneNumber;
 
+    // ── Token Fatigue Mitigation for Scene 2+ ──
+    // Veo 3.1 struggles with long repetitive anchor blocks. We strip excessive adjectives
+    // and keep only the core physical properties to maintain continuity without bloat.
+    const simplifiedCharacterAnchor = meta.characterAnchor
+        .replace(/with detailed fabric texture, accurate folds, natural drape, and consistent material response/gi, '')
+        .replace(/Rendered with cinematic detail, realistic human skin texture, accurate facial anatomy, and consistent bone structure/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    const simplifiedProductAnchor = meta.productAnchor
+        .replace(/Render with extreme surface detail: visible material grain, realistic light response \(specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass\/transparent elements, light dispersion on faceted surfaces\)\.?/gi, '')
+        .replace(/Reproduce all text, logos, and branding on the product label exactly as shown in the reference image — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail\.?/gi, 'Maintain exact label text and branding.')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
     // ── PRODUCT or TALK-ONLY block ──
     const productBlock = isTalkOnly
         ? `${meta.template} commercial. Character speaks directly to camera in a confident, engaging manner. Product is NOT visible — character builds anticipation through storytelling and natural body language.`
-        : `${meta.template} commercial. ${meta.productAnchor}`;
+        : `${meta.template} commercial. ${simplifiedProductAnchor}`;
 
     // ── ACTION block (includes hand anatomy + usage realism for non-talk scenes) ──
     const actionBlock = isTalkOnly
@@ -8749,7 +8764,7 @@ export const buildSceneVideoPromptJSON = (
 
     let prompt = sanitizePromptForPolicy([
         // [1. CHARACTER VISUAL DNA] — full anchor for face/body consistency
-        meta.characterAnchor,
+        simplifiedCharacterAnchor,
 
         // [2. PRODUCT or TALK-ONLY] — depends on talkOnlySceneIndex
         productBlock,

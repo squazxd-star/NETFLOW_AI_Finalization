@@ -359,7 +359,7 @@ const collectPromptIssues = (
         addIssue("warning", "policy", "Prompt uses very heavy directive density", "The prompt still contains a high density of negative or locking directives, which may increase policy sensitivity or model confusion.", `negative_directive_count=${negativeDirectiveCount}`);
     }
 
-    if (videoPrompt.length > 14000) {
+    if (videoPrompt.length > 16000) {
         addIssue("warning", "length", "Video prompt is very long", "Very long prompts can dilute scene priorities and increase contradiction risk.", `video_prompt_length=${videoPrompt.length}`);
     }
 
@@ -367,7 +367,7 @@ const collectPromptIssues = (
         addIssue("warning", "continuity", "High scene-count continuity risk", "Seven or more scenes are supported, but the risk of continuity drift and pacing fatigue is still inherently higher than shorter videos.", `scene_count=${sceneCount}`);
     }
 
-    if (scenePrompts.length > 0 && scenePrompts.some(scene => scene.length > 5500)) {
+    if (scenePrompts.length > 0 && scenePrompts.some(scene => scene.length > 6000)) {
         addIssue("warning", "length", "One or more follow-up scene prompts are very long", "Long scene prompts can reduce the clarity of the single-beat-per-scene strategy.");
     }
 
