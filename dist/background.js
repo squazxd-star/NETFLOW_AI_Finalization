@@ -760,9 +760,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         (async () => {
             let openKey = null;
             try {
-                const engine = message.videoEngine || "veo";
-                const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
-                openKey = `${message.windowId || 'global'}:${engine}`;
+                if (message.videoEngine === "grok") {
+                    console.warn("[Netflow] Grok automation is under development, falling back to Veo");
+                    message = { ...message, videoEngine: "veo" };
+                }
+                const targetWindowId = message.windowId || sender?.tab?.windowId;
+                const config = ENGINE_CONFIG.veo;
+                openKey = `${targetWindowId}:${message.videoEngine}`;
                 const existingLock = _flowOpenLocks[openKey];
                 if (existingLock && (existingLock.inFlight || (Date.now() - existingLock.lastStartedAt < 15000))) {
                     sendResponse({ success: true, message: "Google Flow is already opening — continuing current automation", deduped: true });
@@ -772,9 +776,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     inFlight: true,
                     lastStartedAt: Date.now()
                 };
-                const flowUrl = engine === "grok"
-                    ? "https://grok.com/imagine"
-                    : "https://labs.google/fx/tools/flow";
+                const flowUrl = "https://labs.google/fx/tools/flow";
 
                 console.log(`[Netflow] OPEN_FLOW_AND_GENERATE: Opening ${flowUrl}`);
 
@@ -884,12 +886,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         message?.action === "PING" || message?.action === "STOP_AUTOMATION" || message?.action === "CLICK_FIRST_IMAGE") {
         (async () => {
             try {
-                // ── Engine-aware routing ──
-                const engine = message.videoEngine || "veo";
+                const engine = message.videoEngine === 'grok' ? 'veo' : (message.videoEngine || 'veo');
+                const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
 
                 // If targetTabId specified, route directly to that tab
                 let targetTab = null;
-                const config = ENGINE_CONFIG[engine] || ENGINE_CONFIG.veo;
                 if (message.targetTabId) {
                     try {
                         targetTab = await chrome.tabs.get(message.targetTabId);

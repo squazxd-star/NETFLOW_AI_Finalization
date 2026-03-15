@@ -841,10 +841,11 @@ const CreateVideoTab = () => {
                                 try {
                                     const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
                                         const formData = getValues();
+                                        const requestedEngine = formData.videoEngine === "veo" ? "veo" : "veo";
                                         chrome.runtime.sendMessage(
                                             {
                                                 action: "OPEN_FLOW_AND_GENERATE",
-                                                videoEngine: formData.videoEngine || "veo",
+                                                videoEngine: requestedEngine,
                                                 productName: formData.productName || '',
                                                 imagePrompt: prompts.imagePrompt,
                                                 videoPrompt: prompts.videoPrompt,
