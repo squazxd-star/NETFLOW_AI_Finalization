@@ -3399,9 +3399,9 @@ function applyCoreBg(): void {
     // Resolve correct theme key (try override → localStorage → default)
     let key = _themeKeyOverride;
     if (!key) {
-        try { key = localStorage.getItem("netflow_app_theme") || "green"; } catch { key = "green"; }
+        try { key = localStorage.getItem("netflow_app_theme") || "blue"; } catch { key = "blue"; }
     }
-    const file = THEME_IMAGES[key] || THEME_IMAGES["green"];
+    const file = THEME_IMAGES[key] || THEME_IMAGES["blue"];
     if (!file) return;
     let imgUrl: string;
     try {

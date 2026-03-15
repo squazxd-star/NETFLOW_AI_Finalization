@@ -19,6 +19,7 @@ import {
 } from "./create-video";
 import BackgroundPickerSection from "./create-video/BackgroundPickerSection";
 import TikTokStatusCard from "./create-video/TikTokStatusCard";
+import { AutomationSummary } from "./AutomationSummary";
 
 const CreateVideoTab = () => {
     // React Hook Form setup
@@ -112,6 +113,19 @@ const CreateVideoTab = () => {
     const [productDataOpen, setProductDataOpen] = useState(true);
     const [productionOpen, setProductionOpen] = useState(true);
     const [settingsOpen, setSettingsOpen] = useState(true);
+    
+    // Automation Summary State
+    const [showSummary, setShowSummary] = useState(false);
+    const [automationStats, setAutomationStats] = useState({
+        products: 0,
+        images: 0,
+        videos: 0,
+        tiktokPosts: 0,
+        success: 0,
+        failed: 0
+    });
+    const [automationStartTime, setAutomationStartTime] = useState<number | null>(null);
+    const [automationDuration, setAutomationDuration] = useState("");
 
     // Workflow State
     const [generatedVideoPrompt, setGeneratedVideoPrompt] = useState<string | null>(null);
@@ -131,6 +145,129 @@ const CreateVideoTab = () => {
     const [autoOpenVideo, setAutoOpenVideo] = useState(true);
     const aiGenerateRef = useRef<(() => Promise<void>) | null>(null);
     const prevGeneratingRef = useRef(false);
+
+    // Automation Refs for Event Listeners
+    const isLoopingRef = useRef(false);
+    const loopCountRef = useRef(1);
+    const currentLoopRef = useRef(0);
+    const automationStartTimeRef = useRef<number | null>(null);
+
+    // Update Refs when state changes
+    useEffect(() => { isLoopingRef.current = isLooping; }, [isLooping]);
+    useEffect(() => { loopCountRef.current = loopCount; }, [loopCount]);
+    useEffect(() => { currentLoopRef.current = currentLoop; }, [currentLoop]);
+    useEffect(() => { automationStartTimeRef.current = automationStartTime; }, [automationStartTime]);
+
+    // ─── Prompt Generation Logic ──────────────────────────────────────────
+    const handleGeneratePrompt = async () => {
+        console.log("[Prompt Generator] Starting validation...");
+        const isValid = await form.trigger();
+        
+        if (!isValid) {
+            const errors = form.formState.errors;
+            console.error("[Prompt Generator] Validation failed:", errors);
+            alert("กรุณากรอกข้อมูลให้ครบถ้วน:\n" + Object.keys(errors).join("\n"));
+            return null;
+        }
+
+        const data = getValues();
+        const manualScripts = (data.sceneScriptsRaw || "")
+            .split(/\n{2,}/)
+            .map((part) => part.trim())
+            .filter(Boolean);
+            
+        if (!data.useAiScript && manualScripts.length < (data.sceneCount || 1)) {
+            alert(`โหมดกำหนดบทเองต้องกรอกบทพูดให้ครบ ${data.sceneCount || 1} ฉากก่อนสร้าง Prompt`);
+            return null;
+        }
+        
+        const promptConfig = {
+            productImage: productImage || undefined,
+            characterImage: characterImage || undefined,
+            productName: data.productName || "Product",
+            productDescription: data.productDescription || "",
+            template: data.template || "product-review",
+            voiceTone: data.voiceTone || "friendly",
+            saleStyle: data.saleStyle || "storytelling",
+            language: data.language || "th-central",
+            videoStyle: data.videoStyle || "ugc-review",
+            characterDescription: data.characterDescription || "",
+            gender: data.gender || "female",
+            ageRange: data.ageRange || "young-adult",
+            expression: data.expression || "happy",
+            movement: data.movement || "minimal",
+            aspectRatio: data.orientation === "vertical" ? "9:16" : "16:9",
+            clipDuration: (data.sceneCount || 1) * 8,
+            hookText: data.useAiScript && data.hookEnabled ? data.hookText : "",
+            ctaText: data.useAiScript && data.ctaEnabled ? data.ctaText : "",
+            mustUseKeywords: data.mustUseKeywords || "",
+            avoidKeywords: data.avoidKeywords || "",
+            userScript: data.sceneScriptsRaw || "",
+            aiPrompt: data.aiPrompt || "",
+            cachedProductInfo: data.cachedProductInfo || "",
+            clothingStyles: data.clothingStyles || ["casual"],
+            characterOutfit: data.characterOutfit || "original",
+            customOutfitPrompt: data.customOutfitPrompt || "",
+            clothingHighlight: data.clothingHighlight || "",
+            cameraAngles: data.cameraAngles || ["front", "close-up"],
+            touchLevel: data.touchLevel || "light",
+            sceneBackground: data.sceneBackground === "custom" && data.customSceneBackground 
+                ? data.customSceneBackground 
+                : data.sceneBackground || "studio",
+        };
+
+        setIsGeneratingPrompt(true);
+        setGeneratedImagePrompt("⏳ กำลังสร้าง Prompt...");
+        setGeneratedVideoPrompt(data.useAiScript ? "⏳ กำลังวิเคราะห์ด้วย AI..." : "⏳ กำลังจัดบทที่คุณเขียนให้เข้ากับ Veo...");
+
+        try {
+            const { generatePrompts } = await import("@/services/veoPromptService");
+            const prompts = await generatePrompts(promptConfig);
+            
+            setGeneratedImagePrompt(prompts.imagePrompt);
+            setGeneratedVideoPrompt(prompts.videoPrompt);
+
+            let allScenePrompts: string[] = [];
+            if (prompts.sceneScripts && prompts.videoPromptMeta && prompts.sceneScripts.length > 1) {
+                const { buildSceneVideoPromptJSON } = await import("@/services/veoPromptService");
+                const videoActionsRaw = data.sceneVideoActions || "";
+                const videoActions = videoActionsRaw.split(/\n{2,}/).map((s: string) => s.trim());
+                
+                let scene1Prompt = prompts.videoPrompt;
+                if (videoActions[0]?.trim()) {
+                    const scene1Action = videoActions[0].trim();
+                    if (scene1Prompt.includes('PRODUCT PRESENTATION KNOWLEDGE')) {
+                        scene1Prompt = scene1Prompt.replace(
+                            'PRODUCT PRESENTATION KNOWLEDGE',
+                            `VISUAL ACTION FOR THIS SCENE: ${scene1Action}. PRODUCT PRESENTATION KNOWLEDGE`
+                        );
+                    } else {
+                        scene1Prompt += ` VISUAL ACTION FOR THIS SCENE: ${scene1Action}.`;
+                    }
+                }
+                allScenePrompts = [scene1Prompt];
+                for (let i = 1; i < prompts.sceneScripts.length; i++) {
+                    allScenePrompts.push(buildSceneVideoPromptJSON(prompts.videoPromptMeta, prompts.sceneScripts[i], i + 1, videoActions[i] || ""));
+                }
+                setVideoScenePrompts(allScenePrompts);
+            } else {
+                allScenePrompts = [prompts.videoPrompt];
+                setVideoScenePrompts(allScenePrompts);
+            }
+            
+            return {
+                imagePrompt: prompts.imagePrompt,
+                videoPrompt: prompts.videoPrompt,
+                videoScenePrompts: allScenePrompts
+            };
+        } catch (err: any) {
+            console.error("[Prompt Generator] Failed:", err);
+            alert("สร้าง Prompt ไม่สำเร็จ: " + (err.message || "Unknown error"));
+            return null;
+        } finally {
+            setIsGeneratingPrompt(false);
+        }
+    };
 
     // Load auto-open video setting
     useEffect(() => {
@@ -215,6 +352,18 @@ const CreateVideoTab = () => {
             if (message?.action === "AUTOMATION_STOPPED") {
                 setIsUploading(false);
                 setUploadStatus("⛔ หยุดการทำงานแล้ว");
+                
+                // คำนวณระยะเวลาและแสดงหน้าสรุป (ถูกบังคับหยุดกลางคัน)
+                if (automationStartTimeRef.current) {
+                    const endTime = Date.now();
+                    const diffMs = endTime - automationStartTimeRef.current;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                    setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
+                    automationStartTimeRef.current = null; // ป้องกันการเรียกซ้ำ
+                    setShowSummary(true);
+                }
+                setIsLooping(false);
             }
         };
         chrome.runtime.onMessage.addListener(handler);
@@ -246,22 +395,45 @@ const CreateVideoTab = () => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
         const loopHandler = async (message: any) => {
             if (message?.type !== "VIDEO_GENERATION_COMPLETE") return;
-            if (!isLooping) return;
             
-            // ถ้าทำงานครบตามจำนวนรอบที่กำหนดแล้ว ให้หยุดและรีเซ็ตค่า
-            if (currentLoop >= loopCount - 1) {
+            const isCurrentlyLooping = isLoopingRef.current;
+            const currentLoopValue = currentLoopRef.current;
+            const currentLoopCount = loopCountRef.current;
+
+            // ถ้าไม่ได้อยู่ในโหมดลูป (เช่น ตั้งใจทำคลิปเดียว หรือถูกปรับให้เหลือ 1 คลิปกลางทาง)
+            if (!isCurrentlyLooping || currentLoopValue >= currentLoopCount - 1) {
                 const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานครบ ${loopCount} รอบแล้ว!`] }));
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์!`] }));
                 setIsLooping(false);
                 setCurrentLoop(0);
+                setIsUploading(false);
                 (window as any).__NETFLOW_STOP_LOOP__ = true;
+                
+                // คำนวณระยะเวลาและแสดงหน้าสรุป (ถ้ามีการตั้งค่าไว้)
+                if (automationStartTimeRef.current) {
+                    const endTime = Date.now();
+                    const diffMs = endTime - automationStartTimeRef.current;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                    setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
+                    automationStartTimeRef.current = null; // ป้องกันการเรียกซ้ำ
+                    setShowSummary(true);
+                }
                 return;
             }
 
-            const nextLoop = currentLoop + 1;
+            const nextLoop = currentLoopValue + 1;
             const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-            const loopLabel = loopCount === Infinity ? '∞' : loopCount;
+            const loopLabel = currentLoopCount === Infinity ? '∞' : currentLoopCount;
             setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopLabel} — เตรียมรอบถัดไป...`] }));
+            
+            // อัพเดตสถิติระหว่างลูป
+            setAutomationStats(prev => ({
+                ...prev,
+                success: prev.success + 1,
+                videos: prev.videos + 1,
+                images: prev.images + 1,
+            }));
 
             // Wait for tab to close
             await new Promise(r => setTimeout(r, 4000));
@@ -269,10 +441,11 @@ const CreateVideoTab = () => {
             if ((window as any).__NETFLOW_STOP_LOOP__) {
                 setIsLooping(false);
                 setCurrentLoop(0);
+                setIsUploading(false);
                 return;
             }
 
-            // Step 1: Trigger AI script generation
+            // Step 1: Trigger AI script generation (if using AI)
             setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🤖 วิเคราะห์ด้วย AI (Loop ${nextLoop + 1})...`] }));
             if (aiGenerateRef.current) {
                 try {
@@ -281,51 +454,31 @@ const CreateVideoTab = () => {
                     console.warn("[Loop] AI generate error:", e);
                 }
             }
+            // Add a small delay to let form state update
             await new Promise(r => setTimeout(r, 1500));
-
-            // Step 2: Trigger prompt generation
-            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 📝 สร้าง/อัปเดต Prompt (Loop ${nextLoop + 1})...`] }));
-            // Programmatically click the prompt button
-            const promptBtn = document.querySelector<HTMLButtonElement>('[data-prompt-generate-btn]');
-            if (promptBtn) {
-                promptBtn.click();
-            }
-
-            // Wait for prompt generation to finish (watch isGeneratingPrompt)
-            let waitAttempts = 0;
-            while (waitAttempts < 60) {
-                await new Promise(r => setTimeout(r, 1000));
-                waitAttempts++;
-                // Check if prompt is done (the button is re-enabled)
-                const btn = document.querySelector<HTMLButtonElement>('[data-prompt-generate-btn]');
-                if (btn && !btn.disabled) break;
-            }
-            await new Promise(r => setTimeout(r, 1000));
-
-            // Show "Generate Prompt Complete" animation
-            setPromptCompleteAnim(true);
-            await new Promise(r => setTimeout(r, 3000));
-            setPromptCompleteAnim(false);
 
             if ((window as any).__NETFLOW_STOP_LOOP__) {
                 setIsLooping(false);
                 setCurrentLoop(0);
+                setIsUploading(false);
                 return;
             }
 
-            // Step 3: Start automation again
+            // Step 2: Trigger the Automation button directly (which will generate prompt + start flow)
             setCurrentLoop(nextLoop);
             setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopLabel}...`] }));
 
-            // Trigger OPEN_FLOW_AND_GENERATE
             const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
             if (automationBtn) {
+                // Clear previously generated prompt so the automation button regenerates it for the new loop
+                setGeneratedImagePrompt(null);
+                setGeneratedVideoPrompt(null);
                 automationBtn.click();
             }
         };
         chrome.runtime.onMessage.addListener(loopHandler);
         return () => chrome.runtime.onMessage.removeListener(loopHandler);
-    }, [isLooping, currentLoop, loopCount]);
+    }, []);
 
     // Append local workflow status to logs (use tabId=0 bucket for local messages)
     useEffect(() => {
@@ -434,456 +587,15 @@ const CreateVideoTab = () => {
                     <div className="h-px bg-neon-red/20 flex-1" />
                 </div>
 
-                {/* Step 1: Preview Prompt */}
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                            <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
-                            เตรียมคำสั่ง (Prompt)
-                        </label>
-                        <button
-                            type="button"
-                            onClick={async () => {
-                                console.log("[Prompt Button] Clicked — starting validation...");
-                                const isValid = await form.trigger();
-                                console.log("[Prompt Button] Validation result:", isValid);
-                                
-                                if (!isValid) {
-                                    const errors = form.formState.errors;
-                                    console.error("[Prompt Button] Validation failed:", errors);
-                                    alert("กรุณากรอกข้อมูลให้ครบถ้วน:\n" + Object.keys(errors).join("\n"));
-                                    return;
-                                }
-
-                                const data = getValues();
-                                const manualScripts = (data.sceneScriptsRaw || "")
-                                    .split(/\n{2,}/)
-                                    .map((part) => part.trim())
-                                    .filter(Boolean);
-                                if (!data.useAiScript && manualScripts.length < (data.sceneCount || 1)) {
-                                    alert(`โหมดกำหนดบทเองต้องกรอกบทพูดให้ครบ ${data.sceneCount || 1} ฉากก่อนสร้าง Prompt`);
-                                    return;
-                                }
-                                console.log("[Prompt Button] Form data:", data);
-                                const { generatePrompts } = await import("@/services/veoPromptService");
-
-                                // Build config for AI prompt service — ALL form fields
-                                const promptConfig = {
-                                    productImage: productImage || undefined,
-                                    characterImage: characterImage || undefined,
-                                    productName: data.productName || "Product",
-                                    productDescription: data.productDescription || "",
-                                    template: data.template || "product-review",
-                                    voiceTone: data.voiceTone || "friendly",
-                                    saleStyle: data.saleStyle || "storytelling",
-                                    language: data.language || "th-central",
-                                    videoStyle: data.videoStyle || "ugc-review",
-                                    characterDescription: data.characterDescription || "",
-                                    gender: data.gender || "female",
-                                    ageRange: data.ageRange || "young-adult",
-                                    expression: data.expression || "happy",
-                                    movement: data.movement || "minimal",
-                                    aspectRatio: data.orientation === "vertical" ? "9:16" : "16:9",
-                                    clipDuration: (data.sceneCount || 1) * 8,
-                                    hookText: data.useAiScript && data.hookEnabled ? data.hookText : "",
-                                    ctaText: data.useAiScript && data.ctaEnabled ? data.ctaText : "",
-                                    mustUseKeywords: data.mustUseKeywords || "",
-                                    avoidKeywords: data.avoidKeywords || "",
-                                    userScript: data.sceneScriptsRaw || "",
-                                    aiPrompt: data.aiPrompt || "",
-                                    cachedProductInfo: data.cachedProductInfo || "",
-                                    clothingStyles: data.clothingStyles || ["casual"],
-                                    characterOutfit: data.characterOutfit || "original",
-                                    customOutfitPrompt: data.customOutfitPrompt || "",
-                                    clothingHighlight: data.clothingHighlight || "",
-                                    cameraAngles: data.cameraAngles || ["front", "close-up"],
-                                    touchLevel: data.touchLevel || "light",
-                                    sceneBackground: data.sceneBackground === "custom" && data.customSceneBackground 
-                                        ? data.customSceneBackground 
-                                        : data.sceneBackground || "studio",
-                                };
-
-                                // Show loading state
-                                setIsGeneratingPrompt(true);
-                                setGeneratedImagePrompt("⏳ กำลังสร้าง Prompt...");
-                                setGeneratedVideoPrompt(data.useAiScript ? "⏳ กำลังวิเคราะห์ด้วย AI..." : "⏳ กำลังจัดบทที่คุณเขียนให้เข้ากับ Veo...");
-
-                                try {
-                                    console.log("[Prompt Button] Importing veoPromptService...");
-                                    const { generatePrompts } = await import("@/services/veoPromptService");
-                                    console.log("[Prompt Button] Imported successfully");
-
-                                    console.log(
-                                        data.useAiScript
-                                            ? "[Prompt Button] Using AI script mode..."
-                                            : "[Prompt Button] Using manual dialogue mode with main Veo prompt builder..."
-                                    );
-                                    const prompts = await generatePrompts(promptConfig);
-                                    console.log("[Prompt Button] Prompts generated:", prompts);
-                                    
-                                    setGeneratedImagePrompt(prompts.imagePrompt);
-                                    setGeneratedVideoPrompt(prompts.videoPrompt);
-
-                                    // Pre-build all scene video prompts
-                                    if (prompts.sceneScripts && prompts.videoPromptMeta && prompts.sceneScripts.length > 1) {
-                                        const { buildSceneVideoPromptJSON } = await import("@/services/veoPromptService");
-                                        // Parse per-scene video actions (generated alongside scripts)
-                                        const videoActionsRaw = data.sceneVideoActions || "";
-                                        const videoActions = videoActionsRaw.split(/\n{2,}/).map((s: string) => s.trim());
-                                        // Inject Scene 1 videoAction into Scene 1 prompt
-                                        let scene1Prompt = prompts.videoPrompt;
-                                        if (videoActions[0]?.trim()) {
-                                            const scene1Action = videoActions[0].trim();
-                                            // Insert AI videoAction before the generic PRODUCT PRESENTATION KNOWLEDGE
-                                            if (scene1Prompt.includes('PRODUCT PRESENTATION KNOWLEDGE')) {
-                                                scene1Prompt = scene1Prompt.replace(
-                                                    'PRODUCT PRESENTATION KNOWLEDGE',
-                                                    `VISUAL ACTION FOR THIS SCENE: ${scene1Action}. PRODUCT PRESENTATION KNOWLEDGE`
-                                                );
-                                            } else {
-                                                // Fallback: append to end if marker not found
-                                                scene1Prompt += ` VISUAL ACTION FOR THIS SCENE: ${scene1Action}.`;
-                                            }
-                                            console.log("🎬 Scene 1 videoAction injected:", scene1Action);
-                                        }
-                                        const allScenePrompts = [scene1Prompt]; // Scene 1 with videoAction
-                                        for (let i = 1; i < prompts.sceneScripts.length; i++) {
-                                            allScenePrompts.push(buildSceneVideoPromptJSON(prompts.videoPromptMeta, prompts.sceneScripts[i], i + 1, videoActions[i] || ""));
-                                        }
-                                        setVideoScenePrompts(allScenePrompts);
-                                    } else {
-                                        setVideoScenePrompts([prompts.videoPrompt]);
-                                    }
-                                } catch (err: any) {
-                                    console.error("[Prompt Button] Prompt generation failed:", err);
-                                    alert("สร้าง Prompt ไม่สำเร็จ: " + (err.message || "Unknown error"));
-                                } finally {
-                                    setIsGeneratingPrompt(false);
-                                }
-                            }}
-                            disabled={isGeneratingPrompt || !isManualPromptReady}
-                            data-prompt-generate-btn="true"
-                            className={`text-[10px] px-3 py-1.5 rounded-lg transition-all duration-300 flex items-center gap-1.5 font-medium ${
-                                isGeneratingPrompt || !isManualPromptReady
-                                    ? 'bg-neon-red/80 text-white cursor-wait'
-                                    : 'ai-btn-shimmer text-white hover:scale-105 active:scale-95 shadow-sm shadow-neon-red/20'
-                            }`}
-                            title={!isManualPromptReady ? `กรอกสคริปต์ให้ครบ ${sceneCount} ฉากก่อนสร้าง Prompt` : undefined}
-                        >
-                            {isGeneratingPrompt ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                                <Wand2 className="w-3 h-3" />
-                            )}
-                            {isGeneratingPrompt
-                                ? (useAiScript ? 'AI กำลังสร้าง...' : 'กำลังสร้างจากบทที่กำหนด...')
-                                : (useAiScript ? 'สร้าง Prompt ด้วย AI' : 'สร้าง Prompt จากบทที่กำหนด')}
-                        </button>
-                    </div>
-
-                    {!isManualPromptReady && (
-                        <p className="text-[10px] text-amber-300/90">
-                            โหมดกำหนดบทเอง: กรุณากรอกบทพูดให้ครบ {sceneCount} ฉากในส่วนสคริปต์ด้านล่างก่อนกดสร้าง Prompt
-                        </p>
-                    )}
-
-                    {generatedImagePrompt && (
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-300 relative">
-                            {/* Generate Prompt Complete — Cyber Full Card Takeover */}
-                            {promptCompleteAnim ? (
-                                <div
-                                    className="rounded-xl overflow-hidden relative"
-                                    style={{
-                                        background: `linear-gradient(180deg, rgba(0,0,0,0.98) 0%, rgba(5,5,15,0.99) 50%, rgba(0,0,0,0.98) 100%)`,
-                                        border: `1px solid ${themeConfig.gradientFrom}50`,
-                                        minHeight: '200px',
-                                        animation: `cyber-border-pulse 2s ease-in-out infinite`,
-                                        ['--cyber-glow' as string]: `${themeConfig.gradientFrom}30`,
-                                    }}
-                                >
-                                    {/* CRT Scanline overlay */}
-                                    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl" style={{ opacity: 0.06 }}>
-                                        <div className="absolute inset-0" style={{
-                                            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.08) 2px, rgba(255,255,255,0.08) 4px)',
-                                        }} />
-                                        <div className="absolute w-full" style={{
-                                            height: '40%',
-                                            background: `linear-gradient(180deg, transparent 0%, ${themeConfig.gradientFrom}15 50%, transparent 100%)`,
-                                            animation: 'cyber-scanline 3s linear infinite',
-                                        }} />
-                                    </div>
-
-                                    {/* Cyber grid background */}
-                                    <div className="absolute inset-0 pointer-events-none rounded-xl" style={{
-                                        opacity: 0.04,
-                                        backgroundImage: `linear-gradient(${themeConfig.gradientFrom}40 1px, transparent 1px), linear-gradient(90deg, ${themeConfig.gradientFrom}40 1px, transparent 1px)`,
-                                        backgroundSize: '20px 20px',
-                                    }} />
-
-                                    {/* Corner accents */}
-                                    {['top-0 left-0', 'top-0 right-0 -scale-x-100', 'bottom-0 left-0 -scale-y-100', 'bottom-0 right-0 -scale-x-100 -scale-y-100'].map((pos, idx) => (
-                                        <div key={idx} className={`absolute ${pos} w-6 h-6 pointer-events-none`} style={{
-                                            borderLeft: `2px solid ${themeConfig.gradientFrom}`,
-                                            borderTop: `2px solid ${themeConfig.gradientFrom}`,
-                                            opacity: 0,
-                                            animation: `prompt-complete-letter 0.4s ease-out ${0.3 + idx * 0.1}s forwards`,
-                                        }} />
-                                    ))}
-
-                                    {/* Top decorative bar */}
-                                    <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1" style={{ opacity: 0, animation: `prompt-complete-letter 0.5s ease-out 0.2s forwards` }}>
-                                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.gradientFrom, boxShadow: `0 0 6px ${themeConfig.gradientFrom}` }} />
-                                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: themeConfig.gradientVia, boxShadow: `0 0 6px ${themeConfig.gradientVia}`, opacity: 0.7 }} />
-                                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                                        <div className="h-px flex-1 ml-1" style={{ background: `linear-gradient(90deg, ${themeConfig.gradientFrom}50, transparent)` }} />
-                                        <span className="text-[7px] font-mono tracking-widest uppercase" style={{ color: `${themeConfig.gradientFrom}80` }}>NETFLOW://PROMPT.GEN</span>
-                                        <div className="h-px w-6" style={{ background: `linear-gradient(90deg, transparent, ${themeConfig.gradientFrom}50)` }} />
-                                    </div>
-
-                                    {/* Main content */}
-                                    <div className="flex flex-col items-center justify-center py-6 px-4 relative z-10">
-                                        {/* Horizontal neon bar — top */}
-                                        <div className="w-3/4 h-px mb-4" style={{
-                                            background: `linear-gradient(90deg, transparent, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom}, transparent)`,
-                                            boxShadow: `0 0 10px ${themeConfig.gradientFrom}60`,
-                                            opacity: 0,
-                                            transformOrigin: 'center',
-                                            animation: `cyber-hbar 0.8s ease-out 0.5s forwards`,
-                                        }} />
-
-                                        {/* Line 1: Generate Prompt */}
-                                        <div className="flex flex-wrap items-center justify-center" style={{ animation: 'cyber-flicker 3s ease-in-out 5s 1' }}>
-                                            {'Generate Prompt'.split('').map((char, i) => (
-                                                <span
-                                                    key={`l1-${i}`}
-                                                    className="inline-block font-black tracking-wider uppercase"
-                                                    style={{
-                                                        fontSize: '1.5rem',
-                                                        lineHeight: 1.2,
-                                                        fontFamily: '"Prompt", system-ui, sans-serif',
-                                                        letterSpacing: '0.12em',
-                                                        opacity: 0,
-                                                        background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, #fff, ${themeConfig.gradientVia})`,
-                                                        WebkitBackgroundClip: 'text',
-                                                        WebkitTextFillColor: 'transparent',
-                                                        animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.1}s forwards`,
-                                                        filter: `drop-shadow(0 0 12px ${themeConfig.gradientFrom}) drop-shadow(0 0 24px ${themeConfig.gradientFrom}40)`,
-                                                    }}
-                                                >
-                                                    {char === ' ' ? '\u00A0' : char}
-                                                </span>
-                                            ))}
-                                        </div>
-                                        {/* Line 2: Complete!! */}
-                                        <div className="flex flex-wrap items-center justify-center mt-0.5" style={{ animation: 'cyber-glitch 0.3s ease-in-out 5.5s 2' }}>
-                                            {'Complete!!'.split('').map((char, i) => {
-                                                const delay = ('Generate Prompt'.length * 0.1) + (i * 0.1);
-                                                return (
-                                                    <span
-                                                        key={`l2-${i}`}
-                                                        className="inline-block font-black tracking-wider uppercase"
-                                                        style={{
-                                                            fontSize: '1.5rem',
-                                                            lineHeight: 1.2,
-                                                            fontFamily: '"Prompt", system-ui, sans-serif',
-                                                            letterSpacing: '0.12em',
-                                                            opacity: 0,
-                                                            background: `linear-gradient(135deg, #fff, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom})`,
-                                                            WebkitBackgroundClip: 'text',
-                                                            WebkitTextFillColor: 'transparent',
-                                                            animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}s forwards, prompt-complete-glow 1.5s ease-in-out ${delay + 0.8}s infinite`,
-                                                            filter: `drop-shadow(0 0 14px ${themeConfig.gradientVia}) drop-shadow(0 0 28px ${themeConfig.gradientVia}30)`,
-                                                        }}
-                                                    >
-                                                        {char}
-                                                    </span>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {/* Horizontal neon bar — bottom */}
-                                        <div className="w-3/4 h-px mt-4" style={{
-                                            background: `linear-gradient(90deg, transparent, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}, transparent)`,
-                                            boxShadow: `0 0 10px ${themeConfig.gradientVia}60`,
-                                            opacity: 0,
-                                            transformOrigin: 'center',
-                                            animation: `cyber-hbar 0.8s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.3}s forwards`,
-                                        }} />
-
-                                        {/* Status text */}
-                                        <div className="mt-3 flex items-center gap-2" style={{
-                                            opacity: 0,
-                                            animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.6}s forwards`,
-                                        }}>
-                                            <span className="text-[8px] font-mono tracking-[0.2em] uppercase" style={{ color: `${themeConfig.gradientFrom}90` }}>
-                                                ■ STATUS: SUCCESS
-                                            </span>
-                                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{
-                                                background: themeConfig.gradientFrom,
-                                                boxShadow: `0 0 6px ${themeConfig.gradientFrom}`,
-                                                animation: 'pulse 1.5s ease-in-out infinite',
-                                            }} />
-                                            <span className="text-[8px] font-mono tracking-[0.2em] uppercase" style={{ color: `${themeConfig.gradientVia}70` }}>
-                                                READY
-                                            </span>
-                                        </div>
-
-                                        {/* Data stream bars */}
-                                        <div className="flex justify-center gap-1 mt-3">
-                                            {Array.from({ length: 12 }).map((_, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="rounded-sm"
-                                                    style={{
-                                                        width: '3px',
-                                                        height: `${8 + Math.sin(i * 0.8) * 6}px`,
-                                                        background: `linear-gradient(180deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia}80)`,
-                                                        boxShadow: `0 0 4px ${themeConfig.gradientFrom}40`,
-                                                        opacity: 0,
-                                                        animation: `prompt-complete-letter 0.3s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.5 + i * 0.05}s forwards, pulse 1.2s ease-in-out ${1 + i * 0.1}s infinite alternate`,
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-
-                                        {/* Powered by Netflow */}
-                                        <div className="flex flex-wrap items-center justify-center mt-4">
-                                            {'Powered by Netflow'.split('').map((char, i) => {
-                                                const baseDelay = ('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 1.0;
-                                                return (
-                                                    <span
-                                                        key={`pbn-${i}`}
-                                                        className="inline-block font-bold tracking-wider uppercase"
-                                                        style={{
-                                                            fontSize: '0.7rem',
-                                                            lineHeight: 1.2,
-                                                            fontFamily: '"Prompt", system-ui, sans-serif',
-                                                            letterSpacing: '0.18em',
-                                                            opacity: 0,
-                                                            background: `linear-gradient(135deg, ${themeConfig.gradientFrom}90, ${themeConfig.gradientVia}, ${themeConfig.gradientFrom}90)`,
-                                                            WebkitBackgroundClip: 'text',
-                                                            WebkitTextFillColor: 'transparent',
-                                                            animation: `prompt-complete-letter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${baseDelay + i * 0.06}s forwards, prompt-complete-glow 2s ease-in-out ${baseDelay + i * 0.06 + 0.8}s infinite`,
-                                                            filter: `drop-shadow(0 0 8px ${themeConfig.gradientFrom}50)`,
-                                                        }}
-                                                    >
-                                                        {char === ' ' ? '\u00A0' : char}
-                                                    </span>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* Bottom decorative bar */}
-                                    <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1" style={{ opacity: 0, animation: `prompt-complete-letter 0.5s ease-out ${('Generate Prompt'.length + 'Complete!!'.length) * 0.1 + 0.8}s forwards` }}>
-                                        <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${themeConfig.gradientFrom}40, transparent)` }} />
-                                        <span className="text-[7px] font-mono tracking-widest" style={{ color: `${themeConfig.gradientVia}50` }}>
-                                            {'//'.padEnd(20, '─')}
-                                        </span>
-                                        <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, transparent, ${themeConfig.gradientFrom}40)` }} />
-                                    </div>
-                                </div>
-                            ) : (
-                            <div className={`p-3 rounded-xl border space-y-2 transition-all duration-500 ${
-                                isGeneratingPrompt
-                                    ? 'bg-black/60 border-neon-red/40 ai-thinking-card animate-border-glow'
-                                    : 'bg-black/40 border-border'
-                            }`}>
-                                {/* Pagination header */}
-                                <div className="flex items-center justify-between">
-                                    <button
-                                        type="button"
-                                        onClick={() => setPromptPage(0)}
-                                        disabled={promptPage === 0}
-                                        className={`p-1 rounded transition-colors ${promptPage === 0 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                                    >
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1.5">
-                                        {isGeneratingPrompt && <Sparkles className="w-3 h-3 text-neon-red animate-pulse" />}
-                                        {promptPage === 0 ? '🖼️ Image Prompt' : `🎬 Video Prompt (${videoScenePrompts.length || 1} ฉาก)`}
-                                        <span className="text-muted-foreground/50 ml-1">({promptPage + 1}/2)</span>
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setPromptPage(1)}
-                                        disabled={promptPage === 1}
-                                        className={`p-1 rounded transition-colors ${promptPage === 1 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                                    >
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-
-                                {/* Page content */}
-                                {isGeneratingPrompt ? (
-                                    <div className="space-y-3 py-2">
-                                        <div className="flex items-center gap-2 text-xs text-neon-red">
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            <span>{promptPage === 0 ? 'กำลังสร้าง Image Prompt' : 'กำลังวิเคราะห์ด้วย AI'}</span>
-                                            <span className="inline-flex gap-0.5">
-                                                <span className="inline-block w-1 h-1 rounded-full bg-neon-red animate-typing-dot-1" />
-                                                <span className="inline-block w-1 h-1 rounded-full bg-neon-red animate-typing-dot-2" />
-                                                <span className="inline-block w-1 h-1 rounded-full bg-neon-red animate-typing-dot-3" />
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="h-2.5 rounded-full bg-neon-red/15 animate-pulse" style={{ width: '90%' }} />
-                                            <div className="h-2.5 rounded-full bg-neon-red/10 animate-pulse" style={{ width: '75%', animationDelay: '0.2s' }} />
-                                            <div className="h-2.5 rounded-full bg-neon-red/10 animate-pulse" style={{ width: '60%', animationDelay: '0.4s' }} />
-                                            <div className="h-2.5 rounded-full bg-neon-red/8 animate-pulse" style={{ width: '80%', animationDelay: '0.6s' }} />
-                                        </div>
-                                    </div>
-                                ) : promptPage === 0 ? (
-                                    <div>
-                                        <textarea
-                                            value={generatedImagePrompt || ""}
-                                            onChange={(e) => setGeneratedImagePrompt(e.target.value)}
-                                            className="w-full bg-transparent text-[10px] text-foreground font-mono resize-none outline-none min-h-[80px]"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {videoScenePrompts.length > 1 ? (
-                                            videoScenePrompts.map((sp, idx) => (
-                                                <div key={idx}>
-                                                    <label className="text-[10px] text-neon-red/70 font-medium block mb-0.5">ฉาก {idx + 1}</label>
-                                                    <textarea
-                                                        value={sp}
-                                                        onChange={(e) => {
-                                                            const updated = [...videoScenePrompts];
-                                                            updated[idx] = e.target.value;
-                                                            setVideoScenePrompts(updated);
-                                                        }}
-                                                        className="w-full bg-transparent text-[10px] text-foreground font-mono resize-none outline-none min-h-[60px] border-b border-border/30 pb-2"
-                                                    />
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div>
-                                                <textarea
-                                                    value={generatedVideoPrompt || ""}
-                                                    onChange={(e) => setGeneratedVideoPrompt(e.target.value)}
-                                                    className="w-full bg-transparent text-[10px] text-foreground font-mono resize-none outline-none min-h-[80px]"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Step 2: Automation — Auto Open Flow + New Project + Generate */}
-                <div className={`space-y-3 transition-opacity duration-200 ${!generatedImagePrompt ? 'opacity-40 pointer-events-none' : ''}`}>
+                {/* Automation — Auto Open Flow + New Project + Generate */}
+                <div className="space-y-3 transition-opacity duration-200">
                     <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                        <span className="bg-neon-red/15 text-neon-red w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                        <Zap className="w-4 h-4 text-neon-red" />
                         เริ่มสร้างคลิป (Automation)
                     </label>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
                         <ArrowRight className="w-3 h-3 text-neon-red/50" />
-                        เปิด Google Flow → สร้างโปรเจค → อัพโหลดรูป → ใส่ prompt → สร้างภาพ + วิดีโอ
+                        สร้าง Prompt ด้วย AI → เปิด Google Flow → อัพโหลดรูป → สร้างภาพ + วิดีโอ
                     </p>
 
                     {/* Loop Count Selector */}
@@ -895,14 +607,19 @@ const CreateVideoTab = () => {
                                 <button
                                     key={n}
                                     type="button"
-                                    disabled={isLooping}
-                                    onClick={() => { setLoopCount(n); setShowCustomLoop(false); }}
+                                    onClick={() => { 
+                                        setLoopCount(n); 
+                                        setShowCustomLoop(false);
+                                        // Allow dynamic switching to looping mode if currently running
+                                        if (isUploading && n > 1 && !isLooping) {
+                                            setIsLooping(true);
+                                            (window as any).__NETFLOW_STOP_LOOP__ = false;
+                                        }
+                                    }}
                                     className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all ${
                                         loopCount === n && !showCustomLoop
                                             ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
-                                            : isLooping 
-                                                ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed border border-border/20'
-                                                : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                     }`}
                                 >
                                     {n}
@@ -911,14 +628,18 @@ const CreateVideoTab = () => {
                             {/* Infinity */}
                             <button
                                 type="button"
-                                disabled={isLooping}
-                                onClick={() => { setLoopCount(Infinity); setShowCustomLoop(false); }}
+                                onClick={() => { 
+                                    setLoopCount(Infinity); 
+                                    setShowCustomLoop(false);
+                                    if (isUploading && !isLooping) {
+                                        setIsLooping(true);
+                                        (window as any).__NETFLOW_STOP_LOOP__ = false;
+                                    }
+                                }}
                                 className={`w-7 h-7 rounded-lg text-[12px] font-bold transition-all ${
                                     loopCount === Infinity
                                         ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
-                                        : isLooping 
-                                            ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed border border-border/20'
-                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                        : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                 }`}
                             >
                                 ∞
@@ -926,18 +647,19 @@ const CreateVideoTab = () => {
                             {/* Custom */}
                             <button
                                 type="button"
-                                disabled={isLooping}
                                 onClick={() => {
                                     setShowCustomLoop(true);
                                     if (![1,2,3,5,10].includes(loopCount) && loopCount !== Infinity) return;
                                     setLoopCount(20);
+                                    if (isUploading && !isLooping) {
+                                        setIsLooping(true);
+                                        (window as any).__NETFLOW_STOP_LOOP__ = false;
+                                    }
                                 }}
                                 className={`h-7 px-2 rounded-lg text-[9px] font-bold transition-all ${
                                     showCustomLoop
                                         ? 'bg-neon-red text-white shadow-md shadow-neon-red/30 scale-110'
-                                        : isLooping 
-                                            ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed border border-border/20'
-                                            : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
+                                        : 'bg-muted/30 text-muted-foreground hover:bg-neon-red/20 hover:text-neon-red border border-border/50'
                                 }`}
                             >
                                 กำหนดเอง
@@ -947,13 +669,18 @@ const CreateVideoTab = () => {
                                     type="number"
                                     min={1}
                                     max={9999}
-                                    disabled={isLooping}
                                     value={loopCount === Infinity ? '' : loopCount}
                                     onChange={(e) => {
                                         const v = parseInt(e.target.value, 10);
-                                        if (!isNaN(v) && v >= 1) setLoopCount(v);
+                                        if (!isNaN(v) && v >= 1) {
+                                            setLoopCount(v);
+                                            if (isUploading && v > 1 && !isLooping) {
+                                                setIsLooping(true);
+                                                (window as any).__NETFLOW_STOP_LOOP__ = false;
+                                            }
+                                        }
                                     }}
-                                    className="w-14 h-7 rounded-lg text-[10px] font-bold text-center bg-muted/30 border border-neon-red/50 text-foreground focus:outline-none focus:ring-1 focus:ring-neon-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-14 h-7 rounded-lg text-[10px] font-bold text-center bg-muted/30 border border-neon-red/50 text-foreground focus:outline-none focus:ring-1 focus:ring-neon-red/50"
                                     autoFocus
                                 />
                             )}
@@ -992,15 +719,24 @@ const CreateVideoTab = () => {
                     </div>
 
                     {/* Electric Lightning Border Button */}
-                    <div className={`electric-border-wrap ${isUploading ? 'is-active' : ''} ${!generatedImagePrompt ? 'is-disabled' : ''}`}>
+                    <div className={`electric-border-wrap ${isUploading ? 'is-active' : ''}`}>
                         <button
                             type="button"
                             data-automation-btn="true"
-                            disabled={isUploading || !generatedImagePrompt}
+                            disabled={isUploading}
                             onClick={async () => {
-                                if (!generatedImagePrompt) return;
                                 playAutomationSound();
                                 setIsUploading(true);
+                                
+                                // 1. Always generate fresh prompt based on current form inputs
+                                setUploadStatus("⏳ กำลังสร้าง Prompt ด้วย AI...");
+                                const prompts = await handleGeneratePrompt();
+                                if (!prompts) {
+                                    setIsUploading(false);
+                                    setUploadStatus("❌ สร้าง Prompt ไม่สำเร็จ");
+                                    return; // Validation failed or generation failed
+                                }
+
                                 setUploadStatus("⏳ กำลังเปิด Google Flow + สร้างโปรเจค...");
 
                                 // Start loop tracking
@@ -1009,6 +745,17 @@ const CreateVideoTab = () => {
                                     setCurrentLoop(0);
                                     (window as any).__NETFLOW_STOP_LOOP__ = false;
                                 }
+                                
+                                // Reset stats and start timer
+                                setAutomationStartTime(Date.now());
+                                setAutomationStats({
+                                    products: 1, // Start with 1 product
+                                    images: 0,
+                                    videos: 0,
+                                    tiktokPosts: form.getValues("autoPostTikTok") ? 1 : 0,
+                                    success: 0,
+                                    failed: 0
+                                });
 
                                 try {
                                     const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
@@ -1018,9 +765,9 @@ const CreateVideoTab = () => {
                                                 action: "OPEN_FLOW_AND_GENERATE",
                                                 videoEngine: formData.videoEngine || "veo",
                                                 productName: formData.productName || '',
-                                                imagePrompt: generatedImagePrompt,
-                                                videoPrompt: generatedVideoPrompt || undefined,
-                                                videoScenePrompts: videoScenePrompts.length > 0 ? videoScenePrompts : undefined,
+                                                imagePrompt: prompts.imagePrompt,
+                                                videoPrompt: prompts.videoPrompt,
+                                                videoScenePrompts: prompts.videoScenePrompts.length > 0 ? prompts.videoScenePrompts : undefined,
                                                 sceneCount: formData.sceneCount || 1,
                                                 productImage: productImage || undefined,
                                                 characterImage: characterImage || undefined,
@@ -1030,7 +777,7 @@ const CreateVideoTab = () => {
                                                 grokAspectRatio: formData.grokAspectRatio || "9:16",
                                                 grokResolution: formData.grokResolution || "480p",
                                                 grokDuration: formData.grokDuration || "6s",
-                                                theme: localStorage.getItem("netflow_app_theme") || "red",
+                                                theme: localStorage.getItem("netflow_app_theme") || "blue",
                                                 windowId: myWindowId || undefined,
                                             },
                                             (res) => {
@@ -1052,16 +799,12 @@ const CreateVideoTab = () => {
                             className={`w-full py-4 px-6 rounded-[calc(1rem-2px)] font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:cursor-not-allowed ${
                                 isUploading
                                     ? 'opacity-80 cursor-wait'
-                                    : !generatedImagePrompt
-                                        ? 'bg-muted text-muted-foreground'
-                                        : 'hover:brightness-110 active:scale-[0.98]'
+                                    : 'hover:brightness-110 active:scale-[0.98]'
                             }`}
                             style={
-                                generatedImagePrompt && !isUploading
+                                isUploading 
                                     ? { background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})` }
-                                    : isUploading 
-                                        ? { background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})` }
-                                        : {}
+                                    : { background: `linear-gradient(135deg, ${themeConfig.gradientFrom}, ${themeConfig.gradientVia})` }
                             }
                         >
                             {isUploading ? (
@@ -1095,6 +838,17 @@ const CreateVideoTab = () => {
                                 setIsLooping(false);
                                 setCurrentLoop(0);
                                 setUploadStatus("⛔ หยุดการลูปแล้ว");
+                                
+                                // คำนวณระยะเวลาและแสดงหน้าสรุป
+                                if (automationStartTimeRef.current) {
+                                    const endTime = Date.now();
+                                    const diffMs = endTime - automationStartTimeRef.current;
+                                    const diffMins = Math.floor(diffMs / 60000);
+                                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                                    setAutomationDuration(`${diffMins} นาที ${diffSecs} วินาที`);
+                                    automationStartTimeRef.current = null;
+                                    setShowSummary(true);
+                                }
                             }}
                             className="w-full py-2 px-4 rounded-xl text-xs font-medium border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
                         >
@@ -1125,6 +879,14 @@ const CreateVideoTab = () => {
                 tabs={automationTabs}
                 selectedTab={selectedConsoleTab}
                 onTabSelect={setSelectedConsoleTab}
+            />
+
+            {/* Automation Summary Modal */}
+            <AutomationSummary 
+                isOpen={showSummary} 
+                onClose={() => setShowSummary(false)} 
+                stats={automationStats} 
+                duration={automationDuration} 
             />
         </div>
     );
