@@ -1806,11 +1806,18 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         return false;
     }
 
-    // ★ Walk up to closest <button> if we matched a child span/div
-    // Radix UI checks event.target — clicking a child might not trigger the popover
-    const actualBtn = settingsBtn.closest("button") as HTMLElement || settingsBtn;
-    if (actualBtn !== settingsBtn) {
-        LOG(`ปุ่มตั้งค่า: ใช้ parent button แทน ${settingsBtn.tagName}`);
+    // ★ Walk up to closest <button> ONLY if it's small and local (not the generate button)
+    let actualBtn: HTMLElement = settingsBtn;
+    const parentBtn = settingsBtn.closest("button") as HTMLElement;
+    if (parentBtn && parentBtn !== settingsBtn) {
+        const pRect = parentBtn.getBoundingClientRect();
+        // Only use parent if it's reasonably small (< 250px wide) — avoid grabbing the generate btn
+        if (pRect.width > 0 && pRect.width < 250 && pRect.height < 80) {
+            actualBtn = parentBtn;
+            LOG(`ปุ่มตั้งค่า: ใช้ parent button (${pRect.width.toFixed(0)}×${pRect.height.toFixed(0)})`);
+        } else {
+            LOG(`ปุ่มตั้งค่า: parent button ใหญ่เกิน (${pRect.width.toFixed(0)}×${pRect.height.toFixed(0)}) — คลิกตรงๆ`);
+        }
     }
 
     // ★ Use robustClick for reliable Radix/React click
@@ -1918,7 +1925,51 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
             await sleep(400);
         }
     }
-    if (!selectedImage) WARN("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว");
+    // ★ Fallback 6: If no Image tab found via popover, try direct mode switch
+    if (!selectedImage && !imageTabBtn) {
+        LOG("⚠️ ลองสลับโหมดด้วยวิธีตรง...");
+        // Close any open popover first
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
+
+        // Look for "Video" text at the bottom and click it to toggle to Image
+        const bottomElements = document.querySelectorAll<HTMLElement>("button, div, span, [role='button'], [role='tab']");
+        for (const el of bottomElements) {
+            const txt = (el.textContent || "").trim();
+            if (txt.length > 40) continue;
+            const rect = el.getBoundingClientRect();
+            if (rect.bottom < window.innerHeight * 0.7) continue; // must be in bottom 30%
+            if (rect.width < 20 || rect.height < 10) continue;
+
+            // Click "Video" text to open mode selector, then look for Image option
+            if (txt === "Video" || txt === "วิดีโอ") {
+                await robustClick(el);
+                LOG(`คลิก "${txt}" เพื่อเปิดเมนูเปลี่ยนโหมด`);
+                await sleep(2000);
+
+                // Now look for "Image" option in any dropdown/popover
+                for (const opt of document.querySelectorAll<HTMLElement>('[role="option"], [role="menuitem"], [role="tab"], button, div, span')) {
+                    const optTxt = (opt.textContent || "").trim();
+                    if (optTxt.length > 20) continue;
+                    if (optTxt === "Image" || optTxt === "รูปภาพ" || optTxt === "ภาพ") {
+                        if (!optTxt.includes("Video") && !optTxt.includes("วิดีโอ")) {
+                            const optRect = opt.getBoundingClientRect();
+                            if (optRect.width > 0 && optRect.height > 0) {
+                                await robustClick(opt);
+                                selectedImage = true;
+                                LOG(`✅ สลับเป็น Image ผ่านเมนูตรง: "${optTxt}"`);
+                                await sleep(500);
+                                break;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    if (!selectedImage) WARN("⚠️ ไม่พบปุ่มโหมด Image — อาจอยู่ในโหมดนี้แล้ว หรือต้องสลับด้วยตนเอง");
 
     // Select orientation
     const orientationText = orientation === "horizontal" ? "แนวนอน" : "แนวตั้ง";

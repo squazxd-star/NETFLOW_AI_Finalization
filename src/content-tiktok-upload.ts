@@ -643,31 +643,96 @@ const addProductLink = async (productId: string): Promise<boolean> => {
 
   // ══════════════════════════════════════════════════════════════════
   // 1. Scroll down and find the "เพิ่มสินค้า" / "+ เพิ่ม" button
+  //    IMPORTANT: Must click the ACTUAL button, not a section header!
   // ══════════════════════════════════════════════════════════════════
-  const addLinkTexts = [
-    '+ เพิ่ม', 'เพิ่มลิงก์สินค้า', 'เพิ่มลิงก์', 'เพิ่มสินค้า',
-    'ปักหมุดสินค้า', 'นำเสนอสินค้า', 'Showcase products',
-    'Add product links', 'Add product', 'Add link', 'Product links',
-  ];
-
   const scrollContainer = document.querySelector('main, [class*="scroll"], [class*="content"]') || document.documentElement;
+
+  // Scroll to find the product section
   for (let i = 0; i < 15; i++) {
     scrollContainer.scrollTop += 350;
     await delay(400);
-    for (const txt of addLinkTexts) {
-      if (findByText(txt)) { i = 99; break; }
+    // Check if we can see product-related text
+    const found = findByText('เพิ่มสินค้า') || findByText('Product links') || findByText('Showcase');
+    if (found) break;
+  }
+  await delay(500);
+
+  // Strategy A: Find "+ เพิ่ม" as a SMALL clickable element (not a section header)
+  // The actual button is small and contains only "+ เพิ่ม" text
+  let addLinkBtn: Element | null = null;
+
+  const allClickable = Array.from(document.querySelectorAll('button, a, [role="button"], span, div'));
+  for (const el of allClickable) {
+    const txt = (el.textContent || '').trim();
+    // Must be a SHORT text — avoid matching large section headers
+    if (txt.length > 20) continue;
+    // Match "+ เพิ่ม" exactly or close to it
+    if (txt === '+ เพิ่ม' || txt === '+เพิ่ม' || txt === '＋ เพิ่ม') {
+      const rect = (el as HTMLElement).getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && rect.width < 200) {
+        addLinkBtn = el;
+        log('Found "+ เพิ่ม" button (exact match)');
+        break;
+      }
     }
   }
 
-  let addLinkBtn: Element | null = null;
-  for (const txt of addLinkTexts) {
-    addLinkBtn = findByText(txt);
-    if (addLinkBtn) break;
+  // Strategy B: Look for button/link with "เพิ่มลิงก์สินค้า" text (button-only)
+  if (!addLinkBtn) {
+    const btnTexts = ['เพิ่มลิงก์สินค้า', 'เพิ่มลิงก์', 'Add product links', 'Add product', 'Showcase products'];
+    for (const txt of btnTexts) {
+      addLinkBtn = findByText(txt, 'button, a, [role="button"]');
+      if (addLinkBtn) { log(`Found button: "${txt}"`); break; }
+    }
   }
+
+  // Strategy C: Find any element with "เพิ่ม" that looks like a button (small, clickable)
+  if (!addLinkBtn) {
+    for (const el of allClickable) {
+      const txt = (el.textContent || '').trim();
+      if (txt.length > 30) continue;
+      if (!txt.includes('เพิ่ม') && !txt.toLowerCase().includes('add')) continue;
+      // Must be small — actual buttons are compact
+      const rect = (el as HTMLElement).getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      if (rect.width > 250 || rect.height > 60) continue; // skip large containers
+      // Prefer elements with "+" prefix or "link" text
+      if (txt.includes('+') || txt.includes('ลิงก์') || txt.includes('link')) {
+        addLinkBtn = el;
+        log(`Found add button via heuristic: "${txt}"`);
+        break;
+      }
+    }
+  }
+
+  // Strategy D: Fallback — broad search but prefer smallest matching element
+  if (!addLinkBtn) {
+    const fallbackTexts = ['เพิ่มสินค้า', 'นำเสนอสินค้า', 'ปักหมุดสินค้า', 'Product links'];
+    for (const txt of fallbackTexts) {
+      const matches = findAllByText(txt);
+      // Pick the SMALLEST element (most specific, likely the button not the header)
+      let smallest: Element | null = null;
+      let smallestLen = Infinity;
+      for (const m of matches) {
+        const mTxt = (m.textContent || '').trim();
+        if (mTxt.length < smallestLen) {
+          smallestLen = mTxt.length;
+          smallest = m;
+        }
+      }
+      if (smallest) {
+        addLinkBtn = smallest;
+        log(`Found via smallest match: "${(smallest.textContent || '').trim().substring(0, 30)}"`);
+        break;
+      }
+    }
+  }
+
   if (!addLinkBtn) {
     warn('Could not find product link button');
     return false;
   }
+
   clickElement(addLinkBtn);
   log('Clicked: ' + (addLinkBtn.textContent || '').trim().substring(0, 40));
   await delay(3000);
@@ -677,26 +742,48 @@ const addProductLink = async (productId: string): Promise<boolean> => {
   //    From screenshots: table has class jsx-*product-table*
   //    and rows have TUXRadioStandalone radio buttons
   // ══════════════════════════════════════════════════════════════════
-  const tableReady = await waitForElement(
-    () => {
-      // Look for product table or radio buttons (sign dialog is loaded)
-      const table = document.querySelector('table[class*="product"], [class*="product-table"]');
-      if (table) return table;
-      const radio = document.querySelector('input[type="radio"][class*="TUXRadio"], input.TUXRadioStandalone-input, [class*="TUXRadioStandalone"]');
-      if (radio) return radio;
-      // Fallback: any table inside dialog-like area
-      const dialog = document.querySelector('[class*="modal"], [role="dialog"]');
-      if (dialog) {
-        const tbl = dialog.querySelector('table');
-        if (tbl) return tbl;
+  // Try up to 2 attempts to open the product dialog
+  let tableReady: Element | null = null;
+  for (let dialogAttempt = 0; dialogAttempt < 2 && !tableReady; dialogAttempt++) {
+    if (dialogAttempt > 0) {
+      log('Product dialog not open, retrying click...');
+      // Try clicking the button again
+      if (addLinkBtn) {
+        clickElement(addLinkBtn);
+        await delay(3000);
       }
-      return null;
-    },
-    15000
-  );
+    }
+
+    tableReady = await waitForElement(
+      () => {
+        // Look for product table or radio buttons (sign dialog is loaded)
+        const table = document.querySelector('table[class*="product"], [class*="product-table"]');
+        if (table) return table;
+        const radio = document.querySelector('input[type="radio"][class*="TUXRadio"], input.TUXRadioStandalone-input, [class*="TUXRadioStandalone"]');
+        if (radio) return radio;
+        // Look for dialog with "นำเสนอสินค้า" or "เพิ่มลิงก์สินค้า" title
+        const dialogTitle = findByText('นำเสนอสินค้า') || findByText('เพิ่มลิงก์สินค้า');
+        if (dialogTitle) return dialogTitle;
+        // Fallback: any table inside dialog-like area
+        const dialog = document.querySelector('[class*="modal"], [role="dialog"]');
+        if (dialog) {
+          const tbl = dialog.querySelector('table');
+          if (tbl) return tbl;
+        }
+        // Look for search bar "ค้นหาสินค้า" as sign dialog is open
+        const searchBar = document.querySelector('input[placeholder*="ค้นหาสินค้า"], input[placeholder*="ค้นหา"]') as HTMLElement;
+        if (searchBar) {
+          const rect = searchBar.getBoundingClientRect();
+          if (rect.width > 80) return searchBar;
+        }
+        return null;
+      },
+      dialogAttempt === 0 ? 10000 : 8000
+    );
+  }
 
   if (!tableReady) {
-    warn('Product table did not appear in 15s');
+    warn('Product table did not appear after 2 attempts');
     return false;
   }
   log('Product table/dialog loaded');
