@@ -1749,9 +1749,14 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         const allClickable = document.querySelectorAll<HTMLElement>("button, div, span, [role='button']");
 
         // Strategy 1: any element with known keywords at the bottom prompt bar area
+        // EXCLUDE: "ดาวน์โหลด"/"Download" buttons — they contain "วิดีโอ"/"Video" but are NOT settings
         for (const el of allClickable) {
             const txt = (el.textContent || "").trim();
             if (txt.length > 80) continue; // skip large containers
+            // ★ Skip download-related elements
+            if (txt.includes("ดาวน์โหลด") || txt.includes("Download") || txt.includes("download")) continue;
+            // ★ Skip elements with too-long text (settings trigger is compact, like "Video □ x1")
+            if (txt.length > 30) continue;
             if (txt.includes("Nano Banana") || txt.includes("Imagen") || txt.includes("วิดีโอ") || txt.includes("รูปภาพ") || txt.includes("Image") || txt.includes("Video")) {
                 const rect = el.getBoundingClientRect();
                 if (rect.bottom > window.innerHeight * 0.7 && rect.width > 30 && rect.height > 10) {
@@ -1811,7 +1816,9 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
     const modeKeywords = ["Video", "Image", "วิดีโอ", "รูปภาพ", "Nano Banana", "Imagen"];
     const hasModeText = (el: HTMLElement) => {
         const t = (el.textContent || "").trim();
-        return t.length < 80 && modeKeywords.some(k => t.includes(k));
+        if (t.length > 40) return false; // settings trigger is compact
+        if (t.includes("ดาวน์โหลด") || t.includes("Download") || t.includes("download")) return false;
+        return modeKeywords.some(k => t.includes(k));
     };
 
     const clickTargets: HTMLElement[] = [];

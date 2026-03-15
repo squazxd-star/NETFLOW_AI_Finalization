@@ -246,7 +246,7 @@ const CreateVideoTab = () => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
         const loopHandler = async (message: any) => {
             if (message?.type !== "VIDEO_GENERATION_COMPLETE") return;
-            if (!isLooping || currentLoop >= loopCount) return;
+            if (!isLooping || currentLoop >= loopCount - 1) return;
 
             const nextLoop = currentLoop + 1;
             const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });

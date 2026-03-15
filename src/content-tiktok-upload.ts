@@ -847,16 +847,59 @@ const addProductLink = async (productId: string): Promise<boolean> => {
 
   // ══════════════════════════════════════════════════════════════════
   // 4. Find and select the product row (with pagination support)
-  //    From screenshots: rows are <tr class="jsx-*product-tr-row*">
+  //    Product ID is a 16-20 digit number visible in the row
   //    Radio: <input type="radio" class="TUXRadioStandalone*">
-  //    ID cell: <td/div class="jsx-*product-tb-co*"> containing ID text
   // ══════════════════════════════════════════════════════════════════
   let productSelected = false;
+
+  // Helper: try to click the radio/row for a product
+  const trySelectRow = async (container: Element): Promise<boolean> => {
+    // Strategy A: Find radio input and click it + its wrapper
+    const radioSelectors = 'input[type="radio"], [class*="TUXRadio"], [class*="Radio"]';
+    const radio = container.querySelector(radioSelectors) as HTMLElement;
+    if (radio) {
+      // Click the wrapper (label, div wrapping the radio) — React needs wrapper click
+      const wrapper = radio.closest('label, [class*="TUXRadio"], [class*="Radio"]') || radio;
+      clickElement(wrapper);
+      await delay(200);
+      // Also click the radio itself
+      clickElement(radio);
+      await delay(200);
+      // Force checked state via native setter
+      const inp = radio.tagName === 'INPUT' ? radio as HTMLInputElement
+        : container.querySelector('input[type="radio"]') as HTMLInputElement;
+      if (inp) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+        if (setter) setter.call(inp, true);
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('click', { bubbles: true }));
+      }
+      log('Selected via radio');
+      return true;
+    }
+    // Strategy B: Click the row itself (simulating click on leftmost area)
+    const el = container as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      // Click at leftmost area where radio column usually is
+      const clickX = rect.left + 25;
+      const clickY = rect.top + rect.height / 2;
+      const opts = { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, button: 0 };
+      el.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+      el.dispatchEvent(new MouseEvent('mousedown', opts));
+      el.dispatchEvent(new PointerEvent('pointerup', { ...opts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
+      el.dispatchEvent(new MouseEvent('mouseup', opts));
+      el.dispatchEvent(new MouseEvent('click', opts));
+      log('Selected via row click');
+      return true;
+    }
+    return false;
+  };
 
   // Try up to 5 pages
   for (let page = 0; page < 5 && !productSelected; page++) {
     if (page > 0) {
-      // Click next page button
       log(`Product not on page ${page}, trying page ${page + 1}...`);
       const nextPageBtn = document.querySelector('button[aria-label="next"], [class*="next"]') as HTMLElement;
       const pageLinks = Array.from(document.querySelectorAll('button, a, li')).filter(el => {
@@ -869,94 +912,31 @@ const addProductLink = async (productId: string): Promise<boolean> => {
       await delay(2000);
     }
 
-    // Get all product rows
-    const rows = Array.from(document.querySelectorAll(
-      'tr[class*="product-tr"], tr[class*="product-row"], [class*="product-table"] tr'
-    ));
+    // ★ Search for product ID in ALL visible text elements (not just table rows)
+    // TikTok may use divs, spans, or other non-table structures
+    const allElements = Array.from(document.querySelectorAll('tr, [class*="product"], [class*="row"], div, td'));
+    const matchingContainers: Element[] = [];
 
-    // Also try generic table rows if specific class not found
-    if (rows.length === 0) {
-      const allRows = document.querySelectorAll('table tr, [class*="product"] tr');
-      rows.push(...Array.from(allRows));
+    for (const el of allElements) {
+      const txt = (el.textContent || '');
+      if (!txt.includes(productId)) continue;
+      // Skip very large containers (whole dialog/page)
+      if (txt.length > 2000) continue;
+      matchingContainers.push(el);
     }
+    // Sort by text length (smallest first = most specific)
+    matchingContainers.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
 
-    log(`Found ${rows.length} product rows on page ${page + 1}`);
+    log(`Found ${matchingContainers.length} elements with product ID on page ${page + 1}`);
 
-    for (const row of rows) {
-      const rowText = (row.textContent || '');
-      if (!rowText.includes(productId)) continue;
-
-      log('Found row containing product ID!');
-
-      // Strategy A: Click the radio input directly
-      const radio = row.querySelector(
-        'input[type="radio"], input[class*="TUXRadio"], [class*="TUXRadioStandalone"]'
-      ) as HTMLElement;
-
-      if (radio) {
-        // For TUX radio: click the viewBox parent wrapper (not just the hidden input)
-        const radioWrapper = radio.closest('[class*="TUXRadio"]') || radio.closest('[class*="viewBox"]') || radio;
-        clickElement(radioWrapper);
-        await delay(300);
-
-        // Also directly set checked property and fire change event
-        if (radio instanceof HTMLInputElement) {
-          radio.checked = true;
-          radio.dispatchEvent(new Event('change', { bubbles: true }));
-          radio.dispatchEvent(new Event('input', { bubbles: true }));
-          // Trigger React's synthetic event via native setter
-          const checkedSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
-          if (checkedSetter) {
-            checkedSetter.call(radio, true);
-            radio.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        }
+    for (const container of matchingContainers) {
+      // Walk up to find the row-level container (tr or row-like div)
+      const row = container.closest('tr') || container.closest('[class*="product-tr"]') || container.closest('[class*="row"]') || container;
+      const result = await trySelectRow(row);
+      if (result) {
         productSelected = true;
-        log('Selected product via radio button');
+        log('Product selected successfully');
         break;
-      }
-
-      // Strategy B: Click the row itself (on the leftmost area where radio should be)
-      const rowEl = row as HTMLElement;
-      const rRect = rowEl.getBoundingClientRect();
-      if (rRect.width > 0 && rRect.height > 0) {
-        const clickX = rRect.left + 30; // leftmost area = radio column
-        const clickY = rRect.top + rRect.height / 2;
-        const evtOpts = { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, button: 0 };
-        rowEl.dispatchEvent(new PointerEvent('pointerdown', { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
-        rowEl.dispatchEvent(new MouseEvent('mousedown', evtOpts));
-        rowEl.dispatchEvent(new PointerEvent('pointerup', { ...evtOpts, pointerId: 1, isPrimary: true, pointerType: 'mouse' }));
-        rowEl.dispatchEvent(new MouseEvent('mouseup', evtOpts));
-        rowEl.dispatchEvent(new MouseEvent('click', evtOpts));
-        productSelected = true;
-        log('Selected product via row click');
-        break;
-      }
-    }
-
-    // Strategy C: Search ALL elements for product ID text, walk up to find row+radio
-    if (!productSelected) {
-      const idCells = Array.from(document.querySelectorAll('td, div, span')).filter(el => {
-        const t = (el.textContent || '').trim();
-        return t === productId || (t.includes(productId) && t.length < 100);
-      });
-      idCells.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
-
-      for (const cell of idCells) {
-        // Walk up to find the table row
-        const tr = cell.closest('tr') || cell.closest('[class*="product-tr"]');
-        if (!tr) continue;
-        const radio = tr.querySelector('input[type="radio"]') as HTMLInputElement;
-        if (radio) {
-          const wrapper = radio.closest('[class*="TUXRadio"]') || radio;
-          clickElement(wrapper);
-          await delay(200);
-          radio.checked = true;
-          radio.dispatchEvent(new Event('change', { bubbles: true }));
-          productSelected = true;
-          log('Selected product via ID cell walk-up');
-          break;
-        }
       }
     }
   }
@@ -970,15 +950,36 @@ const addProductLink = async (productId: string): Promise<boolean> => {
 
   // ══════════════════════════════════════════════════════════════════
   // 5. Click "ถัดไป" (Next) — NOW after product is selected
-  //    From Image 9: button.TUXButton--primary with text "ถัดไป"
+  //    TUXButton--primary with text "ถัดไป" / "Next"
+  //    RETRY: button might need time to become enabled after selection
   // ══════════════════════════════════════════════════════════════════
-  const nextBtn = findByText('ถัดไป', 'button') || findByText('Next', 'button');
-  if (nextBtn) {
-    clickElement(nextBtn);
-    log('Clicked ถัดไป');
-    await delay(3000);
-  } else {
-    log('No ถัดไป button found — may go directly to confirm');
+  let nextClicked = false;
+  for (let attempt = 0; attempt < 3 && !nextClicked; attempt++) {
+    if (attempt > 0) { log(`Retry ถัดไป (${attempt + 1}/3)...`); await delay(1500); }
+
+    // Try multiple selectors for "ถัดไป" / "Next" button
+    const nextBtn = findByText('ถัดไป', 'button, [role="button"], div, span')
+      || findByText('Next', 'button, [role="button"], div, span')
+      || document.querySelector('button[class*="TUXButton--primary"]:not([disabled])') as HTMLElement;
+
+    if (nextBtn) {
+      const btnText = (nextBtn.textContent || '').trim();
+      // Make sure it's not a disabled button
+      if ((nextBtn as HTMLButtonElement).disabled) {
+        log(`ถัดไป button found but disabled — product may not be selected properly`);
+        // Try re-clicking the first matching container's radio
+        continue;
+      }
+      clickElement(nextBtn);
+      nextClicked = true;
+      log(`Clicked ถัดไป: "${btnText.substring(0, 20)}"`);
+      await delay(3000);
+    } else {
+      log('No ถัดไป button found yet...');
+    }
+  }
+  if (!nextClicked) {
+    log('ถัดไป not found after 3 attempts — trying to continue anyway');
   }
 
   // ══════════════════════════════════════════════════════════════════
