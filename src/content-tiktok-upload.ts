@@ -643,41 +643,84 @@ const addProductLink = async (productId: string): Promise<boolean> => {
 
   // ══════════════════════════════════════════════════════════════════
   // 1. Scroll down and find the "เพิ่มสินค้า" / "+ เพิ่ม" button
+  //    From Image 6: button is inside div[data-e2e="anchor_container"]
+  //    Button class: Button_root, Name: "เพิ่ม", text: "+ เพิ่ม"
   //    IMPORTANT: Must click the ACTUAL button, not a section header!
   // ══════════════════════════════════════════════════════════════════
   const scrollContainer = document.querySelector('main, [class*="scroll"], [class*="content"]') || document.documentElement;
 
-  // Scroll to find the product section
-  for (let i = 0; i < 15; i++) {
-    scrollContainer.scrollTop += 350;
-    await delay(400);
-    // Check if we can see product-related text
-    const found = findByText('เพิ่มสินค้า') || findByText('Product links') || findByText('Showcase');
-    if (found) break;
+  // Scroll to find the product section — target anchor_container specifically
+  for (let i = 0; i < 20; i++) {
+    scrollContainer.scrollTop += 300;
+    await delay(350);
+    // Check if anchor_container is visible
+    const anchor = document.querySelector('[data-e2e="anchor_container"]');
+    if (anchor) {
+      // Scroll it into view properly
+      (anchor as HTMLElement).scrollIntoView({ block: 'center', behavior: 'instant' });
+      await delay(300);
+      log('Found anchor_container, scrolled into view');
+      break;
+    }
+    // Fallback check
+    if (findByText('เพิ่มสินค้า') || findByText('Product links') || findByText('Showcase')) break;
   }
   await delay(500);
 
-  // Strategy A: Find "+ เพิ่ม" as a SMALL clickable element (not a section header)
-  // The actual button is small and contains only "+ เพิ่ม" text
   let addLinkBtn: Element | null = null;
 
-  const allClickable = Array.from(document.querySelectorAll('button, a, [role="button"], span, div'));
-  for (const el of allClickable) {
-    const txt = (el.textContent || '').trim();
-    // Must be a SHORT text — avoid matching large section headers
-    if (txt.length > 20) continue;
-    // Match "+ เพิ่ม" exactly or close to it
-    if (txt === '+ เพิ่ม' || txt === '+เพิ่ม' || txt === '＋ เพิ่ม') {
-      const rect = (el as HTMLElement).getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0 && rect.width < 200) {
-        addLinkBtn = el;
-        log('Found "+ เพิ่ม" button (exact match)');
+  // ★ Strategy 0 (BEST): Use data-e2e="anchor_container" → find button inside
+  // From Image 6: <div data-e2e="anchor_container"> → <button class="Button_root">+ เพิ่ม</button>
+  const anchorContainer = document.querySelector('[data-e2e="anchor_container"]');
+  if (anchorContainer) {
+    // Find button inside anchor container — the "+ เพิ่ม" button
+    const btns = anchorContainer.querySelectorAll('button');
+    for (const btn of btns) {
+      const txt = (btn.textContent || '').trim();
+      if (txt.includes('เพิ่ม') || txt.includes('Add') || txt.includes('+')) {
+        addLinkBtn = btn;
+        log(`Found "+ เพิ่ม" via data-e2e="anchor_container" button: "${txt}"`);
+        break;
+      }
+    }
+    // If no text match, just use first button in the container
+    if (!addLinkBtn && btns.length > 0) {
+      addLinkBtn = btns[0];
+      log(`Found button in anchor_container (first button): "${(btns[0].textContent||'').trim().substring(0,20)}"`);
+    }
+  }
+
+  // ★ Strategy A: Find "+ เพิ่ม" as a SMALL clickable element (not a section header)
+  if (!addLinkBtn) {
+    const allClickable = Array.from(document.querySelectorAll('button, a, [role="button"], span, div'));
+    for (const el of allClickable) {
+      const txt = (el.textContent || '').trim();
+      if (txt.length > 20) continue;
+      if (txt === '+ เพิ่ม' || txt === '+เพิ่ม' || txt === '＋ เพิ่ม') {
+        const rect = (el as HTMLElement).getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && rect.width < 300) {
+          addLinkBtn = el;
+          log('Found "+ เพิ่ม" button (exact match)');
+          break;
+        }
+      }
+    }
+  }
+
+  // ★ Strategy B: Look for button with class "Button_root" inside anchor section
+  if (!addLinkBtn) {
+    const anchorBtns = document.querySelectorAll('[class*="anchor"] button, [class*="Anchor"] button');
+    for (const btn of anchorBtns) {
+      const txt = (btn.textContent || '').trim();
+      if (txt.includes('เพิ่ม') || txt.includes('Add') || txt.includes('+')) {
+        addLinkBtn = btn;
+        log(`Found button in anchor section: "${txt}"`);
         break;
       }
     }
   }
 
-  // Strategy B: Look for button/link with "เพิ่มลิงก์สินค้า" text (button-only)
+  // ★ Strategy C: button-only selector with product-related text
   if (!addLinkBtn) {
     const btnTexts = ['เพิ่มลิงก์สินค้า', 'เพิ่มลิงก์', 'Add product links', 'Add product', 'Showcase products'];
     for (const txt of btnTexts) {
@@ -686,31 +729,11 @@ const addProductLink = async (productId: string): Promise<boolean> => {
     }
   }
 
-  // Strategy C: Find any element with "เพิ่ม" that looks like a button (small, clickable)
-  if (!addLinkBtn) {
-    for (const el of allClickable) {
-      const txt = (el.textContent || '').trim();
-      if (txt.length > 30) continue;
-      if (!txt.includes('เพิ่ม') && !txt.toLowerCase().includes('add')) continue;
-      // Must be small — actual buttons are compact
-      const rect = (el as HTMLElement).getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) continue;
-      if (rect.width > 250 || rect.height > 60) continue; // skip large containers
-      // Prefer elements with "+" prefix or "link" text
-      if (txt.includes('+') || txt.includes('ลิงก์') || txt.includes('link')) {
-        addLinkBtn = el;
-        log(`Found add button via heuristic: "${txt}"`);
-        break;
-      }
-    }
-  }
-
-  // Strategy D: Fallback — broad search but prefer smallest matching element
+  // ★ Strategy D: Fallback — smallest matching element with "เพิ่ม" text
   if (!addLinkBtn) {
     const fallbackTexts = ['เพิ่มสินค้า', 'นำเสนอสินค้า', 'ปักหมุดสินค้า', 'Product links'];
     for (const txt of fallbackTexts) {
       const matches = findAllByText(txt);
-      // Pick the SMALLEST element (most specific, likely the button not the header)
       let smallest: Element | null = null;
       let smallestLen = Infinity;
       for (const m of matches) {

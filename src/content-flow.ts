@@ -1806,24 +1806,72 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         return false;
     }
 
-    // ★ Walk up to closest <button> ONLY if it's small and local (not the generate button)
-    let actualBtn: HTMLElement = settingsBtn;
+    // ★ Build a list of click targets from settingsBtn upward (element, parent, grandparent...)
+    // Verify each candidate contains mode-related text to avoid clicking the Generate button
+    const modeKeywords = ["Video", "Image", "วิดีโอ", "รูปภาพ", "Nano Banana", "Imagen"];
+    const hasModeText = (el: HTMLElement) => {
+        const t = (el.textContent || "").trim();
+        return t.length < 80 && modeKeywords.some(k => t.includes(k));
+    };
+
+    const clickTargets: HTMLElement[] = [];
+    // 1) The element itself
+    clickTargets.push(settingsBtn);
+    // 2) Closest <button> ancestor with mode text
     const parentBtn = settingsBtn.closest("button") as HTMLElement;
-    if (parentBtn && parentBtn !== settingsBtn) {
-        const pRect = parentBtn.getBoundingClientRect();
-        // Only use parent if it's reasonably small (< 250px wide) — avoid grabbing the generate btn
-        if (pRect.width > 0 && pRect.width < 250 && pRect.height < 80) {
-            actualBtn = parentBtn;
-            LOG(`ปุ่มตั้งค่า: ใช้ parent button (${pRect.width.toFixed(0)}×${pRect.height.toFixed(0)})`);
-        } else {
-            LOG(`ปุ่มตั้งค่า: parent button ใหญ่เกิน (${pRect.width.toFixed(0)}×${pRect.height.toFixed(0)}) — คลิกตรงๆ`);
+    if (parentBtn && parentBtn !== settingsBtn && hasModeText(parentBtn)) {
+        clickTargets.unshift(parentBtn); // prefer this
+        LOG(`ปุ่มตั้งค่า: parent <button> "${(parentBtn.textContent||"").trim().substring(0,30)}"`);
+    }
+    // 3) Closest role="button" ancestor with mode text
+    const roleBtn = settingsBtn.closest('[role="button"]') as HTMLElement;
+    if (roleBtn && roleBtn !== settingsBtn && roleBtn !== parentBtn && hasModeText(roleBtn)) {
+        clickTargets.unshift(roleBtn);
+        LOG(`ปุ่มตั้งค่า: parent [role=button] "${(roleBtn.textContent||"").trim().substring(0,30)}"`);
+    }
+    // 4) Walk up 1-3 parents if they have mode text
+    let walker: HTMLElement | null = settingsBtn;
+    for (let w = 0; w < 3 && walker; w++) {
+        walker = walker.parentElement;
+        if (walker && hasModeText(walker) && !clickTargets.includes(walker)) {
+            clickTargets.push(walker);
         }
     }
 
-    // ★ Use robustClick for reliable Radix/React click
-    await robustClick(actualBtn);
-    LOG("คลิกปุ่มตั้งค่าแล้ว (robustClick)");
-    await sleep(3500); // ★ Extra wait for popover to render (slow on Mac 8GB)
+    // Count existing portals/popovers before clicking (to detect if a new one opens)
+    const countPopoverElements = () => document.querySelectorAll(
+        '[data-radix-portal], [data-radix-popper-content-wrapper], [role="dialog"], [role="menu"], [role="listbox"]'
+    ).length;
+
+    // ★ Try each click target until a popover opens
+    let popoverOpened = false;
+    let actualBtn: HTMLElement = clickTargets[0];
+    for (const target of clickTargets) {
+        const beforeCount = countPopoverElements();
+        LOG(`ลองคลิกตั้งค่า: <${target.tagName}> "${(target.textContent||"").trim().substring(0,30)}"`);
+        await robustClick(target);
+        await sleep(2500); // Wait for popover (Mac 8GB needs time)
+
+        const afterCount = countPopoverElements();
+        // Also check if any role="tab" with Image/Video appeared
+        const hasTabs = !!document.querySelector('[role="tab"]');
+        if (afterCount > beforeCount || hasTabs) {
+            popoverOpened = true;
+            actualBtn = target;
+            LOG(`✅ Popover เปิดแล้ว (portals: ${beforeCount}→${afterCount}, tabs: ${hasTabs})`);
+            break;
+        }
+        LOG(`❌ ไม่มี popover เปิด (portals: ${beforeCount}→${afterCount}) — ลองตัวถัดไป`);
+        // Close any accidental popover/modal
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+        await sleep(500);
+    }
+
+    if (!popoverOpened) {
+        LOG("⚠️ Popover ไม่เปิดจากการคลิก — ลองคลิกปุ่มตั้งค่าอีกครั้งพร้อมรอนานขึ้น (Mac)");
+        await robustClick(actualBtn);
+        await sleep(5000); // Extra long wait for Mac 8GB
+    }
 
     // ALWAYS select Image mode (switch from Video if needed)
     // ★ Retry the Image tab search — popover may need extra time on slow machines
@@ -1932,40 +1980,62 @@ async function configureFlowSettings(orientation: string, outputCount: number): 
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
         await sleep(500);
 
-        // Look for "Video" text at the bottom and click it to toggle to Image
+        // Look for "Video" text at the bottom — match "Video", "Video □ x1", etc.
         const bottomElements = document.querySelectorAll<HTMLElement>("button, div, span, [role='button'], [role='tab']");
+        // Collect candidate elements, prefer smallest text
+        const videoCandidates: HTMLElement[] = [];
         for (const el of bottomElements) {
             const txt = (el.textContent || "").trim();
             if (txt.length > 40) continue;
+            if (!txt.includes("Video") && !txt.includes("วิดีโอ")) continue;
             const rect = el.getBoundingClientRect();
-            if (rect.bottom < window.innerHeight * 0.7) continue; // must be in bottom 30%
-            if (rect.width < 20 || rect.height < 10) continue;
+            // In hidden mode (Mac bg tab), skip rect checks
+            if (!_hidden()) {
+                if (rect.bottom < window.innerHeight * 0.7) continue;
+                if (rect.width < 10 || rect.height < 8) continue;
+            }
+            videoCandidates.push(el);
+        }
+        // Sort by text length (shortest first = most specific)
+        videoCandidates.sort((a, b) => (a.textContent||"").length - (b.textContent||"").length);
 
-            // Click "Video" text to open mode selector, then look for Image option
-            if (txt === "Video" || txt === "วิดีโอ") {
-                await robustClick(el);
-                LOG(`คลิก "${txt}" เพื่อเปิดเมนูเปลี่ยนโหมด`);
-                await sleep(2000);
+        for (const videoEl of videoCandidates) {
+            LOG(`Fallback 6: คลิก "${(videoEl.textContent||"").trim().substring(0,30)}" <${videoEl.tagName}>`);
 
-                // Now look for "Image" option in any dropdown/popover
-                for (const opt of document.querySelectorAll<HTMLElement>('[role="option"], [role="menuitem"], [role="tab"], button, div, span')) {
+            // Try clicking the element and its parents
+            const targets = [videoEl];
+            const vParent = videoEl.closest("button, [role='button']") as HTMLElement;
+            if (vParent && vParent !== videoEl) targets.push(vParent);
+            if (videoEl.parentElement) targets.push(videoEl.parentElement);
+
+            for (const t of targets) {
+                await robustClick(t);
+                await sleep(2500);
+
+                // Look for "Image" option in any dropdown/popover/tab
+                const imageOpts = document.querySelectorAll<HTMLElement>('[role="option"], [role="menuitem"], [role="tab"], [role="radio"], button, div, span');
+                for (const opt of imageOpts) {
                     const optTxt = (opt.textContent || "").trim();
                     if (optTxt.length > 20) continue;
-                    if (optTxt === "Image" || optTxt === "รูปภาพ" || optTxt === "ภาพ") {
+                    if (optTxt === "Image" || optTxt === "รูปภาพ" || optTxt === "ภาพ" || optTxt.endsWith("Image")) {
                         if (!optTxt.includes("Video") && !optTxt.includes("วิดีโอ")) {
                             const optRect = opt.getBoundingClientRect();
-                            if (optRect.width > 0 && optRect.height > 0) {
+                            if (optRect.width > 0 || _hidden()) {
                                 await robustClick(opt);
                                 selectedImage = true;
-                                LOG(`✅ สลับเป็น Image ผ่านเมนูตรง: "${optTxt}"`);
+                                LOG(`✅ สลับเป็น Image ผ่าน Fallback 6: "${optTxt}"`);
                                 await sleep(500);
                                 break;
                             }
                         }
                     }
                 }
-                break;
+                if (selectedImage) break;
+                // Close and try next target
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+                await sleep(300);
             }
+            if (selectedImage) break;
         }
     }
 
