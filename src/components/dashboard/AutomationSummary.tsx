@@ -173,7 +173,7 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xl"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xl overflow-y-auto py-8 px-4"
       >
         {/* Background Glow Mesh */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[620px] h-[620px] bg-emerald-500/10 blur-[140px] rounded-full pointer-events-none" />
@@ -185,7 +185,7 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="relative w-full max-w-3xl p-6 md:p-8 border border-white/10 rounded-[32px] bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_35%),linear-gradient(180deg,rgba(10,14,24,0.98),rgba(7,10,18,0.96))] backdrop-blur-2xl shadow-2xl overflow-hidden"
+          className="relative w-full max-w-2xl p-4 md:p-6 border border-white/10 rounded-[24px] bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_35%),linear-gradient(180deg,rgba(10,14,24,0.98),rgba(7,10,18,0.96))] backdrop-blur-2xl shadow-2xl overflow-hidden my-auto shrink-0"
         >
           {/* Spotlight Effect */}
           <div 
@@ -199,12 +199,12 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
           <div className="absolute inset-0 border-2 border-transparent bg-gradient-to-r from-transparent via-green-500/20 to-transparent animate-shimmer-sweep pointer-events-none" />
 
           {/* Header Section */}
-          <motion.div variants={itemVars} className="text-center mb-8 relative z-10">
+          <motion.div variants={itemVars} className="text-center mb-5 relative z-10">
             <motion.div 
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", delay: 0.3, stiffness: 200, damping: 15 }}
-              className="inline-flex p-4 rounded-2xl bg-green-500/20 mb-4 shadow-[0_0_30px_rgba(34,197,94,0.3)] border border-green-500/30"
+              className="inline-flex p-3 rounded-2xl bg-green-500/20 mb-3 shadow-[0_0_30px_rgba(34,197,94,0.3)] border border-green-500/30"
             >
                {socialPending > 0 ? (
                  <LoaderCircle className="w-10 h-10 text-cyan-300 drop-shadow-[0_0_15px_rgba(103,232,249,0.8)] animate-spin" strokeWidth={2.5} />
@@ -212,18 +212,18 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
                  <Check className="w-10 h-10 text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.8)]" strokeWidth={3} />
                )}
             </motion.div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">{headerTitle}</h2>
-            <p className="text-neutral-400 mt-2 font-medium text-sm">{headerSubtitle}</p>
+            <h2 className="text-2xl font-bold text-white tracking-tight">{headerTitle}</h2>
+            <p className="text-neutral-400 mt-1 font-medium text-xs">{headerSubtitle}</p>
             <div className="text-xs text-neutral-500 mt-1 flex items-center justify-center gap-2">
                <Clock className="w-3 h-3" />
                {new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
             </div>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 relative z-10">
             <motion.div
               variants={itemVars}
-              className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/8 p-5 overflow-hidden relative"
+              className="rounded-[20px] border border-emerald-400/20 bg-emerald-400/8 p-4 overflow-hidden relative"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(52,211,153,0.18),transparent_35%)] pointer-events-none" />
               <div className="relative flex items-start justify-between gap-4">
@@ -232,29 +232,29 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
                     <Sparkles className="w-3.5 h-3.5" />
                     Render Summary
                   </div>
-                  <div className="mt-3 flex items-end gap-3">
-                    <span className="text-5xl font-black text-white leading-none">
+                  <div className="mt-2 flex items-end gap-2">
+                    <span className="text-4xl font-black text-white leading-none">
                       <NumberTicker value={stats.videos} />
                     </span>
                     <div className="pb-1">
-                      <div className="text-sm font-semibold text-emerald-200">คลิปจบแล้ว</div>
-                      <div className="text-xs text-emerald-100/60">{stats.images} ภาพอ้างอิงผลลัพธ์</div>
+                      <div className="text-xs font-semibold text-emerald-200">คลิปจบแล้ว</div>
+                      <div className="text-[10px] text-emerald-100/60">{stats.images} ภาพอ้างอิง</div>
                     </div>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-right">
+                <div className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5 text-right">
                   <div className="text-[10px] uppercase tracking-[0.25em] text-white/40">เป้าหมาย</div>
-                  <div className="text-xl font-bold text-cyan-200">
+                  <div className="text-lg font-bold text-cyan-200">
                     {stats.videos}/<NumberTicker value={plannedClipsLabel} />
                   </div>
                 </div>
               </div>
               <div className="mt-5">
-                <div className="mb-2 flex items-center justify-between text-[11px] text-white/55">
+                <div className="mb-1.5 flex items-center justify-between text-[10px] text-white/55">
                   <span>ความคืบหน้า Automation</span>
-                  <span>{clipProgressPercent}%</span>
+                  <span className="font-bold">{clipProgressPercent}%</span>
                 </div>
-                <div className="h-2.5 rounded-full bg-white/8 overflow-hidden">
+                <div className="h-2 rounded-full bg-white/8 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${clipProgressPercent}%` }}
@@ -262,16 +262,16 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
                     className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-300 to-sky-400 shadow-[0_0_18px_rgba(45,212,191,0.45)]"
                   />
                 </div>
-                <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
-                  <Activity className="w-3.5 h-3.5 text-emerald-300" />
-                  {stats.products} ชุดสินค้า | {plannedClipsValue} รอบที่ระบบตั้งไว้
+                <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-white/60">
+                  <Activity className="w-3 h-3 text-emerald-300" />
+                  {stats.products} สินค้า | {plannedClipsValue} รอบที่ตั้งไว้
                 </div>
               </div>
             </motion.div>
 
             <motion.div
               variants={itemVars}
-              className="rounded-[28px] border border-cyan-400/20 bg-cyan-400/8 p-5 overflow-hidden relative"
+              className="rounded-[20px] border border-cyan-400/20 bg-cyan-400/8 p-4 overflow-hidden relative flex flex-col justify-between"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_35%)] pointer-events-none" />
               <div className="relative flex items-center justify-between gap-4">
@@ -280,42 +280,42 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
                     <MonitorPlay className="w-3.5 h-3.5" />
                     Social Distribution
                   </div>
-                  <div className="mt-3 flex items-end gap-3">
-                    <span className="text-5xl font-black text-white leading-none">
+                  <div className="mt-2 flex items-end gap-2">
+                    <span className="text-4xl font-black text-white leading-none">
                       <NumberTicker value={socialPending} />
                     </span>
                     <div className="pb-1">
-                      <div className="text-sm font-semibold text-cyan-100">งานค้างส่งต่อ</div>
-                      <div className="text-xs text-cyan-100/60">อัปเดตสดเมื่อ TikTok/YouTube จบงาน</div>
+                      <div className="text-xs font-semibold text-cyan-100">งานค้างส่งต่อ</div>
+                      <div className="text-[10px] text-cyan-100/60">อัปเดตแบบเรียลไทม์</div>
                     </div>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-right">
+                <div className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5 text-right">
                   <div className="text-[10px] uppercase tracking-[0.25em] text-white/40">สำเร็จรวม</div>
-                  <div className="text-xl font-bold text-green-200">
+                  <div className="text-lg font-bold text-green-200">
                     <NumberTicker value={stats.tiktokPosts + stats.youtubeUploads} />
                   </div>
                 </div>
               </div>
-              <div className="mt-5 space-y-3">
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm text-white/80">
-                    <Smartphone className="w-4 h-4 text-sky-300" />
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between rounded-xl border border-white/8 bg-black/20 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs text-white/80">
+                    <Smartphone className="w-3.5 h-3.5 text-sky-300" />
                     TikTok
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-white">{stats.tiktokPosts} สำเร็จ</div>
-                    <div className="text-[11px] text-white/45">รอ {stats.tiktokQueued} | เฟล {stats.tiktokFailed}</div>
+                    <div className="text-xs font-semibold text-white">{stats.tiktokPosts} สำเร็จ</div>
+                    <div className="text-[10px] text-white/45">รอ {stats.tiktokQueued} | เฟล {stats.tiktokFailed}</div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm text-white/80">
-                    <MonitorPlay className="w-4 h-4 text-rose-300" />
+                <div className="flex items-center justify-between rounded-xl border border-white/8 bg-black/20 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs text-white/80">
+                    <MonitorPlay className="w-3.5 h-3.5 text-rose-300" />
                     YouTube
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-white">{stats.youtubeUploads} สำเร็จ</div>
-                    <div className="text-[11px] text-white/45">รอ {stats.youtubeQueued} | เฟล {stats.youtubeFailed}</div>
+                    <div className="text-xs font-semibold text-white">{stats.youtubeUploads} สำเร็จ</div>
+                    <div className="text-[10px] text-white/45">รอ {stats.youtubeQueued} | เฟล {stats.youtubeFailed}</div>
                   </div>
                 </div>
               </div>
@@ -323,49 +323,49 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
+          <div className="grid grid-cols-4 gap-2 mb-5 relative z-10">
             {statCards.map((stat, i) => (
               <motion.div
                 key={i}
                 variants={itemVars}
                 whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.08)" }}
-                className={`p-4 rounded-[22px] border ${stat.border} ${stat.bg} flex flex-col items-start justify-between transition-colors duration-300 relative group overflow-hidden min-h-[122px]`}
+                className={`p-3 rounded-2xl border ${stat.border} ${stat.bg} flex flex-col items-start justify-between transition-colors duration-300 relative group overflow-hidden min-h-[96px]`}
               >
-                <stat.icon className={`absolute -right-2 -bottom-2 w-16 h-16 opacity-5 ${stat.color} group-hover:opacity-10 transition-opacity duration-300 transform -rotate-12`} />
+                <stat.icon className={`absolute -right-2 -bottom-2 w-12 h-12 opacity-5 ${stat.color} group-hover:opacity-10 transition-opacity duration-300 transform -rotate-12`} />
                 
                 <div className="flex items-center justify-between w-full z-10">
                   <div className={`inline-flex p-2 rounded-2xl border border-white/8 bg-black/20 ${stat.color}`}>
-                    <stat.icon className="w-4 h-4" />
+                    <stat.icon className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-3xl font-black ${stat.color} mb-1 drop-shadow-md`}>
+                  <span className={`text-2xl font-black ${stat.color} mb-1 drop-shadow-md`}>
                     <NumberTicker value={stat.value} />
                   </span>
                 </div>
-                <div className="z-10 mt-4">
-                  <div className="text-sm font-semibold text-white">{stat.label}</div>
-                  <div className="text-[11px] text-neutral-400 mt-1">{stat.helper}</div>
+                <div className="z-10 mt-2">
+                  <div className="text-xs font-semibold text-white leading-tight">{stat.label}</div>
+                  <div className="text-[9px] text-neutral-400 mt-0.5 leading-tight">{stat.helper}</div>
                 </div>
               </motion.div>
             ))}
           </div>
 
           {/* Duration Footer */}
-          <motion.div variants={itemVars} className="grid grid-cols-3 gap-3 text-neutral-400 mb-8 relative z-10">
-             <div className="flex items-center justify-center space-x-2 bg-black/40 py-3.5 rounded-2xl border border-white/5">
-               <Clock className="w-4 h-4 text-green-400" />
-               <span className="text-xs font-medium tracking-wide text-center">เวลา <span className="text-green-400 font-bold ml-1">{duration}</span></span>
+          <motion.div variants={itemVars} className="grid grid-cols-3 gap-2 text-neutral-400 mb-5 relative z-10">
+             <div className="flex items-center justify-center space-x-1.5 bg-black/40 py-2.5 rounded-xl border border-white/5">
+               <Clock className="w-3.5 h-3.5 text-green-400" />
+               <span className="text-[11px] font-medium tracking-wide text-center">เวลา <span className="text-green-400 font-bold ml-1">{duration}</span></span>
              </div>
-             <div className="flex items-center justify-center space-x-2 bg-black/40 py-3.5 rounded-2xl border border-white/5">
-               <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-               <span className="text-xs font-medium tracking-wide text-center">สำเร็จ <span className="text-emerald-300 font-bold ml-1">{stats.success}</span></span>
+             <div className="flex items-center justify-center space-x-1.5 bg-black/40 py-2.5 rounded-xl border border-white/5">
+               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+               <span className="text-[11px] font-medium tracking-wide text-center">สำเร็จ <span className="text-emerald-300 font-bold ml-1">{stats.success}</span></span>
              </div>
-             <div className="flex items-center justify-center space-x-2 bg-black/40 py-3.5 rounded-2xl border border-white/5">
+             <div className="flex items-center justify-center space-x-1.5 bg-black/40 py-2.5 rounded-xl border border-white/5">
                {socialPending > 0 ? (
-                 <LoaderCircle className="w-4 h-4 text-cyan-300 animate-spin" />
+                 <LoaderCircle className="w-3.5 h-3.5 text-cyan-300 animate-spin" />
                ) : (
-                 <XCircle className="w-4 h-4 text-red-300" />
+                 <XCircle className="w-3.5 h-3.5 text-red-300" />
                )}
-               <span className="text-xs font-medium tracking-wide text-center">
+               <span className="text-[11px] font-medium tracking-wide text-center">
                  {socialPending > 0 ? 'กำลังส่งต่อ' : 'ปัญหา'}
                  <span className={`${socialPending > 0 ? 'text-cyan-300' : 'text-red-300'} font-bold ml-1`}>
                    {socialPending > 0 ? socialPending : stats.failed}
@@ -380,7 +380,7 @@ export const AutomationSummary: React.FC<AutomationSummaryProps> = ({ isOpen, on
             whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(74,222,128,0.4)" }}
             whileTap={{ scale: 0.98 }}
             onClick={onClose}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-green-400 to-green-500 hover:from-green-300 hover:to-green-400 text-black font-bold text-lg shadow-[0_0_20px_rgba(34,197,94,0.2)] transition-all relative z-10 group overflow-hidden"
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-green-400 to-green-500 hover:from-green-300 hover:to-green-400 text-black font-bold text-sm shadow-[0_0_20px_rgba(34,197,94,0.2)] transition-all relative z-10 group overflow-hidden"
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
               ปิด
