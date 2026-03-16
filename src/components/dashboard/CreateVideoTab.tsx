@@ -821,22 +821,24 @@ const CreateVideoTab = () => {
                                     (window as any).__NETFLOW_STOP_LOOP__ = false;
                                 }
                                 
-                                // Reset stats and start timer
-                                setAutomationStartTime(Date.now());
-                                setAutomationStats({
-                                    products: 1, // Start with 1 product
-                                    plannedClips: Number.isFinite(loopCount) ? loopCount : -1,
-                                    images: 0,
-                                    videos: 0,
-                                    tiktokQueued: 0,
-                                    tiktokPosts: 0,
-                                    tiktokFailed: 0,
-                                    youtubeQueued: 0,
-                                    youtubeUploads: 0,
-                                    youtubeFailed: 0,
-                                    success: 0,
-                                    failed: 0
-                                });
+                                // Reset stats and start timer — only on FIRST loop, not re-triggers
+                                if (!isLoopingRef.current) {
+                                    setAutomationStartTime(Date.now());
+                                    setAutomationStats({
+                                        products: 1,
+                                        plannedClips: Number.isFinite(loopCount) ? loopCount : -1,
+                                        images: 0,
+                                        videos: 0,
+                                        tiktokQueued: 0,
+                                        tiktokPosts: 0,
+                                        tiktokFailed: 0,
+                                        youtubeQueued: 0,
+                                        youtubeUploads: 0,
+                                        youtubeFailed: 0,
+                                        success: 0,
+                                        failed: 0
+                                    });
+                                }
 
                                 try {
                                     const response = await new Promise<{ success: boolean; message: string; step?: string }>((resolve) => {
