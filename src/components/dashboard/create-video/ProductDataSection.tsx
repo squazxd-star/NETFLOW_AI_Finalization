@@ -249,18 +249,18 @@ const ProductDataSection = ({
                                                         key={p.id}
                                                         type="button"
                                                         onClick={() => handleSelectSyncedProduct(p)}
-                                                        className="w-full flex items-center gap-2 p-2 text-xs hover:bg-muted/50 transition-colors"
+                                                        className="w-full flex items-center gap-2.5 p-3 text-xs hover:bg-muted/50 transition-colors"
                                                     >
                                                         {p.imageUrl ? (
-                                                            <img src={p.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
+                                                            <img src={p.imageUrl} alt="" className="w-8 h-8 rounded object-cover" />
                                                         ) : (
-                                                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                                                            <ShoppingBag className="w-5 h-5 text-muted-foreground" />
                                                         )}
                                                         <div className="flex-1 min-w-0 text-left">
-                                                            <p className="truncate text-foreground">{p.name}</p>
-                                                            <p className="text-[9px] text-muted-foreground font-mono">{p.id}</p>
+                                                            <p className="truncate text-foreground text-sm font-medium">{p.name}</p>
+                                                            <p className="text-[10px] text-muted-foreground font-mono">{p.id}</p>
                                                         </div>
-                                                        {p.price && <span className="text-neon-red text-[10px]">{p.price}</span>}
+                                                        {p.price && <span className="text-neon-red text-xs font-semibold">{p.price}</span>}
                                                     </button>
                                                 ))}
                                             </div>
