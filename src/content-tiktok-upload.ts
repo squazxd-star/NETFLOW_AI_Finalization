@@ -894,6 +894,7 @@ const addProductLink = async (productId: string): Promise<boolean> => {
 
     for (const row of rows) {
       const rowText = (row.textContent || '');
+      // strict match - TikTok product IDs are usually 19 digits.
       if (!rowText.includes(productId)) continue;
       log(`Found row with product ID ${productId}`);
 
@@ -916,11 +917,11 @@ const addProductLink = async (productId: string): Promise<boolean> => {
         radio.dispatchEvent(new Event('change', { bubbles: true }));
         radio.dispatchEvent(new Event('input', { bubbles: true }));
         productSelected = true;
-        log('✅ Product radio selected');
+        log('✅ Product radio selected explicitly');
         break;
       }
 
-      // Fallback: click the row itself at leftmost position (radio column)
+      // Fallback: click the row itself at leftmost position (radio column) ONLY if we are SURE it's the right row
       const rect = row.getBoundingClientRect();
       if (rect.width > 0) {
         const opts = { bubbles: true, cancelable: true, clientX: rect.left + 20, clientY: rect.top + rect.height / 2, button: 0 };
@@ -930,7 +931,7 @@ const addProductLink = async (productId: string): Promise<boolean> => {
         row.dispatchEvent(new MouseEvent('mouseup', opts));
         row.dispatchEvent(new MouseEvent('click', opts));
         productSelected = true;
-        log('Selected via row left-click');
+        log('Selected via row left-click (strict match)');
         break;
       }
     }
@@ -939,12 +940,16 @@ const addProductLink = async (productId: string): Promise<boolean> => {
     if (!productSelected) {
       const idCells = Array.from(document.querySelectorAll('[class*="product-tb-cell"], td, div, span')).filter(el => {
         const t = (el.textContent || '').trim();
-        return t === productId || (t.includes(productId) && t.length < 100);
+        // Strict match: the cell text should be exactly the product ID, or contain it explicitly
+        return t === productId || (t.includes(productId) && t.length < 50);
       });
       idCells.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
       log(`Fallback: found ${idCells.length} ID cells`);
 
       for (const cell of idCells) {
+        // Ensure this cell actually contains the productId text
+        if (!(cell.textContent || '').includes(productId)) continue;
+
         const tr = cell.closest('tr') || cell.closest('[class*="product-tb-row"]');
         if (!tr) continue;
         const radio = tr.querySelector('input.TUXRadioStandalone-input, input[type="radio"]') as HTMLInputElement;
@@ -957,7 +962,7 @@ const addProductLink = async (productId: string): Promise<boolean> => {
           if (setter) { setter.call(radio, true); }
           radio.dispatchEvent(new Event('change', { bubbles: true }));
           productSelected = true;
-          log('✅ Product selected via fallback ID cell');
+          log('✅ Product selected via fallback ID cell (strict match)');
           break;
         }
       }
