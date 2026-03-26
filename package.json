@@ -72,7 +72,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/chrome": "^0.1.36",
+    "@types/chrome": "^0.1.38",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",

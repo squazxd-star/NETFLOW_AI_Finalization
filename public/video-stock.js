@@ -362,6 +362,119 @@ let _ytTargetVideoId = null;
 let _ytMadeForKids = false;
 let _ytVisibility = 'public';
 let _ytScheduleEnabled = false;
+let _ytSelectedDate = null; // Date object
+let _ytSelectedTime = ''; // e.g. '12:00'
+let _ytCalViewYear = new Date().getFullYear();
+let _ytCalViewMonth = new Date().getMonth();
+
+// Thai month abbreviations
+const THAI_MONTHS_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const THAI_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function formatThaiDate(date) {
+    const day = date.getDate();
+    const month = THAI_MONTHS_ABBR[date.getMonth()];
+    const year = date.getFullYear() + 543;
+    return day + ' ' + month + ' ' + year;
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('ytCalGrid');
+    const monthYearEl = document.getElementById('ytCalMonthYear');
+    if (!grid || !monthYearEl) return;
+
+    const buddhistYear = _ytCalViewYear + 543;
+    monthYearEl.textContent = THAI_MONTHS_FULL[_ytCalViewMonth] + ' ' + buddhistYear;
+
+    grid.innerHTML = '';
+
+    // Day of week headers
+    const dows = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+    dows.forEach(d => {
+        const el = document.createElement('div');
+        el.className = 'yt-cal-dow';
+        el.textContent = d;
+        grid.appendChild(el);
+    });
+
+    const firstDay = new Date(_ytCalViewYear, _ytCalViewMonth, 1).getDay();
+    const daysInMonth = new Date(_ytCalViewYear, _ytCalViewMonth + 1, 0).getDate();
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) {
+        const el = document.createElement('div');
+        el.className = 'yt-cal-day disabled';
+        grid.appendChild(el);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'yt-cal-day';
+        btn.textContent = d;
+
+        const cellDate = new Date(_ytCalViewYear, _ytCalViewMonth, d);
+        cellDate.setHours(0,0,0,0);
+
+        // Past dates disabled
+        if (cellDate < today) {
+            btn.classList.add('disabled');
+        }
+
+        // Today highlight
+        if (cellDate.getTime() === today.getTime()) {
+            btn.classList.add('today');
+        }
+
+        // Selected highlight
+        if (_ytSelectedDate && cellDate.getTime() === _ytSelectedDate.getTime()) {
+            btn.classList.add('selected');
+        }
+
+        btn.addEventListener('click', () => {
+            _ytSelectedDate = new Date(_ytCalViewYear, _ytCalViewMonth, d);
+            _ytSelectedDate.setHours(0,0,0,0);
+            const label = document.getElementById('ytCalendarLabel');
+            label.textContent = formatThaiDate(_ytSelectedDate);
+            label.classList.remove('placeholder');
+            label.style.color = '#fff';
+            document.getElementById('ytCalendarPopup').classList.remove('open');
+            renderCalendar();
+        });
+
+        grid.appendChild(btn);
+    }
+}
+
+function buildTimeDropdown() {
+    const dropdown = document.getElementById('ytTimeDropdown');
+    if (!dropdown) return;
+    dropdown.innerHTML = '';
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 30) {
+            const t = h.toString().padStart(2, '0') + ':' + m.toString().padStart(2, '0');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'yt-time-option';
+            btn.textContent = t;
+            if (_ytSelectedTime === t) btn.classList.add('selected');
+            btn.addEventListener('click', () => {
+                _ytSelectedTime = t;
+                const label = document.getElementById('ytTimeLabel');
+                label.textContent = t;
+                label.classList.remove('placeholder');
+                label.style.color = '#fff';
+                document.getElementById('ytTimeDropdown').classList.remove('open');
+                // Update selected class
+                dropdown.querySelectorAll('.yt-time-option').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+            });
+            dropdown.appendChild(btn);
+        }
+    }
+}
 
 function uploadYouTube(id) {
     const video = _videos.find(v => v.id === id);
@@ -386,8 +499,17 @@ function uploadYouTube(id) {
     document.getElementById('ytScheduleToggle').textContent = '\u0e1b\u0e34\u0e14';
     document.getElementById('ytScheduleToggle').classList.remove('active');
     document.getElementById('ytScheduleFields').classList.remove('active');
-    document.getElementById('ytScheduleDate').value = '';
-    document.getElementById('ytScheduleTime').value = '';
+    _ytSelectedDate = null;
+    _ytSelectedTime = '';
+    const calLabel = document.getElementById('ytCalendarLabel');
+    if (calLabel) { calLabel.textContent = '\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e27\u0e31\u0e19\u0e17\u0e35\u0e48'; calLabel.style.color = ''; calLabel.classList.add('placeholder'); }
+    const timeLabel = document.getElementById('ytTimeLabel');
+    if (timeLabel) { timeLabel.textContent = '\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e40\u0e27\u0e25\u0e32'; timeLabel.style.color = ''; timeLabel.classList.add('placeholder'); }
+    document.getElementById('ytCalendarPopup')?.classList.remove('open');
+    document.getElementById('ytTimeDropdown')?.classList.remove('open');
+    // Reset calendar view to current month
+    _ytCalViewYear = new Date().getFullYear();
+    _ytCalViewMonth = new Date().getMonth();
 
     // Show popup
     document.getElementById('ytPopup').classList.add('active');
@@ -405,8 +527,8 @@ function doYouTubeUpload() {
 
     const title = document.getElementById('ytTitle').value.trim() || 'Netflow AI Video';
     const description = document.getElementById('ytDesc').value.trim();
-    const scheduleDate = _ytScheduleEnabled ? document.getElementById('ytScheduleDate').value.trim() : '';
-    const scheduleTime = _ytScheduleEnabled ? document.getElementById('ytScheduleTime').value.trim() : '';
+    const scheduleDate = _ytScheduleEnabled && _ytSelectedDate ? formatThaiDate(_ytSelectedDate) : '';
+    const scheduleTime = _ytScheduleEnabled ? _ytSelectedTime : '';
 
     const postBtn = document.getElementById('ytPost');
     postBtn.disabled = true;
@@ -530,11 +652,65 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ── YouTube Popup Event Listeners ──
+document.getElementById('ytPopupClose').addEventListener('click', closeYtPopup);
 document.getElementById('ytCancel').addEventListener('click', closeYtPopup);
 document.getElementById('ytPopup').addEventListener('click', (e) => {
     if (e.target === document.getElementById('ytPopup')) closeYtPopup();
 });
 document.getElementById('ytPost').addEventListener('click', doYouTubeUpload);
+
+// Calendar picker
+document.getElementById('ytCalendarTrigger').addEventListener('click', () => {
+    const popup = document.getElementById('ytCalendarPopup');
+    const isOpen = popup.classList.contains('open');
+    // Close time dropdown if open
+    document.getElementById('ytTimeDropdown')?.classList.remove('open');
+    if (isOpen) {
+        popup.classList.remove('open');
+    } else {
+        renderCalendar();
+        popup.classList.add('open');
+    }
+});
+document.getElementById('ytCalPrev').addEventListener('click', () => {
+    _ytCalViewMonth--;
+    if (_ytCalViewMonth < 0) { _ytCalViewMonth = 11; _ytCalViewYear--; }
+    renderCalendar();
+});
+document.getElementById('ytCalNext').addEventListener('click', () => {
+    _ytCalViewMonth++;
+    if (_ytCalViewMonth > 11) { _ytCalViewMonth = 0; _ytCalViewYear++; }
+    renderCalendar();
+});
+
+// Time dropdown
+buildTimeDropdown();
+document.getElementById('ytTimeTrigger').addEventListener('click', () => {
+    const dd = document.getElementById('ytTimeDropdown');
+    const isOpen = dd.classList.contains('open');
+    // Close calendar if open
+    document.getElementById('ytCalendarPopup')?.classList.remove('open');
+    if (isOpen) {
+        dd.classList.remove('open');
+    } else {
+        dd.classList.add('open');
+        // Scroll to selected or noon
+        const sel = dd.querySelector('.yt-time-option.selected');
+        if (sel) sel.scrollIntoView({ block: 'center' });
+    }
+});
+
+// Close calendar/time dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const calWrap = document.getElementById('ytCalendarWrap');
+    const timeWrap = document.getElementById('ytTimeWrap');
+    if (calWrap && !calWrap.contains(e.target)) {
+        document.getElementById('ytCalendarPopup')?.classList.remove('open');
+    }
+    if (timeWrap && !timeWrap.contains(e.target)) {
+        document.getElementById('ytTimeDropdown')?.classList.remove('open');
+    }
+});
 
 // Title char count
 document.getElementById('ytTitle').addEventListener('input', (e) => {

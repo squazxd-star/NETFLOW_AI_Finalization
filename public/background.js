@@ -755,6 +755,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    // ── VIDEO_GENERATION_ERROR: Relay error from content script to side panel (for loop skip-on-error) ──
+    if (message?.type === 'VIDEO_GENERATION_ERROR') {
+        console.log('[Netflow BG] VIDEO_GENERATION_ERROR received:', message.error);
+        // Relay to any open extension pages (side panel / popup) with small delay
+        setTimeout(() => {
+            try {
+                chrome.runtime.sendMessage({
+                    type: 'VIDEO_GENERATION_ERROR',
+                    error: message.error || 'Unknown error',
+                    source: message.source || 'veo',
+                    recoverable: message.recoverable || false,
+                    tabId: sender?.tab?.id || null,
+                    _fromBackground: true
+                });
+            } catch (_) {}
+        }, 200);
+        sendResponse({ ok: true });
+        return true;
+    }
+
     // ── OPEN_FLOW_AND_GENERATE: Open Google Flow → wait → New Project → forward GENERATE_IMAGE ──
     if (message?.action === "OPEN_FLOW_AND_GENERATE") {
         (async () => {

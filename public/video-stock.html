@@ -505,6 +505,108 @@
         .yt-btn-post:disabled { opacity: 0.5; cursor: not-allowed; }
         .yt-btn-post svg { width: 16px; height: 16px; }
 
+        /* X Close button in popup header */
+        .yt-popup-close {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: #71717a; font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; margin-left: auto; flex-shrink: 0;
+        }
+        .yt-popup-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .yt-popup-close svg { width: 16px; height: 16px; }
+
+        /* Calendar Popup */
+        .yt-calendar-wrap {
+            position: relative;
+        }
+        .yt-calendar-trigger {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; border-radius: 10px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            color: #fff; font-size: 11px; font-family: inherit;
+            cursor: pointer; outline: none; transition: border-color 0.2s;
+        }
+        .yt-calendar-trigger:hover { border-color: rgba(255,255,255,0.15); }
+        .yt-calendar-trigger .placeholder { color: #52525b; }
+        .yt-calendar-trigger svg { width: 14px; height: 14px; color: #52525b; flex-shrink: 0; }
+        .yt-calendar-popup {
+            display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+            background: #18181b; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; padding: 14px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+            min-width: 260px;
+        }
+        .yt-calendar-popup.open { display: block; }
+        .yt-cal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .yt-cal-header span {
+            font-size: 13px; font-weight: 700; color: #fff;
+        }
+        .yt-cal-nav {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+            color: #a1a1aa; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .yt-cal-nav:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .yt-cal-nav svg { width: 14px; height: 14px; }
+        .yt-cal-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+            text-align: center;
+        }
+        .yt-cal-dow {
+            font-size: 10px; color: #52525b; font-weight: 600;
+            padding: 4px 0;
+        }
+        .yt-cal-day {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #a1a1aa; cursor: pointer;
+            border: none; background: transparent; transition: all 0.15s;
+            margin: 0 auto;
+        }
+        .yt-cal-day:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .yt-cal-day.today { border: 1px solid rgba(var(--primary-rgb),0.4); color: var(--primary); }
+        .yt-cal-day.selected { background: rgba(var(--primary-rgb),0.2); color: var(--primary); font-weight: 700; }
+        .yt-cal-day.other-month { color: #333; }
+        .yt-cal-day.disabled { color: #333; cursor: default; pointer-events: none; }
+
+        /* Time Dropdown */
+        .yt-time-wrap { position: relative; }
+        .yt-time-trigger {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; border-radius: 10px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            color: #fff; font-size: 11px; font-family: inherit;
+            cursor: pointer; outline: none; transition: border-color 0.2s;
+        }
+        .yt-time-trigger:hover { border-color: rgba(255,255,255,0.15); }
+        .yt-time-trigger .placeholder { color: #52525b; }
+        .yt-time-trigger svg { width: 14px; height: 14px; color: #52525b; flex-shrink: 0; }
+        .yt-time-dropdown {
+            display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+            background: #18181b; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 4px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+            width: 100%; max-height: 200px; overflow-y: auto;
+        }
+        .yt-time-dropdown.open { display: block; }
+        .yt-time-dropdown::-webkit-scrollbar { width: 4px; }
+        .yt-time-dropdown::-webkit-scrollbar-track { background: transparent; }
+        .yt-time-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .yt-time-option {
+            display: block; width: 100%; padding: 7px 10px; border-radius: 8px;
+            font-size: 11px; color: #a1a1aa; cursor: pointer;
+            border: none; background: transparent; text-align: left;
+            transition: all 0.15s;
+        }
+        .yt-time-option:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .yt-time-option.selected { background: rgba(var(--primary-rgb),0.15); color: var(--primary); font-weight: 600; }
+
         /* Scrollbar for popup */
         .yt-popup-box::-webkit-scrollbar { width: 4px; }
         .yt-popup-box::-webkit-scrollbar-track { background: transparent; }
@@ -591,6 +693,9 @@
             <div class="yt-popup-header">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 00.5 6.2C0 8.08 0 12 0 12s0 3.92.5 5.8a3.02 3.02 0 002.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 002.12-2.14C24 15.92 24 12 24 12s0-3.92-.5-5.8zM9.55 15.57V8.43L15.8 12l-6.25 3.57z"/></svg>
                 <h3>YouTube Shorts</h3>
+                <button class="yt-popup-close" id="ytPopupClose" title="ปิด">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
 
             <!-- Body -->
@@ -670,14 +775,37 @@
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                 วันที่
                             </div>
-                            <input type="text" class="yt-input" id="ytScheduleDate" placeholder="12 พ.ย. 2026" />
+                            <div class="yt-calendar-wrap" id="ytCalendarWrap">
+                                <button type="button" class="yt-calendar-trigger" id="ytCalendarTrigger">
+                                    <span class="placeholder" id="ytCalendarLabel">เลือกวันที่</span>
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                </button>
+                                <div class="yt-calendar-popup" id="ytCalendarPopup">
+                                    <div class="yt-cal-header">
+                                        <button type="button" class="yt-cal-nav" id="ytCalPrev">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                        </button>
+                                        <span id="ytCalMonthYear"></span>
+                                        <button type="button" class="yt-cal-nav" id="ytCalNext">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="yt-cal-grid" id="ytCalGrid"></div>
+                                </div>
+                            </div>
                         </div>
                         <div class="yt-field-sm">
                             <div class="yt-field-label">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                 เวลา
                             </div>
-                            <input type="text" class="yt-input" id="ytScheduleTime" placeholder="12:00" />
+                            <div class="yt-time-wrap" id="ytTimeWrap">
+                                <button type="button" class="yt-time-trigger" id="ytTimeTrigger">
+                                    <span class="placeholder" id="ytTimeLabel">เลือกเวลา</span>
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                                <div class="yt-time-dropdown" id="ytTimeDropdown"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

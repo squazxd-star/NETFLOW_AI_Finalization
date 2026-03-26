@@ -450,105 +450,136 @@ const CreateVideoTab = () => {
         return tabLogs[selectedConsoleTab] || [];
     }, [tabLogs, selectedConsoleTab]);
 
-    // ─── Loop System: Listen for VIDEO_GENERATION_COMPLETE to trigger next loop ──
+    // ─── Loop System: Listen for VIDEO_GENERATION_COMPLETE / ERROR to trigger next loop ──
     useEffect(() => {
         if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) return;
-        const loopHandler = async (message: any) => {
-            if (message?.type !== "VIDEO_GENERATION_COMPLETE") return;
 
-            const now = Date.now();
-            const eventTabId = typeof message.tabId === "number" ? message.tabId : null;
-            const eventVideoUrl = typeof message.videoUrl === "string" ? message.videoUrl : null;
-            const lastCompletion = lastLoopCompletionRef.current;
-            const isDuplicateCompletion =
-                loopAdvanceInFlightRef.current ||
-                (
-                    now - lastCompletion.at < 10000 &&
-                    (
-                        (eventTabId !== null && lastCompletion.tabId === eventTabId) ||
-                        (!!eventVideoUrl && lastCompletion.videoUrl === eventVideoUrl)
-                    )
-                );
+        /**
+         * Shared logic: advance to the next loop iteration.
+         * Called after both success (VIDEO_GENERATION_COMPLETE) and error (VIDEO_GENERATION_ERROR).
+         */
+        const advanceToNextLoop = async () => {
+            const isCurrentlyLooping = isLoopingRef.current;
+            const currentLoopValue = currentLoopRef.current;
+            const currentLoopCount = loopCountRef.current;
 
-            if (isDuplicateCompletion) {
+            if (!isCurrentlyLooping || currentLoopValue >= currentLoopCount - 1) {
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์!`] }));
+                setIsLooping(false);
+                setCurrentLoop(0);
+                setIsUploading(false);
+                (window as any).__NETFLOW_STOP_LOOP__ = true;
+                finalizeAutomationRun();
                 return;
             }
 
-            loopAdvanceInFlightRef.current = true;
-            lastLoopCompletionRef.current = {
-                tabId: eventTabId,
-                videoUrl: eventVideoUrl,
-                at: now
-            };
+            const nextLoop = currentLoopValue + 1;
+            const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const loopLabel = currentLoopCount === Infinity ? '∞' : currentLoopCount;
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopLabel} — เตรียมรอบถัดไป...`] }));
 
-            try {
+            await new Promise(r => setTimeout(r, 4000));
+
+            if ((window as any).__NETFLOW_STOP_LOOP__) {
+                setIsLooping(false);
+                setCurrentLoop(0);
+                setIsUploading(false);
+                return;
+            }
+
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🤖 วิเคราะห์ด้วย AI (Loop ${nextLoop + 1})...`] }));
+            if (aiGenerateRef.current) {
+                try {
+                    await aiGenerateRef.current();
+                } catch (e: any) {
+                    console.warn("[Loop] AI generate error:", e);
+                }
+            }
+
+            await new Promise(r => setTimeout(r, 1500));
+
+            if ((window as any).__NETFLOW_STOP_LOOP__) {
+                setIsLooping(false);
+                setCurrentLoop(0);
+                setIsUploading(false);
+                return;
+            }
+
+            setCurrentLoop(nextLoop);
+            setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopLabel}...`] }));
+
+            const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
+            if (automationBtn) {
+                setGeneratedImagePrompt(null);
+                setGeneratedVideoPrompt(null);
+                setIsUploading(false);
+                await new Promise(r => setTimeout(r, 50));
+                automationBtn.click();
+            }
+        };
+
+        const loopHandler = async (message: any) => {
+            // ── Handle SUCCESS: video generated OK ──
+            if (message?.type === "VIDEO_GENERATION_COMPLETE") {
+                const now = Date.now();
+                const eventTabId = typeof message.tabId === "number" ? message.tabId : null;
+                const eventVideoUrl = typeof message.videoUrl === "string" ? message.videoUrl : null;
+                const lastCompletion = lastLoopCompletionRef.current;
+                const isDuplicateCompletion =
+                    loopAdvanceInFlightRef.current ||
+                    (
+                        now - lastCompletion.at < 10000 &&
+                        (
+                            (eventTabId !== null && lastCompletion.tabId === eventTabId) ||
+                            (!!eventVideoUrl && lastCompletion.videoUrl === eventVideoUrl)
+                        )
+                    );
+
+                if (isDuplicateCompletion) return;
+
+                loopAdvanceInFlightRef.current = true;
+                lastLoopCompletionRef.current = { tabId: eventTabId, videoUrl: eventVideoUrl, at: now };
+
+                try {
+                    setAutomationStats(prev => ({
+                        ...prev,
+                        images: prev.images + 1,
+                        videos: prev.videos + 1,
+                        success: prev.success + 1
+                    }));
+                    await advanceToNextLoop();
+                } finally {
+                    loopAdvanceInFlightRef.current = false;
+                }
+                return;
+            }
+
+            // ── Handle ERROR: automation failed — skip to next loop ──
+            if (message?.type === "VIDEO_GENERATION_ERROR" && message?.recoverable) {
+                if (!isLoopingRef.current) return; // Not looping — let useVideoGeneration handle normally
+                if (loopAdvanceInFlightRef.current) return; // Already advancing
+
+                loopAdvanceInFlightRef.current = true;
+                const errorMsg = message.error || "Unknown error";
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                const currentLoopValue = currentLoopRef.current;
+                const loopLabel = loopCountRef.current === Infinity ? '∞' : loopCountRef.current;
+
+                console.warn(`[Loop] Loop ${currentLoopValue + 1}/${loopLabel} error — skipping: ${errorMsg}`);
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ⚠️ Loop ${currentLoopValue + 1}/${loopLabel} ล้มเหลว: ${errorMsg} — ข้ามไปรอบถัดไป`] }));
+
                 setAutomationStats(prev => ({
                     ...prev,
-                    images: prev.images + 1,
-                    videos: prev.videos + 1,
-                    success: prev.success + 1
+                    failed: prev.failed + 1
                 }));
 
-                const isCurrentlyLooping = isLoopingRef.current;
-                const currentLoopValue = currentLoopRef.current;
-                const currentLoopCount = loopCountRef.current;
-
-                if (!isCurrentlyLooping || currentLoopValue >= currentLoopCount - 1) {
-                    const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                    setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์!`] }));
-                    setIsLooping(false);
-                    setCurrentLoop(0);
-                    setIsUploading(false);
-                    (window as any).__NETFLOW_STOP_LOOP__ = true;
-                    finalizeAutomationRun();
-                    return;
+                try {
+                    await advanceToNextLoop();
+                } finally {
+                    loopAdvanceInFlightRef.current = false;
                 }
-
-                const nextLoop = currentLoopValue + 1;
-                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                const loopLabel = currentLoopCount === Infinity ? '∞' : currentLoopCount;
-                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🔄 Loop ${nextLoop}/${loopLabel} — เตรียมรอบถัดไป...`] }));
-
-                await new Promise(r => setTimeout(r, 4000));
-
-                if ((window as any).__NETFLOW_STOP_LOOP__) {
-                    setIsLooping(false);
-                    setCurrentLoop(0);
-                    setIsUploading(false);
-                    return;
-                }
-
-                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🤖 วิเคราะห์ด้วย AI (Loop ${nextLoop + 1})...`] }));
-                if (aiGenerateRef.current) {
-                    try {
-                        await aiGenerateRef.current();
-                    } catch (e: any) {
-                        console.warn("[Loop] AI generate error:", e);
-                    }
-                }
-
-                await new Promise(r => setTimeout(r, 1500));
-
-                if ((window as any).__NETFLOW_STOP_LOOP__) {
-                    setIsLooping(false);
-                    setCurrentLoop(0);
-                    setIsUploading(false);
-                    return;
-                }
-
-                setCurrentLoop(nextLoop);
-                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🚀 เริ่ม Automation Loop ${nextLoop + 1}/${loopLabel}...`] }));
-
-                const automationBtn = document.querySelector<HTMLButtonElement>('[data-automation-btn]');
-                if (automationBtn) {
-                    setGeneratedImagePrompt(null);
-                    setGeneratedVideoPrompt(null);
-                    setIsUploading(false);
-                    await new Promise(r => setTimeout(r, 50));
-                    automationBtn.click();
-                }
-            } finally {
-                loopAdvanceInFlightRef.current = false;
+                return;
             }
         };
         chrome.runtime.onMessage.addListener(loopHandler);
@@ -807,9 +838,22 @@ const CreateVideoTab = () => {
                                 setUploadStatus("⏳ กำลังสร้าง Prompt ด้วย AI...");
                                 const prompts = await handleGeneratePrompt();
                                 if (!prompts) {
+                                    // If looping, skip this iteration and advance to next loop
+                                    if (isLoopingRef.current) {
+                                        setUploadStatus("⚠️ สร้าง Prompt ไม่สำเร็จ — ข้ามไปรอบถัดไป");
+                                        try {
+                                            chrome.runtime.sendMessage({
+                                                type: "VIDEO_GENERATION_ERROR",
+                                                error: "Prompt generation failed",
+                                                source: "veo",
+                                                recoverable: true
+                                            });
+                                        } catch (_) {}
+                                        return;
+                                    }
                                     setIsUploading(false);
                                     setUploadStatus("❌ สร้าง Prompt ไม่สำเร็จ");
-                                    return; // Validation failed or generation failed
+                                    return;
                                 }
 
                                 setUploadStatus("⏳ กำลังเปิด Google Flow + สร้างโปรเจค...");
@@ -876,12 +920,38 @@ const CreateVideoTab = () => {
                                     if (response.success) {
                                         setUploadStatus(response.message);
                                     } else {
-                                        setUploadStatus(`❌ ${response.message}`);
-                                        setIsUploading(false);
+                                        // If looping, skip this iteration and advance to next loop
+                                        if (isLoopingRef.current) {
+                                            setUploadStatus(`⚠️ ${response.message} — ข้ามไปรอบถัดไป`);
+                                            try {
+                                                chrome.runtime.sendMessage({
+                                                    type: "VIDEO_GENERATION_ERROR",
+                                                    error: response.message || "OPEN_FLOW_AND_GENERATE failed",
+                                                    source: "veo",
+                                                    recoverable: true
+                                                });
+                                            } catch (_) {}
+                                        } else {
+                                            setUploadStatus(`❌ ${response.message}`);
+                                            setIsUploading(false);
+                                        }
                                     }
                                 } catch (err: any) {
-                                    setUploadStatus(`❌ ${err.message}`);
-                                    setIsUploading(false);
+                                    // If looping, skip this iteration and advance to next loop
+                                    if (isLoopingRef.current) {
+                                        setUploadStatus(`⚠️ ${err.message} — ข้ามไปรอบถัดไป`);
+                                        try {
+                                            chrome.runtime.sendMessage({
+                                                type: "VIDEO_GENERATION_ERROR",
+                                                error: err.message || "Automation request failed",
+                                                source: "veo",
+                                                recoverable: true
+                                            });
+                                        } catch (_) {}
+                                    } else {
+                                        setUploadStatus(`❌ ${err.message}`);
+                                        setIsUploading(false);
+                                    }
                                 }
                             }}
                             className={`w-full py-4 px-6 rounded-[calc(1rem-2px)] font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:cursor-not-allowed ${

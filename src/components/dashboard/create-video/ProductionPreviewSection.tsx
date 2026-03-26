@@ -1,10 +1,43 @@
-import { useState, useEffect } from "react";
-import { Share2, Youtube, Save, Globe, Lock, EyeOff, Calendar, Clock, Sparkles, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Share2, Youtube, Save, Globe, Lock, EyeOff, Calendar as CalendarIcon, Clock, Sparkles, Loader2, ChevronDown } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import { ProductionPreviewSectionProps } from "./types";
 import { useToast } from "@/hooks/use-toast";
 import { generateYouTubeMetadata } from "@/services/youtubeMetadataService";
 import { setYouTubeAutoPostEnabled, saveYouTubeConfig } from "@/services/youtubeUploadService";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+
+const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+function formatThaiDate(date: Date): string {
+    const d = date.getDate();
+    const m = THAI_MONTHS_SHORT[date.getMonth()];
+    const y = date.getFullYear();
+    return `${d} ${m} ${y}`;
+}
+
+function parseThaiDate(str: string): Date | undefined {
+    if (!str) return undefined;
+    const parts = str.match(/(\d+)\s+(.+?)\s+(\d{4})/);
+    if (!parts) return undefined;
+    const day = parseInt(parts[1], 10);
+    const monthStr = parts[2];
+    const year = parseInt(parts[3], 10);
+    const monthIndex = THAI_MONTHS_SHORT.indexOf(monthStr);
+    if (monthIndex === -1) return undefined;
+    return new Date(year, monthIndex, day);
+}
+
+function generateTimeOptions(): string[] {
+    const opts: string[] = [];
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 30) {
+            opts.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+        }
+    }
+    return opts;
+}
 
 const TikTokIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -37,6 +70,10 @@ const ProductionPreviewSection = ({
     const { toast } = useToast();
     const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+    const [calendarOpen, setCalendarOpen] = useState(false);
+    const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
+    const timeOptions = useMemo(() => generateTimeOptions(), []);
+    const selectedDate = useMemo(() => parseThaiDate(youtubeScheduleDate as string), [youtubeScheduleDate]);
 
     // Persist YouTube auto-post settings to Chrome storage whenever they change
     useEffect(() => {
@@ -320,7 +357,7 @@ const ProductionPreviewSection = ({
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                        <Calendar className="w-3 h-3" />
+                                        <CalendarIcon className="w-3 h-3" />
                                         ตั้งเวลาเผยแพร่
                                     </label>
                                     <button
@@ -338,27 +375,80 @@ const ProductionPreviewSection = ({
 
                                 {youtubeScheduleEnabled && (
                                     <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        {/* Date Picker */}
                                         <div className="flex-1">
                                             <label className="text-[10px] text-muted-foreground/70 mb-0.5 block flex items-center gap-1">
-                                                <Calendar className="w-2.5 h-2.5" />
-                                                วันที่ (เช่น 12 พ.ย. 2026)
+                                                <CalendarIcon className="w-2.5 h-2.5" />
+                                                วันที่
                                             </label>
-                                            <input
-                                                {...register("youtubeScheduleDate")}
-                                                placeholder="12 พ.ย. 2026"
-                                                className="w-full px-2.5 py-1.5 text-[10px] bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                            />
+                                            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] bg-background border border-border rounded-lg text-white hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                                                    >
+                                                        <span className={youtubeScheduleDate ? 'text-white' : 'text-muted-foreground/40'}>
+                                                            {youtubeScheduleDate || 'เลือกวันที่'}
+                                                        </span>
+                                                        <CalendarIcon className="w-3 h-3 text-muted-foreground/60" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={selectedDate}
+                                                        onSelect={(date) => {
+                                                            if (date) {
+                                                                setValue("youtubeScheduleDate", formatThaiDate(date));
+                                                            }
+                                                            setCalendarOpen(false);
+                                                        }}
+                                                        initialFocus
+                                                        className="pointer-events-auto"
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
                                         </div>
-                                        <div className="w-24">
+                                        {/* Time Dropdown */}
+                                        <div className="w-24 relative">
                                             <label className="text-[10px] text-muted-foreground/70 mb-0.5 block flex items-center gap-1">
                                                 <Clock className="w-2.5 h-2.5" />
                                                 เวลา
                                             </label>
-                                            <input
-                                                {...register("youtubeScheduleTime")}
-                                                placeholder="12:00"
-                                                className="w-full px-2.5 py-1.5 text-[10px] bg-background border border-border rounded-lg text-white placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                            />
+                                            <Popover open={timeDropdownOpen} onOpenChange={setTimeDropdownOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] bg-background border border-border rounded-lg text-white hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                                                    >
+                                                        <span className={youtubeScheduleTime ? 'text-white' : 'text-muted-foreground/40'}>
+                                                            {youtubeScheduleTime || 'เวลา'}
+                                                        </span>
+                                                        <ChevronDown className="w-3 h-3 text-muted-foreground/60" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-28 p-1 max-h-48 overflow-y-auto" align="start" sideOffset={4}>
+                                                    <div className="flex flex-col">
+                                                        {timeOptions.map((t) => (
+                                                            <button
+                                                                key={t}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setValue("youtubeScheduleTime", t);
+                                                                    setTimeDropdownOpen(false);
+                                                                }}
+                                                                className={`px-2 py-1.5 text-[10px] rounded text-left transition-colors ${
+                                                                    youtubeScheduleTime === t
+                                                                        ? 'bg-primary/20 text-primary'
+                                                                        : 'text-white hover:bg-white/10'
+                                                                }`}
+                                                            >
+                                                                {t}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
                                         </div>
                                     </div>
                                 )}

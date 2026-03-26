@@ -2160,24 +2160,11 @@ const CATEGORY_IMAGE_INTERACTION: Partial<Record<ProductCategory, string>> = {
 };
 
 // Anti-Floating Hands — prevents unrealistic hand/product physics
-const ANTI_FLOATING_HANDS = "HAND ANATOMY (HIGHEST PRIORITY): Exactly TWO human arms, each ending in ONE hand with exactly FIVE distinct separated fingers (thumb, index, middle, ring, pinky). Visible knuckle joints, natural skin creases, realistic nail beds. Hands connect to wrists → forearms → elbows → shoulders with continuous visible anatomy. Each hand grips the product with natural weight distribution — palm contact, finger wrap, and realistic pressure points. If holding a device: palm supports the back, fingers curl around the sides, thumb rests on the front edge.";
+const ANTI_FLOATING_HANDS = "HAND REALISM: The character has exactly two arms and two hands connected naturally to their shoulders. Hands must firmly and naturally grasp the product with realistic weight distribution and physical connection. If holding a device, support it naturally from the bottom or sides.";
 
 const BODY_REALISM_DIRECTIVE = "BODY REALISM: Exactly two arms connected naturally from shoulders to elbows, wrists, and hands. No disembodied hands, no extra limbs, no floating forearms, no sudden arms entering from outside the scene without a visible body connection. Finger anatomy stays clean and natural.";
 
 const DIALOGUE_AUDIO_DIRECTIVE = "DIALOGUE AUDIO: Clear Thai speech with stable voice identity, natural pronunciation, and smooth phrase-to-phrase continuity. Mouth movement matches the spoken words naturally. Keep room tone and ambience subtle and supportive so the speaking voice stays easy to understand. No abrupt audio cuts between scenes.";
-
-// Emotional Cue Map — sync facial expression + body language with voice tone
-const EMOTIONAL_CUE_MAP: Record<string, string> = {
-    energetic: "EMOTIONAL SYNC: Character radiates high energy — wide bright eyes, animated eyebrow raises, quick head nods, broad genuine smile, lively hand gestures. Body leans slightly forward with enthusiasm.",
-    calm: "EMOTIONAL SYNC: Character exudes calm confidence — soft relaxed eyes, gentle steady smile, slow deliberate head movements, composed open hand gestures. Body posture is upright and grounded.",
-    friendly: "EMOTIONAL SYNC: Character feels warm and approachable — natural smile reaching the eyes, slight head tilts showing interest, relaxed shoulders, welcoming open palm gestures. Body language is inviting.",
-    professional: "EMOTIONAL SYNC: Character projects authority and trust — steady direct eye contact, measured controlled expressions, precise hand gestures, confident posture. Minimal but purposeful facial movement.",
-    cute: "EMOTIONAL SYNC: Character is playful and endearing — bright sparkling eyes, small shy smiles, slight head tilts, gentle finger waves or peace signs. Soft rounded body language with youthful energy."
-};
-
-const getEmotionalCue = (voiceTone: string): string => {
-    return EMOTIONAL_CUE_MAP[voiceTone] || EMOTIONAL_CUE_MAP['friendly'];
-};
 
 // Dynamic Interaction Directive — prevents static single-angle product holding
 const DYNAMIC_INTERACTION_DIRECTIVE = "DYNAMIC PRODUCT INTERACTION: Avoid a frozen single-angle hold for the entire scene. Use 1-2 deliberate presentation beats such as a gentle rotate, a controlled tilt, a closer feature reveal, or a natural handoff between hands. Keep motions smooth, motivated, and realistic so product shape, label layout, and hand anatomy stay stable.";
@@ -7339,7 +7326,6 @@ export interface VideoPromptMeta {
     touchLevelDesc: string;         // Product contact level directive for Scene 2+
     extraDirection?: string;        // Free-form user direction / AI prompt
     productContext?: string;        // Search-derived or cached product context
-    voiceTone: string;              // Voice tone for emotional cue sync (energetic, calm, friendly, professional, cute)
 }
 
 /**
@@ -8197,10 +8183,10 @@ const buildImagePrompt = (
 
     // ── Touch Level → product interaction intensity ──
     const TOUCH_LEVEL_DESC: Record<string, string> = {
-        "none": "Product placed on a flat surface in front of the character. Character points or gestures toward the product with open palm — zero direct hand contact with the product",
-        "light": "Character holds the product delicately between thumb and two fingers (pinch grip). Minimal palm contact. Product label faces camera clearly. Free hand gestures naturally",
-        "medium": "Character holds the product with a relaxed natural grip — fingers wrapped around the body, thumb stabilizing the front. Product label visible. Other hand may point at features",
-        "heavy": "Character actively uses the product with both hands — opening, applying, demonstrating function. Full palm contact, confident grip, showing real usage steps"
+        "none": "Character does NOT touch the product — product displayed separately on surface, character gestures toward it",
+        "light": "Character lightly holds the product with fingertips, gentle minimal contact",
+        "medium": "Character holds and interacts naturally with the product, demonstrating features",
+        "heavy": "Character actively uses the product with full hands-on demonstration, close physical interaction"
     };
     const touchDesc = TOUCH_LEVEL_DESC[config.touchLevel || 'light'] || TOUCH_LEVEL_DESC['light'];
 
@@ -8403,10 +8389,10 @@ const buildVideoPrompt = (
 
     // ── Touch Level → product interaction intensity (video) ──
     const VIDEO_TOUCH_LEVEL: Record<string, string> = {
-        "none": "Product rests on a surface in front of the character. Character uses open-palm gestures and pointing toward the product — zero direct hand-to-product contact throughout the scene",
-        "light": "Character picks up the product with a gentle pinch grip (thumb + index finger), holds it briefly to show the label, then sets it down. Minimal palm contact. Free hand gestures naturally while speaking",
-        "medium": "Character holds the product with a relaxed natural grip — fingers wrapped around the body, thumb on front. Performs 1-2 slow presentation moves: gentle tilt toward camera, slight rotate to show label. Product label stays visible",
-        "heavy": "Character actively uses the product with both hands throughout — opening cap/lid, applying/pouring, demonstrating real function. Full confident grip with visible finger pressure. Show complete usage sequence"
+        "none": "Character does NOT touch the product — product displayed on surface, character gestures toward it without contact",
+        "light": "Character lightly touches the product with fingertips, gentle minimal contact, mostly presenting by gesture",
+        "medium": "Character holds and naturally interacts with the product, demonstrating features hands-on",
+        "heavy": "Character actively uses the product with full hands-on demonstration, vigorous close physical interaction"
     };
     const videoTouchDesc = VIDEO_TOUCH_LEVEL[config.touchLevel || 'light'] || VIDEO_TOUCH_LEVEL['light'];
 
@@ -8597,8 +8583,8 @@ const buildVideoPrompt = (
     // Use lighter hand directive for video (usage realism already in productAnchor — avoid duplication)
     const videoHandDirective = `Anatomically correct hands, five fingers each. ${ANTI_FLOATING_HANDS} ${BODY_REALISM_DIRECTIVE}`;
     const scene1ActionBlock = isScene1TalkOnly
-        ? `Character (wearing ${clothingDesc}) speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `${videoHandDirective} PRODUCT CONTACT LEVEL: ${videoTouchDesc}. Character (wearing ${clothingDesc}) actively presents the product. ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
+        ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
+        : `${videoHandDirective} PRODUCT CONTACT LEVEL: ${videoTouchDesc}. ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
 
     // Use PAIRED action for Scene 1 (matches script content) — falls back to generic if no paired action
     const scene1PairedAction = pairedSceneActions[0] || '';
@@ -8613,8 +8599,6 @@ const buildVideoPrompt = (
         `${voiceoverDescriptor}`,
         `(Voice: ${persona.name}) ${genderVoice} ${voiceLanguage} voice speaking. SPOKEN DIALOGUE (AUDIO ONLY — do NOT render this text visually on screen, ZERO on-screen text): "${sceneTexts[0] || `มาดู ${veoSafeProductName} กัน!`}"`,
         DIALOGUE_AUDIO_DIRECTIVE,
-        // [2.5. EMOTIONAL CUE — sync expression with voice tone]
-        getEmotionalCue(voiceTone),
         // ★ [3. PRODUCT IDENTITY or TALK-ONLY] — depends on random assignment
         scene1ProductBlock,
         // [3.5. BRAND VISUAL SIGNATURE — explicit logo/emblem directive]
@@ -8639,9 +8623,8 @@ const buildVideoPrompt = (
         // [7. STYLE/MOOD + REALISM]
         `Style treatment: ${visualStyleDesc}. ${styleGuide.guard}`,
         `${durationConfig.pacing}. Fluid natural motion, crisp subject clarity, high frame rate. ${realismDirective}`,
-        // [7.5. SCENE 1 FACE & WARDROBE TEMPLATE] — establishes the immutable face and clothing for all subsequent scenes
+        // [7.5. SCENE 1 FACE TEMPLATE] — establishes the immutable face for all subsequent scenes
         `FACE REFERENCE: Establish this exact face as the reference for all following scenes. Keep this facial identity consistent.`,
-        `WARDROBE REFERENCE: Establish this exact outfit (${clothingDesc}) as the reference for all following scenes. Keep this clothing identity completely consistent.`,
         // [8. CONSTRAINTS] — policy + anti-addition + brand freeze + voice discipline
         `${aspectDirective} ${ANTI_TEXT_DIRECTIVE} ${FRONT_FACING_DIRECTIVE} ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} Only use supporting props that logically fit the action and do not overpower the product. Single product only. Character speaks from first frame. Product frontal, centered. ${getVideoMediumDirective(config.videoStyle)} ${PRODUCT_ANTI_MORPH_DIRECTIVE} ${VIDEO_POLICY_DIRECTIVE}`,
         // [9. USER KEYWORDS] — must-include and avoid keywords
@@ -8688,8 +8671,7 @@ const buildVideoPrompt = (
         masterProductDirective,
         touchLevelDesc: videoTouchDesc,
         extraDirection: extraDirectionBlock,
-        productContext: productContextBlock,
-        voiceTone
+        productContext: productContextBlock
     };
 
     console.log("📝 Video prompt:", prompt.substring(0, 200) + "...");
@@ -8749,20 +8731,12 @@ export const buildSceneVideoPromptJSON = (
     const simplifiedCharacterAnchor = meta.characterAnchor
         .replace(/with detailed fabric texture, accurate folds, natural drape, and consistent material response/gi, '')
         .replace(/Rendered with cinematic detail, realistic human skin texture, accurate facial anatomy, and consistent bone structure/gi, '')
-        .replace(/FACE IDENTITY PERSISTENCE:[^.]*\./gi, '')
-        .replace(/Cross-reference every face against the frame-1 face template\./gi, '')
-        .replace(/treat the face as a FROZEN MASK that never changes\./gi, 'face is immutable.')
-        .replace(/Do NOT let the face morph, age, de-age, stretch, slim, widen, smooth, or change identity between ANY frames or shots\./gi, '')
-        .replace(/BODY LOCK:[^.]*\./gi, 'Same body type across all scenes.')
-        .replace(/HAIR LOCK:[^.]*\./gi, 'Same hairstyle across all scenes.')
         .replace(/\s{2,}/g, ' ')
         .trim();
 
     const simplifiedProductAnchor = meta.productAnchor
         .replace(/Render with extreme surface detail: visible material grain, realistic light response \(specular highlights on glossy, soft diffusion on matte, caustics and refraction on glass\/transparent elements, light dispersion on faceted surfaces\)\.?/gi, '')
         .replace(/Reproduce all text, logos, and branding on the product label exactly as shown in the reference image — correct font, correct letter spacing, no misspelling, no gibberish, high-fidelity logo detail\.?/gi, 'Maintain exact label text and branding.')
-        .replace(/PRODUCT IDENTITY LOCK:[^.]*\./gi, 'Same product identity.')
-        .replace(/Product lit with soft rim light defining silhouette edges, key light revealing surface texture and material quality\./gi, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
 
@@ -8773,8 +8747,8 @@ export const buildSceneVideoPromptJSON = (
 
     // ── ACTION block (includes hand anatomy + usage realism for non-talk scenes) ──
     const actionBlock = isTalkOnly
-        ? `Character (wearing ${meta.clothingDesc}) speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
-        : `Anatomically correct hands, five fingers each. ${BODY_REALISM_DIRECTIVE} PRODUCT CONTACT LEVEL: ${meta.touchLevelDesc}. Character (wearing ${meta.clothingDesc}) holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
+        ? `Character speaks to camera with natural hand gestures, no product in hands. Engaging eye contact, confident posture. ${speakingDirective}`
+        : `Anatomically correct hands, five fingers each. ${BODY_REALISM_DIRECTIVE} PRODUCT CONTACT LEVEL: ${meta.touchLevelDesc}. Character holds and presents ${productName}. ${meta.productUsageRealism} ${speakingDirective} ${DYNAMIC_INTERACTION_DIRECTIVE}`;
 
     // ── PRESENTATION block — use PAIRED action from meta (matches script content) ──
     // Priority: meta.sceneActions[sceneNumber-1] > sceneVideoAction > getScenePresentationDirective
@@ -8802,8 +8776,6 @@ export const buildSceneVideoPromptJSON = (
         meta.voiceoverDescriptor,
         `(Voice: ${meta.personaName}) ${meta.genderVoice}. SPOKEN DIALOGUE (AUDIO ONLY — not rendered on screen): "${cleanScript || 'สินค้าดีจริง คุ้มค่ามาก!'}"`,
         DIALOGUE_AUDIO_DIRECTIVE,
-        // [3.5. EMOTIONAL CUE — sync expression with voice tone]
-        getEmotionalCue(meta.voiceTone),
 
         // [4. ACTION] — talk-only or product interaction + PAIRED visual action
         actionBlock,
@@ -8822,21 +8794,18 @@ export const buildSceneVideoPromptJSON = (
         meta.extraDirection || '',
         `Style treatment: ${meta.style}.`,
 
-        // [5.5. ENVIRONMENT ANCHOR — lock background/lighting across all scenes]
-        `ENVIRONMENT ANCHOR (SCENE ${sceneNumber}): Same background setting as scene 1 — ${meta.environment}. Same lighting setup: ${meta.lighting}. Maintain identical wall color, furniture placement, surface textures, and ambient light temperature. Background elements must NOT shift, disappear, or rearrange between scenes.`,
-
         // [6. CONTINUITY + REALISM]
         `SCENE ${sceneNumber} — continuation from scene ${sceneNumber - 1}. ${transitionDirective} ${meta.pacing}. REALISM: All actions must look natural and believable — real human movement, no exaggerated gestures. ${getVideoMediumDirective(meta.videoStyleKey)}`,
 
-        // [6.5. CROSS-SCENE FACE + WARDROBE + PRODUCT CHECKPOINT]
+        // [6.5. CROSS-SCENE FACE + OUTFIT + PRODUCT CHECKPOINT]
         `FACE CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): Match the same face established in scene 1 — same bone structure, same eye shape, same nose, same jawline, same skin tone, same hairline, and same overall identity.`,
-        `WARDROBE CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): Match the exact same outfit established in scene 1 (${meta.clothingDesc}) — same clothing, same colors, same style. Do NOT change the wardrobe.`,
+        `OUTFIT CONTINUITY: Character MUST wear the EXACT same clothing established in scene 1 — ${meta.clothingDesc}. NO wardrobe changes, NO color changes, NO new accessories.`,
         !isTalkOnly ? (isFirstProductScene
             ? `PRODUCT REFERENCE ESTABLISHMENT (SCENE ${sceneNumber}): This scene defines the product look for later scenes — preserve this exact shape, color palette, cap design, and packaging layout for the rest of the video.`
             : `PRODUCT CONTINUITY CHECKPOINT (SCENE ${sceneNumber}): Match the same product established in scene ${meta.firstProductSceneNumber} — same shape, same color palette, same label layout, same packaging design.`) : '',
 
         // [7. CONSTRAINTS + LOCKS + ANTI-MORPH + VOICE DISCIPLINE] (FACE LOCK already in characterAnchor, not repeated)
-        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} Only use supporting props that logically fit the action and do not overpower the product. Single product only. Same character '${meta.personaName}', same environment family and lighting continuity. ${getVideoMediumDirective(meta.videoStyleKey)} ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
+        `${aspectDirective} No on-screen text, subtitles, or watermarks. ${VOICE_DISCIPLINE_DIRECTIVE} ${ANTI_STREAK_VISUAL_DIRECTIVE} Only use supporting props that logically fit the action and do not overpower the product. Single product only. Same character '${meta.personaName}', same outfit (${meta.clothingDesc}), same environment family and lighting continuity. ${getVideoMediumDirective(meta.videoStyleKey)} ${PRODUCT_ANTI_MORPH_DIRECTIVE}`
     ].filter(Boolean).join(' '), productName);
 
     prompt = applyPromptCompatibility(prompt, compatibilityProfile, "scene").prompt;

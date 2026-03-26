@@ -4995,6 +4995,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         handleGenerateImage(message as GenerateImageRequest)
             .then(result => {
                 LOG(`✅ ระบบอัตโนมัติเสร็จ: ${result.message}`);
+                // If automation completed but with errors (partial failure), notify as error so loop can skip
+                if (!result.success) {
+                    LOG(`⚠️ Automation จบแต่มีข้อผิดพลาด — ส่ง VIDEO_GENERATION_ERROR เพื่อให้ loop ข้ามไปรอบถัดไป`);
+                    try {
+                        chrome.runtime.sendMessage({
+                            type: "VIDEO_GENERATION_ERROR",
+                            error: result.message || "Automation completed with errors",
+                            source: "veo",
+                            recoverable: true
+                        });
+                    } catch (_) {}
+                }
                 notifyAutomationFinished();
             })
             .catch(err => {
@@ -5002,8 +5014,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                     LOG("⛔ Automation หยุดทำงานโดยผู้ใช้");
                     try { addLog("⛔ ผู้ใช้หยุดการทำงาน"); } catch (_) {}
                     try { hideOverlay(); } catch (_) {}
+                    // User-initiated stop: send AUTOMATION_STOPPED (NOT error) — loop should halt
+                    try {
+                        chrome.runtime.sendMessage({ action: "AUTOMATION_STOPPED" });
+                    } catch (_) {}
                 } else {
                     console.error("[Netflow AI] Generate error:", err);
+                    LOG(`❌ Automation ล้มเหลว: ${err?.message || "Unknown error"} — ส่ง VIDEO_GENERATION_ERROR`);
+                    // Send error so loop system can skip to next iteration
+                    try {
+                        chrome.runtime.sendMessage({
+                            type: "VIDEO_GENERATION_ERROR",
+                            error: err?.message || "Automation failed",
+                            source: "veo",
+                            recoverable: true
+                        });
+                    } catch (_) {}
                 }
                 notifyAutomationFinished();
             });
