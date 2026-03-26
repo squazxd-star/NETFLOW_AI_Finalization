@@ -382,12 +382,16 @@ const CreateVideoTab = () => {
                 finalizeAutomationRun();
             }
             if (message?.type === "TIKTOK_CAPTION_PREVIEW") {
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 📱 TikTok: เตรียมโพสต์ "${message.productName || 'สินค้า'}"...`] }));
                 setAutomationStats(prev => ({
                     ...prev,
                     tiktokQueued: prev.tiktokQueued + 1
                 }));
             }
             if (message?.type === "TIKTOK_UPLOAD_COMPLETE" || message?.type === "TIKTOK_POST_SUCCESS") {
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ✅ TikTok: โพสต์สำเร็จ!`] }));
                 setAutomationStats(prev => ({
                     ...prev,
                     tiktokQueued: Math.max(0, prev.tiktokQueued - 1),
@@ -395,6 +399,10 @@ const CreateVideoTab = () => {
                 }));
             }
             if (message?.type === "TIKTOK_UPLOAD_ERROR" || message?.type === "TIKTOK_POST_FAILED") {
+                if (!message._fromHook) {
+                    const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                    setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ❌ TikTok: ${message.error || 'โพสต์ล้มเหลว'}`] }));
+                }
                 setAutomationStats(prev => ({
                     ...(message._fromHook && prev.tiktokQueued > 0 ? prev : {
                         ...prev,
@@ -405,12 +413,16 @@ const CreateVideoTab = () => {
                 }));
             }
             if (message?.type === "YOUTUBE_UPLOAD_STARTED") {
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎬 YouTube: เริ่มอัปโหลด...`] }));
                 setAutomationStats(prev => ({
                     ...prev,
                     youtubeQueued: prev.youtubeQueued + 1
                 }));
             }
             if (message?.type === "YOUTUBE_UPLOAD_COMPLETE") {
+                const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ✅ YouTube: อัปโหลดสำเร็จ!`] }));
                 setAutomationStats(prev => ({
                     ...prev,
                     youtubeQueued: Math.max(0, prev.youtubeQueued - 1),
@@ -418,6 +430,10 @@ const CreateVideoTab = () => {
                 }));
             }
             if (message?.type === "YOUTUBE_UPLOAD_FAILED") {
+                if (!message._fromHook) {
+                    const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                    setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] ❌ YouTube: ${message.error || 'อัปโหลดล้มเหลว'}`] }));
+                }
                 setAutomationStats(prev => ({
                     ...prev,
                     youtubeQueued: Math.max(0, prev.youtubeQueued - 1),
@@ -464,8 +480,13 @@ const CreateVideoTab = () => {
             const currentLoopCount = loopCountRef.current;
 
             if (!isCurrentlyLooping || currentLoopValue >= currentLoopCount - 1) {
+                // Wait for auto-post hooks to grab cached video + register stats before summary
+                const tsDone = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${tsDone}] 📤 รอ Auto-Post เริ่มทำงาน...`] }));
+                await new Promise(r => setTimeout(r, 3000));
+
                 const ts = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์!`] }));
+                setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${ts}] 🎉 ทำงานเสร็จสมบูรณ์ทุกรอบ!`] }));
                 setIsLooping(false);
                 setCurrentLoop(0);
                 setIsUploading(false);
@@ -548,6 +569,12 @@ const CreateVideoTab = () => {
                         videos: prev.videos + 1,
                         success: prev.success + 1
                     }));
+
+                    // Give auto-post hooks time to grab cached video before advancing
+                    const tsAp = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                    setTabLogs(prev => ({ ...prev, [0]: [...(prev[0] || []), `[${tsAp}] 📤 Auto-Post กำลังเริ่มทำงาน (TikTok / YouTube)...`] }));
+                    await new Promise(r => setTimeout(r, 3000));
+
                     await advanceToNextLoop();
                 } finally {
                     loopAdvanceInFlightRef.current = false;
