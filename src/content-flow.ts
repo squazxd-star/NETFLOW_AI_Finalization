@@ -489,6 +489,29 @@ async function ensureTabVisible(): Promise<boolean> {
 
 /** Check if Google Flow is showing a generation failure message (Thai + English) */
 function isGenerationFailed(): string | null {
+    // ── Auto-dismiss non-fatal popups like "high demand" ──
+    const alertEls = document.querySelectorAll<HTMLElement>("div, p, span");
+    for (const el of alertEls) {
+        const txt = (el.textContent || "").trim().toLowerCase();
+        if (txt.includes("experiencing high demand") || txt.includes("high demand. things might not be working")) {
+            let parent = el.parentElement;
+            for (let i = 0; i < 5 && parent; i++) {
+                const btn = parent.querySelector("button");
+                if (btn && (btn.textContent?.toLowerCase().includes("close") || btn.innerHTML.includes("close") || btn.innerHTML.includes("svg") || btn.textContent?.includes("X"))) {
+                    btn.click();
+                    LOG("❌ ปิดแจ้งเตือน High Demand อัตโนมัติ");
+                    break;
+                }
+                if (parent.getAttribute("role") === "alert" || parent.style.position === "fixed") {
+                    parent.style.display = "none";
+                    LOG("❌ ซ่อนแจ้งเตือน High Demand อัตโนมัติ");
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+        }
+    }
+
     const failurePatterns = [
         "audio generation failed",
         "couldn't generate", "could not generate", "failed to generate",
@@ -505,8 +528,16 @@ function isGenerationFailed(): string | null {
         if (el.closest("#netflow-engine-overlay")) continue;
         const txt = (el.textContent || "").trim().toLowerCase();
         if (txt.length > 200 || txt.length < 5) continue;
+        
+        // ★ Ignore non-fatal warnings
+        if (txt.includes("high demand") || txt.includes("experiencing high demand") || txt.includes("things might not be working")) {
+            continue;
+        }
+
         for (const pattern of failurePatterns) {
             if (txt.includes(pattern)) {
+                // Final safety check
+                if (txt.includes("high demand") || txt.includes("experiencing high demand")) continue;
                 return el.textContent?.trim() || pattern;
             }
         }
