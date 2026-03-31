@@ -1072,6 +1072,27 @@ function findPromptBarAddButton(): HTMLElement | null {
         }
     }
 
+    // Fallback F: global toolbar "+" (Flow UI Mar 2026 — Add media อยู่ด้านบน)
+    // ใช้เมื่อหา "+" ใกล้ prompt bar ไม่เจอเลย
+    for (const btn of allBtns) {
+        const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+        const txt = (btn.textContent || "").trim().toLowerCase();
+        if (
+            aria.includes("add media") ||
+            aria.includes("add") ||
+            aria.includes("create") ||
+            txt === "+" ||
+            txt === "add" ||
+            txt.includes("add media")
+        ) {
+            const rect = btn.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                LOG(`พบปุ่ม "+" (fallback toolbar, aria="${aria}", text="${txt.substring(0, 30)}")`);
+                return btn;
+            }
+        }
+    }
+
     // Diagnostic: log what buttons ARE at the bottom of the page
     const bottomBtns: string[] = [];
     for (const btn of allBtns) {
@@ -1390,14 +1411,30 @@ function countPromptBarThumbnails(): number {
         if (el.closest("#netflow-engine-overlay")) continue;
         if ((el instanceof HTMLImageElement || el instanceof HTMLVideoElement) && !el.src) continue;
         if (_hidden()) {
+            // เมื่อแท็บถูกย่อ/ซ่อน ให้รับทุก candidate ไปก่อน เพราะตำแหน่งจะใช้ไม่ได้
             thumbs.add(el);
             continue;
         }
+
         const rect = el.getBoundingClientRect();
-        const looksLikeThumb = rect.width > 20 && rect.width < 220 && rect.height > 20 && rect.height < 220;
-        const nearPromptBar = rect.bottom > window.innerHeight * 0.55;
         const visible = el.offsetParent !== null || getComputedStyle(el).position === "fixed";
-        if (looksLikeThumb && nearPromptBar && visible) {
+        if (!visible || rect.width <= 0 || rect.height <= 0) continue;
+
+        // ★ รูปแบบเดิม: thumbnail เล็ก ๆ ใกล้แถบ Prompt ด้านล่าง
+        const oldStyleThumb =
+            rect.width > 20 && rect.width < 220 &&
+            rect.height > 20 && rect.height < 220 &&
+            rect.bottom > window.innerHeight * 0.55;
+
+        // ★ Layout ใหม่ Mar 2026: รูปอ้างอิงถูกย้ายขึ้นไปเป็นการ์ดใหญ่ด้านบน
+        // อนุญาตขนาดใหญ่ขึ้นและใช้ช่วงแนวตั้งกว้างขึ้น (ครึ่งล่างของ viewport)
+        const newStyleAsset =
+            rect.width > 40 && rect.width < 600 &&
+            rect.height > 40 && rect.height < 600 &&
+            rect.bottom > window.innerHeight * 0.35 &&
+            rect.top < window.innerHeight * 0.98;
+
+        if (oldStyleThumb || newStyleAsset) {
             thumbs.add(el);
         }
     }
